@@ -1,0 +1,14 @@
+[Unit]
+Description=Workout Screen Locker
+After=graphical-session.target
+
+[Service]
+Type=simple
+Environment=DISPLAY=:0
+ExecStartPre=/bin/sleep 3
+ExecStart=/usr/bin/python3 /home/kuhy/testsAndMisc/PYTHON/screen_locker/screen_lock.py
+Restart=no
+User=%u
+
+[Install]
+WantedBy=graphical-session.target
