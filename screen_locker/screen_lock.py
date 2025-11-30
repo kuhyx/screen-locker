@@ -7,7 +7,7 @@ Requires user to log their workout to unlock the screen.
 from datetime import datetime, timezone
 import json
 import logging
-import os
+from pathlib import Path
 import sys
 import tkinter as tk
 
@@ -29,8 +29,8 @@ class ScreenLocker:
     def __init__(self, *, demo_mode: bool = True) -> None:
         """Initialize screen locker with optional demo mode."""
         # Set up log file path
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        self.log_file = os.path.join(script_dir, "workout_log.json")
+        script_dir = Path(__file__).resolve().parent
+        self.log_file = script_dir / "workout_log.json"
 
         # Check if already logged today
         if self.has_logged_today():
@@ -628,7 +628,7 @@ class ScreenLocker:
 
     def has_logged_today(self) -> bool:
         """Check if workout has been logged today."""
-        if not os.path.exists(self.log_file):
+        if not self.log_file.exists():
             return False
 
         try:
@@ -644,7 +644,7 @@ class ScreenLocker:
         """Save workout data to log file."""
         # Load existing logs
         logs = {}
-        if os.path.exists(self.log_file):
+        if self.log_file.exists():
             try:
                 with open(self.log_file) as f:
                     logs = json.load(f)
