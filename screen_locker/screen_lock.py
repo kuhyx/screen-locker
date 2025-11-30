@@ -632,7 +632,7 @@ class ScreenLocker:
             return False
 
         try:
-            with open(self.log_file) as f:
+            with self.log_file.open() as f:
                 logs = json.load(f)
         except (OSError, json.JSONDecodeError):
             return False
@@ -646,7 +646,7 @@ class ScreenLocker:
         logs = {}
         if self.log_file.exists():
             try:
-                with open(self.log_file) as f:
+                with self.log_file.open() as f:
                     logs = json.load(f)
             except (OSError, json.JSONDecodeError):
                 logs = {}
@@ -660,10 +660,10 @@ class ScreenLocker:
 
         # Save updated logs
         try:
-            with open(self.log_file, "w") as f:
+            with self.log_file.open("w") as f:
                 json.dump(logs, f, indent=2)
         except OSError as e:
-            _logger.warning(f"Could not save workout log: {e}")
+            _logger.warning("Could not save workout log: %s", e)
 
     def close(self) -> None:
         """Close the application and exit."""
