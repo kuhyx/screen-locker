@@ -11,7 +11,7 @@ import os
 import sys
 import tkinter as tk
 
-logging.basicConfig(level=logging.INFO)
+_logger = logging.getLogger(__name__)
 
 # Validation limits for workout data
 MAX_DISTANCE_KM = 100
@@ -34,7 +34,7 @@ class ScreenLocker:
 
         # Check if already logged today
         if self.has_logged_today():
-            logging.info("Workout already logged today. Skipping screen lock.")
+            _logger.info("Workout already logged today. Skipping screen lock.")
             sys.exit(0)
 
         self.root = tk.Tk()
@@ -663,7 +663,7 @@ class ScreenLocker:
             with open(self.log_file, "w") as f:
                 json.dump(logs, f, indent=2)
         except OSError as e:
-            logging.warning(f"Could not save workout log: {e}")
+            _logger.warning(f"Could not save workout log: {e}")
 
     def close(self) -> None:
         """Close the application and exit."""
