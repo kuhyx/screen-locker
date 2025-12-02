@@ -43,7 +43,7 @@ class ScreenLocker:
         self.lockout_time = (
             10 if demo_mode else 1800
         )  # 10 seconds for demo, 30 minutes for production
-        self.workout_data = {}
+        self.workout_data: dict[str, str] = {}
 
         # Get total screen dimensions across all monitors
         screen_width = self.root.winfo_screenwidth()
