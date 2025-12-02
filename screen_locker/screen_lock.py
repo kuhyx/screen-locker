@@ -331,7 +331,10 @@ class ScreenLocker:
                 )
                 return
 
-            # Data looks good
+            # Data looks good - store full data
+            self.workout_data["distance_km"] = str(distance)
+            self.workout_data["time_minutes"] = str(time_mins)
+            self.workout_data["pace_min_per_km"] = str(pace)
             self.unlock_screen()
 
         except ValueError:
@@ -361,7 +364,7 @@ class ScreenLocker:
             fg="white",
             bg="#1a1a1a",
         ).pack(side="left", padx=10)
-        self.exercises_entry = tk.Entry(ex_frame, font=("Arial", 18), width=30)
+        self.exercises_entry = tk.Entry(ex_frame, font=("Arial", 18), width=50)
         self.exercises_entry.pack(side="left", padx=10)
 
         # Sets per exercise
@@ -377,17 +380,17 @@ class ScreenLocker:
         self.sets_entry = tk.Entry(sets_frame, font=("Arial", 18), width=20)
         self.sets_entry.pack(side="left", padx=10)
 
-        # Reps per set
+        # Reps per set (can be variable, e.g., "12+12+11+11+12" for one exercise)
         reps_frame = tk.Frame(self.container, bg="#1a1a1a")
         reps_frame.pack(pady=10)
         tk.Label(
             reps_frame,
-            text="Reps per set (comma-separated):",
+            text="Reps (comma-sep, use + for variable: 12+11+12):",
             font=("Arial", 18),
             fg="white",
             bg="#1a1a1a",
         ).pack(side="left", padx=10)
-        self.reps_entry = tk.Entry(reps_frame, font=("Arial", 18), width=20)
+        self.reps_entry = tk.Entry(reps_frame, font=("Arial", 18), width=30)
         self.reps_entry.pack(side="left", padx=10)
 
         # Weights
@@ -459,44 +462,76 @@ class ScreenLocker:
         self.submit_command = self.verify_strength_data
         self.update_submit_timer()
 
+    def _parse_reps(self, reps_raw: list[str]) -> list[list[int]]:
+        """Parse reps input - can be single number or variable reps like '12+11+12'."""
+        reps: list[list[int]] = []
+        for r in reps_raw:
+            if "+" in r:
+                reps.append([int(x.strip()) for x in r.split("+")])
+            else:
+                reps.append([int(r)])
+        return reps
+
+    def _validate_strength_inputs(
+        self,
+        exercises: list[str],
+        sets: list[int],
+        reps: list[list[int]],
+        weights: list[float],
+    ) -> str | None:
+        """Validate strength workout inputs. Returns error message or None if valid."""
+        if not (len(exercises) == len(sets) == len(reps) == len(weights)):
+            return "Number of exercises, sets, reps, and weights must match"
+        if any(len(ex) < MIN_EXERCISE_NAME_LEN for ex in exercises):
+            return "Exercise names too short - be specific"
+        if any(s < 1 or s > MAX_SETS for s in sets):
+            return f"Sets should be between 1-{MAX_SETS}"
+        if any(w < 0 or w > MAX_WEIGHT_KG for w in weights):
+            return f"Weights should be between 0-{MAX_WEIGHT_KG} kg"
+        return self._validate_reps(exercises, sets, reps)
+
+    def _validate_reps(
+        self, exercises: list[str], sets: list[int], reps: list[list[int]]
+    ) -> str | None:
+        """Validate reps data. Returns error message or None if valid."""
+        for i, rep_list in enumerate(reps):
+            if any(r < 1 or r > MAX_REPS for r in rep_list):
+                return f"Reps should be between 1-{MAX_REPS}"
+            if len(rep_list) > 1 and len(rep_list) != sets[i]:
+                return (
+                    f"For '{exercises[i]}': variable reps count ({len(rep_list)}) "
+                    f"doesn't match sets ({sets[i]})"
+                )
+        return None
+
+    def _calculate_expected_total(
+        self, sets: list[int], reps: list[list[int]], weights: list[float]
+    ) -> float:
+        """Calculate expected total weight lifted."""
+        expected_total = 0.0
+        for i, rep_list in enumerate(reps):
+            if len(rep_list) == 1:
+                expected_total += sets[i] * rep_list[0] * weights[i]
+            else:
+                expected_total += sum(rep_list) * weights[i]
+        return expected_total
+
     def verify_strength_data(self) -> None:
         """Validate strength workout data and unlock if valid."""
         try:
             exercises = [e.strip() for e in self.exercises_entry.get().split(",")]
             sets = [int(s.strip()) for s in self.sets_entry.get().split(",")]
-            reps = [int(r.strip()) for r in self.reps_entry.get().split(",")]
+            reps_raw = [r.strip() for r in self.reps_entry.get().split(",")]
+            reps = self._parse_reps(reps_raw)
             weights = [float(w.strip()) for w in self.weights_entry.get().split(",")]
             total_weight = float(self.total_weight_entry.get())
 
-            # Check all lists have same length
-            if not (len(exercises) == len(sets) == len(reps) == len(weights)):
-                self.show_error(
-                    "Number of exercises, sets, reps, and weights must match"
-                )
+            error = self._validate_strength_inputs(exercises, sets, reps, weights)
+            if error:
+                self.show_error(error)
                 return
 
-            # Check for empty or lazy entries
-            if any(len(ex) < MIN_EXERCISE_NAME_LEN for ex in exercises):
-                self.show_error("Exercise names too short - be specific")
-                return
-
-            # Sanity checks
-            if any(s < 1 or s > MAX_SETS for s in sets):
-                self.show_error(f"Sets should be between 1-{MAX_SETS}")
-                return
-
-            if any(r < 1 or r > MAX_REPS for r in reps):
-                self.show_error(f"Reps should be between 1-{MAX_REPS}")
-                return
-
-            if any(w < 0 or w > MAX_WEIGHT_KG for w in weights):
-                self.show_error(f"Weights should be between 0-{MAX_WEIGHT_KG} kg")
-                return
-
-            # Calculate expected total weight
-            expected_total = sum(
-                sets[i] * reps[i] * weights[i] for i in range(len(exercises))
-            )
+            expected_total = self._calculate_expected_total(sets, reps, weights)
             weight_diff = abs(total_weight - expected_total)
             tolerance = expected_total * 0.15  # 15% tolerance
 
@@ -507,7 +542,14 @@ class ScreenLocker:
                 )
                 return
 
-            # Data looks good
+            # Data looks good - store full data
+            self.workout_data["exercises"] = exercises
+            self.workout_data["sets"] = [str(s) for s in sets]
+            self.workout_data["reps"] = [
+                "+".join(str(r) for r in rep_list) for rep_list in reps
+            ]
+            self.workout_data["weights_kg"] = [str(w) for w in weights]
+            self.workout_data["total_weight_kg"] = str(total_weight)
             self.unlock_screen()
 
         except ValueError:
