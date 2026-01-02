@@ -12,8 +12,8 @@ mkdir -p "$USER_SERVICE_DIR"
 # Copy service file to user systemd directory
 cp "$SERVICE_FILE" "$USER_SERVICE_DIR/$SERVICE_NAME"
 
-# Update the ExecStart path in the service file to use absolute path
-sed -i "s|ExecStart=/usr/bin/python3.*|ExecStart=/usr/bin/python3 $SCRIPT_DIR/screen_lock.py|" "$USER_SERVICE_DIR/$SERVICE_NAME"
+# Update the ExecStart path in the service file to use absolute path with production flag
+sed -i "s|ExecStart=/usr/bin/python3.*|ExecStart=/usr/bin/python3 $SCRIPT_DIR/screen_lock.py --production|" "$USER_SERVICE_DIR/$SERVICE_NAME"
 
 # Reload systemd daemon
 systemctl --user daemon-reload
