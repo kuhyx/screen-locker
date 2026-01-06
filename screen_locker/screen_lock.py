@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import json
 import logging
 from pathlib import Path
+import subprocess
 import sys
 import tkinter as tk
 
@@ -21,6 +22,12 @@ MIN_EXERCISE_NAME_LEN = 3
 MAX_SETS = 20
 MAX_REPS = 100
 MAX_WEIGHT_KG = 500
+SICK_LOCKOUT_SECONDS = 120  # 2 minutes wait when sick
+SHUTDOWN_CONFIG_FILE = Path("/etc/shutdown-schedule.conf")
+# Helper script path (relative to this file)
+ADJUST_SHUTDOWN_SCRIPT = Path(__file__).resolve().parent / "adjust_shutdown_schedule.sh"
+# State file to track sick day usage and original config values
+SICK_DAY_STATE_FILE = Path(__file__).resolve().parent / "sick_day_state.json"
 
 
 class ScreenLocker:
@@ -126,10 +133,331 @@ class ScreenLocker:
             bg="#aa0000",
             fg="white",
             width=10,
+            command=self.ask_if_sick,
+            cursor="hand2" if self.demo_mode else "",
+        )
+        no_btn.pack(side="left", padx=20)
+
+    def ask_if_sick(self) -> None:
+        """Display sick day question dialog."""
+        self.clear_container()
+
+        question = tk.Label(
+            self.container,
+            text="Are you sick?",
+            font=("Arial", 36, "bold"),
+            fg="white",
+            bg="#1a1a1a",
+        )
+        question.pack(pady=30)
+
+        info_label = tk.Label(
+            self.container,
+            text="If yes, shutdown time will be moved 1.5 hours earlier",
+            font=("Arial", 18),
+            fg="#ffaa00",
+            bg="#1a1a1a",
+        )
+        info_label.pack(pady=10)
+
+        button_frame = tk.Frame(self.container, bg="#1a1a1a")
+        button_frame.pack(pady=20)
+
+        yes_btn = tk.Button(
+            button_frame,
+            text="YES (sick)",
+            font=("Arial", 24, "bold"),
+            bg="#cc6600",
+            fg="white",
+            width=12,
+            command=self.handle_sick_day,
+            cursor="hand2" if self.demo_mode else "",
+        )
+        yes_btn.pack(side="left", padx=20)
+
+        no_btn = tk.Button(
+            button_frame,
+            text="NO",
+            font=("Arial", 24, "bold"),
+            bg="#aa0000",
+            fg="white",
+            width=12,
             command=self.lockout,
             cursor="hand2" if self.demo_mode else "",
         )
         no_btn.pack(side="left", padx=20)
+
+    def handle_sick_day(self) -> None:
+        """Handle sick day: adjust shutdown time and start 2-minute wait."""
+        self.clear_container()
+
+        # Check if sick mode was already used today (time already adjusted)
+        already_adjusted_today = self._sick_mode_used_today()
+
+        if already_adjusted_today:
+            # Already adjusted today, just show status and proceed to wait
+            status_text = "Shutdown time already adjusted today"
+            status_color = "#ffaa00"
+        else:
+            # First sick mode use today - adjust the shutdown time
+            adjustment_success = self._adjust_shutdown_time_earlier()
+
+            if adjustment_success:
+                status_text = (
+                    "Shutdown time moved 1.5 hours earlier ✓\n(Will revert tomorrow)"
+                )
+                status_color = "#00aa00"
+            else:
+                status_text = "Could not adjust shutdown time (check permissions)"
+            status_color = "#ff4444"
+
+        title = tk.Label(
+            self.container,
+            text="Sick Day Mode",
+            font=("Arial", 36, "bold"),
+            fg="#cc6600",
+            bg="#1a1a1a",
+        )
+        title.pack(pady=20)
+
+        status_label = tk.Label(
+            self.container,
+            text=status_text,
+            font=("Arial", 18),
+            fg=status_color,
+            bg="#1a1a1a",
+        )
+        status_label.pack(pady=10)
+
+        wait_label = tk.Label(
+            self.container,
+            text="Please wait 2 minutes before unlocking...",
+            font=("Arial", 24),
+            fg="white",
+            bg="#1a1a1a",
+        )
+        wait_label.pack(pady=20)
+
+        self.sick_countdown_label = tk.Label(
+            self.container,
+            text=str(SICK_LOCKOUT_SECONDS),
+            font=("Arial", 80, "bold"),
+            fg="white",
+            bg="#1a1a1a",
+        )
+        self.sick_countdown_label.pack(pady=30)
+
+        self.sick_remaining_time = SICK_LOCKOUT_SECONDS
+        self._update_sick_countdown()
+
+    def _update_sick_countdown(self) -> None:
+        """Update the sick day countdown timer."""
+        if self.sick_remaining_time > 0:
+            self.sick_countdown_label.config(text=str(self.sick_remaining_time))
+            self.sick_remaining_time -= 1
+            self.root.after(1000, self._update_sick_countdown)
+        else:
+            # Record sick day and unlock
+            self.workout_data["type"] = "sick_day"
+            self.workout_data["note"] = "Sick day - shutdown moved earlier"
+            self.unlock_screen()
+
+    def _adjust_shutdown_time_earlier(self) -> bool:
+        """Adjust shutdown schedule 1.5 hours earlier (stricter).
+
+        This can only be used once per day. Original values are saved and
+        automatically restored when checked the next day.
+
+        Returns True if successful, False otherwise.
+        """
+        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+
+        # Restore original values if there's a state from a previous day
+        self._restore_original_config_if_needed()
+
+        # Check if sick mode was already used today (after potential restore)
+        if self._sick_mode_used_today():
+            _logger.warning("Sick mode already used today")
+            return False
+
+        try:
+            # Read current config
+            config_values = self._read_shutdown_config()
+            if config_values is None:
+                return False
+
+            mon_wed_hour, thu_sun_hour, morning_end_hour = config_values
+
+            # Save original values FIRST before any modification
+            if not self._save_sick_day_state(today, mon_wed_hour, thu_sun_hour):
+                _logger.error("Failed to save state - aborting adjustment")
+                return False
+
+            # Move shutdown times 1 hour earlier
+            new_mon_wed = mon_wed_hour - 1
+            new_thu_sun = thu_sun_hour - 1
+
+            # Ensure we don't go below reasonable hours (e.g., not before 18:00)
+            new_mon_wed = max(18, new_mon_wed)
+            new_thu_sun = max(18, new_thu_sun)
+
+            # Write new config
+            return self._write_shutdown_config(
+                new_mon_wed, new_thu_sun, morning_end_hour
+            )
+
+        except (OSError, ValueError) as e:
+            _logger.warning("Failed to adjust shutdown time: %s", e)
+            return False
+
+    def _sick_mode_used_today(self) -> bool:
+        """Check if sick mode was already used today."""
+        if not SICK_DAY_STATE_FILE.exists():
+            return False
+
+        try:
+            with SICK_DAY_STATE_FILE.open() as f:
+                state = json.load(f)
+            today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+            return state.get("date") == today
+        except (OSError, json.JSONDecodeError):
+            return False
+
+    def _save_sick_day_state(
+        self, date: str, orig_mon_wed: int, orig_thu_sun: int
+    ) -> bool:
+        """Save sick day state with original config values.
+
+        Returns True if saved successfully, False otherwise.
+        """
+        state = {
+            "date": date,
+            "original_mon_wed_hour": orig_mon_wed,
+            "original_thu_sun_hour": orig_thu_sun,
+        }
+        try:
+            with SICK_DAY_STATE_FILE.open("w") as f:
+                json.dump(state, f, indent=2)
+        except OSError as e:
+            _logger.warning("Failed to save sick day state: %s", e)
+            return False
+
+        _logger.info("Saved sick day state for %s", date)
+        return True
+
+    def _restore_original_config_if_needed(self) -> None:
+        """Restore original config values if sick day state is from a previous day."""
+        if not SICK_DAY_STATE_FILE.exists():
+            return
+
+        try:
+            with SICK_DAY_STATE_FILE.open() as f:
+                state = json.load(f)
+
+            state_date = state.get("date")
+            today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+
+            # Only restore if state is from a previous day
+            if state_date and state_date != today:
+                orig_mon_wed = state.get("original_mon_wed_hour")
+                orig_thu_sun = state.get("original_thu_sun_hour")
+
+                if orig_mon_wed is not None and orig_thu_sun is not None:
+                    # Read current morning end hour
+                    config_values = self._read_shutdown_config()
+                    if config_values:
+                        _, _, morning_end_hour = config_values
+                        _logger.info(
+                            "Restoring original shutdown config from %s", state_date
+                        )
+                        self._write_shutdown_config(
+                            orig_mon_wed, orig_thu_sun, morning_end_hour, restore=True
+                        )
+
+                # Remove stale state file
+                SICK_DAY_STATE_FILE.unlink()
+                _logger.info("Removed stale sick day state from %s", state_date)
+
+        except (OSError, json.JSONDecodeError) as e:
+            _logger.warning("Error checking sick day state: %s", e)
+
+    def _read_shutdown_config(self) -> tuple[int, int, int] | None:
+        """Read current shutdown config values.
+
+        Returns tuple of (mon_wed_hour, thu_sun_hour, morning_end_hour) or None.
+        """
+        if not SHUTDOWN_CONFIG_FILE.exists():
+            _logger.warning("Shutdown config file not found: %s", SHUTDOWN_CONFIG_FILE)
+            return None
+
+        mon_wed_hour = None
+        thu_sun_hour = None
+        morning_end_hour = None
+
+        with SHUTDOWN_CONFIG_FILE.open() as f:
+            for config_line in f:
+                stripped_line = config_line.strip()
+                if stripped_line.startswith("MON_WED_HOUR="):
+                    mon_wed_hour = int(stripped_line.split("=")[1])
+                elif stripped_line.startswith("THU_SUN_HOUR="):
+                    thu_sun_hour = int(stripped_line.split("=")[1])
+                elif stripped_line.startswith("MORNING_END_HOUR="):
+                    morning_end_hour = int(stripped_line.split("=")[1])
+
+        if mon_wed_hour is None or thu_sun_hour is None or morning_end_hour is None:
+            _logger.warning("Shutdown config missing required values")
+            return None
+
+        return (mon_wed_hour, thu_sun_hour, morning_end_hour)
+
+    def _write_shutdown_config(
+        self,
+        mon_wed_hour: int,
+        thu_sun_hour: int,
+        morning_end_hour: int,
+        *,
+        restore: bool = False,
+    ) -> bool:
+        """Write new shutdown config values using helper script.
+
+        Args:
+            mon_wed_hour: Shutdown hour for Monday-Wednesday.
+            thu_sun_hour: Shutdown hour for Thursday-Sunday.
+            morning_end_hour: Morning end hour.
+            restore: If True, allows restoring to later times (for reverting sick day).
+
+        Returns True if successful, False otherwise.
+        """
+        if not ADJUST_SHUTDOWN_SCRIPT.exists():
+            _logger.warning(
+                "Adjust shutdown script not found: %s", ADJUST_SHUTDOWN_SCRIPT
+            )
+            return False
+
+        cmd = ["/usr/bin/sudo", str(ADJUST_SHUTDOWN_SCRIPT)]
+        if restore:
+            cmd.append("--restore")
+        cmd.extend([str(mon_wed_hour), str(thu_sun_hour), str(morning_end_hour)])
+
+        try:
+            result = subprocess.run(
+                cmd,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.SubprocessError as e:
+            _logger.warning("Failed to adjust shutdown config: %s", e)
+            return False
+
+        _logger.info(
+            "Adjusted shutdown hours: Mon-Wed=%d, Thu-Sun=%d. Output: %s",
+            mon_wed_hour,
+            thu_sun_hour,
+            result.stdout.strip(),
+        )
+        return True
+        return True
 
     def lockout(self) -> None:
         """Display lockout screen with countdown timer."""
