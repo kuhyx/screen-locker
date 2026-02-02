@@ -24,6 +24,10 @@ MAX_REPS = 100
 MAX_WEIGHT_KG = 500
 SICK_LOCKOUT_SECONDS = 120  # 2 minutes wait when sick
 SHUTDOWN_CONFIG_FILE = Path("/etc/shutdown-schedule.conf")
+# Table tennis minimum requirements (harder to fake)
+MIN_TABLE_TENNIS_SETS = 15
+MIN_POINTS_PER_SET = 11  # Standard table tennis minimum points to win a set
+TABLE_TENNIS_SUBMIT_DELAY = 60  # 60 seconds delay for table tennis
 # Helper script path (relative to this file)
 ADJUST_SHUTDOWN_SCRIPT = Path(__file__).resolve().parent / "adjust_shutdown_schedule.sh"
 # State file to track sick day usage and original config values
@@ -310,6 +314,39 @@ class ScreenLocker:
             _logger.warning("Failed to adjust shutdown time: %s", e)
             return False
 
+    def _adjust_shutdown_time_later(self) -> bool:
+        """Adjust shutdown schedule 1.5 hours later as workout reward.
+
+        This moves the shutdown time later regardless of the initial time,
+        so working out even at 21:00 still makes sense.
+
+        Returns True if successful, False otherwise.
+        """
+        try:
+            # Read current config
+            config_values = self._read_shutdown_config()
+            if config_values is None:
+                return False
+
+            mon_wed_hour, thu_sun_hour, morning_end_hour = config_values
+
+            # Move shutdown times 1.5 hours (rounded to 2 hours) later
+            new_mon_wed = mon_wed_hour + 2
+            new_thu_sun = thu_sun_hour + 2
+
+            # Cap at 23 (11 PM) to avoid going past midnight
+            new_mon_wed = min(23, new_mon_wed)
+            new_thu_sun = min(23, new_thu_sun)
+
+            # Write new config with restore flag to allow later times
+            return self._write_shutdown_config(
+                new_mon_wed, new_thu_sun, morning_end_hour, restore=True
+            )
+
+        except (OSError, ValueError) as e:
+            _logger.warning("Failed to adjust shutdown time for workout: %s", e)
+            return False
+
     def _sick_mode_used_today(self) -> bool:
         """Check if sick mode was already used today."""
         if not SICK_DAY_STATE_FILE.exists():
@@ -509,17 +546,7 @@ class ScreenLocker:
         button_frame = tk.Frame(self.container, bg="#1a1a1a")
         button_frame.pack(pady=20)
 
-        running_btn = tk.Button(
-            button_frame,
-            text="RUNNING",
-            font=("Arial", 24, "bold"),
-            bg="#0066cc",
-            fg="white",
-            width=15,
-            command=self.ask_running_details,
-            cursor="hand2" if self.demo_mode else "",
-        )
-        running_btn.pack(side="left", padx=20)
+        # Running option removed - too easy to fake
 
         strength_btn = tk.Button(
             button_frame,
@@ -527,11 +554,23 @@ class ScreenLocker:
             font=("Arial", 24, "bold"),
             bg="#cc6600",
             fg="white",
-            width=15,
+            width=12,
             command=self.ask_strength_details,
             cursor="hand2" if self.demo_mode else "",
         )
         strength_btn.pack(side="left", padx=20)
+
+        table_tennis_btn = tk.Button(
+            button_frame,
+            text="TABLE TENNIS",
+            font=("Arial", 20, "bold"),
+            bg="#00cc66",
+            fg="white",
+            width=12,
+            command=self.ask_table_tennis_details,
+            cursor="hand2" if self.demo_mode else "",
+        )
+        table_tennis_btn.pack(side="left", padx=20)
 
     def ask_running_details(self) -> None:
         """Display running workout input form."""
@@ -790,6 +829,127 @@ class ScreenLocker:
         self.submit_command = self.verify_strength_data
         self.update_submit_timer()
 
+    def ask_table_tennis_details(self) -> None:
+        """Display table tennis workout input form."""
+        self.clear_container()
+        self.workout_data["type"] = "table_tennis"
+
+        title = tk.Label(
+            self.container,
+            text="Table Tennis Details",
+            font=("Arial", 36, "bold"),
+            fg="white",
+            bg="#1a1a1a",
+        )
+        title.pack(pady=20)
+
+        # Instructions/Requirements
+        requirements = tk.Label(
+            self.container,
+            text=(
+                f"Requirements: Minimum {MIN_TABLE_TENNIS_SETS} sets, "
+                f"each set needs at least {MIN_POINTS_PER_SET} total points"
+            ),
+            font=("Arial", 14),
+            fg="#aaaaaa",
+            bg="#1a1a1a",
+        )
+        requirements.pack(pady=5)
+
+        # Duration
+        duration_frame = tk.Frame(self.container, bg="#1a1a1a")
+        duration_frame.pack(pady=10)
+        tk.Label(
+            duration_frame,
+            text="Duration (minutes):",
+            font=("Arial", 20),
+            fg="white",
+            bg="#1a1a1a",
+        ).pack(side="left", padx=10)
+        self.tt_duration_entry = tk.Entry(duration_frame, font=("Arial", 20), width=10)
+        self.tt_duration_entry.pack(side="left", padx=10)
+
+        # Sets played
+        sets_frame = tk.Frame(self.container, bg="#1a1a1a")
+        sets_frame.pack(pady=10)
+        tk.Label(
+            sets_frame,
+            text="Sets played:",
+            font=("Arial", 20),
+            fg="white",
+            bg="#1a1a1a",
+        ).pack(side="left", padx=10)
+        self.tt_sets_entry = tk.Entry(sets_frame, font=("Arial", 20), width=10)
+        self.tt_sets_entry.pack(side="left", padx=10)
+
+        # Points won
+        won_frame = tk.Frame(self.container, bg="#1a1a1a")
+        won_frame.pack(pady=10)
+        tk.Label(
+            won_frame,
+            text="Points won:",
+            font=("Arial", 20),
+            fg="white",
+            bg="#1a1a1a",
+        ).pack(side="left", padx=10)
+        self.tt_won_entry = tk.Entry(won_frame, font=("Arial", 20), width=10)
+        self.tt_won_entry.pack(side="left", padx=10)
+
+        # Points lost
+        lost_frame = tk.Frame(self.container, bg="#1a1a1a")
+        lost_frame.pack(pady=10)
+        tk.Label(
+            lost_frame,
+            text="Points lost:",
+            font=("Arial", 20),
+            fg="white",
+            bg="#1a1a1a",
+        ).pack(side="left", padx=10)
+        self.tt_lost_entry = tk.Entry(lost_frame, font=("Arial", 20), width=10)
+        self.tt_lost_entry.pack(side="left", padx=10)
+
+        # Timer countdown label
+        self.timer_label = tk.Label(
+            self.container, text="", font=("Arial", 16), fg="#ffaa00", bg="#1a1a1a"
+        )
+        self.timer_label.pack(pady=10)
+
+        self.submit_btn = tk.Button(
+            self.container,
+            text="SUBMIT (locked)",
+            font=("Arial", 24, "bold"),
+            bg="#666666",
+            fg="white",
+            width=15,
+            state="disabled",
+            cursor="hand2" if self.demo_mode else "",
+        )
+        self.submit_btn.pack(pady=10)
+
+        # Back button
+        back_btn = tk.Button(
+            self.container,
+            text="← BACK",
+            font=("Arial", 18),
+            bg="#666666",
+            fg="white",
+            width=15,
+            command=self.ask_workout_type,
+            cursor="hand2" if self.demo_mode else "",
+        )
+        back_btn.pack(pady=10)
+
+        # Start 60 second timer (increased from 30)
+        self.submit_unlock_time = TABLE_TENNIS_SUBMIT_DELAY
+        self.entries_to_check = [
+            self.tt_duration_entry,
+            self.tt_sets_entry,
+            self.tt_won_entry,
+            self.tt_lost_entry,
+        ]
+        self.submit_command = self.verify_table_tennis_data
+        self.update_submit_timer()
+
     def _parse_reps(self, reps_raw: list[str]) -> list[list[int]]:
         """Parse reps input - can be single number or variable reps like '12+11+12'."""
         reps: list[list[int]] = []
@@ -883,6 +1043,196 @@ class ScreenLocker:
         except ValueError:
             self.show_error("Please enter valid data in correct format")
 
+    def verify_table_tennis_data(self) -> None:
+        """Validate table tennis workout data and unlock if valid."""
+        try:
+            duration = float(self.tt_duration_entry.get())
+            sets_played = int(self.tt_sets_entry.get())
+            points_won = int(self.tt_won_entry.get())
+            points_lost = int(self.tt_lost_entry.get())
+
+            # Basic validation
+            if duration <= 0:
+                self.show_error("Duration must be greater than 0 minutes")
+                return
+            if sets_played <= 0:
+                self.show_error("Sets played must be greater than 0")
+                return
+            if points_won < 0 or points_lost < 0:
+                self.show_error("Points cannot be negative")
+                return
+            if points_won + points_lost == 0:
+                self.show_error("You must have played some points")
+                return
+
+            # Stricter validation - minimum sets requirement
+            if sets_played < MIN_TABLE_TENNIS_SETS:
+                self.show_error(
+                    f"Minimum {MIN_TABLE_TENNIS_SETS} sets required for a valid workout"
+                )
+                return
+
+            # Mathematical cross-check: total_points >= sets_played * MIN_POINTS_PER_SET
+            total_points = points_won + points_lost
+            min_expected_points = sets_played * MIN_POINTS_PER_SET
+            if total_points < min_expected_points:
+                self.show_error(
+                    f"Invalid data: {sets_played} sets needs "
+                    f"at least {min_expected_points} total points "
+                    f"(min {MIN_POINTS_PER_SET} per set). "
+                    f"You entered {total_points}."
+                )
+                return
+
+            # Reasonable duration check: at least 2 minutes per set
+            min_expected_duration = sets_played * 2
+            if duration < min_expected_duration:
+                self.show_error(
+                    f"Duration too short: {sets_played} sets should "
+                    f"take at least {min_expected_duration} minutes"
+                )
+                return
+
+            # Ask verification question about the data
+            self.ask_table_tennis_verification(
+                duration, sets_played, points_won, points_lost
+            )
+
+        except ValueError:
+            self.show_error("Please enter valid numbers")
+
+    def ask_table_tennis_verification(
+        self, duration: float, sets_played: int, points_won: int, points_lost: int
+    ) -> None:
+        """Ask a math verification question about the entered data."""
+        import random
+
+        self.clear_container()
+
+        # Store data for later submission
+        self._pending_tt_data = {
+            "duration": duration,
+            "sets_played": sets_played,
+            "points_won": points_won,
+            "points_lost": points_lost,
+        }
+
+        # Generate a random verification question based on their data
+        total_points = points_won + points_lost
+        question_types = [
+            (
+                "total_points",
+                "What is the TOTAL number of points played? (won + lost)",
+                total_points,
+            ),
+            (
+                "avg_per_set",
+                "Rounded DOWN: what is the average points per set? (total ÷ sets)",
+                total_points // sets_played,
+            ),
+            (
+                "point_diff",
+                "What is the difference between won and lost points? (won - lost)",
+                abs(points_won - points_lost),
+            ),
+        ]
+
+        question_type, question_text, expected_answer = random.choice(question_types)
+        self._tt_expected_answer = expected_answer
+        self._tt_question_type = question_type
+
+        title = tk.Label(
+            self.container,
+            text="🔢 Verification Question",
+            font=("Arial", 30, "bold"),
+            fg="white",
+            bg="#1a1a1a",
+        )
+        title.pack(pady=20)
+
+        info = tk.Label(
+            self.container,
+            text=(
+                f"Based on your data: {sets_played} sets, "
+                f"{points_won} won, {points_lost} lost"
+            ),
+            font=("Arial", 16),
+            fg="#aaaaaa",
+            bg="#1a1a1a",
+        )
+        info.pack(pady=10)
+
+        question = tk.Label(
+            self.container,
+            text=question_text,
+            font=("Arial", 20, "bold"),
+            fg="#ffaa00",
+            bg="#1a1a1a",
+        )
+        question.pack(pady=20)
+
+        answer_frame = tk.Frame(self.container, bg="#1a1a1a")
+        answer_frame.pack(pady=10)
+        tk.Label(
+            answer_frame,
+            text="Your answer:",
+            font=("Arial", 20),
+            fg="white",
+            bg="#1a1a1a",
+        ).pack(side="left", padx=10)
+        self.tt_verify_entry = tk.Entry(answer_frame, font=("Arial", 20), width=10)
+        self.tt_verify_entry.pack(side="left", padx=10)
+        self.tt_verify_entry.focus_set()
+
+        submit_btn = tk.Button(
+            self.container,
+            text="VERIFY & SUBMIT",
+            font=("Arial", 24, "bold"),
+            bg="#00aa00",
+            fg="white",
+            width=15,
+            command=self.verify_table_tennis_answer,
+            cursor="hand2" if self.demo_mode else "",
+        )
+        submit_btn.pack(pady=20)
+
+        # Back button
+        back_btn = tk.Button(
+            self.container,
+            text="← BACK",
+            font=("Arial", 18),
+            bg="#666666",
+            fg="white",
+            width=15,
+            command=self.ask_table_tennis_details,
+            cursor="hand2" if self.demo_mode else "",
+        )
+        back_btn.pack(pady=10)
+
+    def verify_table_tennis_answer(self) -> None:
+        """Check the verification answer and unlock if correct."""
+        try:
+            user_answer = int(self.tt_verify_entry.get())
+            if user_answer != self._tt_expected_answer:
+                self.show_error(
+                    f"Incorrect! The answer was {self._tt_expected_answer}. "
+                    "Did you enter accurate data?"
+                )
+                # Go back to input form
+                self.root.after(2000, self.ask_table_tennis_details)
+                return
+
+            # Answer correct - store data and unlock
+            data = self._pending_tt_data
+            self.workout_data["duration_minutes"] = str(data["duration"])
+            self.workout_data["sets_played"] = str(data["sets_played"])
+            self.workout_data["points_won"] = str(data["points_won"])
+            self.workout_data["points_lost"] = str(data["points_lost"])
+            self.unlock_screen()
+
+        except ValueError:
+            self.show_error("Please enter a valid number")
+
     def update_submit_timer(self) -> None:
         """Update countdown timer and check if submit can be enabled."""
         # Check if widgets still exist (user might have clicked back)
@@ -974,6 +1324,14 @@ class ScreenLocker:
         # Save workout data to log
         self.save_workout_log()
 
+        # Adjust shutdown time later for actual workouts (not sick days)
+        shutdown_adjusted = False
+        workout_type = self.workout_data.get("type", "")
+        if workout_type in ("running", "strength", "table_tennis"):
+            shutdown_adjusted = self._adjust_shutdown_time_later()
+            if shutdown_adjusted:
+                _logger.info("Shutdown time moved 1.5 hours later as workout reward")
+
         self.clear_container()
 
         success_label = tk.Label(
@@ -984,6 +1342,17 @@ class ScreenLocker:
             bg="#1a1a1a",
         )
         success_label.pack(pady=30)
+
+        # Show shutdown adjustment status
+        if shutdown_adjusted:
+            bonus_label = tk.Label(
+                self.container,
+                text="Shutdown time +1.5h later! 🎁",
+                font=("Arial", 24),
+                fg="#ffaa00",
+                bg="#1a1a1a",
+            )
+            bonus_label.pack(pady=10)
 
         unlock_label = tk.Label(
             self.container,
