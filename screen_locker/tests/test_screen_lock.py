@@ -55,15 +55,6 @@ class StrengthData(NamedTuple):
     total_weight: str
 
 
-class TableTennisData(NamedTuple):
-    """Table tennis workout data for tests."""
-
-    duration: str
-    sets_played: str
-    points_won: str
-    points_lost: str
-
-
 @pytest.fixture
 def mock_tk() -> Generator[MagicMock]:
     """Mock tkinter module for testing without display."""
@@ -135,18 +126,6 @@ def setup_strength_entries(locker: ScreenLocker, data: StrengthData) -> None:
     locker.weights_entry.get.return_value = data.weights
     locker.total_weight_entry = MagicMock()
     locker.total_weight_entry.get.return_value = data.total_weight
-
-
-def setup_table_tennis_entries(locker: ScreenLocker, data: TableTennisData) -> None:
-    """Set up mock table tennis entry widgets."""
-    locker.tt_duration_entry = MagicMock()
-    locker.tt_duration_entry.get.return_value = data.duration
-    locker.tt_sets_entry = MagicMock()
-    locker.tt_sets_entry.get.return_value = data.sets_played
-    locker.tt_won_entry = MagicMock()
-    locker.tt_won_entry.get.return_value = data.points_won
-    locker.tt_lost_entry = MagicMock()
-    locker.tt_lost_entry.get.return_value = data.points_lost
 
 
 class TestConstants:
@@ -731,109 +710,6 @@ class TestVerifyStrengthData:
         assert "valid data" in locker.show_error.call_args[0][0]
 
 
-class TestVerifyTableTennisData:
-    """Tests for verify_table_tennis_data method."""
-
-    def test_valid_table_tennis_data(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
-        tmp_path: Path,
-    ) -> None:
-        """Test valid table tennis data unlocks screen."""
-        locker = create_locker(mock_tk, tmp_path)
-        setup_table_tennis_entries(locker, TableTennisData("60", "3", "21", "15"))
-        locker.unlock_screen = MagicMock()  # type: ignore[method-assign]
-
-        locker.verify_table_tennis_data()
-
-        locker.unlock_screen.assert_called_once()
-        assert locker.workout_data["duration_minutes"] == "60.0"
-        assert locker.workout_data["sets_played"] == "3"
-        assert locker.workout_data["points_won"] == "21"
-        assert locker.workout_data["points_lost"] == "15"
-
-    def test_invalid_duration_zero(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
-        tmp_path: Path,
-    ) -> None:
-        """Test duration <= 0 is rejected."""
-        locker = create_locker(mock_tk, tmp_path)
-        setup_table_tennis_entries(locker, TableTennisData("0", "3", "21", "15"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
-
-        locker.verify_table_tennis_data()
-
-        locker.show_error.assert_called_once()
-        assert "greater than 0" in locker.show_error.call_args[0][0]
-
-    def test_invalid_sets_zero(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
-        tmp_path: Path,
-    ) -> None:
-        """Test sets <= 0 is rejected."""
-        locker = create_locker(mock_tk, tmp_path)
-        setup_table_tennis_entries(locker, TableTennisData("60", "0", "21", "15"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
-
-        locker.verify_table_tennis_data()
-
-        locker.show_error.assert_called_once()
-        assert "greater than 0" in locker.show_error.call_args[0][0]
-
-    def test_invalid_points_negative(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
-        tmp_path: Path,
-    ) -> None:
-        """Test negative points are rejected."""
-        locker = create_locker(mock_tk, tmp_path)
-        setup_table_tennis_entries(locker, TableTennisData("60", "3", "-1", "15"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
-
-        locker.verify_table_tennis_data()
-
-        locker.show_error.assert_called_once()
-        assert "cannot be negative" in locker.show_error.call_args[0][0]
-
-    def test_invalid_no_points_played(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
-        tmp_path: Path,
-    ) -> None:
-        """Test zero total points is rejected."""
-        locker = create_locker(mock_tk, tmp_path)
-        setup_table_tennis_entries(locker, TableTennisData("60", "3", "0", "0"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
-
-        locker.verify_table_tennis_data()
-
-        locker.show_error.assert_called_once()
-        assert "played some points" in locker.show_error.call_args[0][0]
-
-    def test_invalid_number_format(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
-        tmp_path: Path,
-    ) -> None:
-        """Test invalid format is rejected."""
-        locker = create_locker(mock_tk, tmp_path)
-        setup_table_tennis_entries(locker, TableTennisData("abc", "3", "21", "15"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
-
-        locker.verify_table_tennis_data()
-
-        locker.show_error.assert_called_once()
-        assert "valid numbers" in locker.show_error.call_args[0][0]
-
-
 class TestUITransitions:
     """Tests for UI state transitions."""
 
@@ -1266,62 +1142,6 @@ class TestAskStrengthDetails:
         locker.update_submit_timer.assert_called_once()
 
 
-class TestAskTableTennisDetails:
-    """Tests for ask_table_tennis_details method."""
-
-    def test_ask_table_tennis_details_sets_workout_type(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
-        tmp_path: Path,
-    ) -> None:
-        """Test ask_table_tennis_details sets workout type to table_tennis."""
-        locker = create_locker(mock_tk, tmp_path)
-        locker.clear_container = MagicMock()  # type: ignore[method-assign]
-        locker.update_submit_timer = MagicMock()  # type: ignore[method-assign]
-
-        locker.ask_table_tennis_details()
-
-        assert locker.workout_data["type"] == "table_tennis"
-        locker.clear_container.assert_called_once()
-
-    def test_ask_table_tennis_details_creates_entry_fields(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
-        tmp_path: Path,
-    ) -> None:
-        """Test ask_table_tennis_details creates entry fields."""
-        locker = create_locker(mock_tk, tmp_path)
-        locker.clear_container = MagicMock()  # type: ignore[method-assign]
-        locker.update_submit_timer = MagicMock()  # type: ignore[method-assign]
-
-        locker.ask_table_tennis_details()
-
-        # Verify Entry fields were created
-        mock_tk.Entry.assert_called()
-        assert hasattr(locker, "tt_duration_entry")
-        assert hasattr(locker, "tt_sets_entry")
-        assert hasattr(locker, "tt_won_entry")
-        assert hasattr(locker, "tt_lost_entry")
-
-    def test_ask_table_tennis_details_sets_timer(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
-        tmp_path: Path,
-    ) -> None:
-        """Test ask_table_tennis_details initializes submit timer."""
-        locker = create_locker(mock_tk, tmp_path)
-        locker.clear_container = MagicMock()  # type: ignore[method-assign]
-        locker.update_submit_timer = MagicMock()  # type: ignore[method-assign]
-
-        locker.ask_table_tennis_details()
-
-        assert locker.submit_unlock_time == 30
-        locker.update_submit_timer.assert_called_once()
-
-
 class TestAskWorkoutDone:
     """Tests for ask_workout_done method."""
 
@@ -1450,24 +1270,6 @@ class TestUnlockScreenShutdownAdjustment:
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = tmp_path / "workout_log.json"
         locker.workout_data = {"type": "strength"}
-        locker._adjust_shutdown_time_later = MagicMock(  # type: ignore[method-assign]
-            return_value=True
-        )
-
-        locker.unlock_screen()
-
-        locker._adjust_shutdown_time_later.assert_called_once()
-
-    def test_unlock_screen_adjusts_for_table_tennis(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
-        tmp_path: Path,
-    ) -> None:
-        """Test unlock_screen adjusts shutdown for table tennis workout."""
-        locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = tmp_path / "workout_log.json"
-        locker.workout_data = {"type": "table_tennis"}
         locker._adjust_shutdown_time_later = MagicMock(  # type: ignore[method-assign]
             return_value=True
         )
