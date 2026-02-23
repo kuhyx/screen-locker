@@ -11,8 +11,11 @@ from datetime import datetime, timezone
 import json
 import logging
 from pathlib import Path
+import shutil
+import sqlite3
 import subprocess
 import sys
+import tempfile
 import tkinter as tk
 from typing import TYPE_CHECKING
 
@@ -30,6 +33,14 @@ MAX_SETS = 20
 MAX_REPS = 100
 MAX_WEIGHT_KG = 500
 SICK_LOCKOUT_SECONDS = 120  # 2 minutes wait when sick
+SUBMIT_DELAY_DEMO = 30
+SUBMIT_DELAY_PRODUCTION = 180
+PHONE_PENALTY_DELAY_DEMO = 10
+PHONE_PENALTY_DELAY_PRODUCTION = 600
+ADB_TIMEOUT = 15
+STRONGLIFTS_DB_REMOTE = (
+    "/data/data/com.stronglifts.app/databases/StrongLifts-Database-3"
+)
 SHUTDOWN_CONFIG_FILE = Path("/etc/shutdown-schedule.conf")
 # Helper script path (relative to this file)
 ADJUST_SHUTDOWN_SCRIPT = Path(__file__).resolve().parent / "adjust_shutdown_schedule.sh"
@@ -65,7 +76,7 @@ class ScreenLocker:
             self._setup_demo_close_button()
         self.container = tk.Frame(self.root, bg="#1a1a1a")
         self.container.place(relx=0.5, rely=0.5, anchor="center")
-        self.ask_workout_done()
+        self._start_phone_check()
         self._grab_input()
 
     def _setup_window(self) -> None:
@@ -232,7 +243,9 @@ class ScreenLocker:
         self.timer_label = self._text("", font_size=16, color="#ffaa00")
         self.submit_btn = self._disabled_submit_button()
         self._back_button(back_command)
-        self.submit_unlock_time = 30
+        self.submit_unlock_time = (
+            SUBMIT_DELAY_DEMO if self.demo_mode else SUBMIT_DELAY_PRODUCTION
+        )
         self.entries_to_check = entries
         self.submit_command = verify_command
         self.update_submit_timer()
@@ -258,6 +271,52 @@ class ScreenLocker:
             bg="#aa0000",
             command=self.ask_if_sick,
         ).pack(side="left", padx=20)
+
+    def _start_phone_check(self) -> None:
+        """Check phone for today's workout immediately at startup."""
+        self.clear_container()
+        self._label("Checking phone...", font_size=36, color="#ffaa00", pady=30)
+        self._text("Looking for today's workout in StrongLifts...", font_size=18)
+        self.root.after(100, self._handle_startup_phone_result)
+
+    def _handle_startup_phone_result(self) -> None:
+        """Route to appropriate screen based on startup phone check result."""
+        status, message = self._verify_phone_workout()
+        if status == "verified":
+            self.clear_container()
+            self._label(
+                "\u2713 Workout Verified!", font_size=36, color="#00cc00", pady=20
+            )
+            self._text(message, color="#88ff88")
+            self._text("\nLog the details below to unlock.", font_size=18)
+            self.root.after(1500, self.ask_workout_type)
+        elif status == "not_verified":
+            self.clear_container()
+            self._label("No Workout Found", font_size=36, color="#ff4444", pady=20)
+            self._text(
+                f"\u274c {message}\n\n"
+                "StrongLifts shows no workout today.\n"
+                "Go do your workout first!",
+                color="#ffaa00",
+            )
+            frame = self._button_row()
+            self._button(
+                frame,
+                "TRY AGAIN",
+                bg="#0066cc",
+                command=self._start_phone_check,
+                width=12,
+            ).pack(side="left", padx=10)
+            self._button(
+                frame,
+                "I'm sick",
+                bg="#cc6600",
+                command=self.ask_if_sick,
+                width=12,
+            ).pack(side="left", padx=10)
+        else:
+            # no_phone or error — penalty timer, then proceed to logging form
+            self._show_phone_penalty(message, on_done=self.ask_workout_done)
 
     def ask_if_sick(self) -> None:
         """Display sick day question dialog."""
@@ -694,7 +753,7 @@ class ScreenLocker:
         self.workout_data["distance_km"] = str(distance)
         self.workout_data["time_minutes"] = str(time_mins)
         self.workout_data["pace_min_per_km"] = str(pace)
-        self.unlock_screen()
+        self._attempt_unlock()
 
     # ------------------------------------------------------------------
     # Strength workout
@@ -852,7 +911,164 @@ class ScreenLocker:
             self.show_error(total_err)
             return
         self._store_strength_data(exercises, sets, reps, weights, total_weight)
+        self._attempt_unlock()
+
+    # ------------------------------------------------------------------
+    # Phone workout verification via ADB + StrongLifts DB
+    # ------------------------------------------------------------------
+
+    def _run_adb(self, args: list[str]) -> tuple[bool, str]:
+        """Run an ADB command and return success flag and stdout."""
+        adb = shutil.which("adb") or "adb"
+        try:
+            result = subprocess.run(
+                [adb, *args],
+                capture_output=True,
+                text=True,
+                timeout=ADB_TIMEOUT,
+                check=False,
+            )
+        except (FileNotFoundError, OSError) as exc:
+            _logger.warning("ADB not available: %s", exc)
+            return False, ""
+        except subprocess.TimeoutExpired:
+            _logger.warning("ADB command timed out: %s", args)
+            return False, ""
+        return result.returncode == 0, result.stdout
+
+    def _adb_shell(
+        self,
+        command: str,
+        *,
+        root: bool = False,
+    ) -> tuple[bool, str]:
+        """Run a shell command on the connected Android device."""
+        if root:
+            return self._run_adb(["shell", "su", "-c", command])
+        return self._run_adb(["shell", command])
+
+    def _is_phone_connected(self) -> bool:
+        """Check if an Android device is connected via ADB."""
+        success, output = self._run_adb(["devices"])
+        if not success:
+            return False
+        lines = output.strip().split("\n")[1:]
+        return any("device" in line and "offline" not in line for line in lines)
+
+    def _pull_stronglifts_db(self) -> Path | None:
+        """Pull StrongLifts database from phone to a local temp file.
+
+        Returns:
+            Path to the local copy, or None on failure.
+        """
+        tmp = Path(tempfile.gettempdir()) / "stronglifts_check.db"
+        success, _ = self._adb_shell(
+            f"cat '{STRONGLIFTS_DB_REMOTE}' > /sdcard/_sl_tmp.db",
+            root=True,
+        )
+        if not success:
+            return None
+        ok, _ = self._run_adb(["pull", "/sdcard/_sl_tmp.db", str(tmp)])
+        if not ok:
+            return None
+        return tmp
+
+    def _count_today_workouts(self, db_path: Path) -> int:
+        """Count today's workouts in a local copy of StrongLifts DB.
+
+        Args:
+            db_path: Path to the locally-pulled StrongLifts database.
+
+        Returns:
+            Number of workouts started today (local time).
+        """
+        try:
+            conn = sqlite3.connect(str(db_path))
+            try:
+                cursor = conn.execute(
+                    "SELECT COUNT(*) FROM workouts "
+                    "WHERE date(start / 1000, 'unixepoch', 'localtime') "
+                    "= date('now', 'localtime')",
+                )
+                row = cursor.fetchone()
+                return int(row[0]) if row else 0
+            finally:
+                conn.close()
+        except (sqlite3.Error, ValueError, TypeError):
+            _logger.warning("Failed to query StrongLifts database")
+            return 0
+
+    def _verify_phone_workout(self) -> tuple[str, str]:
+        """Verify workout was recorded in StrongLifts on the phone.
+
+        Returns:
+            Tuple of (status, message) where status is one of:
+            - "verified": Workout confirmed on phone.
+            - "not_verified": Phone connected but no workout found.
+            - "no_phone": No phone connected via ADB.
+            - "error": Could not access StrongLifts database.
+        """
+        if not self._is_phone_connected():
+            return "no_phone", "No phone connected via ADB"
+        local_db = self._pull_stronglifts_db()
+        if local_db is None:
+            return "error", "StrongLifts database not found on phone"
+        count = self._count_today_workouts(local_db)
+        if count > 0:
+            return (
+                "verified",
+                f"Workout verified! ({count} session(s) found on phone)",
+            )
+        return "not_verified", "No workout found on phone today"
+
+    def _attempt_unlock(self) -> None:
+        """Unlock screen after workout form submission."""
         self.unlock_screen()
+
+    def _show_phone_penalty(
+        self, message: str, *, on_done: Callable[[], None] | None = None
+    ) -> None:
+        """Show penalty countdown when phone verification is unavailable."""
+        self.clear_container()
+        self._phone_penalty_done_fn: Callable[[], None] = (
+            on_done if on_done is not None else self.unlock_screen
+        )
+        delay = (
+            PHONE_PENALTY_DELAY_DEMO
+            if self.demo_mode
+            else PHONE_PENALTY_DELAY_PRODUCTION
+        )
+        self._label(
+            "Cannot Verify Workout",
+            font_size=36,
+            color="#ff8800",
+            pady=20,
+        )
+        self._text(message, color="#ffaa00")
+        self._text(
+            "Connect phone via ADB to skip this wait,\n"
+            "or wait for the penalty timer.\n\n"
+            "Note: Phone must be rooted and StrongLifts installed.",
+            font_size=18,
+        )
+        self.phone_penalty_remaining = delay
+        self.phone_penalty_label = self._label(
+            str(delay),
+            font_size=80,
+            pady=20,
+        )
+        self._update_phone_penalty()
+
+    def _update_phone_penalty(self) -> None:
+        """Update phone penalty countdown."""
+        if self.phone_penalty_remaining > 0:
+            self.phone_penalty_label.config(
+                text=str(self.phone_penalty_remaining),
+            )
+            self.phone_penalty_remaining -= 1
+            self.root.after(1000, self._update_phone_penalty)
+        else:
+            self._phone_penalty_done_fn()
 
     # ------------------------------------------------------------------
     # Submit timer and entry checking

@@ -13,6 +13,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import sqlite3
+import subprocess
 import tkinter as tk
 from typing import TYPE_CHECKING, Any, NamedTuple
 from unittest.mock import MagicMock, patch
@@ -27,6 +29,11 @@ from python_pkg.screen_locker.screen_lock import (
     MAX_TIME_MINUTES,
     MAX_WEIGHT_KG,
     MIN_EXERCISE_NAME_LEN,
+    PHONE_PENALTY_DELAY_DEMO,
+    PHONE_PENALTY_DELAY_PRODUCTION,
+    STRONGLIFTS_DB_REMOTE,
+    SUBMIT_DELAY_DEMO,
+    SUBMIT_DELAY_PRODUCTION,
     ScreenLocker,
 )
 
@@ -365,16 +372,16 @@ class TestVerifyRunningData:
         mock_sys_exit: MagicMock,  # noqa: ARG002
         tmp_path: Path,
     ) -> None:
-        """Test valid running data unlocks screen."""
+        """Test valid running data triggers unlock attempt."""
         locker = create_locker(mock_tk, tmp_path)
         setup_running_entries(locker, RunningData("5", "25", "5"))
         locker.log_file = tmp_path / "workout_log.json"
         locker.workout_data = {"type": "running"}
-        locker.unlock_screen = MagicMock()  # type: ignore[method-assign]
+        locker._attempt_unlock = MagicMock()  # type: ignore[method-assign]
 
         locker.verify_running_data()
 
-        locker.unlock_screen.assert_called_once()
+        locker._attempt_unlock.assert_called_once()
 
     def test_invalid_distance_zero(
         self,
@@ -515,16 +522,16 @@ class TestVerifyStrengthData:
         mock_sys_exit: MagicMock,  # noqa: ARG002
         tmp_path: Path,
     ) -> None:
-        """Test valid strength data unlocks screen."""
+        """Test valid strength data triggers unlock attempt."""
         locker = create_locker(mock_tk, tmp_path)
         setup_strength_entries(locker, StrengthData("Squat", "3", "10", "50", "1500"))
         locker.log_file = tmp_path / "workout_log.json"
         locker.workout_data = {"type": "strength"}
-        locker.unlock_screen = MagicMock()  # type: ignore[method-assign]
+        locker._attempt_unlock = MagicMock()  # type: ignore[method-assign]
 
         locker.verify_strength_data()
 
-        locker.unlock_screen.assert_called_once()
+        locker._attempt_unlock.assert_called_once()
 
     def test_valid_multiple_exercises(
         self,
@@ -540,11 +547,11 @@ class TestVerifyStrengthData:
         )
         locker.log_file = tmp_path / "workout_log.json"
         locker.workout_data = {"type": "strength"}
-        locker.unlock_screen = MagicMock()  # type: ignore[method-assign]
+        locker._attempt_unlock = MagicMock()  # type: ignore[method-assign]
 
         locker.verify_strength_data()
 
-        locker.unlock_screen.assert_called_once()
+        locker._attempt_unlock.assert_called_once()
 
     def test_mismatched_list_lengths(
         self,
@@ -1081,7 +1088,7 @@ class TestAskRunningDetails:
 
         locker.ask_running_details()
 
-        assert locker.submit_unlock_time == 30
+        assert locker.submit_unlock_time == SUBMIT_DELAY_DEMO
         locker.update_submit_timer.assert_called_once()
 
 
@@ -1138,8 +1145,23 @@ class TestAskStrengthDetails:
 
         locker.ask_strength_details()
 
-        assert locker.submit_unlock_time == 30
+        assert locker.submit_unlock_time == SUBMIT_DELAY_DEMO
         locker.update_submit_timer.assert_called_once()
+
+    def test_ask_strength_details_production_timer(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test production mode uses longer submit delay."""
+        locker = create_locker(mock_tk, tmp_path, demo_mode=False)
+        locker.clear_container = MagicMock()  # type: ignore[method-assign]
+        locker.update_submit_timer = MagicMock()  # type: ignore[method-assign]
+
+        locker.ask_strength_details()
+
+        assert locker.submit_unlock_time == SUBMIT_DELAY_PRODUCTION
 
 
 class TestAskWorkoutDone:
@@ -1237,6 +1259,666 @@ class TestAdjustShutdownTimeLater:
         result = locker._adjust_shutdown_time_later()
 
         assert result is False
+
+
+class TestRunAdb:
+    """Tests for _run_adb ADB command execution."""
+
+    def test_run_adb_success(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test successful ADB command."""
+        locker = create_locker(mock_tk, tmp_path)
+        mock_result = MagicMock(returncode=0, stdout="ok\n")
+        with patch(
+            "python_pkg.screen_locker.screen_lock.subprocess.run",
+            return_value=mock_result,
+        ) as mock_run:
+            success, output = locker._run_adb(["devices"])
+
+        assert success is True
+        assert output == "ok\n"
+        mock_run.assert_called_once()
+
+    def test_run_adb_failure(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test failed ADB command."""
+        locker = create_locker(mock_tk, tmp_path)
+        mock_result = MagicMock(returncode=1, stdout="")
+        with patch(
+            "python_pkg.screen_locker.screen_lock.subprocess.run",
+            return_value=mock_result,
+        ):
+            success, output = locker._run_adb(["devices"])
+
+        assert success is False
+
+    def test_run_adb_not_found(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test ADB binary not found."""
+        locker = create_locker(mock_tk, tmp_path)
+        with patch(
+            "python_pkg.screen_locker.screen_lock.subprocess.run",
+            side_effect=FileNotFoundError("adb not found"),
+        ):
+            success, output = locker._run_adb(["devices"])
+
+        assert success is False
+        assert output == ""
+
+    def test_run_adb_oserror(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test ADB OSError."""
+        locker = create_locker(mock_tk, tmp_path)
+        with patch(
+            "python_pkg.screen_locker.screen_lock.subprocess.run",
+            side_effect=OSError("permission denied"),
+        ):
+            success, output = locker._run_adb(["devices"])
+
+        assert success is False
+        assert output == ""
+
+    def test_run_adb_timeout(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test ADB command timeout."""
+        locker = create_locker(mock_tk, tmp_path)
+        with patch(
+            "python_pkg.screen_locker.screen_lock.subprocess.run",
+            side_effect=subprocess.TimeoutExpired("adb", 15),
+        ):
+            success, output = locker._run_adb(["devices"])
+
+        assert success is False
+        assert output == ""
+
+
+class TestAdbShell:
+    """Tests for _adb_shell method."""
+
+    def test_adb_shell_no_root(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test ADB shell without root."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker._run_adb = MagicMock(  # type: ignore[method-assign]
+            return_value=(True, "output"),
+        )
+
+        success, output = locker._adb_shell("ls /sdcard")
+
+        locker._run_adb.assert_called_once_with(["shell", "ls /sdcard"])
+        assert success is True
+        assert output == "output"
+
+    def test_adb_shell_with_root(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test ADB shell with root."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker._run_adb = MagicMock(  # type: ignore[method-assign]
+            return_value=(True, "output"),
+        )
+
+        success, output = locker._adb_shell("ls /data", root=True)
+
+        locker._run_adb.assert_called_once_with(
+            ["shell", "su", "-c", "ls /data"],
+        )
+        assert success is True
+
+
+class TestIsPhoneConnected:
+    """Tests for _is_phone_connected method."""
+
+    def test_phone_connected(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test phone detected as connected."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker._run_adb = MagicMock(  # type: ignore[method-assign]
+            return_value=(
+                True,
+                "List of devices attached\nABC123\tdevice\n\n",
+            ),
+        )
+
+        assert locker._is_phone_connected() is True
+
+    def test_phone_not_connected(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test no phone connected."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker._run_adb = MagicMock(  # type: ignore[method-assign]
+            return_value=(True, "List of devices attached\n\n"),
+        )
+
+        assert locker._is_phone_connected() is False
+
+    def test_phone_offline(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test phone connected but offline."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker._run_adb = MagicMock(  # type: ignore[method-assign]
+            return_value=(
+                True,
+                "List of devices attached\nABC123\toffline\n\n",
+            ),
+        )
+
+        assert locker._is_phone_connected() is False
+
+    def test_adb_command_fails(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test ADB command failure."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker._run_adb = MagicMock(  # type: ignore[method-assign]
+            return_value=(False, ""),
+        )
+
+        assert locker._is_phone_connected() is False
+
+
+class TestFindHealthConnectDb:
+    """Tests for _pull_stronglifts_db method."""
+
+    def test_db_pulled_successfully(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test StrongLifts DB pulled from device."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker._adb_shell = MagicMock(  # type: ignore[method-assign]
+            return_value=(True, ""),
+        )
+        locker._run_adb = MagicMock(  # type: ignore[method-assign]
+            return_value=(True, ""),
+        )
+
+        result = locker._pull_stronglifts_db()
+
+        assert result is not None
+        locker._adb_shell.assert_called_once()
+        locker._run_adb.assert_called_once()
+        call_args = locker._run_adb.call_args[0][0]
+        assert call_args[0] == "pull"
+
+    def test_db_cat_fails(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test returns None when cat command fails."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker._adb_shell = MagicMock(  # type: ignore[method-assign]
+            return_value=(False, ""),
+        )
+
+        assert locker._pull_stronglifts_db() is None
+
+    def test_db_pull_fails(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test returns None when adb pull fails."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker._adb_shell = MagicMock(  # type: ignore[method-assign]
+            return_value=(True, ""),
+        )
+        locker._run_adb = MagicMock(  # type: ignore[method-assign]
+            return_value=(False, ""),
+        )
+
+        assert locker._pull_stronglifts_db() is None
+
+    def test_db_uses_correct_remote_path(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test uses the correct StrongLifts DB remote path."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker._adb_shell = MagicMock(  # type: ignore[method-assign]
+            return_value=(True, ""),
+        )
+        locker._run_adb = MagicMock(  # type: ignore[method-assign]
+            return_value=(True, ""),
+        )
+
+        locker._pull_stronglifts_db()
+
+        shell_cmd = locker._adb_shell.call_args[0][0]
+        assert STRONGLIFTS_DB_REMOTE in shell_cmd
+
+
+class TestCountTodayWorkouts:
+    """Tests for _count_today_workouts method."""
+
+    def test_workouts_found_today(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test workouts found today."""
+        locker = create_locker(mock_tk, tmp_path)
+        db_file = tmp_path / "sl_test.db"
+        conn = sqlite3.connect(str(db_file))
+        conn.execute(
+            "CREATE TABLE workouts "
+            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
+        )
+        # Insert a workout with today's timestamp (ms)
+        import time
+
+        now_ms = int(time.time() * 1000)
+        conn.execute(
+            "INSERT INTO workouts VALUES (?, ?, ?)",
+            ("w1", now_ms, now_ms + 3600000),
+        )
+        conn.commit()
+        conn.close()
+
+        assert locker._count_today_workouts(db_file) == 1
+
+    def test_no_workouts_today(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test no workouts today."""
+        locker = create_locker(mock_tk, tmp_path)
+        db_file = tmp_path / "sl_test.db"
+        conn = sqlite3.connect(str(db_file))
+        conn.execute(
+            "CREATE TABLE workouts "
+            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
+        )
+        # Insert a workout from yesterday (24h+ ago)
+        import time
+
+        yesterday_ms = int((time.time() - 200000) * 1000)
+        conn.execute(
+            "INSERT INTO workouts VALUES (?, ?, ?)",
+            ("w1", yesterday_ms, yesterday_ms + 3600000),
+        )
+        conn.commit()
+        conn.close()
+
+        assert locker._count_today_workouts(db_file) == 0
+
+    def test_invalid_db_returns_zero(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test returns 0 for invalid database file."""
+        locker = create_locker(mock_tk, tmp_path)
+        bad_file = tmp_path / "not_a_db.db"
+        bad_file.write_text("not a database")
+
+        assert locker._count_today_workouts(bad_file) == 0
+
+    def test_missing_table_returns_zero(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test returns 0 when workouts table doesn't exist."""
+        locker = create_locker(mock_tk, tmp_path)
+        db_file = tmp_path / "empty.db"
+        conn = sqlite3.connect(str(db_file))
+        conn.execute("CREATE TABLE other (id TEXT)")
+        conn.commit()
+        conn.close()
+
+        assert locker._count_today_workouts(db_file) == 0
+
+    def test_multiple_workouts_today(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test counts multiple workouts today correctly."""
+        locker = create_locker(mock_tk, tmp_path)
+        db_file = tmp_path / "sl_test.db"
+        conn = sqlite3.connect(str(db_file))
+        conn.execute(
+            "CREATE TABLE workouts "
+            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
+        )
+        import time
+
+        now_ms = int(time.time() * 1000)
+        conn.execute(
+            "INSERT INTO workouts VALUES (?, ?, ?)",
+            ("w1", now_ms, now_ms + 3600000),
+        )
+        conn.execute(
+            "INSERT INTO workouts VALUES (?, ?, ?)",
+            ("w2", now_ms + 100000, now_ms + 3700000),
+        )
+        conn.commit()
+        conn.close()
+
+        assert locker._count_today_workouts(db_file) == 2
+
+
+class TestVerifyPhoneWorkout:
+    """Tests for _verify_phone_workout method."""
+
+    def test_verified(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test workout verified on phone."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker._is_phone_connected = MagicMock(  # type: ignore[method-assign]
+            return_value=True,
+        )
+        locker._pull_stronglifts_db = MagicMock(  # type: ignore[method-assign]
+            return_value=tmp_path / "sl.db",
+        )
+        locker._count_today_workouts = MagicMock(  # type: ignore[method-assign]
+            return_value=2,
+        )
+
+        status, message = locker._verify_phone_workout()
+
+        assert status == "verified"
+        assert "2 session" in message
+
+    def test_not_verified(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test no workout found on phone."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker._is_phone_connected = MagicMock(  # type: ignore[method-assign]
+            return_value=True,
+        )
+        locker._pull_stronglifts_db = MagicMock(  # type: ignore[method-assign]
+            return_value=tmp_path / "sl.db",
+        )
+        locker._count_today_workouts = MagicMock(  # type: ignore[method-assign]
+            return_value=0,
+        )
+
+        status, message = locker._verify_phone_workout()
+
+        assert status == "not_verified"
+        assert "No workout" in message
+
+    def test_no_phone(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test no phone connected."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker._is_phone_connected = MagicMock(  # type: ignore[method-assign]
+            return_value=False,
+        )
+
+        status, _ = locker._verify_phone_workout()
+
+        assert status == "no_phone"
+
+    def test_error_no_db(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test error when StrongLifts DB cannot be pulled."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker._is_phone_connected = MagicMock(  # type: ignore[method-assign]
+            return_value=True,
+        )
+        locker._pull_stronglifts_db = MagicMock(  # type: ignore[method-assign]
+            return_value=None,
+        )
+
+        status, message = locker._verify_phone_workout()
+
+        assert status == "error"
+        assert "database" in message.lower()
+
+
+class TestStartPhoneCheck:
+    """Tests for _start_phone_check and _handle_startup_phone_result."""
+
+    def test_start_phone_check_shows_checking_screen(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test _start_phone_check shows checking message and schedules check."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker.clear_container = MagicMock()  # type: ignore[method-assign]
+
+        locker._start_phone_check()
+
+        locker.clear_container.assert_called()
+        locker.root.after.assert_called()  # type: ignore[attr-defined]
+
+    def test_handle_startup_verified_shows_success_then_form(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test verified result shows success and schedules form."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker.clear_container = MagicMock()  # type: ignore[method-assign]
+        locker._verify_phone_workout = MagicMock(  # type: ignore[method-assign]
+            return_value=("verified", "Workout verified! (1 session)"),
+        )
+
+        locker._handle_startup_phone_result()
+
+        locker.clear_container.assert_called()
+        locker.root.after.assert_called()  # type: ignore[attr-defined]
+
+    def test_handle_startup_not_verified_shows_block(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test not_verified result shows blocking screen with buttons."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker.clear_container = MagicMock()  # type: ignore[method-assign]
+        locker._verify_phone_workout = MagicMock(  # type: ignore[method-assign]
+            return_value=("not_verified", "No workout found on phone today"),
+        )
+
+        locker._handle_startup_phone_result()
+
+        locker.clear_container.assert_called()
+
+    def test_handle_startup_no_phone_shows_penalty(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test no_phone result triggers penalty with ask_workout_done as callback."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker._verify_phone_workout = MagicMock(  # type: ignore[method-assign]
+            return_value=("no_phone", "No phone"),
+        )
+        locker._show_phone_penalty = MagicMock()  # type: ignore[method-assign]
+
+        locker._handle_startup_phone_result()
+
+        locker._show_phone_penalty.assert_called_once()
+        _, kwargs = locker._show_phone_penalty.call_args
+        assert kwargs["on_done"] == locker.ask_workout_done
+
+    def test_handle_startup_error_shows_penalty(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test error result triggers penalty with ask_workout_done as callback."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker._verify_phone_workout = MagicMock(  # type: ignore[method-assign]
+            return_value=("error", "DB not found"),
+        )
+        locker._show_phone_penalty = MagicMock()  # type: ignore[method-assign]
+
+        locker._handle_startup_phone_result()
+
+        locker._show_phone_penalty.assert_called_once()
+        _, kwargs = locker._show_phone_penalty.call_args
+        assert kwargs["on_done"] == locker.ask_workout_done
+
+
+class TestAttemptUnlock:
+    """Tests for _attempt_unlock method."""
+
+    def test_attempt_unlock_calls_unlock_screen(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test _attempt_unlock calls unlock_screen directly."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker.log_file = tmp_path / "workout_log.json"
+        locker.workout_data = {"type": "strength"}
+        locker.unlock_screen = MagicMock()  # type: ignore[method-assign]
+
+        locker._attempt_unlock()
+
+        locker.unlock_screen.assert_called_once()
+
+
+class TestShowPhonePenalty:
+    """Tests for _show_phone_penalty and _update_phone_penalty methods."""
+
+    def test_show_phone_penalty_demo_delay(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test demo mode uses short penalty delay."""
+        locker = create_locker(mock_tk, tmp_path, demo_mode=True)
+        locker.clear_container = MagicMock()  # type: ignore[method-assign]
+
+        locker._show_phone_penalty("test message")
+
+        # _update_phone_penalty is called once, decrementing by 1
+        assert locker.phone_penalty_remaining == PHONE_PENALTY_DELAY_DEMO - 1
+
+    def test_show_phone_penalty_production_delay(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test production mode uses long penalty delay."""
+        locker = create_locker(mock_tk, tmp_path, demo_mode=False)
+        locker.clear_container = MagicMock()  # type: ignore[method-assign]
+
+        locker._show_phone_penalty("test message")
+
+        assert locker.phone_penalty_remaining == PHONE_PENALTY_DELAY_PRODUCTION - 1
+
+    def test_update_phone_penalty_countdown(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test phone penalty countdown decrements."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker.phone_penalty_remaining = 5
+        locker.phone_penalty_label = MagicMock()
+
+        locker._update_phone_penalty()
+
+        assert locker.phone_penalty_remaining == 4
+        locker.phone_penalty_label.config.assert_called_once_with(text="5")
+        locker.root.after.assert_called()  # type: ignore[attr-defined]
+
+    def test_update_phone_penalty_at_zero(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test phone penalty unlocks when timer reaches zero."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker.log_file = tmp_path / "workout_log.json"
+        locker.workout_data = {"type": "strength"}
+        locker.phone_penalty_remaining = 0
+        locker.phone_penalty_label = MagicMock()
+        locker.unlock_screen = MagicMock()  # type: ignore[method-assign]
+        locker._phone_penalty_done_fn = locker.unlock_screen  # type: ignore[attr-defined]
+
+        locker._update_phone_penalty()
+
+        locker.unlock_screen.assert_called_once()
 
 
 class TestUnlockScreenShutdownAdjustment:
