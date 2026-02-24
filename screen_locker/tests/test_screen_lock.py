@@ -107,6 +107,7 @@ def create_locker(
     with (
         patch.object(Path, "resolve", return_value=tmp_path),
         patch.object(ScreenLocker, "has_logged_today", return_value=has_logged),
+        patch.object(ScreenLocker, "_start_phone_check"),
     ):
         return ScreenLocker(demo_mode=demo_mode)
 
@@ -1296,7 +1297,7 @@ class TestRunAdb:
             "python_pkg.screen_locker.screen_lock.subprocess.run",
             return_value=mock_result,
         ):
-            success, output = locker._run_adb(["devices"])
+            success, _output = locker._run_adb(["devices"])
 
         assert success is False
 
@@ -1385,7 +1386,7 @@ class TestAdbShell:
             return_value=(True, "output"),
         )
 
-        success, output = locker._adb_shell("ls /data", root=True)
+        success, _output = locker._adb_shell("ls /data", root=True)
 
         locker._run_adb.assert_called_once_with(
             ["shell", "su", "-c", "ls /data"],
@@ -1749,32 +1750,37 @@ class TestStartPhoneCheck:
         mock_sys_exit: MagicMock,  # noqa: ARG002
         tmp_path: Path,
     ) -> None:
-        """Test _start_phone_check shows checking message and schedules check."""
+        """Test _start_phone_check shows checking message and starts check."""
         locker = create_locker(mock_tk, tmp_path)
         locker.clear_container = MagicMock()  # type: ignore[method-assign]
+        locker._verify_phone_workout = MagicMock(  # type: ignore[method-assign]
+            return_value=("no_phone", "No phone"),
+        )
+        locker._poll_phone_check = MagicMock()  # type: ignore[method-assign]
 
         locker._start_phone_check()
 
         locker.clear_container.assert_called()
-        locker.root.after.assert_called()  # type: ignore[attr-defined]
+        locker._poll_phone_check.assert_called_once()
+        assert locker._phone_future is not None
 
-    def test_handle_startup_verified_shows_success_then_form(
+    def test_handle_startup_verified_unlocks_directly(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,  # noqa: ARG002
         tmp_path: Path,
     ) -> None:
-        """Test verified result shows success and schedules form."""
+        """Test verified result shows success screen then unlocks via after()."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.clear_container = MagicMock()  # type: ignore[method-assign]
-        locker._verify_phone_workout = MagicMock(  # type: ignore[method-assign]
-            return_value=("verified", "Workout verified! (1 session)"),
-        )
+        locker.unlock_screen = MagicMock()  # type: ignore[method-assign]
+        locker.root.after = MagicMock()  # type: ignore[method-assign]
 
-        locker._handle_startup_phone_result()
+        locker._handle_startup_phone_result("verified", "Workout verified! (1 session)")
 
-        locker.clear_container.assert_called()
-        locker.root.after.assert_called()  # type: ignore[attr-defined]
+        # unlock_screen is deferred via root.after, not called directly
+        locker.unlock_screen.assert_not_called()
+        assert locker.workout_data["type"] == "phone_verified"
+        locker.root.after.assert_called_once_with(1500, locker.unlock_screen)
 
     def test_handle_startup_not_verified_shows_block(
         self,
@@ -1785,11 +1791,9 @@ class TestStartPhoneCheck:
         """Test not_verified result shows blocking screen with buttons."""
         locker = create_locker(mock_tk, tmp_path)
         locker.clear_container = MagicMock()  # type: ignore[method-assign]
-        locker._verify_phone_workout = MagicMock(  # type: ignore[method-assign]
-            return_value=("not_verified", "No workout found on phone today"),
+        locker._handle_startup_phone_result(
+            "not_verified", "No workout found on phone today"
         )
-
-        locker._handle_startup_phone_result()
 
         locker.clear_container.assert_called()
 
@@ -1801,12 +1805,9 @@ class TestStartPhoneCheck:
     ) -> None:
         """Test no_phone result triggers penalty with ask_workout_done as callback."""
         locker = create_locker(mock_tk, tmp_path)
-        locker._verify_phone_workout = MagicMock(  # type: ignore[method-assign]
-            return_value=("no_phone", "No phone"),
-        )
         locker._show_phone_penalty = MagicMock()  # type: ignore[method-assign]
 
-        locker._handle_startup_phone_result()
+        locker._handle_startup_phone_result("no_phone", "No phone")
 
         locker._show_phone_penalty.assert_called_once()
         _, kwargs = locker._show_phone_penalty.call_args
@@ -1820,16 +1821,50 @@ class TestStartPhoneCheck:
     ) -> None:
         """Test error result triggers penalty with ask_workout_done as callback."""
         locker = create_locker(mock_tk, tmp_path)
-        locker._verify_phone_workout = MagicMock(  # type: ignore[method-assign]
-            return_value=("error", "DB not found"),
-        )
         locker._show_phone_penalty = MagicMock()  # type: ignore[method-assign]
 
-        locker._handle_startup_phone_result()
+        locker._handle_startup_phone_result("error", "DB not found")
 
         locker._show_phone_penalty.assert_called_once()
         _, kwargs = locker._show_phone_penalty.call_args
         assert kwargs["on_done"] == locker.ask_workout_done
+
+    def test_poll_phone_check_schedules_retry_when_pending(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test _poll_phone_check reschedules itself when future is not done."""
+        locker = create_locker(mock_tk, tmp_path)
+        mock_future: MagicMock = MagicMock()
+        mock_future.done.return_value = False
+        locker._phone_future = mock_future  # type: ignore[assignment]
+        locker.root.after = MagicMock()  # type: ignore[method-assign]
+
+        locker._poll_phone_check()
+
+        locker.root.after.assert_called_once_with(500, locker._poll_phone_check)
+
+    def test_poll_phone_check_routes_when_done(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test _poll_phone_check calls result handler when future is done."""
+        locker = create_locker(mock_tk, tmp_path)
+        mock_future: MagicMock = MagicMock()
+        mock_future.done.return_value = True
+        mock_future.result.return_value = ("no_phone", "No phone")
+        locker._phone_future = mock_future  # type: ignore[assignment]
+        locker._handle_startup_phone_result = MagicMock()  # type: ignore[method-assign]
+
+        locker._poll_phone_check()
+
+        locker._handle_startup_phone_result.assert_called_once_with(
+            "no_phone", "No phone"
+        )
 
 
 class TestAttemptUnlock:
@@ -1952,6 +1987,24 @@ class TestUnlockScreenShutdownAdjustment:
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = tmp_path / "workout_log.json"
         locker.workout_data = {"type": "strength"}
+        locker._adjust_shutdown_time_later = MagicMock(  # type: ignore[method-assign]
+            return_value=True
+        )
+
+        locker.unlock_screen()
+
+        locker._adjust_shutdown_time_later.assert_called_once()
+
+    def test_unlock_screen_adjusts_for_phone_verified(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,  # noqa: ARG002
+        tmp_path: Path,
+    ) -> None:
+        """Test unlock_screen adjusts shutdown for phone-verified workout."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker.log_file = tmp_path / "workout_log.json"
+        locker.workout_data = {"type": "phone_verified"}
         locker._adjust_shutdown_time_later = MagicMock(  # type: ignore[method-assign]
             return_value=True
         )
