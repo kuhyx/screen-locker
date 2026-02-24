@@ -1425,6 +1425,9 @@ class TestIsPhoneConnected:
         locker._run_adb = MagicMock(  # type: ignore[method-assign]
             return_value=(True, "List of devices attached\n\n"),
         )
+        locker._try_wireless_reconnect = MagicMock(  # type: ignore[method-assign]
+            return_value=False,
+        )
 
         assert locker._is_phone_connected() is False
 
@@ -1442,6 +1445,9 @@ class TestIsPhoneConnected:
                 "List of devices attached\nABC123\toffline\n\n",
             ),
         )
+        locker._try_wireless_reconnect = MagicMock(  # type: ignore[method-assign]
+            return_value=False,
+        )
 
         assert locker._is_phone_connected() is False
 
@@ -1455,6 +1461,9 @@ class TestIsPhoneConnected:
         locker = create_locker(mock_tk, tmp_path)
         locker._run_adb = MagicMock(  # type: ignore[method-assign]
             return_value=(False, ""),
+        )
+        locker._try_wireless_reconnect = MagicMock(  # type: ignore[method-assign]
+            return_value=False,
         )
 
         assert locker._is_phone_connected() is False
