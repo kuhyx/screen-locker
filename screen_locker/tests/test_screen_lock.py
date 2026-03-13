@@ -97,7 +97,7 @@ def temp_log_file(tmp_path: Path) -> Path:
 
 
 def create_locker(
-    mock_tk: MagicMock,  # noqa: ARG001
+    _mock_tk: MagicMock,
     tmp_path: Path,
     *,
     demo_mode: bool = True,
@@ -216,7 +216,7 @@ class TestHasLoggedToday:
     def test_no_log_file(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test when log file doesn't exist."""
@@ -229,7 +229,7 @@ class TestHasLoggedToday:
     def test_empty_log_file(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test when log file is empty/invalid JSON."""
@@ -243,7 +243,7 @@ class TestHasLoggedToday:
     def test_invalid_json(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test when log file contains invalid JSON."""
@@ -257,7 +257,7 @@ class TestHasLoggedToday:
     def test_today_logged(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test when today's workout is logged."""
@@ -272,7 +272,7 @@ class TestHasLoggedToday:
     def test_other_day_logged(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test when only other days are logged."""
@@ -290,7 +290,7 @@ class TestSaveWorkoutLog:
     def test_save_to_new_file(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test saving to a new log file."""
@@ -310,7 +310,7 @@ class TestSaveWorkoutLog:
     def test_save_to_existing_file(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test saving appends to existing log file."""
@@ -331,7 +331,7 @@ class TestSaveWorkoutLog:
     def test_save_with_corrupted_existing_file(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test saving when existing file is corrupted."""
@@ -351,7 +351,7 @@ class TestSaveWorkoutLog:
     def test_save_with_write_error(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test saving handles write errors gracefully."""
@@ -370,7 +370,7 @@ class TestVerifyRunningData:
     def test_valid_running_data(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test valid running data triggers unlock attempt."""
@@ -387,7 +387,7 @@ class TestVerifyRunningData:
     def test_invalid_distance_zero(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test zero distance is rejected."""
@@ -403,7 +403,7 @@ class TestVerifyRunningData:
     def test_invalid_distance_too_high(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test distance over max is rejected."""
@@ -419,7 +419,7 @@ class TestVerifyRunningData:
     def test_invalid_time_zero(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test zero time is rejected."""
@@ -435,7 +435,7 @@ class TestVerifyRunningData:
     def test_invalid_time_too_high(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test time over max is rejected."""
@@ -451,7 +451,7 @@ class TestVerifyRunningData:
     def test_invalid_pace_zero(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test zero pace is rejected."""
@@ -467,7 +467,7 @@ class TestVerifyRunningData:
     def test_invalid_pace_too_high(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test pace over max is rejected."""
@@ -483,7 +483,7 @@ class TestVerifyRunningData:
     def test_pace_mismatch(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test pace mismatch is rejected."""
@@ -500,7 +500,7 @@ class TestVerifyRunningData:
     def test_invalid_number_format(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test non-numeric input is rejected."""
@@ -520,7 +520,7 @@ class TestVerifyStrengthData:
     def test_valid_strength_data(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test valid strength data triggers unlock attempt."""
@@ -537,7 +537,7 @@ class TestVerifyStrengthData:
     def test_valid_multiple_exercises(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test valid data with multiple exercises."""
@@ -557,7 +557,7 @@ class TestVerifyStrengthData:
     def test_mismatched_list_lengths(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test mismatched list lengths are rejected."""
@@ -576,7 +576,7 @@ class TestVerifyStrengthData:
     def test_short_exercise_name(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test short exercise names are rejected."""
@@ -592,7 +592,7 @@ class TestVerifyStrengthData:
     def test_invalid_sets_zero(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test zero sets is rejected."""
@@ -608,7 +608,7 @@ class TestVerifyStrengthData:
     def test_invalid_sets_too_high(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test sets over max is rejected."""
@@ -624,7 +624,7 @@ class TestVerifyStrengthData:
     def test_invalid_reps_zero(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test zero reps is rejected."""
@@ -640,7 +640,7 @@ class TestVerifyStrengthData:
     def test_invalid_reps_too_high(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test reps over max is rejected."""
@@ -656,7 +656,7 @@ class TestVerifyStrengthData:
     def test_invalid_weight_negative(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test negative weight is rejected."""
@@ -672,7 +672,7 @@ class TestVerifyStrengthData:
     def test_invalid_weight_too_high(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test weight over max is rejected."""
@@ -688,7 +688,7 @@ class TestVerifyStrengthData:
     def test_total_weight_mismatch(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test total weight mismatch is rejected."""
@@ -704,7 +704,7 @@ class TestVerifyStrengthData:
     def test_invalid_format(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test invalid format is rejected."""
@@ -724,7 +724,7 @@ class TestUITransitions:
     def test_clear_container(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test clear_container destroys all child widgets."""
@@ -746,7 +746,7 @@ class TestUITransitions:
     def test_unlock_screen_saves_and_schedules_close(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test unlock_screen saves log and schedules close."""
@@ -762,7 +762,7 @@ class TestUITransitions:
     def test_lockout_starts_countdown(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test lockout initializes countdown timer."""
@@ -795,7 +795,7 @@ class TestTimerLogic:
     def test_update_lockout_countdown_decrements(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test countdown decrements remaining time."""
@@ -813,7 +813,7 @@ class TestTimerLogic:
     def test_update_lockout_countdown_at_zero(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test countdown at zero returns to workout question."""
@@ -829,7 +829,7 @@ class TestTimerLogic:
     def test_update_submit_timer_countdown(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test submit timer counts down."""
@@ -847,7 +847,7 @@ class TestTimerLogic:
     def test_update_submit_timer_enables_when_filled(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test submit enabled when timer done and entries filled."""
@@ -867,7 +867,7 @@ class TestTimerLogic:
     def test_update_submit_timer_waits_for_entries(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test submit waits when entries not filled."""
@@ -888,7 +888,7 @@ class TestTimerLogic:
     def test_update_submit_timer_handles_tcl_error(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test timer handles TclError when widgets destroyed."""
@@ -903,7 +903,7 @@ class TestTimerLogic:
     def test_check_entries_filled_enables_submit(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test check_entries_filled enables submit when all filled."""
@@ -922,7 +922,7 @@ class TestTimerLogic:
     def test_check_entries_filled_continues_waiting(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test check_entries_filled continues waiting when not filled."""
@@ -942,7 +942,7 @@ class TestTimerLogic:
     def test_check_entries_filled_handles_tcl_error(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test check_entries_filled handles TclError."""
@@ -962,7 +962,7 @@ class TestShowError:
     def test_show_error_displays_message(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test show_error clears container and displays error."""
@@ -980,7 +980,7 @@ class TestRun:
     def test_run_starts_mainloop(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test run starts the tkinter mainloop."""
@@ -997,7 +997,7 @@ class TestMainEntry:
     def test_main_demo_mode_default(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test main defaults to demo mode."""
@@ -1008,7 +1008,7 @@ class TestMainEntry:
     def test_main_production_mode_flag(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test main with --production flag."""
@@ -1023,7 +1023,7 @@ class TestAskWorkoutType:
     def test_ask_workout_type_creates_buttons(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ask_workout_type creates running and strength buttons."""
@@ -1044,7 +1044,7 @@ class TestAskRunningDetails:
     def test_ask_running_details_sets_workout_type(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ask_running_details sets workout type to running."""
@@ -1060,7 +1060,7 @@ class TestAskRunningDetails:
     def test_ask_running_details_creates_entry_fields(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ask_running_details creates entry fields."""
@@ -1079,7 +1079,7 @@ class TestAskRunningDetails:
     def test_ask_running_details_sets_timer(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ask_running_details initializes submit timer."""
@@ -1099,7 +1099,7 @@ class TestAskStrengthDetails:
     def test_ask_strength_details_sets_workout_type(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ask_strength_details sets workout type to strength."""
@@ -1115,7 +1115,7 @@ class TestAskStrengthDetails:
     def test_ask_strength_details_creates_entry_fields(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ask_strength_details creates entry fields."""
@@ -1136,7 +1136,7 @@ class TestAskStrengthDetails:
     def test_ask_strength_details_sets_timer(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ask_strength_details initializes submit timer."""
@@ -1152,7 +1152,7 @@ class TestAskStrengthDetails:
     def test_ask_strength_details_production_timer(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test production mode uses longer submit delay."""
@@ -1171,7 +1171,7 @@ class TestAskWorkoutDone:
     def test_ask_workout_done_creates_buttons(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ask_workout_done creates yes/no buttons."""
@@ -1191,7 +1191,7 @@ class TestAdjustShutdownTimeLater:
     def test_adjust_shutdown_time_later_success(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test _adjust_shutdown_time_later adds hours successfully."""
@@ -1211,7 +1211,7 @@ class TestAdjustShutdownTimeLater:
     def test_adjust_shutdown_time_later_caps_at_23(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test _adjust_shutdown_time_later caps hours at 23."""
@@ -1232,7 +1232,7 @@ class TestAdjustShutdownTimeLater:
     def test_adjust_shutdown_time_later_no_config(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test _adjust_shutdown_time_later returns False if config missing."""
@@ -1248,7 +1248,7 @@ class TestAdjustShutdownTimeLater:
     def test_adjust_shutdown_time_later_oserror(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test _adjust_shutdown_time_later handles OSError."""
@@ -1268,7 +1268,7 @@ class TestRunAdb:
     def test_run_adb_success(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test successful ADB command."""
@@ -1287,7 +1287,7 @@ class TestRunAdb:
     def test_run_adb_failure(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test failed ADB command."""
@@ -1304,7 +1304,7 @@ class TestRunAdb:
     def test_run_adb_not_found(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ADB binary not found."""
@@ -1321,7 +1321,7 @@ class TestRunAdb:
     def test_run_adb_oserror(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ADB OSError."""
@@ -1338,7 +1338,7 @@ class TestRunAdb:
     def test_run_adb_timeout(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ADB command timeout."""
@@ -1359,7 +1359,7 @@ class TestAdbShell:
     def test_adb_shell_no_root(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ADB shell without root."""
@@ -1377,7 +1377,7 @@ class TestAdbShell:
     def test_adb_shell_with_root(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ADB shell with root."""
@@ -1400,7 +1400,7 @@ class TestIsPhoneConnected:
     def test_phone_connected(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test phone detected as connected."""
@@ -1417,7 +1417,7 @@ class TestIsPhoneConnected:
     def test_phone_not_connected(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test no phone connected."""
@@ -1434,7 +1434,7 @@ class TestIsPhoneConnected:
     def test_phone_offline(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test phone connected but offline."""
@@ -1454,7 +1454,7 @@ class TestIsPhoneConnected:
     def test_adb_command_fails(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ADB command failure."""
@@ -1475,7 +1475,7 @@ class TestFindHealthConnectDb:
     def test_db_pulled_successfully(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test StrongLifts DB pulled from device."""
@@ -1498,7 +1498,7 @@ class TestFindHealthConnectDb:
     def test_db_cat_fails(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns None when cat command fails."""
@@ -1512,7 +1512,7 @@ class TestFindHealthConnectDb:
     def test_db_pull_fails(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns None when adb pull fails."""
@@ -1529,7 +1529,7 @@ class TestFindHealthConnectDb:
     def test_db_uses_correct_remote_path(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test uses the correct StrongLifts DB remote path."""
@@ -1553,7 +1553,7 @@ class TestCountTodayWorkouts:
     def test_workouts_found_today(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test workouts found today."""
@@ -1580,7 +1580,7 @@ class TestCountTodayWorkouts:
     def test_no_workouts_today(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test no workouts today."""
@@ -1607,7 +1607,7 @@ class TestCountTodayWorkouts:
     def test_invalid_db_returns_zero(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns 0 for invalid database file."""
@@ -1620,7 +1620,7 @@ class TestCountTodayWorkouts:
     def test_missing_table_returns_zero(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns 0 when workouts table doesn't exist."""
@@ -1636,7 +1636,7 @@ class TestCountTodayWorkouts:
     def test_multiple_workouts_today(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test counts multiple workouts today correctly."""
@@ -1670,7 +1670,7 @@ class TestVerifyPhoneWorkout:
     def test_verified(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test workout verified on phone."""
@@ -1693,7 +1693,7 @@ class TestVerifyPhoneWorkout:
     def test_not_verified(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test no workout found on phone."""
@@ -1716,7 +1716,7 @@ class TestVerifyPhoneWorkout:
     def test_no_phone(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test no phone connected."""
@@ -1732,7 +1732,7 @@ class TestVerifyPhoneWorkout:
     def test_error_no_db(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test error when StrongLifts DB cannot be pulled."""
@@ -1756,7 +1756,7 @@ class TestStartPhoneCheck:
     def test_start_phone_check_shows_checking_screen(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test _start_phone_check shows checking message and starts check."""
@@ -1776,7 +1776,7 @@ class TestStartPhoneCheck:
     def test_handle_startup_verified_unlocks_directly(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test verified result shows success screen then unlocks via after()."""
@@ -1794,7 +1794,7 @@ class TestStartPhoneCheck:
     def test_handle_startup_not_verified_shows_block(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test not_verified result shows blocking screen with buttons."""
@@ -1809,7 +1809,7 @@ class TestStartPhoneCheck:
     def test_handle_startup_no_phone_shows_penalty(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test no_phone result triggers penalty with ask_workout_done as callback."""
@@ -1825,7 +1825,7 @@ class TestStartPhoneCheck:
     def test_handle_startup_error_shows_penalty(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test error result triggers penalty with ask_workout_done as callback."""
@@ -1841,7 +1841,7 @@ class TestStartPhoneCheck:
     def test_poll_phone_check_schedules_retry_when_pending(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test _poll_phone_check reschedules itself when future is not done."""
@@ -1858,7 +1858,7 @@ class TestStartPhoneCheck:
     def test_poll_phone_check_routes_when_done(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test _poll_phone_check calls result handler when future is done."""
@@ -1882,7 +1882,7 @@ class TestAttemptUnlock:
     def test_attempt_unlock_calls_unlock_screen(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test _attempt_unlock calls unlock_screen directly."""
@@ -1902,7 +1902,7 @@ class TestShowPhonePenalty:
     def test_show_phone_penalty_demo_delay(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test demo mode uses short penalty delay."""
@@ -1917,7 +1917,7 @@ class TestShowPhonePenalty:
     def test_show_phone_penalty_production_delay(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test production mode uses long penalty delay."""
@@ -1931,7 +1931,7 @@ class TestShowPhonePenalty:
     def test_update_phone_penalty_countdown(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test phone penalty countdown decrements."""
@@ -1948,7 +1948,7 @@ class TestShowPhonePenalty:
     def test_update_phone_penalty_at_zero(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test phone penalty unlocks when timer reaches zero."""
@@ -1971,7 +1971,7 @@ class TestUnlockScreenShutdownAdjustment:
     def test_unlock_screen_adjusts_for_running(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test unlock_screen adjusts shutdown for running workout."""
@@ -1989,7 +1989,7 @@ class TestUnlockScreenShutdownAdjustment:
     def test_unlock_screen_adjusts_for_strength(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test unlock_screen adjusts shutdown for strength workout."""
@@ -2007,7 +2007,7 @@ class TestUnlockScreenShutdownAdjustment:
     def test_unlock_screen_adjusts_for_phone_verified(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test unlock_screen adjusts shutdown for phone-verified workout."""
@@ -2025,7 +2025,7 @@ class TestUnlockScreenShutdownAdjustment:
     def test_unlock_screen_skips_adjustment_for_sick_day(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test unlock_screen does not adjust for sick day."""
@@ -2043,7 +2043,7 @@ class TestUnlockScreenShutdownAdjustment:
     def test_unlock_screen_skips_adjustment_no_type(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test unlock_screen does not adjust when no workout type."""
@@ -2061,7 +2061,7 @@ class TestUnlockScreenShutdownAdjustment:
     def test_unlock_screen_handles_adjustment_failure(
         self,
         mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,  # noqa: ARG002
+        _mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test unlock_screen continues when adjustment fails."""
