@@ -117,8 +117,12 @@ class TestAdbShell:
     ) -> None:
         """Test ADB shell without root."""
         locker = create_locker(mock_tk, tmp_path)
-        locker._run_adb = MagicMock(  # type: ignore[method-assign]
-            return_value=(True, "output"),
+        object.__setattr__(
+            locker,
+            "_run_adb",
+            MagicMock(
+                return_value=(True, "output"),
+            ),
         )
 
         success, output = locker._adb_shell("ls /sdcard")
@@ -135,8 +139,12 @@ class TestAdbShell:
     ) -> None:
         """Test ADB shell with root."""
         locker = create_locker(mock_tk, tmp_path)
-        locker._run_adb = MagicMock(  # type: ignore[method-assign]
-            return_value=(True, "output"),
+        object.__setattr__(
+            locker,
+            "_run_adb",
+            MagicMock(
+                return_value=(True, "output"),
+            ),
         )
 
         success, _output = locker._adb_shell("ls /data", root=True)
@@ -158,10 +166,14 @@ class TestIsPhoneConnected:
     ) -> None:
         """Test phone detected as connected."""
         locker = create_locker(mock_tk, tmp_path)
-        locker._run_adb = MagicMock(  # type: ignore[method-assign]
-            return_value=(
-                True,
-                "List of devices attached\nABC123\tdevice\n\n",
+        object.__setattr__(
+            locker,
+            "_run_adb",
+            MagicMock(
+                return_value=(
+                    True,
+                    "List of devices attached\nABC123\tdevice\n\n",
+                ),
             ),
         )
 
@@ -175,11 +187,19 @@ class TestIsPhoneConnected:
     ) -> None:
         """Test no phone connected."""
         locker = create_locker(mock_tk, tmp_path)
-        locker._run_adb = MagicMock(  # type: ignore[method-assign]
-            return_value=(True, "List of devices attached\n\n"),
+        object.__setattr__(
+            locker,
+            "_run_adb",
+            MagicMock(
+                return_value=(True, "List of devices attached\n\n"),
+            ),
         )
-        locker._try_wireless_reconnect = MagicMock(  # type: ignore[method-assign]
-            return_value=False,
+        object.__setattr__(
+            locker,
+            "_try_wireless_reconnect",
+            MagicMock(
+                return_value=False,
+            ),
         )
 
         assert locker._is_phone_connected() is False
@@ -192,14 +212,22 @@ class TestIsPhoneConnected:
     ) -> None:
         """Test phone connected but offline."""
         locker = create_locker(mock_tk, tmp_path)
-        locker._run_adb = MagicMock(  # type: ignore[method-assign]
-            return_value=(
-                True,
-                "List of devices attached\nABC123\toffline\n\n",
+        object.__setattr__(
+            locker,
+            "_run_adb",
+            MagicMock(
+                return_value=(
+                    True,
+                    "List of devices attached\nABC123\toffline\n\n",
+                ),
             ),
         )
-        locker._try_wireless_reconnect = MagicMock(  # type: ignore[method-assign]
-            return_value=False,
+        object.__setattr__(
+            locker,
+            "_try_wireless_reconnect",
+            MagicMock(
+                return_value=False,
+            ),
         )
 
         assert locker._is_phone_connected() is False
@@ -212,11 +240,19 @@ class TestIsPhoneConnected:
     ) -> None:
         """Test ADB command failure."""
         locker = create_locker(mock_tk, tmp_path)
-        locker._run_adb = MagicMock(  # type: ignore[method-assign]
-            return_value=(False, ""),
+        object.__setattr__(
+            locker,
+            "_run_adb",
+            MagicMock(
+                return_value=(False, ""),
+            ),
         )
-        locker._try_wireless_reconnect = MagicMock(  # type: ignore[method-assign]
-            return_value=False,
+        object.__setattr__(
+            locker,
+            "_try_wireless_reconnect",
+            MagicMock(
+                return_value=False,
+            ),
         )
 
         assert locker._is_phone_connected() is False
@@ -233,11 +269,19 @@ class TestFindHealthConnectDb:
     ) -> None:
         """Test StrongLifts DB pulled from device."""
         locker = create_locker(mock_tk, tmp_path)
-        locker._adb_shell = MagicMock(  # type: ignore[method-assign]
-            return_value=(True, ""),
+        object.__setattr__(
+            locker,
+            "_adb_shell",
+            MagicMock(
+                return_value=(True, ""),
+            ),
         )
-        locker._run_adb = MagicMock(  # type: ignore[method-assign]
-            return_value=(True, ""),
+        object.__setattr__(
+            locker,
+            "_run_adb",
+            MagicMock(
+                return_value=(True, ""),
+            ),
         )
 
         result = locker._pull_stronglifts_db()
@@ -256,8 +300,12 @@ class TestFindHealthConnectDb:
     ) -> None:
         """Test returns None when cat command fails."""
         locker = create_locker(mock_tk, tmp_path)
-        locker._adb_shell = MagicMock(  # type: ignore[method-assign]
-            return_value=(False, ""),
+        object.__setattr__(
+            locker,
+            "_adb_shell",
+            MagicMock(
+                return_value=(False, ""),
+            ),
         )
 
         assert locker._pull_stronglifts_db() is None
@@ -270,11 +318,19 @@ class TestFindHealthConnectDb:
     ) -> None:
         """Test returns None when adb pull fails."""
         locker = create_locker(mock_tk, tmp_path)
-        locker._adb_shell = MagicMock(  # type: ignore[method-assign]
-            return_value=(True, ""),
+        object.__setattr__(
+            locker,
+            "_adb_shell",
+            MagicMock(
+                return_value=(True, ""),
+            ),
         )
-        locker._run_adb = MagicMock(  # type: ignore[method-assign]
-            return_value=(False, ""),
+        object.__setattr__(
+            locker,
+            "_run_adb",
+            MagicMock(
+                return_value=(False, ""),
+            ),
         )
 
         assert locker._pull_stronglifts_db() is None
@@ -287,11 +343,19 @@ class TestFindHealthConnectDb:
     ) -> None:
         """Test uses the correct StrongLifts DB remote path."""
         locker = create_locker(mock_tk, tmp_path)
-        locker._adb_shell = MagicMock(  # type: ignore[method-assign]
-            return_value=(True, ""),
+        object.__setattr__(
+            locker,
+            "_adb_shell",
+            MagicMock(
+                return_value=(True, ""),
+            ),
         )
-        locker._run_adb = MagicMock(  # type: ignore[method-assign]
-            return_value=(True, ""),
+        object.__setattr__(
+            locker,
+            "_run_adb",
+            MagicMock(
+                return_value=(True, ""),
+            ),
         )
 
         locker._pull_stronglifts_db()

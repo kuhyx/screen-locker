@@ -31,7 +31,7 @@ class TestVerifyRunningData:
         setup_running_entries(locker, RunningData("5", "25", "5"))
         locker.log_file = tmp_path / "workout_log.json"
         locker.workout_data = {"type": "running"}
-        locker._attempt_unlock = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "_attempt_unlock", MagicMock())
 
         locker.verify_running_data()
 
@@ -46,7 +46,7 @@ class TestVerifyRunningData:
         """Test zero distance is rejected."""
         locker = create_locker(mock_tk, tmp_path)
         setup_running_entries(locker, RunningData("0", "25", "5"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "show_error", MagicMock())
 
         locker.verify_running_data()
 
@@ -62,7 +62,7 @@ class TestVerifyRunningData:
         """Test distance over max is rejected."""
         locker = create_locker(mock_tk, tmp_path)
         setup_running_entries(locker, RunningData("150", "600", "4"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "show_error", MagicMock())
 
         locker.verify_running_data()
 
@@ -78,7 +78,7 @@ class TestVerifyRunningData:
         """Test zero time is rejected."""
         locker = create_locker(mock_tk, tmp_path)
         setup_running_entries(locker, RunningData("5", "0", "5"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "show_error", MagicMock())
 
         locker.verify_running_data()
 
@@ -94,7 +94,7 @@ class TestVerifyRunningData:
         """Test time over max is rejected."""
         locker = create_locker(mock_tk, tmp_path)
         setup_running_entries(locker, RunningData("5", "700", "5"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "show_error", MagicMock())
 
         locker.verify_running_data()
 
@@ -110,7 +110,7 @@ class TestVerifyRunningData:
         """Test zero pace is rejected."""
         locker = create_locker(mock_tk, tmp_path)
         setup_running_entries(locker, RunningData("5", "25", "0"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "show_error", MagicMock())
 
         locker.verify_running_data()
 
@@ -126,7 +126,7 @@ class TestVerifyRunningData:
         """Test pace over max is rejected."""
         locker = create_locker(mock_tk, tmp_path)
         setup_running_entries(locker, RunningData("5", "25", "25"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "show_error", MagicMock())
 
         locker.verify_running_data()
 
@@ -143,7 +143,7 @@ class TestVerifyRunningData:
         # 5km in 25 min should be 5 min/km, but we say 10 min/km
         locker = create_locker(mock_tk, tmp_path)
         setup_running_entries(locker, RunningData("5", "25", "10"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "show_error", MagicMock())
 
         locker.verify_running_data()
 
@@ -159,7 +159,7 @@ class TestVerifyRunningData:
         """Test non-numeric input is rejected."""
         locker = create_locker(mock_tk, tmp_path)
         setup_running_entries(locker, RunningData("abc", "25", "5"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "show_error", MagicMock())
 
         locker.verify_running_data()
 
@@ -181,7 +181,7 @@ class TestVerifyStrengthData:
         setup_strength_entries(locker, StrengthData("Squat", "3", "10", "50", "1500"))
         locker.log_file = tmp_path / "workout_log.json"
         locker.workout_data = {"type": "strength"}
-        locker._attempt_unlock = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "_attempt_unlock", MagicMock())
 
         locker.verify_strength_data()
 
@@ -201,7 +201,7 @@ class TestVerifyStrengthData:
         )
         locker.log_file = tmp_path / "workout_log.json"
         locker.workout_data = {"type": "strength"}
-        locker._attempt_unlock = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "_attempt_unlock", MagicMock())
 
         locker.verify_strength_data()
 
@@ -219,7 +219,7 @@ class TestVerifyStrengthData:
             locker,
             StrengthData("Squat, Bench", "3", "10, 8", "50, 40", "2000"),
         )
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "show_error", MagicMock())
 
         locker.verify_strength_data()
 
@@ -235,7 +235,7 @@ class TestVerifyStrengthData:
         """Test short exercise names are rejected."""
         locker = create_locker(mock_tk, tmp_path)
         setup_strength_entries(locker, StrengthData("Sq", "3", "10", "50", "1500"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "show_error", MagicMock())
 
         locker.verify_strength_data()
 
@@ -251,7 +251,7 @@ class TestVerifyStrengthData:
         """Test zero sets is rejected."""
         locker = create_locker(mock_tk, tmp_path)
         setup_strength_entries(locker, StrengthData("Squat", "0", "10", "50", "0"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "show_error", MagicMock())
 
         locker.verify_strength_data()
 
@@ -267,7 +267,7 @@ class TestVerifyStrengthData:
         """Test sets over max is rejected."""
         locker = create_locker(mock_tk, tmp_path)
         setup_strength_entries(locker, StrengthData("Squat", "25", "10", "50", "12500"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "show_error", MagicMock())
 
         locker.verify_strength_data()
 
@@ -283,7 +283,7 @@ class TestVerifyStrengthData:
         """Test zero reps is rejected."""
         locker = create_locker(mock_tk, tmp_path)
         setup_strength_entries(locker, StrengthData("Squat", "3", "0", "50", "0"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "show_error", MagicMock())
 
         locker.verify_strength_data()
 
@@ -299,7 +299,7 @@ class TestVerifyStrengthData:
         """Test reps over max is rejected."""
         locker = create_locker(mock_tk, tmp_path)
         setup_strength_entries(locker, StrengthData("Squat", "3", "150", "50", "22500"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "show_error", MagicMock())
 
         locker.verify_strength_data()
 
@@ -315,7 +315,7 @@ class TestVerifyStrengthData:
         """Test negative weight is rejected."""
         locker = create_locker(mock_tk, tmp_path)
         setup_strength_entries(locker, StrengthData("Squat", "3", "10", "-10", "-300"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "show_error", MagicMock())
 
         locker.verify_strength_data()
 
@@ -331,7 +331,7 @@ class TestVerifyStrengthData:
         """Test weight over max is rejected."""
         locker = create_locker(mock_tk, tmp_path)
         setup_strength_entries(locker, StrengthData("Squat", "3", "10", "600", "18000"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "show_error", MagicMock())
 
         locker.verify_strength_data()
 
@@ -347,7 +347,7 @@ class TestVerifyStrengthData:
         """Test total weight mismatch is rejected."""
         locker = create_locker(mock_tk, tmp_path)
         setup_strength_entries(locker, StrengthData("Squat", "3", "10", "50", "3000"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "show_error", MagicMock())
 
         locker.verify_strength_data()
 
@@ -363,7 +363,7 @@ class TestVerifyStrengthData:
         """Test invalid format is rejected."""
         locker = create_locker(mock_tk, tmp_path)
         setup_strength_entries(locker, StrengthData("Squat", "abc", "10", "50", "1500"))
-        locker.show_error = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "show_error", MagicMock())
 
         locker.verify_strength_data()
 

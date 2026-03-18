@@ -33,7 +33,7 @@ class TestUITransitions:
         # Set up mock children
         mock_child1 = MagicMock()
         mock_child2 = MagicMock()
-        locker.container.winfo_children.return_value = [  # type: ignore[attr-defined]
+        locker.container.winfo_children.return_value = [
             mock_child1,
             mock_child2,
         ]
@@ -57,7 +57,7 @@ class TestUITransitions:
         locker.unlock_screen()
 
         # Check that after() was called to schedule close
-        locker.root.after.assert_called()  # type: ignore[attr-defined]
+        locker.root.after.assert_called()
 
     def test_lockout_starts_countdown(
         self,
@@ -85,7 +85,7 @@ class TestUITransitions:
 
         locker.close()
 
-        locker.root.destroy.assert_called_once()  # type: ignore[attr-defined]
+        locker.root.destroy.assert_called_once()
         mock_sys_exit.assert_called_with(0)
 
 
@@ -106,9 +106,7 @@ class TestTimerLogic:
         locker.update_lockout_countdown()
 
         assert locker.remaining_time == 4
-        locker.root.after.assert_called_with(  # type: ignore[attr-defined]
-            1000, locker.update_lockout_countdown
-        )
+        locker.root.after.assert_called_with(1000, locker.update_lockout_countdown)
 
     def test_update_lockout_countdown_at_zero(
         self,
@@ -120,7 +118,7 @@ class TestTimerLogic:
         locker = create_locker(mock_tk, tmp_path)
         locker.remaining_time = 0
         locker.countdown_label = MagicMock()
-        locker.ask_workout_done = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "ask_workout_done", MagicMock())
 
         locker.update_lockout_countdown()
 
@@ -142,7 +140,7 @@ class TestTimerLogic:
         locker.update_submit_timer()
 
         assert locker.submit_unlock_time == 4
-        locker.root.after.assert_called()  # type: ignore[attr-defined]
+        locker.root.after.assert_called()
 
     def test_update_submit_timer_enables_when_filled(
         self,
@@ -181,9 +179,7 @@ class TestTimerLogic:
 
         locker.update_submit_timer()
 
-        locker.root.after.assert_called_with(  # type: ignore[attr-defined]
-            1000, locker.check_entries_filled
-        )
+        locker.root.after.assert_called_with(1000, locker.check_entries_filled)
 
     def test_update_submit_timer_handles_tcl_error(
         self,
@@ -235,9 +231,7 @@ class TestTimerLogic:
 
         locker.check_entries_filled()
 
-        locker.root.after.assert_called_with(  # type: ignore[attr-defined]
-            1000, locker.check_entries_filled
-        )
+        locker.root.after.assert_called_with(1000, locker.check_entries_filled)
 
     def test_check_entries_filled_handles_tcl_error(
         self,
@@ -267,7 +261,7 @@ class TestAskWorkoutType:
     ) -> None:
         """Test ask_workout_type creates running and strength buttons."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.clear_container = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "clear_container", MagicMock())
 
         locker.ask_workout_type()
 
@@ -288,8 +282,8 @@ class TestAskRunningDetails:
     ) -> None:
         """Test ask_running_details sets workout type to running."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.clear_container = MagicMock()  # type: ignore[method-assign]
-        locker.update_submit_timer = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "clear_container", MagicMock())
+        object.__setattr__(locker, "update_submit_timer", MagicMock())
 
         locker.ask_running_details()
 
@@ -304,8 +298,8 @@ class TestAskRunningDetails:
     ) -> None:
         """Test ask_running_details creates entry fields."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.clear_container = MagicMock()  # type: ignore[method-assign]
-        locker.update_submit_timer = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "clear_container", MagicMock())
+        object.__setattr__(locker, "update_submit_timer", MagicMock())
 
         locker.ask_running_details()
 
@@ -323,8 +317,8 @@ class TestAskRunningDetails:
     ) -> None:
         """Test ask_running_details initializes submit timer."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.clear_container = MagicMock()  # type: ignore[method-assign]
-        locker.update_submit_timer = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "clear_container", MagicMock())
+        object.__setattr__(locker, "update_submit_timer", MagicMock())
 
         locker.ask_running_details()
 
@@ -343,8 +337,8 @@ class TestAskStrengthDetails:
     ) -> None:
         """Test ask_strength_details sets workout type to strength."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.clear_container = MagicMock()  # type: ignore[method-assign]
-        locker.update_submit_timer = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "clear_container", MagicMock())
+        object.__setattr__(locker, "update_submit_timer", MagicMock())
 
         locker.ask_strength_details()
 
@@ -359,8 +353,8 @@ class TestAskStrengthDetails:
     ) -> None:
         """Test ask_strength_details creates entry fields."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.clear_container = MagicMock()  # type: ignore[method-assign]
-        locker.update_submit_timer = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "clear_container", MagicMock())
+        object.__setattr__(locker, "update_submit_timer", MagicMock())
 
         locker.ask_strength_details()
 
@@ -380,8 +374,8 @@ class TestAskStrengthDetails:
     ) -> None:
         """Test ask_strength_details initializes submit timer."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.clear_container = MagicMock()  # type: ignore[method-assign]
-        locker.update_submit_timer = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "clear_container", MagicMock())
+        object.__setattr__(locker, "update_submit_timer", MagicMock())
 
         locker.ask_strength_details()
 
@@ -396,8 +390,8 @@ class TestAskStrengthDetails:
     ) -> None:
         """Test production mode uses longer submit delay."""
         locker = create_locker(mock_tk, tmp_path, demo_mode=False)
-        locker.clear_container = MagicMock()  # type: ignore[method-assign]
-        locker.update_submit_timer = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "clear_container", MagicMock())
+        object.__setattr__(locker, "update_submit_timer", MagicMock())
 
         locker.ask_strength_details()
 
@@ -415,7 +409,7 @@ class TestAskWorkoutDone:
     ) -> None:
         """Test ask_workout_done creates yes/no buttons."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.clear_container = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "clear_container", MagicMock())
 
         locker.ask_workout_done()
 

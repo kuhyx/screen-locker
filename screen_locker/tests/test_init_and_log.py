@@ -263,7 +263,7 @@ class TestShowError:
     ) -> None:
         """Test show_error clears container and displays error."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.clear_container = MagicMock()  # type: ignore[method-assign]
+        object.__setattr__(locker, "clear_container", MagicMock())
 
         locker.show_error("Test error message")
 
@@ -284,7 +284,7 @@ class TestRun:
 
         locker.run()
 
-        locker.root.mainloop.assert_called_once()  # type: ignore[attr-defined]
+        locker.root.mainloop.assert_called_once()
 
 
 class TestMainEntry:
@@ -324,11 +324,11 @@ class TestAdjustShutdownTimeLater:
     ) -> None:
         """Test _adjust_shutdown_time_later adds hours successfully."""
         locker = create_locker(mock_tk, tmp_path)
-        locker._read_shutdown_config = MagicMock(  # type: ignore[method-assign]
-            return_value=(21, 22, 8)
+        object.__setattr__(
+            locker, "_read_shutdown_config", MagicMock(return_value=(21, 22, 8))
         )
-        locker._write_shutdown_config = MagicMock(  # type: ignore[method-assign]
-            return_value=True
+        object.__setattr__(
+            locker, "_write_shutdown_config", MagicMock(return_value=True)
         )
 
         result = locker._adjust_shutdown_time_later()
@@ -344,11 +344,11 @@ class TestAdjustShutdownTimeLater:
     ) -> None:
         """Test _adjust_shutdown_time_later caps hours at 23."""
         locker = create_locker(mock_tk, tmp_path)
-        locker._read_shutdown_config = MagicMock(  # type: ignore[method-assign]
-            return_value=(22, 23, 8)
+        object.__setattr__(
+            locker, "_read_shutdown_config", MagicMock(return_value=(22, 23, 8))
         )
-        locker._write_shutdown_config = MagicMock(  # type: ignore[method-assign]
-            return_value=True
+        object.__setattr__(
+            locker, "_write_shutdown_config", MagicMock(return_value=True)
         )
 
         result = locker._adjust_shutdown_time_later()
@@ -365,8 +365,8 @@ class TestAdjustShutdownTimeLater:
     ) -> None:
         """Test _adjust_shutdown_time_later returns False if config missing."""
         locker = create_locker(mock_tk, tmp_path)
-        locker._read_shutdown_config = MagicMock(  # type: ignore[method-assign]
-            return_value=None
+        object.__setattr__(
+            locker, "_read_shutdown_config", MagicMock(return_value=None)
         )
 
         result = locker._adjust_shutdown_time_later()
@@ -381,8 +381,10 @@ class TestAdjustShutdownTimeLater:
     ) -> None:
         """Test _adjust_shutdown_time_later handles OSError."""
         locker = create_locker(mock_tk, tmp_path)
-        locker._read_shutdown_config = MagicMock(  # type: ignore[method-assign]
-            side_effect=OSError("permission denied")
+        object.__setattr__(
+            locker,
+            "_read_shutdown_config",
+            MagicMock(side_effect=OSError("permission denied")),
         )
 
         result = locker._adjust_shutdown_time_later()
