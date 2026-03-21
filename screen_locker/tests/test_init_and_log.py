@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import tkinter as tk
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
@@ -390,3 +391,15 @@ class TestAdjustShutdownTimeLater:
         result = locker._adjust_shutdown_time_later()
 
         assert result is False
+
+
+class TestGrabInput:
+    """Tests for _grab_input method."""
+
+    def test_production_global_grab_tcl_error(
+        self, mock_tk: MagicMock, _mock_sys_exit: MagicMock, tmp_path: Path
+    ) -> None:
+        """Test production mode falls back when global grab fails."""
+        mock_tk.Tk.return_value.grab_set_global.side_effect = tk.TclError("grab failed")
+        locker = create_locker(mock_tk, tmp_path, demo_mode=False)
+        assert locker.demo_mode is False

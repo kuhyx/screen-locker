@@ -369,3 +369,37 @@ class TestVerifyStrengthData:
 
         locker.show_error.assert_called_once()
         assert "valid data" in locker.show_error.call_args[0][0]
+
+
+class TestVariableReps:
+    """Tests for variable reps format in strength verification."""
+
+    def test_valid_variable_reps(
+        self, mock_tk: MagicMock, _mock_sys_exit: MagicMock, tmp_path: Path
+    ) -> None:
+        """Test valid variable reps with + separator."""
+        locker = create_locker(mock_tk, tmp_path)
+        # 3 sets, reps 12+11+12 (3 variable values matching 3 sets), weight 50
+        # Total = (12+11+12) * 50 = 1750
+        setup_strength_entries(
+            locker, StrengthData("Squat", "3", "12+11+12", "50", "1750")
+        )
+        locker.log_file = tmp_path / "workout_log.json"
+        locker.workout_data = {"type": "strength"}
+        object.__setattr__(locker, "_attempt_unlock", MagicMock())
+        locker.verify_strength_data()
+        locker._attempt_unlock.assert_called_once()
+
+    def test_variable_reps_count_mismatch(
+        self, mock_tk: MagicMock, _mock_sys_exit: MagicMock, tmp_path: Path
+    ) -> None:
+        """Test variable reps count not matching sets."""
+        locker = create_locker(mock_tk, tmp_path)
+        # 5 sets but only 3 variable reps
+        setup_strength_entries(
+            locker, StrengthData("Squat", "5", "12+11+12", "50", "1750")
+        )
+        object.__setattr__(locker, "show_error", MagicMock())
+        locker.verify_strength_data()
+        locker.show_error.assert_called_once()
+        assert "variable reps count" in locker.show_error.call_args[0][0]
