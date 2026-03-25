@@ -17,7 +17,7 @@ class TestUpdateSickCountdownAtZero:
     def test_records_sick_day_and_unlocks_at_zero(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test countdown at zero records sick day and calls unlock."""

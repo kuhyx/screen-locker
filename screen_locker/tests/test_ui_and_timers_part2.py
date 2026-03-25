@@ -18,7 +18,7 @@ class TestHandleSickDay:
     """Tests for handle_sick_day method."""
 
     def test_sets_up_countdown(
-        self, mock_tk: MagicMock, _mock_sys_exit: MagicMock, tmp_path: Path
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
         """Test handle_sick_day initializes sick day flow."""
         locker = create_locker(mock_tk, tmp_path)
@@ -38,7 +38,7 @@ class TestShowSickDayUi:
     """Tests for _show_sick_day_ui method."""
 
     def test_displays_ui(
-        self, mock_tk: MagicMock, _mock_sys_exit: MagicMock, tmp_path: Path
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
         """Test _show_sick_day_ui displays labels."""
         locker = create_locker(mock_tk, tmp_path)

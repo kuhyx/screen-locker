@@ -21,7 +21,7 @@ class TestRunAdb:
     def test_run_adb_success(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test successful ADB command."""
@@ -40,7 +40,7 @@ class TestRunAdb:
     def test_run_adb_failure(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test failed ADB command."""
@@ -57,7 +57,7 @@ class TestRunAdb:
     def test_run_adb_not_found(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ADB binary not found."""
@@ -74,7 +74,7 @@ class TestRunAdb:
     def test_run_adb_oserror(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ADB OSError."""
@@ -91,7 +91,7 @@ class TestRunAdb:
     def test_run_adb_timeout(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ADB command timeout."""
@@ -112,7 +112,7 @@ class TestAdbShell:
     def test_adb_shell_no_root(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ADB shell without root."""
@@ -134,7 +134,7 @@ class TestAdbShell:
     def test_adb_shell_with_root(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ADB shell with root."""
@@ -161,7 +161,7 @@ class TestIsPhoneConnected:
     def test_phone_connected(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test phone detected as connected."""
@@ -182,7 +182,7 @@ class TestIsPhoneConnected:
     def test_phone_not_connected(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test no phone connected."""
@@ -207,7 +207,7 @@ class TestIsPhoneConnected:
     def test_phone_offline(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test phone connected but offline."""
@@ -235,7 +235,7 @@ class TestIsPhoneConnected:
     def test_adb_command_fails(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ADB command failure."""
@@ -264,7 +264,7 @@ class TestFindHealthConnectDb:
     def test_db_pulled_successfully(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test StrongLifts DB pulled from device."""
@@ -295,7 +295,7 @@ class TestFindHealthConnectDb:
     def test_db_cat_fails(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns None when cat command fails."""
@@ -313,7 +313,7 @@ class TestFindHealthConnectDb:
     def test_db_pull_fails(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns None when adb pull fails."""
@@ -338,7 +338,7 @@ class TestFindHealthConnectDb:
     def test_db_uses_correct_remote_path(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test uses the correct StrongLifts DB remote path."""
@@ -370,7 +370,7 @@ class TestCountTodayWorkouts:
     def test_workouts_found_today(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test workouts found today."""
@@ -395,7 +395,7 @@ class TestCountTodayWorkouts:
     def test_no_workouts_today(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test no workouts today."""
@@ -420,7 +420,7 @@ class TestCountTodayWorkouts:
     def test_invalid_db_returns_zero(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns 0 for invalid database file."""
@@ -433,7 +433,7 @@ class TestCountTodayWorkouts:
     def test_missing_table_returns_zero(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns 0 when workouts table doesn't exist."""
@@ -449,7 +449,7 @@ class TestCountTodayWorkouts:
     def test_multiple_workouts_today(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test counts multiple workouts today correctly."""

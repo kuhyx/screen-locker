@@ -20,7 +20,7 @@ class TestRestoreOriginalConfigIfNeeded:
     def test_no_state_file_does_nothing(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test does nothing when no state file exists."""
@@ -36,7 +36,7 @@ class TestRestoreOriginalConfigIfNeeded:
     def test_restores_when_state_from_previous_day(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test restores config when state date differs from today."""
@@ -64,7 +64,7 @@ class TestRestoreOriginalConfigIfNeeded:
     def test_does_not_restore_when_state_from_today(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test does not restore when state date matches today."""
@@ -95,7 +95,7 @@ class TestRestoreOriginalConfigIfNeeded:
     def test_returns_when_loaded_state_is_none(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns early when loaded state is None."""
@@ -115,7 +115,7 @@ class TestRestoreOriginalConfigIfNeeded:
     def test_handles_oserror(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test handles OSError when loading state."""
@@ -132,7 +132,7 @@ class TestRestoreOriginalConfigIfNeeded:
     def test_handles_json_decode_error(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test handles JSONDecodeError when loading state."""
@@ -152,7 +152,7 @@ class TestReadShutdownConfig:
     def test_returns_none_when_file_missing(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns None when config file doesn't exist."""
@@ -168,7 +168,7 @@ class TestReadShutdownConfig:
     def test_reads_valid_config(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test reads all three config values from file."""
@@ -185,7 +185,7 @@ class TestReadShutdownConfig:
     def test_returns_none_when_values_missing(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns None when config has missing keys."""
@@ -206,7 +206,7 @@ class TestBuildShutdownCmd:
     def test_without_restore(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test command without restore flag."""
@@ -223,7 +223,7 @@ class TestBuildShutdownCmd:
     def test_with_restore(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test command with restore flag."""
@@ -245,7 +245,7 @@ class TestWriteShutdownConfig:
     def test_returns_false_when_script_missing(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns False when adjust script doesn't exist."""
@@ -262,7 +262,7 @@ class TestWriteShutdownConfig:
     def test_success_calls_run_shutdown_cmd(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test successful config write delegates to _run_shutdown_cmd."""
@@ -287,7 +287,7 @@ class TestRunShutdownCmd:
     def test_success(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test successful command execution."""
@@ -303,7 +303,7 @@ class TestRunShutdownCmd:
     def test_returns_false_on_subprocess_error(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns False on SubprocessError."""

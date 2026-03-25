@@ -21,7 +21,7 @@ class TestVerifyPhoneWorkout:
     def test_verified(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test workout verified on phone."""
@@ -56,7 +56,7 @@ class TestVerifyPhoneWorkout:
     def test_not_verified(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test no workout found on phone."""
@@ -91,7 +91,7 @@ class TestVerifyPhoneWorkout:
     def test_no_phone(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test no phone connected."""
@@ -111,7 +111,7 @@ class TestVerifyPhoneWorkout:
     def test_error_no_db(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test error when StrongLifts DB cannot be pulled."""
@@ -143,7 +143,7 @@ class TestStartPhoneCheck:
     def test_start_phone_check_shows_checking_screen(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test _start_phone_check shows checking message and starts check."""
@@ -167,7 +167,7 @@ class TestStartPhoneCheck:
     def test_handle_startup_verified_unlocks_directly(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test verified result shows success screen then unlocks via after()."""
@@ -185,7 +185,7 @@ class TestStartPhoneCheck:
     def test_handle_startup_not_verified_shows_block(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test not_verified result shows blocking screen with buttons."""
@@ -200,7 +200,7 @@ class TestStartPhoneCheck:
     def test_handle_startup_no_phone_shows_penalty(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test no_phone result triggers penalty with ask_workout_done as callback."""
@@ -216,7 +216,7 @@ class TestStartPhoneCheck:
     def test_handle_startup_error_shows_penalty(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test error result triggers penalty with ask_workout_done as callback."""
@@ -232,7 +232,7 @@ class TestStartPhoneCheck:
     def test_poll_phone_check_schedules_retry_when_pending(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test _poll_phone_check reschedules itself when future is not done."""
@@ -249,7 +249,7 @@ class TestStartPhoneCheck:
     def test_poll_phone_check_routes_when_done(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test _poll_phone_check calls result handler when future is done."""
@@ -273,7 +273,7 @@ class TestAttemptUnlock:
     def test_attempt_unlock_calls_unlock_screen(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test _attempt_unlock calls unlock_screen directly."""
@@ -293,7 +293,7 @@ class TestShowPhonePenalty:
     def test_show_phone_penalty_demo_delay(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test demo mode uses short penalty delay."""
@@ -308,7 +308,7 @@ class TestShowPhonePenalty:
     def test_show_phone_penalty_production_delay(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test production mode uses long penalty delay."""
@@ -322,7 +322,7 @@ class TestShowPhonePenalty:
     def test_update_phone_penalty_countdown(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test phone penalty countdown decrements."""
@@ -339,7 +339,7 @@ class TestShowPhonePenalty:
     def test_update_phone_penalty_at_zero(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test phone penalty unlocks when timer reaches zero."""
@@ -362,7 +362,7 @@ class TestUnlockScreenShutdownAdjustment:
     def test_unlock_screen_adjusts_for_running(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test unlock_screen adjusts shutdown for running workout."""
@@ -380,7 +380,7 @@ class TestUnlockScreenShutdownAdjustment:
     def test_unlock_screen_adjusts_for_strength(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test unlock_screen adjusts shutdown for strength workout."""
@@ -398,7 +398,7 @@ class TestUnlockScreenShutdownAdjustment:
     def test_unlock_screen_adjusts_for_phone_verified(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test unlock_screen adjusts shutdown for phone-verified workout."""
@@ -416,7 +416,7 @@ class TestUnlockScreenShutdownAdjustment:
     def test_unlock_screen_skips_adjustment_for_sick_day(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test unlock_screen does not adjust for sick day."""
@@ -434,7 +434,7 @@ class TestUnlockScreenShutdownAdjustment:
     def test_unlock_screen_skips_adjustment_no_type(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test unlock_screen does not adjust when no workout type."""
@@ -452,7 +452,7 @@ class TestUnlockScreenShutdownAdjustment:
     def test_unlock_screen_handles_adjustment_failure(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test unlock_screen continues when adjustment fails."""

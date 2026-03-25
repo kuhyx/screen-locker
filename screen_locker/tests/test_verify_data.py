@@ -23,7 +23,7 @@ class TestVerifyRunningData:
     def test_valid_running_data(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test valid running data triggers unlock attempt."""
@@ -40,7 +40,7 @@ class TestVerifyRunningData:
     def test_invalid_distance_zero(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test zero distance is rejected."""
@@ -56,7 +56,7 @@ class TestVerifyRunningData:
     def test_invalid_distance_too_high(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test distance over max is rejected."""
@@ -72,7 +72,7 @@ class TestVerifyRunningData:
     def test_invalid_time_zero(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test zero time is rejected."""
@@ -88,7 +88,7 @@ class TestVerifyRunningData:
     def test_invalid_time_too_high(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test time over max is rejected."""
@@ -104,7 +104,7 @@ class TestVerifyRunningData:
     def test_invalid_pace_zero(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test zero pace is rejected."""
@@ -120,7 +120,7 @@ class TestVerifyRunningData:
     def test_invalid_pace_too_high(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test pace over max is rejected."""
@@ -136,7 +136,7 @@ class TestVerifyRunningData:
     def test_pace_mismatch(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test pace mismatch is rejected."""
@@ -153,7 +153,7 @@ class TestVerifyRunningData:
     def test_invalid_number_format(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test non-numeric input is rejected."""
@@ -173,7 +173,7 @@ class TestVerifyStrengthData:
     def test_valid_strength_data(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test valid strength data triggers unlock attempt."""
@@ -190,7 +190,7 @@ class TestVerifyStrengthData:
     def test_valid_multiple_exercises(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test valid data with multiple exercises."""
@@ -210,7 +210,7 @@ class TestVerifyStrengthData:
     def test_mismatched_list_lengths(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test mismatched list lengths are rejected."""
@@ -229,7 +229,7 @@ class TestVerifyStrengthData:
     def test_short_exercise_name(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test short exercise names are rejected."""
@@ -245,7 +245,7 @@ class TestVerifyStrengthData:
     def test_invalid_sets_zero(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test zero sets is rejected."""
@@ -261,7 +261,7 @@ class TestVerifyStrengthData:
     def test_invalid_sets_too_high(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test sets over max is rejected."""
@@ -277,7 +277,7 @@ class TestVerifyStrengthData:
     def test_invalid_reps_zero(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test zero reps is rejected."""
@@ -293,7 +293,7 @@ class TestVerifyStrengthData:
     def test_invalid_reps_too_high(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test reps over max is rejected."""
@@ -309,7 +309,7 @@ class TestVerifyStrengthData:
     def test_invalid_weight_negative(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test negative weight is rejected."""
@@ -325,7 +325,7 @@ class TestVerifyStrengthData:
     def test_invalid_weight_too_high(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test weight over max is rejected."""
@@ -341,7 +341,7 @@ class TestVerifyStrengthData:
     def test_total_weight_mismatch(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test total weight mismatch is rejected."""
@@ -357,7 +357,7 @@ class TestVerifyStrengthData:
     def test_invalid_format(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test invalid format is rejected."""
@@ -375,7 +375,7 @@ class TestVariableReps:
     """Tests for variable reps format in strength verification."""
 
     def test_valid_variable_reps(
-        self, mock_tk: MagicMock, _mock_sys_exit: MagicMock, tmp_path: Path
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
         """Test valid variable reps with + separator."""
         locker = create_locker(mock_tk, tmp_path)
@@ -391,7 +391,7 @@ class TestVariableReps:
         locker._attempt_unlock.assert_called_once()
 
     def test_variable_reps_count_mismatch(
-        self, mock_tk: MagicMock, _mock_sys_exit: MagicMock, tmp_path: Path
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
         """Test variable reps count not matching sets."""
         locker = create_locker(mock_tk, tmp_path)

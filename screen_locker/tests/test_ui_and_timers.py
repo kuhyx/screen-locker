@@ -24,7 +24,7 @@ class TestUITransitions:
     def test_clear_container(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test clear_container destroys all child widgets."""
@@ -46,7 +46,7 @@ class TestUITransitions:
     def test_unlock_screen_saves_and_schedules_close(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test unlock_screen saves log and schedules close."""
@@ -62,7 +62,7 @@ class TestUITransitions:
     def test_lockout_starts_countdown(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test lockout initializes countdown timer."""
@@ -95,7 +95,7 @@ class TestTimerLogic:
     def test_update_lockout_countdown_decrements(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test countdown decrements remaining time."""
@@ -111,7 +111,7 @@ class TestTimerLogic:
     def test_update_lockout_countdown_at_zero(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test countdown at zero returns to workout question."""
@@ -127,7 +127,7 @@ class TestTimerLogic:
     def test_update_submit_timer_countdown(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test submit timer counts down."""
@@ -145,7 +145,7 @@ class TestTimerLogic:
     def test_update_submit_timer_enables_when_filled(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test submit enabled when timer done and entries filled."""
@@ -165,7 +165,7 @@ class TestTimerLogic:
     def test_update_submit_timer_waits_for_entries(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test submit waits when entries not filled."""
@@ -184,7 +184,7 @@ class TestTimerLogic:
     def test_update_submit_timer_handles_tcl_error(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test timer handles TclError when widgets destroyed."""
@@ -199,7 +199,7 @@ class TestTimerLogic:
     def test_check_entries_filled_enables_submit(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test check_entries_filled enables submit when all filled."""
@@ -218,7 +218,7 @@ class TestTimerLogic:
     def test_check_entries_filled_continues_waiting(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test check_entries_filled continues waiting when not filled."""
@@ -236,7 +236,7 @@ class TestTimerLogic:
     def test_check_entries_filled_handles_tcl_error(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test check_entries_filled handles TclError."""
@@ -256,7 +256,7 @@ class TestAskWorkoutType:
     def test_ask_workout_type_creates_buttons(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ask_workout_type creates running and strength buttons."""
@@ -277,7 +277,7 @@ class TestAskRunningDetails:
     def test_ask_running_details_sets_workout_type(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ask_running_details sets workout type to running."""
@@ -293,7 +293,7 @@ class TestAskRunningDetails:
     def test_ask_running_details_creates_entry_fields(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ask_running_details creates entry fields."""
@@ -312,7 +312,7 @@ class TestAskRunningDetails:
     def test_ask_running_details_sets_timer(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ask_running_details initializes submit timer."""
@@ -332,7 +332,7 @@ class TestAskStrengthDetails:
     def test_ask_strength_details_sets_workout_type(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ask_strength_details sets workout type to strength."""
@@ -348,7 +348,7 @@ class TestAskStrengthDetails:
     def test_ask_strength_details_creates_entry_fields(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ask_strength_details creates entry fields."""
@@ -369,7 +369,7 @@ class TestAskStrengthDetails:
     def test_ask_strength_details_sets_timer(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ask_strength_details initializes submit timer."""
@@ -385,7 +385,7 @@ class TestAskStrengthDetails:
     def test_ask_strength_details_production_timer(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test production mode uses longer submit delay."""
@@ -404,7 +404,7 @@ class TestAskWorkoutDone:
     def test_ask_workout_done_creates_buttons(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test ask_workout_done creates yes/no buttons."""
@@ -422,7 +422,7 @@ class TestAskIfSick:
     """Tests for ask_if_sick method."""
 
     def test_ask_if_sick_displays_dialog(
-        self, mock_tk: MagicMock, _mock_sys_exit: MagicMock, tmp_path: Path
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
         """Test ask_if_sick shows sick day question."""
         locker = create_locker(mock_tk, tmp_path)
@@ -436,7 +436,7 @@ class TestSickQuestionButtons:
     """Tests for _sick_question_buttons method."""
 
     def test_creates_buttons(
-        self, mock_tk: MagicMock, _mock_sys_exit: MagicMock, tmp_path: Path
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
         """Test _sick_question_buttons creates yes/no buttons."""
         locker = create_locker(mock_tk, tmp_path)
@@ -448,7 +448,7 @@ class TestGetSickDayStatus:
     """Tests for _get_sick_day_status method."""
 
     def test_already_adjusted_today(
-        self, mock_tk: MagicMock, _mock_sys_exit: MagicMock, tmp_path: Path
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
         """Test status when sick mode already used today."""
         locker = create_locker(mock_tk, tmp_path)
@@ -460,7 +460,7 @@ class TestGetSickDayStatus:
         assert color == "#ffaa00"
 
     def test_adjustment_success(
-        self, mock_tk: MagicMock, _mock_sys_exit: MagicMock, tmp_path: Path
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
         """Test status when shutdown time adjusted successfully."""
         locker = create_locker(mock_tk, tmp_path)
@@ -475,7 +475,7 @@ class TestGetSickDayStatus:
         assert color == "#00aa00"
 
     def test_adjustment_failure(
-        self, mock_tk: MagicMock, _mock_sys_exit: MagicMock, tmp_path: Path
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
         """Test status when adjustment fails."""
         locker = create_locker(mock_tk, tmp_path)

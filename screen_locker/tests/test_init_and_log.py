@@ -105,7 +105,7 @@ class TestHasLoggedToday:
     def test_no_log_file(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test when log file doesn't exist."""
@@ -118,7 +118,7 @@ class TestHasLoggedToday:
     def test_empty_log_file(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test when log file is empty/invalid JSON."""
@@ -132,7 +132,7 @@ class TestHasLoggedToday:
     def test_invalid_json(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test when log file contains invalid JSON."""
@@ -146,7 +146,7 @@ class TestHasLoggedToday:
     def test_today_logged(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test when today's workout is logged."""
@@ -161,7 +161,7 @@ class TestHasLoggedToday:
     def test_other_day_logged(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test when only other days are logged."""
@@ -179,7 +179,7 @@ class TestSaveWorkoutLog:
     def test_save_to_new_file(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test saving to a new log file."""
@@ -199,7 +199,7 @@ class TestSaveWorkoutLog:
     def test_save_to_existing_file(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test saving appends to existing log file."""
@@ -220,7 +220,7 @@ class TestSaveWorkoutLog:
     def test_save_with_corrupted_existing_file(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test saving when existing file is corrupted."""
@@ -240,7 +240,7 @@ class TestSaveWorkoutLog:
     def test_save_with_write_error(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test saving handles write errors gracefully."""
@@ -259,7 +259,7 @@ class TestShowError:
     def test_show_error_displays_message(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test show_error clears container and displays error."""
@@ -277,7 +277,7 @@ class TestRun:
     def test_run_starts_mainloop(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test run starts the tkinter mainloop."""
@@ -294,7 +294,7 @@ class TestMainEntry:
     def test_main_demo_mode_default(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test main defaults to demo mode."""
@@ -305,7 +305,7 @@ class TestMainEntry:
     def test_main_production_mode_flag(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test main with --production flag."""
@@ -320,7 +320,7 @@ class TestAdjustShutdownTimeLater:
     def test_adjust_shutdown_time_later_success(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test _adjust_shutdown_time_later adds hours successfully."""
@@ -340,7 +340,7 @@ class TestAdjustShutdownTimeLater:
     def test_adjust_shutdown_time_later_caps_at_23(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test _adjust_shutdown_time_later caps hours at 23."""
@@ -361,7 +361,7 @@ class TestAdjustShutdownTimeLater:
     def test_adjust_shutdown_time_later_no_config(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test _adjust_shutdown_time_later returns False if config missing."""
@@ -377,7 +377,7 @@ class TestAdjustShutdownTimeLater:
     def test_adjust_shutdown_time_later_oserror(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test _adjust_shutdown_time_later handles OSError."""
@@ -397,7 +397,7 @@ class TestGrabInput:
     """Tests for _grab_input method."""
 
     def test_production_global_grab_tcl_error(
-        self, mock_tk: MagicMock, _mock_sys_exit: MagicMock, tmp_path: Path
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
         """Test production mode falls back when global grab fails."""
         mock_tk.Tk.return_value.grab_set_global.side_effect = tk.TclError("grab failed")

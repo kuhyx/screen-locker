@@ -18,7 +18,7 @@ class TestApplyEarlierShutdown:
     def test_returns_false_when_no_config(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns False when config can't be read."""
@@ -29,7 +29,7 @@ class TestApplyEarlierShutdown:
     def test_returns_false_when_save_state_fails(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns False when saving state fails."""
@@ -43,7 +43,7 @@ class TestApplyEarlierShutdown:
     def test_success_applies_earlier_hours(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test successful application of earlier shutdown hours."""
@@ -62,7 +62,7 @@ class TestApplyEarlierShutdown:
     def test_clamps_to_minimum_18(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test hours are clamped to minimum of 18."""
@@ -84,7 +84,7 @@ class TestAdjustShutdownTimeEarlier:
     def test_returns_false_when_sick_mode_used_today(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns False when sick mode already used today."""
@@ -98,7 +98,7 @@ class TestAdjustShutdownTimeEarlier:
     def test_success(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test successful adjustment."""
@@ -113,7 +113,7 @@ class TestAdjustShutdownTimeEarlier:
     def test_handles_oserror(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test handles OSError during apply."""
@@ -132,7 +132,7 @@ class TestAdjustShutdownTimeEarlier:
     def test_handles_value_error(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test handles ValueError during apply."""
@@ -155,7 +155,7 @@ class TestAdjustShutdownTimeLater:
     def test_returns_false_when_no_config(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns False when config is missing."""
@@ -166,7 +166,7 @@ class TestAdjustShutdownTimeLater:
     def test_success_applies_later_hours(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test successful later adjustment with restore flag."""
@@ -184,7 +184,7 @@ class TestAdjustShutdownTimeLater:
     def test_clamps_to_max_23(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test hours are clamped to maximum of 23."""
@@ -201,7 +201,7 @@ class TestAdjustShutdownTimeLater:
     def test_handles_oserror(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test handles OSError."""
@@ -220,7 +220,7 @@ class TestSickModeUsedToday:
     def test_returns_false_when_no_file(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns False when state file doesn't exist."""
@@ -236,7 +236,7 @@ class TestSickModeUsedToday:
     def test_returns_true_when_used_today(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns True when state matches today."""
@@ -255,7 +255,7 @@ class TestSickModeUsedToday:
     def test_returns_false_when_different_date(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns False when state is from different date."""
@@ -271,7 +271,7 @@ class TestSickModeUsedToday:
     def test_returns_false_on_json_error(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns False on JSONDecodeError."""
@@ -291,7 +291,7 @@ class TestSaveSickDayState:
     def test_saves_state_successfully(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test saves state file with correct content."""
@@ -311,7 +311,7 @@ class TestSaveSickDayState:
     def test_returns_false_on_oserror(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns False when write fails."""
@@ -332,7 +332,7 @@ class TestLoadSickDayState:
     def test_loads_valid_state(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test loads state with all fields present."""
@@ -357,7 +357,7 @@ class TestLoadSickDayState:
     def test_returns_none_when_fields_missing(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns None when required fields are missing."""
@@ -378,7 +378,7 @@ class TestWriteRestoredConfig:
     def test_restores_config_and_removes_state(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test restores config values and deletes state file."""
@@ -402,7 +402,7 @@ class TestWriteRestoredConfig:
     def test_still_removes_state_when_config_read_fails(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test removes state file even when config read returns None."""

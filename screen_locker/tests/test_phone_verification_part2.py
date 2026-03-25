@@ -17,7 +17,7 @@ class TestGetWirelessSerial:
     def test_returns_wireless_serial(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns ip:port serial for a wireless device."""
@@ -30,7 +30,7 @@ class TestGetWirelessSerial:
     def test_returns_none_when_adb_fails(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns None when adb devices fails."""
@@ -42,7 +42,7 @@ class TestGetWirelessSerial:
     def test_returns_none_when_no_wireless_device(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns None when only USB devices are connected."""
@@ -55,7 +55,7 @@ class TestGetWirelessSerial:
     def test_skips_offline_wireless_device(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test skips offline wireless devices."""
@@ -72,7 +72,7 @@ class TestTryAdbConnect:
     def test_successful_connect(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test successful ADB connect."""
@@ -86,7 +86,7 @@ class TestTryAdbConnect:
     def test_failed_connect_unable(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test connect failure with 'unable' in output."""
@@ -100,7 +100,7 @@ class TestTryAdbConnect:
     def test_failed_connect_with_failed(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test connect failure with 'failed' in output."""
@@ -116,7 +116,7 @@ class TestTryAdbConnect:
     def test_no_connected_in_output(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test connect failure when 'connected' not in output."""
@@ -134,7 +134,7 @@ class TestGetLocalSubnetPrefix:
     def test_returns_prefix(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns first three octets of local IP."""
@@ -153,7 +153,7 @@ class TestGetLocalSubnetPrefix:
     def test_returns_none_on_oserror(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns None when socket raises OSError."""
@@ -172,7 +172,7 @@ class TestTryWirelessReconnect:
     def test_returns_false_when_no_prefix(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns False when subnet prefix can't be determined."""
@@ -184,7 +184,7 @@ class TestTryWirelessReconnect:
     def test_returns_true_when_probe_succeeds(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns True when a probe finds the phone."""
@@ -207,7 +207,7 @@ class TestTryWirelessReconnect:
     def test_returns_false_when_no_probe_succeeds(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test returns False when no probe finds the phone."""
@@ -225,7 +225,7 @@ class TestTryWirelessReconnect:
     def test_probe_connect_succeeds_but_no_device(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test probe passes socket but adb_connect succeeds without device."""
@@ -248,7 +248,7 @@ class TestTryWirelessReconnect:
     def test_probe_adb_connect_fails(
         self,
         mock_tk: MagicMock,
-        _mock_sys_exit: MagicMock,
+        mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Test probe where socket connects but adb connect fails."""

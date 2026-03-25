@@ -92,10 +92,10 @@ class ScreenLocker(
         """Configure the window for fullscreen lock."""
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
-        self.root.overrideredirect(True)
+        self.root.overrideredirect(boolean=True)
         self.root.geometry(f"{screen_w}x{screen_h}+0+0")
-        self.root.attributes("-fullscreen", True)
-        self.root.attributes("-topmost", True)
+        self.root.attributes(fullscreen=True)
+        self.root.attributes(topmost=True)
         self.root.configure(bg="#1a1a1a", cursor="arrow")
 
     def _setup_demo_close_button(self) -> None:
