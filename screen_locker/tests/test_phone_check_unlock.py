@@ -182,20 +182,20 @@ class TestStartPhoneCheck:
         assert locker.workout_data["type"] == "phone_verified"
         locker.root.after.assert_called_once_with(1500, locker.unlock_screen)
 
-    def test_handle_startup_not_verified_shows_block(
+    def test_handle_startup_not_verified_shows_retry_and_sick(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Test not_verified result shows blocking screen with buttons."""
+        """Test not_verified result shows retry and sick buttons."""
         locker = create_locker(mock_tk, tmp_path)
-        object.__setattr__(locker, "clear_container", MagicMock())
+        object.__setattr__(locker, "_show_retry_and_sick", MagicMock())
         locker._handle_startup_phone_result(
             "not_verified", "No workout found on phone today"
         )
 
-        locker.clear_container.assert_called()
+        locker._show_retry_and_sick.assert_called_once()
 
     def test_handle_startup_no_phone_shows_penalty(
         self,
@@ -203,15 +203,13 @@ class TestStartPhoneCheck:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Test no_phone result triggers penalty with ask_workout_done as callback."""
+        """Test no_phone result triggers penalty with default retry+sick callback."""
         locker = create_locker(mock_tk, tmp_path)
         object.__setattr__(locker, "_show_phone_penalty", MagicMock())
 
         locker._handle_startup_phone_result("no_phone", "No phone")
 
-        locker._show_phone_penalty.assert_called_once()
-        _, kwargs = locker._show_phone_penalty.call_args
-        assert kwargs["on_done"] == locker.ask_workout_done
+        locker._show_phone_penalty.assert_called_once_with("No phone")
 
     def test_handle_startup_error_shows_penalty(
         self,
@@ -219,15 +217,13 @@ class TestStartPhoneCheck:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Test error result triggers penalty with ask_workout_done as callback."""
+        """Test error result triggers penalty with default retry+sick callback."""
         locker = create_locker(mock_tk, tmp_path)
         object.__setattr__(locker, "_show_phone_penalty", MagicMock())
 
         locker._handle_startup_phone_result("error", "DB not found")
 
-        locker._show_phone_penalty.assert_called_once()
-        _, kwargs = locker._show_phone_penalty.call_args
-        assert kwargs["on_done"] == locker.ask_workout_done
+        locker._show_phone_penalty.assert_called_once_with("DB not found")
 
     def test_poll_phone_check_schedules_retry_when_pending(
         self,
@@ -265,26 +261,6 @@ class TestStartPhoneCheck:
         locker._handle_startup_phone_result.assert_called_once_with(
             "no_phone", "No phone"
         )
-
-
-class TestAttemptUnlock:
-    """Tests for _attempt_unlock method."""
-
-    def test_attempt_unlock_calls_unlock_screen(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Test _attempt_unlock calls unlock_screen directly."""
-        locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = tmp_path / "workout_log.json"
-        locker.workout_data = {"type": "strength"}
-        object.__setattr__(locker, "unlock_screen", MagicMock())
-
-        locker._attempt_unlock()
-
-        locker.unlock_screen.assert_called_once()
 
 
 class TestShowPhonePenalty:
@@ -342,58 +318,37 @@ class TestShowPhonePenalty:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Test phone penalty unlocks when timer reaches zero."""
+        """Test phone penalty calls done function when timer reaches zero."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = tmp_path / "workout_log.json"
-        locker.workout_data = {"type": "strength"}
         locker.phone_penalty_remaining = 0
         locker.phone_penalty_label = MagicMock()
-        object.__setattr__(locker, "unlock_screen", MagicMock())
-        locker._phone_penalty_done_fn = locker.unlock_screen
+        mock_done = MagicMock()
+        locker._phone_penalty_done_fn = mock_done
 
         locker._update_phone_penalty()
 
-        locker.unlock_screen.assert_called_once()
+        mock_done.assert_called_once()
+
+    def test_show_phone_penalty_default_callback_shows_retry(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Test default phone penalty callback shows retry+sick screen."""
+        locker = create_locker(mock_tk, tmp_path, demo_mode=True)
+        object.__setattr__(locker, "clear_container", MagicMock())
+        object.__setattr__(locker, "_show_retry_and_sick", MagicMock())
+
+        locker._show_phone_penalty("No phone connected")
+
+        # Simulate timer reaching zero by calling the done function
+        locker._phone_penalty_done_fn()
+        locker._show_retry_and_sick.assert_called_once_with("No phone connected")
 
 
 class TestUnlockScreenShutdownAdjustment:
     """Tests for unlock_screen shutdown time adjustment."""
-
-    def test_unlock_screen_adjusts_for_running(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Test unlock_screen adjusts shutdown for running workout."""
-        locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = tmp_path / "workout_log.json"
-        locker.workout_data = {"type": "running"}
-        object.__setattr__(
-            locker, "_adjust_shutdown_time_later", MagicMock(return_value=True)
-        )
-
-        locker.unlock_screen()
-
-        locker._adjust_shutdown_time_later.assert_called_once()
-
-    def test_unlock_screen_adjusts_for_strength(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Test unlock_screen adjusts shutdown for strength workout."""
-        locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = tmp_path / "workout_log.json"
-        locker.workout_data = {"type": "strength"}
-        object.__setattr__(
-            locker, "_adjust_shutdown_time_later", MagicMock(return_value=True)
-        )
-
-        locker.unlock_screen()
-
-        locker._adjust_shutdown_time_later.assert_called_once()
 
     def test_unlock_screen_adjusts_for_phone_verified(
         self,
@@ -458,7 +413,7 @@ class TestUnlockScreenShutdownAdjustment:
         """Test unlock_screen continues when adjustment fails."""
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = tmp_path / "workout_log.json"
-        locker.workout_data = {"type": "running"}
+        locker.workout_data = {"type": "phone_verified"}
         object.__setattr__(
             locker, "_adjust_shutdown_time_later", MagicMock(return_value=False)
         )

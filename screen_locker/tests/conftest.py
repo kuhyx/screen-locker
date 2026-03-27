@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import tkinter as tk
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,24 +13,6 @@ from python_pkg.screen_locker.screen_lock import ScreenLocker
 
 if TYPE_CHECKING:
     from collections.abc import Generator
-
-
-class RunningData(NamedTuple):
-    """Running workout data for tests."""
-
-    distance: str
-    time_mins: str
-    pace: str
-
-
-class StrengthData(NamedTuple):
-    """Strength workout data for tests."""
-
-    exercises: str
-    sets: str
-    reps: str
-    weights: str
-    total_weight: str
 
 
 @pytest.fixture
@@ -87,27 +69,3 @@ def create_locker(
         patch.object(ScreenLocker, "_start_phone_check"),
     ):
         return ScreenLocker(demo_mode=demo_mode)
-
-
-def setup_running_entries(locker: ScreenLocker, data: RunningData) -> None:
-    """Set up mock running entry widgets."""
-    locker.distance_entry = MagicMock()
-    locker.distance_entry.get.return_value = data.distance
-    locker.time_entry = MagicMock()
-    locker.time_entry.get.return_value = data.time_mins
-    locker.pace_entry = MagicMock()
-    locker.pace_entry.get.return_value = data.pace
-
-
-def setup_strength_entries(locker: ScreenLocker, data: StrengthData) -> None:
-    """Set up mock strength entry widgets."""
-    locker.exercises_entry = MagicMock()
-    locker.exercises_entry.get.return_value = data.exercises
-    locker.sets_entry = MagicMock()
-    locker.sets_entry.get.return_value = data.sets
-    locker.reps_entry = MagicMock()
-    locker.reps_entry.get.return_value = data.reps
-    locker.weights_entry = MagicMock()
-    locker.weights_entry.get.return_value = data.weights
-    locker.total_weight_entry = MagicMock()
-    locker.total_weight_entry.get.return_value = data.total_weight

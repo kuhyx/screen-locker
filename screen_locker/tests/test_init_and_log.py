@@ -10,58 +10,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from python_pkg.screen_locker.screen_lock import (
-    MAX_DISTANCE_KM,
-    MAX_PACE_MIN_PER_KM,
-    MAX_REPS,
-    MAX_SETS,
-    MAX_TIME_MINUTES,
-    MAX_WEIGHT_KG,
-    MIN_EXERCISE_NAME_LEN,
-)
 from python_pkg.screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-
-class TestConstants:
-    """Tests for module constants."""
-
-    def test_max_distance_km(self) -> None:
-        """Test MAX_DISTANCE_KM is reasonable."""
-        assert MAX_DISTANCE_KM == 100
-        assert MAX_DISTANCE_KM > 0
-
-    def test_max_time_minutes(self) -> None:
-        """Test MAX_TIME_MINUTES is reasonable."""
-        assert MAX_TIME_MINUTES == 600
-        assert MAX_TIME_MINUTES > 0
-
-    def test_max_pace_min_per_km(self) -> None:
-        """Test MAX_PACE_MIN_PER_KM is reasonable."""
-        assert MAX_PACE_MIN_PER_KM == 20
-        assert MAX_PACE_MIN_PER_KM > 0
-
-    def test_min_exercise_name_len(self) -> None:
-        """Test MIN_EXERCISE_NAME_LEN is reasonable."""
-        assert MIN_EXERCISE_NAME_LEN == 3
-        assert MIN_EXERCISE_NAME_LEN > 0
-
-    def test_max_sets(self) -> None:
-        """Test MAX_SETS is reasonable."""
-        assert MAX_SETS == 20
-        assert MAX_SETS > 0
-
-    def test_max_reps(self) -> None:
-        """Test MAX_REPS is reasonable."""
-        assert MAX_REPS == 100
-        assert MAX_REPS > 0
-
-    def test_max_weight_kg(self) -> None:
-        """Test MAX_WEIGHT_KG is reasonable."""
-        assert MAX_WEIGHT_KG == 500
-        assert MAX_WEIGHT_KG > 0
 
 
 class TestScreenLockerInit:
@@ -251,24 +203,6 @@ class TestSaveWorkoutLog:
         locker.workout_data = {"type": "running"}
         # Should not raise, just log warning
         locker.save_workout_log()
-
-
-class TestShowError:
-    """Tests for show_error method."""
-
-    def test_show_error_displays_message(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Test show_error clears container and displays error."""
-        locker = create_locker(mock_tk, tmp_path)
-        object.__setattr__(locker, "clear_container", MagicMock())
-
-        locker.show_error("Test error message")
-
-        locker.clear_container.assert_called_once()
 
 
 class TestRun:

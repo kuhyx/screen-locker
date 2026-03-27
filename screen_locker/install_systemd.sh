@@ -4,8 +4,10 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCREEN_LOCK_PATH="$SCRIPT_DIR/screen_lock.py"
 SERVICE_FILE="$SCRIPT_DIR/workout-locker.service"
+TIMER_FILE="$SCRIPT_DIR/workout-locker.timer"
 USER_SERVICE_DIR="$HOME/.config/systemd/user"
 SERVICE_NAME="workout-locker.service"
+TIMER_NAME="workout-locker.timer"
 
 # Check if service is already installed
 if [ -f "$USER_SERVICE_DIR/$SERVICE_NAME" ]; then
@@ -24,25 +26,31 @@ fi
 # Create user systemd directory if it doesn't exist
 mkdir -p "$USER_SERVICE_DIR"
 
-# Copy service file to user systemd directory
+# Copy service and timer files to user systemd directory
 cp "$SERVICE_FILE" "$USER_SERVICE_DIR/$SERVICE_NAME"
+cp "$TIMER_FILE" "$USER_SERVICE_DIR/$TIMER_NAME"
 
-# Update the ExecStart path in the service file to use absolute path with production flag
-sed -i "s|ExecStart=/usr/bin/python3.*|ExecStart=/usr/bin/python3 $SCRIPT_DIR/screen_lock.py --production|" "$USER_SERVICE_DIR/$SERVICE_NAME"
+# Update paths in the service file to use absolute paths
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+sed -i "s|WorkingDirectory=.*|WorkingDirectory=$REPO_ROOT|" "$USER_SERVICE_DIR/$SERVICE_NAME"
+sed -i "s|Environment=PYTHONPATH=.*|Environment=PYTHONPATH=$REPO_ROOT|" "$USER_SERVICE_DIR/$SERVICE_NAME"
+sed -i "s|ExecStart=/usr/bin/python3.*|ExecStart=/usr/bin/python3 -m python_pkg.screen_locker.screen_lock --production|" "$USER_SERVICE_DIR/$SERVICE_NAME"
 
 # Reload systemd daemon
 systemctl --user daemon-reload
 
-# Enable the service to start on login
+# Enable the service to start on login and the timer for periodic checks
 systemctl --user enable "$SERVICE_NAME"
+systemctl --user enable --now "$TIMER_NAME"
 
 echo "✓ Workout locker service installed"
 echo "✓ Service will start automatically on next login"
 echo ""
 echo "To start now: systemctl --user start workout-locker"
 echo "To check status: systemctl --user status workout-locker"
+echo "To check timer: systemctl --user list-timers workout-locker.timer"
 echo "To stop: systemctl --user stop workout-locker"
-echo "To disable autostart: systemctl --user disable workout-locker"
+echo "To disable autostart: systemctl --user disable workout-locker workout-locker.timer"
 
 # Check autostart installation status
 echo ""

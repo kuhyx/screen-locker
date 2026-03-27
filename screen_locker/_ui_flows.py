@@ -3,12 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-import contextlib
-import tkinter as tk
 from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 from python_pkg.screen_locker._constants import (
     PHONE_PENALTY_DELAY_DEMO,
@@ -16,27 +11,12 @@ from python_pkg.screen_locker._constants import (
     SICK_LOCKOUT_SECONDS,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 class UIFlowsMixin:
     """Mixin providing UI flow logic for the screen locker."""
-
-    def ask_workout_done(self) -> None:
-        """Display the initial workout question dialog."""
-        self.clear_container()
-        self._label("Did you work out today?", pady=30)
-        frame = self._button_row()
-        self._button(
-            frame,
-            "YES",
-            bg="#00aa00",
-            command=self.ask_workout_type,
-        ).pack(side="left", padx=20)
-        self._button(
-            frame,
-            "NO",
-            bg="#aa0000",
-            command=self.ask_if_sick,
-        ).pack(side="left", padx=20)
 
     def _start_phone_check(self) -> None:
         """Check phone for today's workout immediately at startup."""
@@ -56,6 +36,27 @@ class UIFlowsMixin:
         else:
             self.root.after(500, self._poll_phone_check)
 
+    def _show_retry_and_sick(self, message: str) -> None:
+        """Show TRY AGAIN and I'm sick buttons after a failed phone check."""
+        self.clear_container()
+        self._label("No Workout Found", font_size=36, color="#ff4444", pady=20)
+        self._text(message, color="#ffaa00")
+        frame = self._button_row()
+        self._button(
+            frame,
+            "TRY AGAIN",
+            bg="#0066cc",
+            command=self._start_phone_check,
+            width=12,
+        ).pack(side="left", padx=10)
+        self._button(
+            frame,
+            "I'm sick",
+            bg="#cc6600",
+            command=self.ask_if_sick,
+            width=12,
+        ).pack(side="left", padx=10)
+
     def _handle_startup_phone_result(self, status: str, message: str) -> None:
         """Route to appropriate screen based on startup phone check result."""
         if status == "verified":
@@ -70,32 +71,14 @@ class UIFlowsMixin:
             unlock_delay = 1500 if self.demo_mode else 2000
             self.root.after(unlock_delay, self.unlock_screen)
         elif status == "not_verified":
-            self.clear_container()
-            self._label("No Workout Found", font_size=36, color="#ff4444", pady=20)
-            self._text(
+            self._show_retry_and_sick(
                 f"\u274c {message}\n\n"
                 "StrongLifts shows no workout today.\n"
                 "Go do your workout first!",
-                color="#ffaa00",
             )
-            frame = self._button_row()
-            self._button(
-                frame,
-                "TRY AGAIN",
-                bg="#0066cc",
-                command=self._start_phone_check,
-                width=12,
-            ).pack(side="left", padx=10)
-            self._button(
-                frame,
-                "I'm sick",
-                bg="#cc6600",
-                command=self.ask_if_sick,
-                width=12,
-            ).pack(side="left", padx=10)
         else:
-            # no_phone or error — penalty timer, then proceed to logging form
-            self._show_phone_penalty(message, on_done=self.ask_workout_done)
+            # no_phone or error — penalty timer, then retry+sick screen
+            self._show_phone_penalty(message)
 
     def ask_if_sick(self) -> None:
         """Display sick day question dialog."""
@@ -198,15 +181,11 @@ class UIFlowsMixin:
             self.remaining_time -= 1
             self.root.after(1000, self.update_lockout_countdown)
         else:
-            self.ask_workout_done()
+            self._start_phone_check()
 
     # ------------------------------------------------------------------
     # Phone penalty
     # ------------------------------------------------------------------
-
-    def _attempt_unlock(self) -> None:
-        """Unlock screen after workout form submission."""
-        self.unlock_screen()
 
     def _show_phone_penalty(
         self, message: str, *, on_done: Callable[[], None] | None = None
@@ -214,7 +193,9 @@ class UIFlowsMixin:
         """Show penalty countdown when phone verification is unavailable."""
         self.clear_container()
         self._phone_penalty_done_fn: Callable[[], None] = (
-            on_done if on_done is not None else self.unlock_screen
+            on_done
+            if on_done is not None
+            else lambda: self._show_retry_and_sick(message)
         )
         delay = (
             PHONE_PENALTY_DELAY_DEMO
@@ -252,43 +233,3 @@ class UIFlowsMixin:
             self.root.after(1000, self._update_phone_penalty)
         else:
             self._phone_penalty_done_fn()
-
-    # ------------------------------------------------------------------
-    # Submit timer and entry checking
-    # ------------------------------------------------------------------
-
-    def _tick_submit_timer(self) -> None:
-        """Decrement submit timer and schedule next tick."""
-        self.timer_label.config(
-            text=f"Submit available in {self.submit_unlock_time} seconds...",
-        )
-        self.submit_unlock_time -= 1
-        self.root.after(1000, self.update_submit_timer)
-
-    def _try_enable_submit(self) -> None:
-        """Enable submit button if all entries are filled."""
-        all_filled = all(entry.get().strip() for entry in self.entries_to_check)
-        if all_filled:
-            self.submit_btn.config(
-                text="SUBMIT",
-                state="normal",
-                bg="#00aa00",
-                command=self.submit_command,
-            )
-            self.timer_label.config(text="You can now submit!")
-        else:
-            self.timer_label.config(text="Fill all fields to enable submit")
-            self.root.after(1000, self.check_entries_filled)
-
-    def update_submit_timer(self) -> None:
-        """Update countdown timer and check if submit can be enabled."""
-        with contextlib.suppress(tk.TclError):
-            if self.submit_unlock_time > 0:
-                self._tick_submit_timer()
-            else:
-                self._try_enable_submit()
-
-    def check_entries_filled(self) -> None:
-        """Continuously check if entries are filled after timer expires."""
-        with contextlib.suppress(tk.TclError):
-            self._try_enable_submit()

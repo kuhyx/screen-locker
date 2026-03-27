@@ -20,41 +20,22 @@ if TYPE_CHECKING:
     from concurrent.futures import Future
 
 from python_pkg.screen_locker._constants import (
-    MAX_DISTANCE_KM,
-    MAX_PACE_MIN_PER_KM,
-    MAX_REPS,
-    MAX_SETS,
-    MAX_TIME_MINUTES,
-    MAX_WEIGHT_KG,
-    MIN_EXERCISE_NAME_LEN,
     PHONE_PENALTY_DELAY_DEMO,
     PHONE_PENALTY_DELAY_PRODUCTION,
     SICK_LOCKOUT_SECONDS,
     STRONGLIFTS_DB_REMOTE,
-    SUBMIT_DELAY_DEMO,
-    SUBMIT_DELAY_PRODUCTION,
 )
 
 __all__ = [
-    "MAX_DISTANCE_KM",
-    "MAX_PACE_MIN_PER_KM",
-    "MAX_REPS",
-    "MAX_SETS",
-    "MAX_TIME_MINUTES",
-    "MAX_WEIGHT_KG",
-    "MIN_EXERCISE_NAME_LEN",
     "PHONE_PENALTY_DELAY_DEMO",
     "PHONE_PENALTY_DELAY_PRODUCTION",
     "SICK_LOCKOUT_SECONDS",
     "STRONGLIFTS_DB_REMOTE",
-    "SUBMIT_DELAY_DEMO",
-    "SUBMIT_DELAY_PRODUCTION",
     "ScreenLocker",
 ]
 from python_pkg.screen_locker._phone_verification import PhoneVerificationMixin
 from python_pkg.screen_locker._shutdown import ShutdownMixin
 from python_pkg.screen_locker._ui_flows import UIFlowsMixin
-from python_pkg.screen_locker._workout_forms import WorkoutFormsMixin
 
 _logger = logging.getLogger(__name__)
 
@@ -62,7 +43,6 @@ _logger = logging.getLogger(__name__)
 class ScreenLocker(
     ShutdownMixin,
     PhoneVerificationMixin,
-    WorkoutFormsMixin,
     UIFlowsMixin,
 ):
     """Screen locker that requires workout logging to unlock."""
@@ -200,103 +180,14 @@ class ScreenLocker(
         frame.pack(pady=20)
         return frame
 
-    def _entry_row(
-        self,
-        label_text: str,
-        *,
-        width: int = 10,
-        font_size: int = 20,
-    ) -> tk.Entry:
-        """Create a labeled entry row, returning the Entry widget."""
-        frame = tk.Frame(self.container, bg="#1a1a1a")
-        frame.pack(pady=10)
-        tk.Label(
-            frame,
-            text=label_text,
-            font=("Arial", font_size),
-            fg="white",
-            bg="#1a1a1a",
-        ).pack(side="left", padx=10)
-        entry = tk.Entry(frame, font=("Arial", font_size), width=width)
-        entry.pack(side="left", padx=10)
-        return entry
-
-    def _disabled_submit_button(self) -> tk.Button:
-        """Create a disabled submit button."""
-        btn = tk.Button(
-            self.container,
-            text="SUBMIT (locked)",
-            font=("Arial", 24, "bold"),
-            bg="#666666",
-            fg="white",
-            width=15,
-            state="disabled",
-            cursor="hand2" if self.demo_mode else "",
-        )
-        btn.pack(pady=10)
-        return btn
-
-    def _back_button(self, command: Callable[[], None]) -> tk.Button:
-        """Create and pack a back button."""
-        btn = tk.Button(
-            self.container,
-            text="← BACK",
-            font=("Arial", 18),
-            bg="#666666",
-            fg="white",
-            width=15,
-            command=command,
-            cursor="hand2" if self.demo_mode else "",
-        )
-        btn.pack(pady=10)
-        return btn
-
-    def _setup_form_controls(
-        self,
-        entries: list[tk.Entry],
-        verify_command: Callable[[], None],
-        back_command: Callable[[], None],
-    ) -> None:
-        """Set up timer, submit button, and back button for a form."""
-        self.timer_label = self._text("", font_size=16, color="#ffaa00")
-        self.submit_btn = self._disabled_submit_button()
-        self._back_button(back_command)
-        self.submit_unlock_time = (
-            SUBMIT_DELAY_DEMO if self.demo_mode else SUBMIT_DELAY_PRODUCTION
-        )
-        self.entries_to_check = entries
-        self.submit_command = verify_command
-        self.update_submit_timer()
-
     # ------------------------------------------------------------------
-    # Error, unlock, and logging
+    # Unlock, logging
     # ------------------------------------------------------------------
-
-    def show_error(self, message: str) -> None:
-        """Display error message with retry option."""
-        self.clear_container()
-        self._label("ERROR", font_size=48, color="#ff4444", pady=20)
-        msg_label = tk.Label(
-            self.container,
-            text=message,
-            font=("Arial", 24),
-            fg="white",
-            bg="#1a1a1a",
-            wraplength=800,
-        )
-        msg_label.pack(pady=20)
-        self._button(
-            self.container,
-            "TRY AGAIN",
-            bg="#0066cc",
-            command=self.ask_workout_done,
-            width=15,
-        ).pack(pady=30)
 
     def _try_adjust_shutdown_for_workout(self) -> bool:
         """Try to adjust shutdown time later for actual workouts."""
         workout_type = self.workout_data.get("type", "")
-        if workout_type not in ("running", "strength", "phone_verified"):
+        if workout_type != "phone_verified":
             return False
         adjusted = self._adjust_shutdown_time_later()
         if adjusted:
