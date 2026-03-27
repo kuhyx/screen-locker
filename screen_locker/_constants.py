@@ -6,7 +6,7 @@ from pathlib import Path
 
 SICK_LOCKOUT_SECONDS = 120  # 2 minutes wait when sick
 PHONE_PENALTY_DELAY_DEMO = 10
-PHONE_PENALTY_DELAY_PRODUCTION = 600
+PHONE_PENALTY_DELAY_PRODUCTION = 100
 ADB_TIMEOUT = 15
 STRONGLIFTS_DB_REMOTE = (
     "/data/data/com.stronglifts.app/databases/StrongLifts-Database-3"

@@ -72,16 +72,16 @@ MORNING_END_HOUR=$3
 chattr -i "$CONFIG_FILE" 2>/dev/null || true
 chattr -i "$CANONICAL_FILE" 2>/dev/null || true
 
-# Write new config
-echo "$NEW_CONFIG" > "$CONFIG_FILE"
+# Write canonical copy FIRST (before the watched config) to avoid
+# a race with shutdown-schedule-guard.path which triggers on CONFIG_FILE
+# changes and restores from CANONICAL_FILE.
 echo "$NEW_CONFIG" > "$CANONICAL_FILE"
-
-# Set permissions
-chmod 644 "$CONFIG_FILE"
 chmod 644 "$CANONICAL_FILE"
-
-# Re-apply immutable attributes
-chattr +i "$CONFIG_FILE" || echo "Warning: Could not set immutable on $CONFIG_FILE" >&2
 chattr +i "$CANONICAL_FILE" || echo "Warning: Could not set immutable on $CANONICAL_FILE" >&2
+
+# Now write the watched config — guard will see content matches canonical
+echo "$NEW_CONFIG" > "$CONFIG_FILE"
+chmod 644 "$CONFIG_FILE"
+chattr +i "$CONFIG_FILE" || echo "Warning: Could not set immutable on $CONFIG_FILE" >&2
 
 echo "Shutdown schedule updated: Mon-Wed=${1}:00, Thu-Sun=${2}:00, Morning end=${3}:00"
