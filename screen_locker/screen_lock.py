@@ -47,26 +47,47 @@ class ScreenLocker(
 ):
     """Screen locker that requires workout logging to unlock."""
 
-    def __init__(self, *, demo_mode: bool = True) -> None:
+    def __init__(
+        self,
+        *,
+        demo_mode: bool = True,
+        verify_only: bool = False,
+    ) -> None:
         """Initialize screen locker with optional demo mode."""
         script_dir = Path(__file__).resolve().parent
         self.log_file = script_dir / "workout_log.json"
-        if self.has_logged_today():
+        self.verify_only = verify_only
+        if verify_only:
+            if not self._is_sick_day_log():
+                _logger.info(
+                    "No sick day logged today. Nothing to verify.",
+                )
+                sys.exit(0)
+        elif self.has_logged_today():
             _logger.info("Workout already logged today. Skipping screen lock.")
             sys.exit(0)
         self.root = tk.Tk()
-        self.root.title("Workout Locker" + (" [DEMO MODE]" if demo_mode else ""))
+        title_suffix = (
+            " [VERIFY]" if verify_only else (" [DEMO MODE]" if demo_mode else "")
+        )
+        self.root.title("Workout Locker" + title_suffix)
         self.demo_mode = demo_mode
         self.lockout_time = 10 if demo_mode else 1800
         self.workout_data: dict[str, str] = {}
-        self._setup_window()
-        if demo_mode:
-            self._setup_demo_close_button()
+        if verify_only:
+            self._setup_verify_window()
+        else:
+            self._setup_window()
+            if demo_mode:
+                self._setup_demo_close_button()
         self.container = tk.Frame(self.root, bg="#1a1a1a")
         self.container.place(relx=0.5, rely=0.5, anchor="center")
         self._phone_future: Future[tuple[str, str]] | None = None
-        self._start_phone_check()
-        self._grab_input()
+        if verify_only:
+            self._start_verify_workout_check()
+        else:
+            self._start_phone_check()
+            self._grab_input()
 
     def _setup_window(self) -> None:
         """Configure the window for fullscreen lock."""
@@ -77,6 +98,27 @@ class ScreenLocker(
         self.root.attributes(fullscreen=True)
         self.root.attributes(topmost=True)
         self.root.configure(bg="#1a1a1a", cursor="arrow")
+
+    def _setup_verify_window(self) -> None:
+        """Configure window for post-sick-day workout verification."""
+        self.root.geometry("600x400")
+        self.root.configure(bg="#1a1a1a", cursor="arrow")
+        self.root.protocol("WM_DELETE_WINDOW", self.close)
+
+    def _is_sick_day_log(self) -> bool:
+        """Check if today's workout log is a sick day (not yet verified)."""
+        if not self.log_file.exists():
+            return False
+        try:
+            with self.log_file.open() as f:
+                logs = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return False
+        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        entry = logs.get(today)
+        if entry is None:
+            return False
+        return entry.get("workout_data", {}).get("type") == "sick_day"
 
     def _setup_demo_close_button(self) -> None:
         """Add close button for demo mode."""
@@ -260,9 +302,13 @@ class ScreenLocker(
 if __name__ == "__main__":
     # Check for --production flag
     demo_mode = True  # Default to demo mode for safety
+    verify_only = "--verify-workout" in sys.argv
 
-    if len(sys.argv) > 1 and sys.argv[1] == "--production":
+    if "--production" in sys.argv:
         demo_mode = False
 
-    locker = ScreenLocker(demo_mode=demo_mode)
+    locker = ScreenLocker(
+        demo_mode=demo_mode,
+        verify_only=verify_only,
+    )
     locker.run()

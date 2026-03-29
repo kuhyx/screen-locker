@@ -61,11 +61,22 @@ def create_locker(
     *,
     demo_mode: bool = True,
     has_logged: bool = False,
+    verify_only: bool = False,
+    is_sick_day_log: bool = False,
 ) -> ScreenLocker:
     """Create a ScreenLocker instance for testing."""
     with (
         patch.object(Path, "resolve", return_value=tmp_path),
         patch.object(ScreenLocker, "has_logged_today", return_value=has_logged),
+        patch.object(
+            ScreenLocker,
+            "_is_sick_day_log",
+            return_value=is_sick_day_log,
+        ),
         patch.object(ScreenLocker, "_start_phone_check"),
+        patch.object(ScreenLocker, "_start_verify_workout_check"),
     ):
-        return ScreenLocker(demo_mode=demo_mode)
+        return ScreenLocker(
+            demo_mode=demo_mode,
+            verify_only=verify_only,
+        )

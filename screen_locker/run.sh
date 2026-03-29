@@ -7,4 +7,5 @@ VENV="$REPO_ROOT/.venv"
 # tkinter is from Python stdlib; install python-tk system package if missing:
 #   Arch:   sudo pacman -S python-tk
 #   Debian: sudo apt-get install python3-tk
-"$VENV/bin/python" "$SCRIPT_DIR/screen_lock.py" "$@"
+cd "$REPO_ROOT"
+"$VENV/bin/python" -m python_pkg.screen_locker.screen_lock "$@"

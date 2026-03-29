@@ -233,3 +233,89 @@ class UIFlowsMixin:
             self.root.after(1000, self._update_phone_penalty)
         else:
             self._phone_penalty_done_fn()
+
+    # ------------------------------------------------------------------
+    # Verify-workout flow (post-sick-day)
+    # ------------------------------------------------------------------
+
+    def _start_verify_workout_check(self) -> None:
+        """Start phone check for post-sick-day workout verification."""
+        self.clear_container()
+        self._label(
+            "Verifying Workout",
+            font_size=36,
+            color="#ffaa00",
+            pady=30,
+        )
+        self._text(
+            "Checking phone for today's workout...",
+            font_size=18,
+        )
+        executor = ThreadPoolExecutor(max_workers=1)
+        self._phone_future = executor.submit(self._verify_phone_workout)
+        executor.shutdown(wait=False)
+        self._poll_verify_workout_check()
+
+    def _poll_verify_workout_check(self) -> None:
+        """Poll background phone check for verify-workout mode."""
+        if self._phone_future is not None and self._phone_future.done():
+            status, message = self._phone_future.result()
+            self._handle_verify_workout_result(status, message)
+        else:
+            self.root.after(500, self._poll_verify_workout_check)
+
+    def _handle_verify_workout_result(
+        self,
+        status: str,
+        message: str,
+    ) -> None:
+        """Route phone check result in verify-workout mode."""
+        if status == "verified":
+            self.workout_data["type"] = "phone_verified"
+            self.workout_data["source"] = message
+            self.workout_data["after_sick_day"] = "true"
+            adjusted = self._adjust_shutdown_time_later()
+            self.save_workout_log()
+            self.clear_container()
+            self._label(
+                "\u2713 Workout Verified!",
+                font_size=42,
+                color="#00cc44",
+                pady=30,
+            )
+            self._text(message, font_size=20, color="#aaffaa")
+            if adjusted:
+                self._text(
+                    "Shutdown time moved later!",
+                    font_size=20,
+                    color="#ffaa00",
+                )
+            self.root.after(2000, self.close)
+        else:
+            self._show_verify_retry(message)
+
+    def _show_verify_retry(self, message: str) -> None:
+        """Show retry/close buttons when workout not found in verify mode."""
+        self.clear_container()
+        self._label(
+            "Workout Not Found",
+            font_size=36,
+            color="#ff4444",
+            pady=20,
+        )
+        self._text(message, color="#ffaa00")
+        frame = self._button_row()
+        self._button(
+            frame,
+            "TRY AGAIN",
+            bg="#0066cc",
+            command=self._start_verify_workout_check,
+            width=12,
+        ).pack(side="left", padx=10)
+        self._button(
+            frame,
+            "Close",
+            bg="#aa0000",
+            command=self.close,
+            width=12,
+        ).pack(side="left", padx=10)
