@@ -11,8 +11,14 @@ import socket
 import sqlite3
 import subprocess
 import tempfile
+import time
 
-from python_pkg.screen_locker._constants import ADB_TIMEOUT, STRONGLIFTS_DB_REMOTE
+from python_pkg.screen_locker._constants import (
+    ADB_TIMEOUT,
+    MIN_WORKOUT_DURATION_MINUTES,
+    STRONGLIFTS_DB_REMOTE,
+)
+from python_pkg.screen_locker._time_check import check_clock_skew
 
 _logger = logging.getLogger(__name__)
 
@@ -179,25 +185,160 @@ class PhoneVerificationMixin:
             _logger.warning("Failed to query StrongLifts database")
             return 0
 
+    def _get_today_workout_duration_minutes(self, db_path: Path) -> float:
+        """Get the total duration in minutes of today's workouts.
+
+        Args:
+            db_path: Path to the locally-pulled StrongLifts database.
+
+        Returns:
+            Total duration in minutes of all workouts started today.
+            Returns 0.0 on any error or if no workouts found.
+        """
+        try:
+            conn = sqlite3.connect(str(db_path))
+            try:
+                cursor = conn.execute(
+                    "SELECT SUM((finish - start) / 1000.0 / 60.0) "
+                    "FROM workouts "
+                    "WHERE date(start / 1000, 'unixepoch', 'localtime') "
+                    "= date('now', 'localtime') "
+                    "AND finish > start",
+                )
+                row = cursor.fetchone()
+                return float(row[0]) if row and row[0] is not None else 0.0
+            finally:
+                conn.close()
+        except (sqlite3.Error, ValueError, TypeError):
+            _logger.warning("Failed to query workout duration")
+            return 0.0
+
+    def _get_today_exercise_count(self, db_path: Path) -> int:
+        """Count distinct exercises in today's workouts.
+
+        Uses the StrongLifts 'exercises' table joined with 'workouts' to
+        verify that actual exercises were logged, not just empty sessions.
+
+        Args:
+            db_path: Path to the locally-pulled StrongLifts database.
+
+        Returns:
+            Number of distinct exercises in today's workouts.
+            Returns 0 on any error.
+        """
+        try:
+            conn = sqlite3.connect(str(db_path))
+            try:
+                cursor = conn.execute(
+                    "SELECT COUNT(DISTINCT e.exercise) "
+                    "FROM exercises e "
+                    "JOIN workouts w ON e.workout = w.id "
+                    "WHERE date(w.start / 1000, 'unixepoch', 'localtime') "
+                    "= date('now', 'localtime')",
+                )
+                row = cursor.fetchone()
+                return int(row[0]) if row else 0
+            finally:
+                conn.close()
+        except (sqlite3.Error, ValueError, TypeError):
+            _logger.warning("Failed to query exercise count")
+            return 0
+
+    def _is_workout_finish_recent(self, db_path: Path) -> bool:
+        """Check if the latest workout's finish time is recent.
+
+        A fresh workout should have finished within the last few hours.
+        This prevents using an old pre-prepared database dump.
+
+        Args:
+            db_path: Path to the locally-pulled StrongLifts database.
+
+        Returns:
+            True if the latest finish time is within 4 hours of now.
+        """
+        max_age_seconds = 4 * 3600
+        try:
+            conn = sqlite3.connect(str(db_path))
+            try:
+                cursor = conn.execute(
+                    "SELECT MAX(finish) FROM workouts "
+                    "WHERE date(start / 1000, 'unixepoch', 'localtime') "
+                    "= date('now', 'localtime') "
+                    "AND finish > start",
+                )
+                row = cursor.fetchone()
+                if not row or row[0] is None:
+                    return False
+                finish_epoch = int(row[0]) / 1000.0
+                return (time.time() - finish_epoch) < max_age_seconds
+            finally:
+                conn.close()
+        except (sqlite3.Error, ValueError, TypeError):
+            _logger.warning("Failed to query workout finish time")
+            return False
+
+    def _validate_workout_db(
+        self,
+        local_db: Path,
+    ) -> tuple[str, str] | None:
+        """Validate workout database has a recent, real workout.
+
+        Returns:
+            A (status, message) tuple if validation fails, or None if OK.
+        """
+        count = self._count_today_workouts(local_db)
+        if count <= 0:
+            return "not_verified", "No workout found on phone today"
+        if not self._is_workout_finish_recent(local_db):
+            return (
+                "stale",
+                "Workout finish time is too old. Did you actually work out today?",
+            )
+        exercise_count = self._get_today_exercise_count(local_db)
+        if exercise_count < 1:
+            return (
+                "no_exercises",
+                "No exercises found in today's workout. "
+                "Log actual exercises in StrongLifts!",
+            )
+        return None
+
     def _verify_phone_workout(self) -> tuple[str, str]:
         """Verify workout was recorded in StrongLifts on the phone.
 
         Returns:
             Tuple of (status, message) where status is one of:
-            - "verified": Workout confirmed on phone.
+            - "verified": Workout confirmed and >= minimum duration.
+            - "too_short": Workout found but shorter than minimum.
             - "not_verified": Phone connected but no workout found.
             - "no_phone": No phone connected via ADB.
             - "error": Could not access StrongLifts database.
+            - "stale": Workout finish time is not recent.
+            - "no_exercises": Workout has no logged exercises.
+            - "clock_tampered": System clock skew exceeds threshold.
         """
+        clock_ok, clock_msg = check_clock_skew()
+        if not clock_ok:
+            return "clock_tampered", clock_msg
         if not self._is_phone_connected():
             return "no_phone", "No phone connected via ADB"
         local_db = self._pull_stronglifts_db()
         if local_db is None:
             return "error", "StrongLifts database not found on phone"
-        count = self._count_today_workouts(local_db)
-        if count > 0:
+        db_error = self._validate_workout_db(local_db)
+        if db_error is not None:
+            return db_error
+        duration = self._get_today_workout_duration_minutes(local_db)
+        if duration < MIN_WORKOUT_DURATION_MINUTES:
             return (
-                "verified",
-                f"Workout verified! ({count} session(s) found on phone)",
+                "too_short",
+                f"Workout too short! {duration:.0f} min logged, "
+                f"need at least {MIN_WORKOUT_DURATION_MINUTES} min.",
             )
-        return "not_verified", "No workout found on phone today"
+        exercise_count = self._get_today_exercise_count(local_db)
+        return (
+            "verified",
+            f"Workout verified! ({self._count_today_workouts(local_db)}"
+            f" session(s), {duration:.0f} min, "
+            f"{exercise_count} exercise(s))",
+        )

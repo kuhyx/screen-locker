@@ -15,27 +15,37 @@ import sys
 import tkinter as tk
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
-    from concurrent.futures import Future
-
 from python_pkg.screen_locker._constants import (
+    HMAC_KEY_FILE,
+    MAX_CLOCK_SKEW_SECONDS,
+    MIN_WORKOUT_DURATION_MINUTES,
     PHONE_PENALTY_DELAY_DEMO,
     PHONE_PENALTY_DELAY_PRODUCTION,
     SICK_LOCKOUT_SECONDS,
     STRONGLIFTS_DB_REMOTE,
 )
+from python_pkg.screen_locker._log_integrity import (
+    compute_entry_hmac,
+    verify_entry_hmac,
+)
+from python_pkg.screen_locker._phone_verification import PhoneVerificationMixin
+from python_pkg.screen_locker._shutdown import ShutdownMixin
+from python_pkg.screen_locker._ui_flows import UIFlowsMixin
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from concurrent.futures import Future
 
 __all__ = [
+    "HMAC_KEY_FILE",
+    "MAX_CLOCK_SKEW_SECONDS",
+    "MIN_WORKOUT_DURATION_MINUTES",
     "PHONE_PENALTY_DELAY_DEMO",
     "PHONE_PENALTY_DELAY_PRODUCTION",
     "SICK_LOCKOUT_SECONDS",
     "STRONGLIFTS_DB_REMOTE",
     "ScreenLocker",
 ]
-from python_pkg.screen_locker._phone_verification import PhoneVerificationMixin
-from python_pkg.screen_locker._shutdown import ShutdownMixin
-from python_pkg.screen_locker._ui_flows import UIFlowsMixin
 
 _logger = logging.getLogger(__name__)
 
@@ -252,7 +262,7 @@ class ScreenLocker(
         self.root.after(1500, self.close)
 
     def has_logged_today(self) -> bool:
-        """Check if workout has been logged today."""
+        """Check if workout has been logged today with valid HMAC."""
         if not self.log_file.exists():
             return False
 
@@ -263,7 +273,13 @@ class ScreenLocker(
             return False
         else:
             today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-            return today in logs
+            entry = logs.get(today)
+            if entry is None:
+                return False
+            if not verify_entry_hmac(entry):
+                _logger.warning("HMAC verification failed for today's log entry")
+                return False
+            return True
 
     def _load_existing_logs(self) -> dict:
         """Load existing workout logs from file."""
@@ -276,13 +292,19 @@ class ScreenLocker(
             return {}
 
     def save_workout_log(self) -> None:
-        """Save workout data to log file."""
+        """Save workout data to log file with HMAC signature."""
         logs = self._load_existing_logs()
         today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-        logs[today] = {
+        entry: dict[str, object] = {
             "timestamp": datetime.now(tz=timezone.utc).isoformat(),
             "workout_data": self.workout_data,
         }
+        signature = compute_entry_hmac(entry)
+        if signature is not None:
+            entry["hmac"] = signature
+        else:
+            _logger.warning("HMAC key unavailable — saving unsigned entry")
+        logs[today] = entry
         try:
             with self.log_file.open("w") as f:
                 json.dump(logs, f, indent=2)

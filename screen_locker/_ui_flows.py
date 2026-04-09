@@ -70,6 +70,25 @@ class UIFlowsMixin:
             self._text("Unlocking...", font_size=18, color="#888888")
             unlock_delay = 1500 if self.demo_mode else 2000
             self.root.after(unlock_delay, self.unlock_screen)
+        elif status == "too_short":
+            self._show_retry_and_sick(
+                f"\u274c {message}\n\n"
+                "Your workout was too short!\n"
+                "Actually do the full workout, don't just\n"
+                "spam through the exercises.",
+            )
+        elif status in ("stale", "no_exercises"):
+            self._show_retry_and_sick(
+                f"\u274c {message}\n\n"
+                "The workout data looks suspicious.\n"
+                "Make sure you did a real workout today.",
+            )
+        elif status == "clock_tampered":
+            self._show_retry_and_sick(
+                f"\u274c {message}\n\n"
+                "System clock appears to be manipulated.\n"
+                "Fix your system time and try again.",
+            )
         elif status == "not_verified":
             self._show_retry_and_sick(
                 f"\u274c {message}\n\n"

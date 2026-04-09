@@ -66,6 +66,9 @@ if [ -f "$I3_CONFIG" ] && grep -q "exec.*screen_lock.py" "$I3_CONFIG"; then
 	echo "✓ i3 autostart: INSTALLED"
 else
 	echo "  i3 autostart: not installed"
+	echo ""
+	echo "To add i3 startup hook (recommended), add this line to $I3_CONFIG:"
+	echo "  exec --no-startup-id /usr/bin/python3 -m python_pkg.screen_locker.screen_lock --production"
 fi
 
 # Immediately check if today's workout is done; block if not

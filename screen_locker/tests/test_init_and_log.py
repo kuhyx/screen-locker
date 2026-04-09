@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import json
 import tkinter as tk
 from typing import TYPE_CHECKING, Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -101,14 +101,41 @@ class TestHasLoggedToday:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Test when today's workout is logged."""
+        """Test when today's workout is logged with valid HMAC."""
         log_file = tmp_path / "workout_log.json"
         today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-        log_file.write_text(json.dumps({today: {"workout": "data"}}))
+        log_file.write_text(
+            json.dumps({today: {"workout": "data", "hmac": "valid"}}),
+        )
 
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
-        assert locker.has_logged_today() is True
+        with patch(
+            "python_pkg.screen_locker.screen_lock.verify_entry_hmac",
+            return_value=True,
+        ):
+            assert locker.has_logged_today() is True
+
+    def test_today_logged_invalid_hmac(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Test rejects entry when HMAC verification fails."""
+        log_file = tmp_path / "workout_log.json"
+        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        log_file.write_text(
+            json.dumps({today: {"workout": "data", "hmac": "tampered"}}),
+        )
+
+        locker = create_locker(mock_tk, tmp_path)
+        locker.log_file = log_file
+        with patch(
+            "python_pkg.screen_locker.screen_lock.verify_entry_hmac",
+            return_value=False,
+        ):
+            assert locker.has_logged_today() is False
 
     def test_other_day_logged(
         self,
@@ -134,12 +161,16 @@ class TestSaveWorkoutLog:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Test saving to a new log file."""
+        """Test saving to a new log file includes HMAC."""
         log_file = tmp_path / "workout_log.json"
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         locker.workout_data = {"type": "running"}
-        locker.save_workout_log()
+        with patch(
+            "python_pkg.screen_locker.screen_lock.compute_entry_hmac",
+            return_value="abc123",
+        ):
+            locker.save_workout_log()
 
         assert log_file.exists()
         with log_file.open() as f:
@@ -147,6 +178,29 @@ class TestSaveWorkoutLog:
         today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
         assert today in data
         assert data[today]["workout_data"]["type"] == "running"
+        assert data[today]["hmac"] == "abc123"
+
+    def test_save_to_new_file_no_hmac_key(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Test saving without HMAC key produces unsigned entry."""
+        log_file = tmp_path / "workout_log.json"
+        locker = create_locker(mock_tk, tmp_path)
+        locker.log_file = log_file
+        locker.workout_data = {"type": "running"}
+        with patch(
+            "python_pkg.screen_locker.screen_lock.compute_entry_hmac",
+            return_value=None,
+        ):
+            locker.save_workout_log()
+
+        with log_file.open() as f:
+            data: dict[str, Any] = json.load(f)
+        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        assert "hmac" not in data[today]
 
     def test_save_to_existing_file(
         self,
@@ -161,7 +215,11 @@ class TestSaveWorkoutLog:
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         locker.workout_data = {"type": "strength"}
-        locker.save_workout_log()
+        with patch(
+            "python_pkg.screen_locker.screen_lock.compute_entry_hmac",
+            return_value="sig",
+        ):
+            locker.save_workout_log()
 
         with log_file.open() as f:
             data: dict[str, Any] = json.load(f)
@@ -182,7 +240,11 @@ class TestSaveWorkoutLog:
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         locker.workout_data = {"type": "running"}
-        locker.save_workout_log()
+        with patch(
+            "python_pkg.screen_locker.screen_lock.compute_entry_hmac",
+            return_value="sig",
+        ):
+            locker.save_workout_log()
 
         with log_file.open() as f:
             data: dict[str, Any] = json.load(f)
@@ -201,8 +263,12 @@ class TestSaveWorkoutLog:
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         locker.workout_data = {"type": "running"}
-        # Should not raise, just log warning
-        locker.save_workout_log()
+        with patch(
+            "python_pkg.screen_locker.screen_lock.compute_entry_hmac",
+            return_value="sig",
+        ):
+            # Should not raise, just log warning
+            locker.save_workout_log()
 
 
 class TestRun:

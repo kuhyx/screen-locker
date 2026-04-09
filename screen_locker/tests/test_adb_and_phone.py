@@ -8,6 +8,8 @@ import time
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from python_pkg.screen_locker.screen_lock import STRONGLIFTS_DB_REMOTE
 from python_pkg.screen_locker.tests.conftest import create_locker
 
@@ -473,3 +475,329 @@ class TestCountTodayWorkouts:
         conn.close()
 
         assert locker._count_today_workouts(db_file) == 2
+
+
+class TestGetTodayWorkoutDurationMinutes:
+    """Tests for _get_today_workout_duration_minutes method."""
+
+    def test_returns_duration_for_today_workout(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Test returns correct duration for a 60-minute workout."""
+        locker = create_locker(mock_tk, tmp_path)
+        db_file = tmp_path / "sl_test.db"
+        conn = sqlite3.connect(str(db_file))
+        conn.execute(
+            "CREATE TABLE workouts "
+            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
+        )
+        now_ms = int(time.time() * 1000)
+        duration_ms = 60 * 60 * 1000  # 60 minutes
+        conn.execute(
+            "INSERT INTO workouts VALUES (?, ?, ?)",
+            ("w1", now_ms, now_ms + duration_ms),
+        )
+        conn.commit()
+        conn.close()
+
+        result = locker._get_today_workout_duration_minutes(db_file)
+        assert result == pytest.approx(60.0, abs=1.0)
+
+    def test_returns_zero_for_no_workouts(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Test returns 0.0 when no workouts today."""
+        locker = create_locker(mock_tk, tmp_path)
+        db_file = tmp_path / "sl_test.db"
+        conn = sqlite3.connect(str(db_file))
+        conn.execute(
+            "CREATE TABLE workouts "
+            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
+        )
+        yesterday_ms = int((time.time() - 200000) * 1000)
+        conn.execute(
+            "INSERT INTO workouts VALUES (?, ?, ?)",
+            ("w1", yesterday_ms, yesterday_ms + 3600000),
+        )
+        conn.commit()
+        conn.close()
+
+        assert locker._get_today_workout_duration_minutes(db_file) == 0.0
+
+    def test_sums_multiple_workouts(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Test sums durations of multiple workouts today."""
+        locker = create_locker(mock_tk, tmp_path)
+        db_file = tmp_path / "sl_test.db"
+        conn = sqlite3.connect(str(db_file))
+        conn.execute(
+            "CREATE TABLE workouts "
+            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
+        )
+        now_ms = int(time.time() * 1000)
+        # 30 min + 25 min = 55 min total
+        conn.execute(
+            "INSERT INTO workouts VALUES (?, ?, ?)",
+            ("w1", now_ms, now_ms + 30 * 60 * 1000),
+        )
+        conn.execute(
+            "INSERT INTO workouts VALUES (?, ?, ?)",
+            ("w2", now_ms + 31 * 60 * 1000, now_ms + 56 * 60 * 1000),
+        )
+        conn.commit()
+        conn.close()
+
+        result = locker._get_today_workout_duration_minutes(db_file)
+        assert result == pytest.approx(55.0, abs=1.0)
+
+    def test_ignores_invalid_finish(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Test ignores workouts where finish <= start."""
+        locker = create_locker(mock_tk, tmp_path)
+        db_file = tmp_path / "sl_test.db"
+        conn = sqlite3.connect(str(db_file))
+        conn.execute(
+            "CREATE TABLE workouts "
+            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
+        )
+        now_ms = int(time.time() * 1000)
+        # finish == start (zero duration - should be excluded by WHERE)
+        conn.execute(
+            "INSERT INTO workouts VALUES (?, ?, ?)",
+            ("w1", now_ms, now_ms),
+        )
+        conn.commit()
+        conn.close()
+
+        assert locker._get_today_workout_duration_minutes(db_file) == 0.0
+
+    def test_invalid_db_returns_zero(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Test returns 0.0 for invalid database file."""
+        locker = create_locker(mock_tk, tmp_path)
+        bad_file = tmp_path / "not_a_db.db"
+        bad_file.write_text("not a database")
+
+        assert locker._get_today_workout_duration_minutes(bad_file) == 0.0
+
+    def test_missing_table_returns_zero(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Test returns 0.0 when workouts table doesn't exist."""
+        locker = create_locker(mock_tk, tmp_path)
+        db_file = tmp_path / "empty.db"
+        conn = sqlite3.connect(str(db_file))
+        conn.execute("CREATE TABLE other (id TEXT)")
+        conn.commit()
+        conn.close()
+
+        assert locker._get_today_workout_duration_minutes(db_file) == 0.0
+
+
+class TestGetTodayExerciseCount:
+    """Tests for _get_today_exercise_count method."""
+
+    def test_counts_exercises(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Test counts distinct exercises in today's workouts."""
+        locker = create_locker(mock_tk, tmp_path)
+        db_file = tmp_path / "sl_test.db"
+        conn = sqlite3.connect(str(db_file))
+        conn.execute(
+            "CREATE TABLE workouts "
+            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
+        )
+        conn.execute(
+            "CREATE TABLE exercises (id TEXT, workout TEXT, exercise TEXT)",
+        )
+        now_ms = int(time.time() * 1000)
+        conn.execute(
+            "INSERT INTO workouts VALUES (?, ?, ?)",
+            ("w1", now_ms, now_ms + 3600000),
+        )
+        conn.execute(
+            "INSERT INTO exercises VALUES (?, ?, ?)",
+            ("e1", "w1", "squat"),
+        )
+        conn.execute(
+            "INSERT INTO exercises VALUES (?, ?, ?)",
+            ("e2", "w1", "bench_press"),
+        )
+        conn.execute(
+            "INSERT INTO exercises VALUES (?, ?, ?)",
+            ("e3", "w1", "squat"),
+        )
+        conn.commit()
+        conn.close()
+
+        assert locker._get_today_exercise_count(db_file) == 2
+
+    def test_no_exercises_returns_zero(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Test returns 0 when no exercises exist."""
+        locker = create_locker(mock_tk, tmp_path)
+        db_file = tmp_path / "sl_test.db"
+        conn = sqlite3.connect(str(db_file))
+        conn.execute(
+            "CREATE TABLE workouts "
+            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
+        )
+        conn.execute(
+            "CREATE TABLE exercises (id TEXT, workout TEXT, exercise TEXT)",
+        )
+        now_ms = int(time.time() * 1000)
+        conn.execute(
+            "INSERT INTO workouts VALUES (?, ?, ?)",
+            ("w1", now_ms, now_ms + 3600000),
+        )
+        conn.commit()
+        conn.close()
+
+        assert locker._get_today_exercise_count(db_file) == 0
+
+    def test_invalid_db_returns_zero(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Test returns 0 for invalid database file."""
+        locker = create_locker(mock_tk, tmp_path)
+        bad_file = tmp_path / "bad.db"
+        bad_file.write_text("not a db")
+
+        assert locker._get_today_exercise_count(bad_file) == 0
+
+    def test_missing_table_returns_zero_exercises(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Test returns 0 when exercises table doesn't exist."""
+        locker = create_locker(mock_tk, tmp_path)
+        db_file = tmp_path / "empty.db"
+        conn = sqlite3.connect(str(db_file))
+        conn.execute(
+            "CREATE TABLE workouts "
+            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
+        )
+        conn.commit()
+        conn.close()
+
+        assert locker._get_today_exercise_count(db_file) == 0
+
+
+class TestIsWorkoutFinishRecent:
+    """Tests for _is_workout_finish_recent method."""
+
+    def test_recent_workout_returns_true(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Test returns True for workout that finished recently."""
+        locker = create_locker(mock_tk, tmp_path)
+        db_file = tmp_path / "sl_test.db"
+        conn = sqlite3.connect(str(db_file))
+        conn.execute(
+            "CREATE TABLE workouts "
+            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
+        )
+        now_ms = int(time.time() * 1000)
+        conn.execute(
+            "INSERT INTO workouts VALUES (?, ?, ?)",
+            ("w1", now_ms - 3600000, now_ms),
+        )
+        conn.commit()
+        conn.close()
+
+        assert locker._is_workout_finish_recent(db_file) is True
+
+    def test_old_workout_returns_false(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Test returns False for workout that finished >4 hours ago."""
+        locker = create_locker(mock_tk, tmp_path)
+        db_file = tmp_path / "sl_test.db"
+        conn = sqlite3.connect(str(db_file))
+        conn.execute(
+            "CREATE TABLE workouts "
+            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
+        )
+        # Finished 5 hours ago (but still "today" in local time)
+        now_ms = int(time.time() * 1000)
+        old_finish = now_ms - 5 * 3600 * 1000
+        conn.execute(
+            "INSERT INTO workouts VALUES (?, ?, ?)",
+            ("w1", old_finish - 3600000, old_finish),
+        )
+        conn.commit()
+        conn.close()
+
+        assert locker._is_workout_finish_recent(db_file) is False
+
+    def test_no_workouts_returns_false(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Test returns False when no workouts exist."""
+        locker = create_locker(mock_tk, tmp_path)
+        db_file = tmp_path / "sl_test.db"
+        conn = sqlite3.connect(str(db_file))
+        conn.execute(
+            "CREATE TABLE workouts "
+            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
+        )
+        conn.commit()
+        conn.close()
+
+        assert locker._is_workout_finish_recent(db_file) is False
+
+    def test_invalid_db_returns_false(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Test returns False for invalid database file."""
+        locker = create_locker(mock_tk, tmp_path)
+        bad_file = tmp_path / "bad.db"
+        bad_file.write_text("not a db")
+
+        assert locker._is_workout_finish_recent(bad_file) is False
