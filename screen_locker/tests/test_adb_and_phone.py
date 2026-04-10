@@ -1,7 +1,9 @@
 """Tests for ADB commands, phone connection, and database operations."""
+# pylint: disable=protected-access,unused-argument
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import subprocess
 import time
@@ -71,7 +73,7 @@ class TestRunAdb:
             success, output = locker._run_adb(["devices"])
 
         assert success is False
-        assert output == ""
+        assert not output
 
     def test_run_adb_oserror(
         self,
@@ -88,7 +90,7 @@ class TestRunAdb:
             success, output = locker._run_adb(["devices"])
 
         assert success is False
-        assert output == ""
+        assert not output
 
     def test_run_adb_timeout(
         self,
@@ -105,7 +107,7 @@ class TestRunAdb:
             success, output = locker._run_adb(["devices"])
 
         assert success is False
-        assert output == ""
+        assert not output
 
 
 class TestAdbShell:
@@ -417,7 +419,7 @@ class TestCountTodayWorkouts:
         conn.commit()
         conn.close()
 
-        assert locker._count_today_workouts(db_file) == 0
+        assert not locker._count_today_workouts(db_file)
 
     def test_invalid_db_returns_zero(
         self,
@@ -430,7 +432,7 @@ class TestCountTodayWorkouts:
         bad_file = tmp_path / "not_a_db.db"
         bad_file.write_text("not a database")
 
-        assert locker._count_today_workouts(bad_file) == 0
+        assert not locker._count_today_workouts(bad_file)
 
     def test_missing_table_returns_zero(
         self,
@@ -446,7 +448,7 @@ class TestCountTodayWorkouts:
         conn.commit()
         conn.close()
 
-        assert locker._count_today_workouts(db_file) == 0
+        assert not locker._count_today_workouts(db_file)
 
     def test_multiple_workouts_today(
         self,
@@ -528,7 +530,7 @@ class TestGetTodayWorkoutDurationMinutes:
         conn.commit()
         conn.close()
 
-        assert locker._get_today_workout_duration_minutes(db_file) == 0.0
+        assert not locker._get_today_workout_duration_minutes(db_file)
 
     def test_sums_multiple_workouts(
         self,
@@ -583,7 +585,7 @@ class TestGetTodayWorkoutDurationMinutes:
         conn.commit()
         conn.close()
 
-        assert locker._get_today_workout_duration_minutes(db_file) == 0.0
+        assert not locker._get_today_workout_duration_minutes(db_file)
 
     def test_invalid_db_returns_zero(
         self,
@@ -596,7 +598,7 @@ class TestGetTodayWorkoutDurationMinutes:
         bad_file = tmp_path / "not_a_db.db"
         bad_file.write_text("not a database")
 
-        assert locker._get_today_workout_duration_minutes(bad_file) == 0.0
+        assert not locker._get_today_workout_duration_minutes(bad_file)
 
     def test_missing_table_returns_zero(
         self,
@@ -612,7 +614,7 @@ class TestGetTodayWorkoutDurationMinutes:
         conn.commit()
         conn.close()
 
-        assert locker._get_today_workout_duration_minutes(db_file) == 0.0
+        assert not locker._get_today_workout_duration_minutes(db_file)
 
 
 class TestGetTodayExerciseCount:
@@ -630,27 +632,20 @@ class TestGetTodayExerciseCount:
         conn = sqlite3.connect(str(db_file))
         conn.execute(
             "CREATE TABLE workouts "
-            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
-        )
-        conn.execute(
-            "CREATE TABLE exercises (id TEXT, workout TEXT, exercise TEXT)",
+            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER, exercises TEXT)",
         )
         now_ms = int(time.time() * 1000)
-        conn.execute(
-            "INSERT INTO workouts VALUES (?, ?, ?)",
-            ("w1", now_ms, now_ms + 3600000),
+        exercises_json = json.dumps(
+            [
+                {"id": "squat", "name": "Squat"},
+                {"id": "bench_press", "name": "Bench Press"},
+                {"id": "squat", "name": "Squat"},
+                {"category": "WARMUP"},
+            ]
         )
         conn.execute(
-            "INSERT INTO exercises VALUES (?, ?, ?)",
-            ("e1", "w1", "squat"),
-        )
-        conn.execute(
-            "INSERT INTO exercises VALUES (?, ?, ?)",
-            ("e2", "w1", "bench_press"),
-        )
-        conn.execute(
-            "INSERT INTO exercises VALUES (?, ?, ?)",
-            ("e3", "w1", "squat"),
+            "INSERT INTO workouts VALUES (?, ?, ?, ?)",
+            ("w1", now_ms, now_ms + 3600000, exercises_json),
         )
         conn.commit()
         conn.close()
@@ -669,20 +664,17 @@ class TestGetTodayExerciseCount:
         conn = sqlite3.connect(str(db_file))
         conn.execute(
             "CREATE TABLE workouts "
-            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
-        )
-        conn.execute(
-            "CREATE TABLE exercises (id TEXT, workout TEXT, exercise TEXT)",
+            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER, exercises TEXT)",
         )
         now_ms = int(time.time() * 1000)
         conn.execute(
-            "INSERT INTO workouts VALUES (?, ?, ?)",
-            ("w1", now_ms, now_ms + 3600000),
+            "INSERT INTO workouts VALUES (?, ?, ?, ?)",
+            ("w1", now_ms, now_ms + 3600000, "[]"),
         )
         conn.commit()
         conn.close()
 
-        assert locker._get_today_exercise_count(db_file) == 0
+        assert not locker._get_today_exercise_count(db_file)
 
     def test_invalid_db_returns_zero(
         self,
@@ -695,15 +687,15 @@ class TestGetTodayExerciseCount:
         bad_file = tmp_path / "bad.db"
         bad_file.write_text("not a db")
 
-        assert locker._get_today_exercise_count(bad_file) == 0
+        assert not locker._get_today_exercise_count(bad_file)
 
-    def test_missing_table_returns_zero_exercises(
+    def test_missing_exercises_column_returns_zero(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Test returns 0 when exercises table doesn't exist."""
+        """Test returns 0 when workouts table has no exercises column."""
         locker = create_locker(mock_tk, tmp_path)
         db_file = tmp_path / "empty.db"
         conn = sqlite3.connect(str(db_file))
@@ -711,10 +703,63 @@ class TestGetTodayExerciseCount:
             "CREATE TABLE workouts "
             "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
         )
+        now_ms = int(time.time() * 1000)
+        conn.execute(
+            "INSERT INTO workouts VALUES (?, ?, ?)",
+            ("w1", now_ms, now_ms + 3600000),
+        )
         conn.commit()
         conn.close()
 
-        assert locker._get_today_exercise_count(db_file) == 0
+        assert not locker._get_today_exercise_count(db_file)
+
+    def test_null_exercises_json_returns_zero(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Test returns 0 when exercises JSON is NULL."""
+        locker = create_locker(mock_tk, tmp_path)
+        db_file = tmp_path / "null_ex.db"
+        conn = sqlite3.connect(str(db_file))
+        conn.execute(
+            "CREATE TABLE workouts "
+            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER, exercises TEXT)",
+        )
+        now_ms = int(time.time() * 1000)
+        conn.execute(
+            "INSERT INTO workouts VALUES (?, ?, ?, ?)",
+            ("w1", now_ms, now_ms + 3600000, None),
+        )
+        conn.commit()
+        conn.close()
+
+        assert not locker._get_today_exercise_count(db_file)
+
+    def test_malformed_exercises_json_returns_zero(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Test returns 0 when exercises JSON is malformed."""
+        locker = create_locker(mock_tk, tmp_path)
+        db_file = tmp_path / "bad_json.db"
+        conn = sqlite3.connect(str(db_file))
+        conn.execute(
+            "CREATE TABLE workouts "
+            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER, exercises TEXT)",
+        )
+        now_ms = int(time.time() * 1000)
+        conn.execute(
+            "INSERT INTO workouts VALUES (?, ?, ?, ?)",
+            ("w1", now_ms, now_ms + 3600000, "not valid json"),
+        )
+        conn.commit()
+        conn.close()
+
+        assert not locker._get_today_exercise_count(db_file)
 
 
 class TestIsWorkoutFinishRecent:

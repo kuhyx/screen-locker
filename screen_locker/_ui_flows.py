@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor  # pylint: disable=no-name-in-module
 from typing import TYPE_CHECKING
 
 from python_pkg.screen_locker._constants import (
@@ -79,9 +79,7 @@ class UIFlowsMixin:
             )
         elif status in ("stale", "no_exercises"):
             self._show_retry_and_sick(
-                f"\u274c {message}\n\n"
-                "The workout data looks suspicious.\n"
-                "Make sure you did a real workout today.",
+                f"\u274c {message}\n\nReason: {status}",
             )
         elif status == "clock_tampered":
             self._show_retry_and_sick(

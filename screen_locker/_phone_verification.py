@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import (  # pylint: disable=no-name-in-module
+    ThreadPoolExecutor,
+    as_completed,
+)
 import contextlib
+import json
 import logging
 from pathlib import Path
 import shutil
@@ -52,7 +56,7 @@ class PhoneVerificationMixin:
         except subprocess.TimeoutExpired:
             _logger.warning("ADB command timed out: %s", args)
             return False, ""
-        return result.returncode == 0, result.stdout
+        return not result.returncode, result.stdout
 
     def _adb_shell(
         self,
@@ -216,31 +220,37 @@ class PhoneVerificationMixin:
     def _get_today_exercise_count(self, db_path: Path) -> int:
         """Count distinct exercises in today's workouts.
 
-        Uses the StrongLifts 'exercises' table joined with 'workouts' to
-        verify that actual exercises were logged, not just empty sessions.
+        Parses the JSON ``exercises`` column in the ``workouts`` table.
+        Each workout row stores its exercises as a JSON array, not in a
+        separate relational table.
 
         Args:
             db_path: Path to the locally-pulled StrongLifts database.
 
         Returns:
-            Number of distinct exercises in today's workouts.
+            Number of distinct exercises across today's workouts.
             Returns 0 on any error.
         """
         try:
             conn = sqlite3.connect(str(db_path))
             try:
                 cursor = conn.execute(
-                    "SELECT COUNT(DISTINCT e.exercise) "
-                    "FROM exercises e "
-                    "JOIN workouts w ON e.workout = w.id "
-                    "WHERE date(w.start / 1000, 'unixepoch', 'localtime') "
+                    "SELECT exercises FROM workouts "
+                    "WHERE date(start / 1000, 'unixepoch', 'localtime') "
                     "= date('now', 'localtime')",
                 )
-                row = cursor.fetchone()
-                return int(row[0]) if row else 0
+                exercise_ids: set[str] = set()
+                for (exercises_json,) in cursor:
+                    if not exercises_json:
+                        continue
+                    for ex in json.loads(exercises_json):
+                        ex_id = ex.get("id") or ex.get("name", "")
+                        if ex_id:
+                            exercise_ids.add(ex_id)
+                return len(exercise_ids)
             finally:
                 conn.close()
-        except (sqlite3.Error, ValueError, TypeError):
+        except (sqlite3.Error, ValueError, TypeError, json.JSONDecodeError):
             _logger.warning("Failed to query exercise count")
             return 0
 

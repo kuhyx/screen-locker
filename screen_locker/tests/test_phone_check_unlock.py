@@ -1,4 +1,5 @@
 """Tests for phone workout verification, phone check, and unlock operations."""
+# pylint: disable=protected-access,unused-argument
 
 from __future__ import annotations
 
@@ -390,7 +391,7 @@ class TestStartPhoneCheck:
 
         locker._show_retry_and_sick.assert_called_once()
         call_args = locker._show_retry_and_sick.call_args[0][0]
-        assert "suspicious" in call_args.lower()
+        assert "reason: stale" in call_args.lower()
 
     def test_handle_startup_no_exercises_shows_retry_and_sick(
         self,
@@ -405,7 +406,7 @@ class TestStartPhoneCheck:
 
         locker._show_retry_and_sick.assert_called_once()
         call_args = locker._show_retry_and_sick.call_args[0][0]
-        assert "suspicious" in call_args.lower()
+        assert "reason: no_exercises" in call_args.lower()
 
     def test_handle_startup_clock_tampered_shows_retry_and_sick(
         self,
