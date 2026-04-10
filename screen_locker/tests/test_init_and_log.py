@@ -10,10 +10,27 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from python_pkg.screen_locker.screen_lock import _assert_not_under_pytest
 from python_pkg.screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+class TestAssertNotUnderPytest:
+    """Tests for the _assert_not_under_pytest runtime guard."""
+
+    def test_raises_when_tk_is_real(self) -> None:
+        """Guard fires if tk.Tk is the real tkinter class under pytest."""
+        with (
+            patch("python_pkg.screen_locker.screen_lock.tk", tk),
+            pytest.raises(RuntimeError, match="SAFETY"),
+        ):
+            _assert_not_under_pytest()
+
+    def test_silent_when_tk_is_mocked(self) -> None:
+        """Guard stays silent when tk is already mocked (normal test run)."""
+        _assert_not_under_pytest()
 
 
 class TestScreenLockerInit:

@@ -1,4 +1,12 @@
-"""Shared fixtures and helpers for screen_locker tests."""
+"""Shared fixtures and helpers for screen_locker tests.
+
+Safety:
+  ``_block_real_tk_and_exit`` (autouse) replaces the **entire** ``tk``
+  module reference inside ``screen_lock`` with a MagicMock and stubs
+  ``sys.exit``.  This makes it physically impossible for any test to
+  create a real Tk root window, go fullscreen, or grab input — even if
+  the test forgets to request the explicit ``mock_tk`` fixture.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +20,40 @@ import pytest
 from python_pkg.screen_locker.screen_lock import ScreenLocker
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Generator, Iterator
+
+
+def _make_mock_tk() -> MagicMock:
+    """Build a MagicMock that stands in for the ``tkinter`` module."""
+    mock = MagicMock()
+    mock_root = MagicMock()
+    mock_root.winfo_screenwidth.return_value = 1920
+    mock_root.winfo_screenheight.return_value = 1080
+    mock.Tk.return_value = mock_root
+
+    mock_frame = MagicMock()
+    mock_frame.winfo_children.return_value = []
+    mock.Frame.return_value = mock_frame
+
+    # Keep real TclError so ``except tk.TclError`` still works.
+    mock.TclError = tk.TclError
+    return mock
+
+
+@pytest.fixture(autouse=True)
+def _block_real_tk_and_exit() -> Iterator[None]:
+    """Replace the whole ``tk`` module and ``sys.exit`` for every test.
+
+    Patching the entire module (not just ``tk.Tk``) ensures that
+    **nothing** in tkinter can touch the real display server.
+    """
+    mock = _make_mock_tk()
+
+    with (
+        patch("python_pkg.screen_locker.screen_lock.tk", mock),
+        patch("python_pkg.screen_locker.screen_lock.sys.exit"),
+    ):
+        yield
 
 
 @pytest.fixture

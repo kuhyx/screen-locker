@@ -50,6 +50,21 @@ __all__ = [
 _logger = logging.getLogger(__name__)
 
 
+def _assert_not_under_pytest() -> None:
+    """Raise if the screen locker is being created inside a pytest run.
+
+    Defence-in-depth: prevents a real fullscreen Tk window from locking
+    the user's screen when tests forget to mock ``tk.Tk``.
+    The check is cheap (one dict lookup) and only fires during testing.
+    """
+    if "pytest" in sys.modules and getattr(tk, "__name__", "") == "tkinter":
+        msg = (
+            "SAFETY: ScreenLocker.__init__ called under pytest with "
+            "real tkinter — tk.Tk is not mocked"
+        )
+        raise RuntimeError(msg)
+
+
 class ScreenLocker(
     ShutdownMixin,
     PhoneVerificationMixin,
@@ -64,6 +79,7 @@ class ScreenLocker(
         verify_only: bool = False,
     ) -> None:
         """Initialize screen locker with optional demo mode."""
+        _assert_not_under_pytest()
         script_dir = Path(__file__).resolve().parent
         self.log_file = script_dir / "workout_log.json"
         self.verify_only = verify_only
