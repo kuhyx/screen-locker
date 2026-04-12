@@ -25,6 +25,7 @@ from python_pkg.screen_locker._constants import (
     STRONGLIFTS_DB_REMOTE,
 )
 from python_pkg.screen_locker._log_integrity import (
+    _load_hmac_key,
     compute_entry_hmac,
     verify_entry_hmac,
 )
@@ -296,10 +297,15 @@ class ScreenLocker(
             entry = logs.get(today)
             if entry is None:
                 return False
-            if not verify_entry_hmac(entry):
-                _logger.warning("HMAC verification failed for today's log entry")
-                return False
-            return True
+            if verify_entry_hmac(entry):
+                return True
+            if _load_hmac_key() is None and "hmac" not in entry:
+                _logger.info(
+                    "HMAC key unavailable — accepting unsigned entry",
+                )
+                return True
+            _logger.warning("HMAC verification failed for today's log entry")
+            return False
 
     def _load_existing_logs(self) -> dict:
         """Load existing workout logs from file."""

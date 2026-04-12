@@ -257,16 +257,17 @@ class PhoneVerificationMixin:
     def _is_workout_finish_recent(self, db_path: Path) -> bool:
         """Check if the latest workout's finish time is recent.
 
-        A fresh workout should have finished within the last few hours.
-        This prevents using an old pre-prepared database dump.
+        A fresh workout should have finished within the last 24 hours.
+        This prevents using an old pre-prepared database dump while
+        still accepting workouts done earlier the same day.
 
         Args:
             db_path: Path to the locally-pulled StrongLifts database.
 
         Returns:
-            True if the latest finish time is within 4 hours of now.
+            True if the latest finish time is within 24 hours of now.
         """
-        max_age_seconds = 4 * 3600
+        max_age_seconds = 24 * 3600
         try:
             conn = sqlite3.connect(str(db_path))
             try:
