@@ -154,6 +154,60 @@ class TestHasLoggedToday:
         ):
             assert locker.has_logged_today() is False
 
+    def test_today_unsigned_entry_no_hmac_key(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Accept unsigned entry when HMAC key is unavailable."""
+        log_file = tmp_path / "workout_log.json"
+        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        log_file.write_text(
+            json.dumps({today: {"workout": "data"}}),
+        )
+
+        locker = create_locker(mock_tk, tmp_path)
+        locker.log_file = log_file
+        with (
+            patch(
+                "python_pkg.screen_locker.screen_lock.verify_entry_hmac",
+                return_value=False,
+            ),
+            patch(
+                "python_pkg.screen_locker.screen_lock._load_hmac_key",
+                return_value=None,
+            ),
+        ):
+            assert locker.has_logged_today() is True
+
+    def test_today_unsigned_entry_with_hmac_key(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Reject unsigned entry when HMAC key IS available."""
+        log_file = tmp_path / "workout_log.json"
+        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        log_file.write_text(
+            json.dumps({today: {"workout": "data"}}),
+        )
+
+        locker = create_locker(mock_tk, tmp_path)
+        locker.log_file = log_file
+        with (
+            patch(
+                "python_pkg.screen_locker.screen_lock.verify_entry_hmac",
+                return_value=False,
+            ),
+            patch(
+                "python_pkg.screen_locker.screen_lock._load_hmac_key",
+                return_value=b"secret-key",
+            ),
+        ):
+            assert locker.has_logged_today() is False
+
     def test_other_day_logged(
         self,
         mock_tk: MagicMock,

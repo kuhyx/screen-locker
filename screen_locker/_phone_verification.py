@@ -267,7 +267,7 @@ class PhoneVerificationMixin:
         Returns:
             True if the latest finish time is within 24 hours of now.
         """
-        max_age_seconds = 24 * 3600
+        max_age_seconds = 24 * 3600  # accept same-day workouts
         try:
             conn = sqlite3.connect(str(db_path))
             try:

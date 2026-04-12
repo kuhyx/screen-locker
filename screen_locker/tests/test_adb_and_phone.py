@@ -795,7 +795,7 @@ class TestIsWorkoutFinishRecent:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Test returns False for workout that finished >4 hours ago."""
+        """Test returns False for workout that finished >24 hours ago."""
         locker = create_locker(mock_tk, tmp_path)
         db_file = tmp_path / "sl_test.db"
         conn = sqlite3.connect(str(db_file))
@@ -803,9 +803,9 @@ class TestIsWorkoutFinishRecent:
             "CREATE TABLE workouts "
             "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
         )
-        # Finished 5 hours ago (but still "today" in local time)
+        # Finished 25 hours ago (not "today" in local time either)
         now_ms = int(time.time() * 1000)
-        old_finish = now_ms - 5 * 3600 * 1000
+        old_finish = now_ms - 25 * 3600 * 1000  # beyond 24h window
         conn.execute(
             "INSERT INTO workouts VALUES (?, ?, ?)",
             ("w1", old_finish - 3600000, old_finish),

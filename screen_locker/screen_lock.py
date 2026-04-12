@@ -304,7 +304,9 @@ class ScreenLocker(
                     "HMAC key unavailable — accepting unsigned entry",
                 )
                 return True
-            _logger.warning("HMAC verification failed for today's log entry")
+            _logger.warning(
+                "HMAC verification failed for today's log entry",
+            )
             return False
 
     def _load_existing_logs(self) -> dict:
