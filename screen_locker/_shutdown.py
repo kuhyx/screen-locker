@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import calendar
+from datetime import datetime, timedelta, timezone
 import json
 import logging
 import subprocess
@@ -11,6 +12,11 @@ from python_pkg.screen_locker._constants import (
     ADJUST_SHUTDOWN_SCRIPT,
     SHUTDOWN_CONFIG_FILE,
     SICK_DAY_STATE_FILE,
+)
+from python_pkg.wake_alarm._constants import (
+    ALARM_DAYS,
+    RTCWAKE_BIN,
+    WAKE_AFTER_HOURS,
 )
 
 _logger = logging.getLogger(__name__)
@@ -260,3 +266,73 @@ class ShutdownMixin:
             result.stdout.strip(),
         )
         return True
+
+    # ------------------------------------------------------------------
+    # rtcwake integration for weekend wake alarm
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _is_tomorrow_alarm_day() -> bool:
+        """Check if tomorrow is an alarm day."""
+        tomorrow = datetime.now(tz=timezone.utc) + timedelta(days=1)
+        return tomorrow.weekday() in ALARM_DAYS
+
+    @staticmethod
+    def _compute_wake_timestamp() -> int:
+        """Compute the UTC epoch timestamp for the next wake alarm.
+
+        Returns:
+            Epoch seconds WAKE_AFTER_HOURS from now.
+        """
+        wake_time = datetime.now(tz=timezone.utc) + timedelta(
+            hours=WAKE_AFTER_HOURS,
+        )
+        return calendar.timegm(wake_time.utctimetuple())
+
+    @staticmethod
+    def _schedule_rtcwake() -> bool:
+        """Set rtcwake to power on the PC after WAKE_AFTER_HOURS.
+
+        Uses ``rtcwake -m no`` so the system can shut down normally while
+        the RTC alarm remains set.
+
+        Returns:
+            True if rtcwake was set successfully, False otherwise.
+        """
+        wake_epoch = ShutdownMixin._compute_wake_timestamp()
+        cmd = [
+            "/usr/bin/sudo",
+            RTCWAKE_BIN,
+            "-m",
+            "no",
+            "-t",
+            str(wake_epoch),
+        ]
+        try:
+            subprocess.run(
+                cmd,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.SubprocessError as exc:
+            _logger.warning("Failed to set rtcwake: %s", exc)
+            return False
+        _logger.info(
+            "rtcwake set: PC will wake at epoch %d",
+            wake_epoch,
+        )
+        return True
+
+    def schedule_wake_if_needed(self) -> bool:
+        """Schedule rtcwake if tomorrow is an alarm day.
+
+        Call this at shutdown time.
+
+        Returns:
+            True if wake was scheduled, False if not needed or failed.
+        """
+        if not self._is_tomorrow_alarm_day():
+            _logger.info("Tomorrow is not an alarm day — skipping rtcwake")
+            return False
+        return self._schedule_rtcwake()

@@ -31,6 +31,7 @@ from python_pkg.screen_locker._log_integrity import (
 from python_pkg.screen_locker._phone_verification import PhoneVerificationMixin
 from python_pkg.screen_locker._shutdown import ShutdownMixin
 from python_pkg.screen_locker._ui_flows import UIFlowsMixin
+from python_pkg.wake_alarm._state import has_workout_skip_today
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -91,6 +92,9 @@ class ScreenLocker(
                 sys.exit(0)
         elif self.has_logged_today():
             _logger.info("Workout already logged today. Skipping screen lock.")
+            sys.exit(0)
+        elif has_workout_skip_today():
+            _logger.info("Wake alarm earned workout skip. Skipping screen lock.")
             sys.exit(0)
         self.root = tk.Tk()
         title_suffix = (

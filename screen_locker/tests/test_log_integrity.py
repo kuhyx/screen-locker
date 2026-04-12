@@ -15,6 +15,8 @@ from python_pkg.screen_locker._log_integrity import (
     verify_entry_hmac,
 )
 
+_HMAC_KEY_FILE_PATH = "python_pkg.shared.log_integrity.HMAC_KEY_FILE"
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -27,7 +29,7 @@ class TestLoadHmacKey:
         key_file = tmp_path / "hmac.key"
         key_file.write_bytes(b"secret_key_bytes")
         with patch(
-            "python_pkg.screen_locker._log_integrity.HMAC_KEY_FILE",
+            _HMAC_KEY_FILE_PATH,
             key_file,
         ):
             result = _load_hmac_key()
@@ -37,7 +39,7 @@ class TestLoadHmacKey:
         """Test returns None when key file doesn't exist."""
         key_file = tmp_path / "nonexistent.key"
         with patch(
-            "python_pkg.screen_locker._log_integrity.HMAC_KEY_FILE",
+            _HMAC_KEY_FILE_PATH,
             key_file,
         ):
             result = _load_hmac_key()
@@ -51,7 +53,7 @@ class TestGenerateHmacKey:
         """Test key generation creates file with 32-byte key."""
         key_file = tmp_path / "subdir" / "hmac.key"
         with patch(
-            "python_pkg.screen_locker._log_integrity.HMAC_KEY_FILE",
+            _HMAC_KEY_FILE_PATH,
             key_file,
         ):
             result = _generate_hmac_key()
@@ -62,7 +64,7 @@ class TestGenerateHmacKey:
     def test_returns_none_on_write_failure(self) -> None:
         """Test returns None when file cannot be written."""
         with patch(
-            "python_pkg.screen_locker._log_integrity.HMAC_KEY_FILE",
+            _HMAC_KEY_FILE_PATH,
         ) as mock_path:
             mock_path.parent.mkdir.side_effect = OSError("permission denied")
             result = _generate_hmac_key()
@@ -79,7 +81,7 @@ class TestComputeEntryHmac:
         key_file.write_bytes(key)
         entry = {"timestamp": "2025-01-01T00:00:00", "workout_data": {"type": "test"}}
         with patch(
-            "python_pkg.screen_locker._log_integrity.HMAC_KEY_FILE",
+            _HMAC_KEY_FILE_PATH,
             key_file,
         ):
             result = compute_entry_hmac(entry)
@@ -93,7 +95,7 @@ class TestComputeEntryHmac:
         """Test returns None when key file is missing."""
         key_file = tmp_path / "nonexistent.key"
         with patch(
-            "python_pkg.screen_locker._log_integrity.HMAC_KEY_FILE",
+            _HMAC_KEY_FILE_PATH,
             key_file,
         ):
             result = compute_entry_hmac({"data": "test"})
@@ -114,7 +116,7 @@ class TestVerifyEntryHmac:
         entry = {**entry_data, "hmac": correct_hmac}
 
         with patch(
-            "python_pkg.screen_locker._log_integrity.HMAC_KEY_FILE",
+            _HMAC_KEY_FILE_PATH,
             key_file,
         ):
             assert verify_entry_hmac(entry) is True
@@ -126,7 +128,7 @@ class TestVerifyEntryHmac:
         entry = {"timestamp": "2025-01-01", "hmac": "wrong_hmac_value"}
 
         with patch(
-            "python_pkg.screen_locker._log_integrity.HMAC_KEY_FILE",
+            _HMAC_KEY_FILE_PATH,
             key_file,
         ):
             assert verify_entry_hmac(entry) is False
@@ -146,7 +148,7 @@ class TestVerifyEntryHmac:
         key_file = tmp_path / "nonexistent.key"
         entry = {"timestamp": "2025-01-01", "hmac": "some_hmac"}
         with patch(
-            "python_pkg.screen_locker._log_integrity.HMAC_KEY_FILE",
+            _HMAC_KEY_FILE_PATH,
             key_file,
         ):
             assert verify_entry_hmac(entry) is False
