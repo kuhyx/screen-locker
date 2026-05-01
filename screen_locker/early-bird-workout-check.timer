@@ -1,0 +1,14 @@
+[Unit]
+Description=Re-check workout after early bird grace period expires at 08:30
+After=graphical-session.target
+
+[Timer]
+# Fires every day at 08:30 to verify workout if user logged in during 5–8:30 window
+OnCalendar=*-*-* 08:30:00
+Unit=workout-locker.service
+Persistent=false
+AccuracySec=1s
+RandomizedDelaySec=0
+
+[Install]
+WantedBy=timers.target

@@ -16,6 +16,9 @@ import tkinter as tk
 from typing import TYPE_CHECKING
 
 from python_pkg.screen_locker._constants import (
+    EARLY_BIRD_END_HOUR,
+    EARLY_BIRD_END_MINUTE,
+    EARLY_BIRD_START_HOUR,
     HMAC_KEY_FILE,
     MAX_CLOCK_SKEW_SECONDS,
     MIN_WORKOUT_DURATION_MINUTES,
@@ -25,7 +28,6 @@ from python_pkg.screen_locker._constants import (
     STRONGLIFTS_DB_REMOTE,
 )
 from python_pkg.screen_locker._log_integrity import (
-    _load_hmac_key,
     compute_entry_hmac,
     verify_entry_hmac,
 )
@@ -39,6 +41,9 @@ if TYPE_CHECKING:
     from concurrent.futures import Future
 
 __all__ = [
+    "EARLY_BIRD_END_HOUR",
+    "EARLY_BIRD_END_MINUTE",
+    "EARLY_BIRD_START_HOUR",
     "HMAC_KEY_FILE",
     "MAX_CLOCK_SKEW_SECONDS",
     "MIN_WORKOUT_DURATION_MINUTES",
@@ -85,18 +90,8 @@ class ScreenLocker(
         script_dir = Path(__file__).resolve().parent
         self.log_file = script_dir / "workout_log.json"
         self.verify_only = verify_only
-        if verify_only:
-            if not self._is_sick_day_log():
-                _logger.info(
-                    "No sick day logged today. Nothing to verify.",
-                )
-                sys.exit(0)
-        elif self.has_logged_today():
-            _logger.info("Workout already logged today. Skipping screen lock.")
-            sys.exit(0)
-        elif has_workout_skip_today():
-            _logger.info("Wake alarm earned workout skip. Skipping screen lock.")
-            sys.exit(0)
+        self.workout_data: dict[str, str] = {}
+        self._check_early_exits(verify_only=verify_only)
         self.root = tk.Tk()
         title_suffix = (
             " [VERIFY]" if verify_only else (" [DEMO MODE]" if demo_mode else "")
@@ -104,7 +99,6 @@ class ScreenLocker(
         self.root.title("Workout Locker" + title_suffix)
         self.demo_mode = demo_mode
         self.lockout_time = 10 if demo_mode else 1800
-        self.workout_data: dict[str, str] = {}
         if verify_only:
             self._setup_verify_window()
         else:
@@ -150,6 +144,146 @@ class ScreenLocker(
         if entry is None:
             return False
         return entry.get("workout_data", {}).get("type") == "sick_day"
+
+    def _check_early_exits(self, *, verify_only: bool) -> None:
+        """Check startup conditions and exit early when appropriate."""
+        if verify_only:
+            if not self._is_sick_day_log():
+                _logger.info(
+                    "No sick day logged today. Nothing to verify.",
+                )
+                sys.exit(0)
+        else:
+            self._check_non_verify_exits()
+
+    def _check_non_verify_exits(self) -> None:
+        """Check all normal (non-verify) startup early-exit conditions."""
+        if self._is_early_bird_log() and not self._is_early_bird_time():
+            if self._try_auto_upgrade_early_bird():
+                _logger.info(
+                    "Auto-upgraded early_bird entry to phone_verified.",
+                )
+                sys.exit(0)
+        elif self._is_early_bird_log():
+            _logger.info("Early bird window still active — skipping lock.")
+            sys.exit(0)
+        elif self._is_sick_day_log() and self._try_auto_upgrade_sick_day():
+            _logger.info(
+                "Auto-upgraded today's sick_day entry to phone_verified.",
+            )
+            sys.exit(0)
+        elif self.has_logged_today():
+            _logger.info("Workout already logged today. Skipping screen lock.")
+            sys.exit(0)
+        elif has_workout_skip_today():
+            _logger.info(
+                "Wake alarm earned workout skip. Skipping screen lock.",
+            )
+            sys.exit(0)
+        elif self._is_early_bird_time():
+            self._save_early_bird_log()
+            _logger.info(
+                "Early bird time — skipping lock, will re-check at 08:30.",
+            )
+            sys.exit(0)
+
+    def _get_local_time_minutes(self) -> int:
+        """Return current local time as minutes from midnight."""
+        now = datetime.now(tz=timezone.utc).astimezone()
+        return now.hour * 60 + now.minute
+
+    def _is_early_bird_time(self) -> bool:
+        """Return True if current local time is in the early bird window.
+
+        The early bird window is EARLY_BIRD_START_HOUR (5 AM) up to but not
+        including EARLY_BIRD_END_HOUR:EARLY_BIRD_END_MINUTE (8:30 AM).
+        """
+        minutes = self._get_local_time_minutes()
+        start = EARLY_BIRD_START_HOUR * 60
+        end = EARLY_BIRD_END_HOUR * 60 + EARLY_BIRD_END_MINUTE
+        return start <= minutes < end
+
+    def _is_early_bird_log(self) -> bool:
+        """Check if today's workout log entry is an early_bird provisional entry."""
+        if not self.log_file.exists():
+            return False
+        try:
+            with self.log_file.open() as f:
+                logs = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return False
+        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        entry = logs.get(today)
+        if entry is None:
+            return False
+        return entry.get("workout_data", {}).get("type") == "early_bird"
+
+    def _save_early_bird_log(self) -> None:
+        """Save an early_bird provisional entry to the workout log."""
+        self.workout_data = {"type": "early_bird"}
+        self.save_workout_log()
+
+    def _try_auto_upgrade_early_bird(self) -> bool:
+        """Silently upgrade today's early_bird entry if phone shows a workout.
+
+        Called at 8:30 AM when the early bird grace period expires. If the
+        phone shows a completed workout, upgrades the entry to phone_verified
+        and rewards with a later shutdown time. Otherwise returns False so the
+        caller can show the lock screen.
+
+        Returns:
+            True if the entry was upgraded to phone_verified, False otherwise.
+        """
+        try:
+            status, message = self._verify_phone_workout()
+        except (OSError, RuntimeError) as exc:
+            _logger.info("Early bird upgrade phone check failed: %s", exc)
+            return False
+        if status != "verified":
+            _logger.info(
+                "Early bird upgrade skipped (phone status=%s): %s",
+                status,
+                message,
+            )
+            return False
+        self.workout_data["type"] = "phone_verified"
+        self.workout_data["source"] = message
+        self.workout_data["after_early_bird"] = "true"
+        self._adjust_shutdown_time_later()
+        self.save_workout_log()
+        return True
+
+    def _try_auto_upgrade_sick_day(self) -> bool:
+        """Silently upgrade today's sick_day entry if phone shows a workout.
+
+        Runs at startup without any UI so that a real workout logged on the
+        phone retroactively replaces an earlier sick_day entry (for example
+        when a previous bug forced the user into the sick path).
+
+        Returns:
+            True if the entry was upgraded to phone_verified, False otherwise.
+            On False the caller should fall through to the normal startup
+            path (which will skip the lock because the sick_day entry still
+            satisfies ``has_logged_today``).
+        """
+        try:
+            status, message = self._verify_phone_workout()
+        except (OSError, RuntimeError) as exc:
+            _logger.info("Auto-upgrade phone check failed: %s", exc)
+            return False
+        if status != "verified":
+            _logger.info(
+                "Auto-upgrade skipped (phone status=%s): %s",
+                status,
+                message,
+            )
+            return False
+        self.workout_data["type"] = "phone_verified"
+        self.workout_data["source"] = message
+        self.workout_data["after_sick_day"] = "true"
+        self._adjust_shutdown_time_later()
+        self.save_workout_log()
+        return True
 
     def _setup_demo_close_button(self) -> None:
         """Add close button for demo mode."""
@@ -283,7 +417,12 @@ class ScreenLocker(
         self.root.after(1500, self.close)
 
     def has_logged_today(self) -> bool:
-        """Check if workout has been logged today with valid HMAC."""
+        """Check if workout has been logged today.
+
+        Signed entries are verified with HMAC. Older unsigned entries are
+        still accepted as a legacy fallback so the user-level service does not
+        forget workouts when the root-owned HMAC key is unavailable.
+        """
         if not self.log_file.exists():
             return False
 
@@ -297,17 +436,15 @@ class ScreenLocker(
             entry = logs.get(today)
             if entry is None:
                 return False
-            if verify_entry_hmac(entry):
-                return True
-            if _load_hmac_key() is None and "hmac" not in entry:
-                _logger.info(
-                    "HMAC key unavailable — accepting unsigned entry",
+            if "hmac" not in entry:
+                _logger.warning(
+                    "Today's log entry is unsigned; accepting legacy fallback"
                 )
-                return True
-            _logger.warning(
-                "HMAC verification failed for today's log entry",
-            )
-            return False
+                return entry.get("workout_data", {}).get("type") != "early_bird"
+            if not verify_entry_hmac(entry):
+                _logger.warning("HMAC verification failed for today's log entry")
+                return False
+            return entry.get("workout_data", {}).get("type") != "early_bird"
 
     def _load_existing_logs(self) -> dict:
         """Load existing workout logs from file."""

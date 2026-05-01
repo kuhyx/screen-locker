@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from python_pkg.screen_locker.screen_lock import _assert_not_under_pytest
+from python_pkg.screen_locker.screen_lock import ScreenLocker, _assert_not_under_pytest
 from python_pkg.screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
@@ -154,59 +154,29 @@ class TestHasLoggedToday:
         ):
             assert locker.has_logged_today() is False
 
-    def test_today_unsigned_entry_no_hmac_key(
+    def test_today_logged_without_hmac_uses_legacy_fallback(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Accept unsigned entry when HMAC key is unavailable."""
+        """Unsigned legacy entries still count as logged workouts."""
         log_file = tmp_path / "workout_log.json"
         today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
         log_file.write_text(
-            json.dumps({today: {"workout": "data"}}),
+            json.dumps(
+                {
+                    today: {
+                        "timestamp": "2026-05-01T14:46:32.206951+00:00",
+                        "workout_data": {"type": "phone_verified"},
+                    }
+                }
+            ),
         )
 
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
-        with (
-            patch(
-                "python_pkg.screen_locker.screen_lock.verify_entry_hmac",
-                return_value=False,
-            ),
-            patch(
-                "python_pkg.screen_locker.screen_lock._load_hmac_key",
-                return_value=None,
-            ),
-        ):
-            assert locker.has_logged_today() is True
-
-    def test_today_unsigned_entry_with_hmac_key(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Reject unsigned entry when HMAC key IS available."""
-        log_file = tmp_path / "workout_log.json"
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-        log_file.write_text(
-            json.dumps({today: {"workout": "data"}}),
-        )
-
-        locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = log_file
-        with (
-            patch(
-                "python_pkg.screen_locker.screen_lock.verify_entry_hmac",
-                return_value=False,
-            ),
-            patch(
-                "python_pkg.screen_locker.screen_lock._load_hmac_key",
-                return_value=b"secret-key",
-            ),
-        ):
-            assert locker.has_logged_today() is False
+        assert locker.has_logged_today() is True
 
     def test_other_day_logged(
         self,
@@ -357,6 +327,120 @@ class TestRun:
         locker.run()
 
         locker.root.mainloop.assert_called_once()
+
+
+class TestAutoUpgradeSickDay:
+    """Tests for silent sick_day → phone_verified upgrade at startup."""
+
+    def test_upgrade_succeeds_when_phone_verified(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Verified phone workout overwrites today's sick_day entry."""
+        log_file = tmp_path / "workout_log.json"
+        locker = create_locker(mock_tk, tmp_path)
+        locker.log_file = log_file
+        with (
+            patch.object(
+                locker,
+                "_verify_phone_workout",
+                return_value=("verified", "Workout verified! (1 session)"),
+            ),
+            patch.object(
+                locker,
+                "_adjust_shutdown_time_later",
+                return_value=True,
+            ) as mock_adjust,
+            patch(
+                "python_pkg.screen_locker.screen_lock.compute_entry_hmac",
+                return_value="sig",
+            ),
+        ):
+            assert locker._try_auto_upgrade_sick_day() is True
+            mock_adjust.assert_called_once()
+
+        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        with log_file.open() as f:
+            data: dict[str, Any] = json.load(f)
+        assert data[today]["workout_data"]["type"] == "phone_verified"
+        assert data[today]["workout_data"]["after_sick_day"] == "true"
+
+    def test_upgrade_skipped_when_not_verified(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Non-verified statuses leave the sick_day entry untouched."""
+        locker = create_locker(mock_tk, tmp_path)
+        with patch.object(
+            locker,
+            "_verify_phone_workout",
+            return_value=("no_phone", "No phone connected"),
+        ):
+            assert locker._try_auto_upgrade_sick_day() is False
+        assert locker.workout_data == {}
+
+    def test_upgrade_skipped_on_exception(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Transient OSError/RuntimeError during check is non-fatal."""
+        locker = create_locker(mock_tk, tmp_path)
+        with patch.object(
+            locker,
+            "_verify_phone_workout",
+            side_effect=OSError("transient"),
+        ):
+            assert locker._try_auto_upgrade_sick_day() is False
+
+    def test_init_exits_when_sick_day_upgrade_succeeds(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Startup exits 0 after a successful silent upgrade."""
+        mock_sys_exit.side_effect = SystemExit(0)
+        with (
+            patch.object(
+                ScreenLocker,
+                "_try_auto_upgrade_sick_day",
+                return_value=True,
+            ) as mock_upgrade,
+            pytest.raises(SystemExit),
+        ):
+            create_locker(mock_tk, tmp_path, is_sick_day_log=True)
+        mock_upgrade.assert_called_once()
+        mock_sys_exit.assert_called_once_with(0)
+
+    def test_init_falls_through_when_sick_day_upgrade_fails(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Failed upgrade still honours existing sick_day log (exit via has_logged)."""
+        mock_sys_exit.side_effect = SystemExit(0)
+        with (
+            patch.object(
+                ScreenLocker,
+                "_try_auto_upgrade_sick_day",
+                return_value=False,
+            ),
+            pytest.raises(SystemExit),
+        ):
+            create_locker(
+                mock_tk,
+                tmp_path,
+                is_sick_day_log=True,
+                has_logged=True,
+            )
+        mock_sys_exit.assert_called_once_with(0)
 
 
 class TestMainEntry:

@@ -13,6 +13,9 @@ STRONGLIFTS_DB_REMOTE = (
 )
 MIN_WORKOUT_DURATION_MINUTES = 50
 MAX_CLOCK_SKEW_SECONDS = 300  # 5 minutes max time skew from NTP
+EARLY_BIRD_START_HOUR = 5
+EARLY_BIRD_END_HOUR = 8
+EARLY_BIRD_END_MINUTE = 30
 SHUTDOWN_CONFIG_FILE = Path("/etc/shutdown-schedule.conf")
 # HMAC key for signing workout log entries (root-owned, 0600)
 HMAC_KEY_FILE = Path("/etc/workout-locker/hmac.key")

@@ -21,6 +21,7 @@ from python_pkg.screen_locker.screen_lock import ScreenLocker
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
+    from typing import Literal
 
 
 def _make_mock_tk() -> MagicMock:
@@ -105,7 +106,7 @@ def create_locker(
     verify_only: bool = False,
     is_sick_day_log: bool = False,
 ) -> ScreenLocker:
-    """Create a ScreenLocker instance for testing."""
+    """Create a ScreenLocker instance with early bird paths disabled."""
     with (
         patch.object(Path, "resolve", return_value=tmp_path),
         patch.object(ScreenLocker, "has_logged_today", return_value=has_logged),
@@ -114,6 +115,13 @@ def create_locker(
             "_is_sick_day_log",
             return_value=is_sick_day_log,
         ),
+        patch.object(ScreenLocker, "_is_early_bird_log", return_value=False),
+        patch.object(ScreenLocker, "_is_early_bird_time", return_value=False),
+        patch.object(
+            ScreenLocker,
+            "_try_auto_upgrade_early_bird",
+            return_value=False,
+        ),
         patch.object(ScreenLocker, "_start_phone_check"),
         patch.object(ScreenLocker, "_start_verify_workout_check"),
     ):
@@ -121,3 +129,40 @@ def create_locker(
             demo_mode=demo_mode,
             verify_only=verify_only,
         )
+
+
+def create_locker_early_bird(
+    _mock_tk: MagicMock,
+    tmp_path: Path,
+    *,
+    state: Literal["none", "log_active", "log_expired"] = "none",
+    has_logged: bool = False,
+    demo_mode: bool = True,
+) -> ScreenLocker:
+    """Create a ScreenLocker configured for early bird path testing.
+
+    Args:
+        state: One of:
+            - "none": outside early bird window, no early bird log.
+            - "log_active": early bird log exists, still in window.
+            - "log_expired": early bird log exists, past 8:30 AM.
+        has_logged: Return value for has_logged_today mock.
+        demo_mode: Passed to ScreenLocker constructor.
+    """
+    is_early_bird_log = state in ("log_active", "log_expired")
+    is_early_bird_time = state == "log_active"
+    with (
+        patch.object(Path, "resolve", return_value=tmp_path),
+        patch.object(ScreenLocker, "has_logged_today", return_value=has_logged),
+        patch.object(ScreenLocker, "_is_sick_day_log", return_value=False),
+        patch.object(
+            ScreenLocker, "_is_early_bird_log", return_value=is_early_bird_log
+        ),
+        patch.object(
+            ScreenLocker, "_is_early_bird_time", return_value=is_early_bird_time
+        ),
+        patch.object(ScreenLocker, "_try_auto_upgrade_early_bird", return_value=False),
+        patch.object(ScreenLocker, "_start_phone_check"),
+        patch.object(ScreenLocker, "_start_verify_workout_check"),
+    ):
+        return ScreenLocker(demo_mode=demo_mode)

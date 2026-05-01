@@ -795,7 +795,7 @@ class TestIsWorkoutFinishRecent:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Test returns False for workout that finished >24 hours ago."""
+        """Test returns False for workout that finished on a previous day."""
         locker = create_locker(mock_tk, tmp_path)
         db_file = tmp_path / "sl_test.db"
         conn = sqlite3.connect(str(db_file))
@@ -803,12 +803,66 @@ class TestIsWorkoutFinishRecent:
             "CREATE TABLE workouts "
             "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
         )
-        # Finished 25 hours ago (not "today" in local time either)
-        now_ms = int(time.time() * 1000)
-        old_finish = now_ms - 25 * 3600 * 1000  # beyond 24h window
+        # Start and finish are both yesterday (local time).
+        yesterday_ms = int((time.time() - 36 * 3600) * 1000)
         conn.execute(
             "INSERT INTO workouts VALUES (?, ?, ?)",
-            ("w1", old_finish - 3600000, old_finish),
+            ("w1", yesterday_ms - 3600000, yesterday_ms),
+        )
+        conn.commit()
+        conn.close()
+
+        assert locker._is_workout_finish_recent(db_file) is False
+
+    def test_earlier_today_workout_returns_true(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Workout that finished earlier today (>4h ago) is still accepted."""
+        locker = create_locker(mock_tk, tmp_path)
+        db_file = tmp_path / "sl_test.db"
+        conn = sqlite3.connect(str(db_file))
+        conn.execute(
+            "CREATE TABLE workouts "
+            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
+        )
+        # Start at today's local-midnight + 1s, finish = now. Both stay
+        # within today's local date regardless of when the test runs.
+        today_local_midnight = int(
+            time.mktime(time.strptime(time.strftime("%Y-%m-%d"), "%Y-%m-%d")),
+        )
+        start_ms = (today_local_midnight + 1) * 1000
+        finish_ms = int(time.time() * 1000)
+        conn.execute(
+            "INSERT INTO workouts VALUES (?, ?, ?)",
+            ("w1", start_ms, finish_ms),
+        )
+        conn.commit()
+        conn.close()
+
+        assert locker._is_workout_finish_recent(db_file) is True
+
+    def test_future_finish_returns_false(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Finish timestamp in the future is rejected (clock-skew guard)."""
+        locker = create_locker(mock_tk, tmp_path)
+        db_file = tmp_path / "sl_test.db"
+        conn = sqlite3.connect(str(db_file))
+        conn.execute(
+            "CREATE TABLE workouts "
+            "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
+        )
+        now_ms = int(time.time() * 1000)
+        future_ms = now_ms + 2 * 3600 * 1000
+        conn.execute(
+            "INSERT INTO workouts VALUES (?, ?, ?)",
+            ("w1", now_ms, future_ms),
         )
         conn.commit()
         conn.close()
