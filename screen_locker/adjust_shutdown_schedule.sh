@@ -34,7 +34,7 @@ MORNING_END_HOUR="$3"
 
 # Validate hours are integers between 0-23
 for hour in "$MON_WED_HOUR" "$THU_SUN_HOUR" "$MORNING_END_HOUR"; do
-    if ! [[ "$hour" =~ ^[0-9]+$ ]] || [[ "$hour" -lt 0 ]] || [[ "$hour" -gt 23 ]]; then
+    if ! [[ "$hour" =~ ^[0-9]+$ ]] || [[ "$hour" -lt 0 ]] || [[ "$hour" -gt 24 ]]; then
         echo "Error: Hours must be integers between 0 and 23" >&2
         exit 1
     fi

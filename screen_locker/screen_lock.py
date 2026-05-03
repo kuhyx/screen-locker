@@ -28,6 +28,7 @@ from python_pkg.screen_locker._constants import (
     STRONGLIFTS_DB_REMOTE,
 )
 from python_pkg.screen_locker._log_integrity import (
+    _load_hmac_key,
     compute_entry_hmac,
     verify_entry_hmac,
 )
@@ -153,8 +154,8 @@ class ScreenLocker(
                     "No sick day logged today. Nothing to verify.",
                 )
                 sys.exit(0)
-        else:
-            self._check_non_verify_exits()
+            return
+        self._check_non_verify_exits()
 
     def _check_non_verify_exits(self) -> None:
         """Check all normal (non-verify) startup early-exit conditions."""
@@ -193,11 +194,7 @@ class ScreenLocker(
         return now.hour * 60 + now.minute
 
     def _is_early_bird_time(self) -> bool:
-        """Return True if current local time is in the early bird window.
-
-        The early bird window is EARLY_BIRD_START_HOUR (5 AM) up to but not
-        including EARLY_BIRD_END_HOUR:EARLY_BIRD_END_MINUTE (8:30 AM).
-        """
+        """Return True if current local time is in the early bird window."""
         minutes = self._get_local_time_minutes()
         start = EARLY_BIRD_START_HOUR * 60
         end = EARLY_BIRD_END_HOUR * 60 + EARLY_BIRD_END_MINUTE
@@ -224,16 +221,7 @@ class ScreenLocker(
         self.save_workout_log()
 
     def _try_auto_upgrade_early_bird(self) -> bool:
-        """Silently upgrade today's early_bird entry if phone shows a workout.
-
-        Called at 8:30 AM when the early bird grace period expires. If the
-        phone shows a completed workout, upgrades the entry to phone_verified
-        and rewards with a later shutdown time. Otherwise returns False so the
-        caller can show the lock screen.
-
-        Returns:
-            True if the entry was upgraded to phone_verified, False otherwise.
-        """
+        """Silently upgrade today's early_bird entry if phone shows a workout."""
         try:
             status, message = self._verify_phone_workout()
         except (OSError, RuntimeError) as exc:
@@ -254,18 +242,7 @@ class ScreenLocker(
         return True
 
     def _try_auto_upgrade_sick_day(self) -> bool:
-        """Silently upgrade today's sick_day entry if phone shows a workout.
-
-        Runs at startup without any UI so that a real workout logged on the
-        phone retroactively replaces an earlier sick_day entry (for example
-        when a previous bug forced the user into the sick path).
-
-        Returns:
-            True if the entry was upgraded to phone_verified, False otherwise.
-            On False the caller should fall through to the normal startup
-            path (which will skip the lock because the sick_day entry still
-            satisfies ``has_logged_today``).
-        """
+        """Silently upgrade today's sick_day entry if phone shows a workout."""
         try:
             status, message = self._verify_phone_workout()
         except (OSError, RuntimeError) as exc:
@@ -417,12 +394,7 @@ class ScreenLocker(
         self.root.after(1500, self.close)
 
     def has_logged_today(self) -> bool:
-        """Check if workout has been logged today.
-
-        Signed entries are verified with HMAC. Older unsigned entries are
-        still accepted as a legacy fallback so the user-level service does not
-        forget workouts when the root-owned HMAC key is unavailable.
-        """
+        """Check if workout has been logged today with valid HMAC."""
         if not self.log_file.exists():
             return False
 
@@ -436,15 +408,17 @@ class ScreenLocker(
             entry = logs.get(today)
             if entry is None:
                 return False
-            if "hmac" not in entry:
-                _logger.warning(
-                    "Today's log entry is unsigned; accepting legacy fallback"
+            if verify_entry_hmac(entry):
+                return entry.get("workout_data", {}).get("type") != "early_bird"
+            if _load_hmac_key() is None and "hmac" not in entry:
+                _logger.info(
+                    "HMAC key unavailable — accepting unsigned entry",
                 )
                 return entry.get("workout_data", {}).get("type") != "early_bird"
-            if not verify_entry_hmac(entry):
-                _logger.warning("HMAC verification failed for today's log entry")
-                return False
-            return entry.get("workout_data", {}).get("type") != "early_bird"
+            _logger.warning(
+                "HMAC verification failed for today's log entry",
+            )
+            return False
 
     def _load_existing_logs(self) -> dict:
         """Load existing workout logs from file."""

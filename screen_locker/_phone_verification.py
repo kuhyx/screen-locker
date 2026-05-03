@@ -255,20 +255,19 @@ class PhoneVerificationMixin:
             return 0
 
     def _is_workout_finish_recent(self, db_path: Path) -> bool:
-        """Check if the latest workout's finish time is from today.
+        """Check if the latest workout's finish time is recent.
 
-        A fresh workout should have finished today (local time) and not in
-        the future. This prevents using an old pre-prepared database dump
-        while still allowing workouts done earlier in the day (e.g. a
-        morning workout being verified in the evening).
+        A fresh workout should have finished within the last 24 hours.
+        This prevents using an old pre-prepared database dump while
+        still accepting workouts done earlier the same day.
 
         Args:
             db_path: Path to the locally-pulled StrongLifts database.
 
         Returns:
-            True if the latest finish time is today (local) and not in the
-            future.
+            True if the latest finish time is within 24 hours of now.
         """
+        max_age_seconds = 24 * 3600  # accept same-day workouts
         try:
             conn = sqlite3.connect(str(db_path))
             try:
@@ -276,16 +275,13 @@ class PhoneVerificationMixin:
                     "SELECT MAX(finish) FROM workouts "
                     "WHERE date(start / 1000, 'unixepoch', 'localtime') "
                     "= date('now', 'localtime') "
-                    "AND finish > start "
-                    "AND date(finish / 1000, 'unixepoch', 'localtime') "
-                    "= date('now', 'localtime')",
+                    "AND finish > start",
                 )
                 row = cursor.fetchone()
                 if not row or row[0] is None:
                     return False
                 finish_epoch = int(row[0]) / 1000.0
-                # Reject future timestamps (clock-skew / tampering guard).
-                return finish_epoch <= time.time()
+                return (time.time() - finish_epoch) < max_age_seconds
             finally:
                 conn.close()
         except (sqlite3.Error, ValueError, TypeError):

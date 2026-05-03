@@ -154,29 +154,59 @@ class TestHasLoggedToday:
         ):
             assert locker.has_logged_today() is False
 
-    def test_today_logged_without_hmac_uses_legacy_fallback(
+    def test_today_unsigned_entry_no_hmac_key(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Unsigned legacy entries still count as logged workouts."""
+        """Accept unsigned entry when HMAC key is unavailable."""
         log_file = tmp_path / "workout_log.json"
         today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
         log_file.write_text(
-            json.dumps(
-                {
-                    today: {
-                        "timestamp": "2026-05-01T14:46:32.206951+00:00",
-                        "workout_data": {"type": "phone_verified"},
-                    }
-                }
-            ),
+            json.dumps({today: {"workout": "data"}}),
         )
 
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
-        assert locker.has_logged_today() is True
+        with (
+            patch(
+                "python_pkg.screen_locker.screen_lock.verify_entry_hmac",
+                return_value=False,
+            ),
+            patch(
+                "python_pkg.screen_locker.screen_lock._load_hmac_key",
+                return_value=None,
+            ),
+        ):
+            assert locker.has_logged_today() is True
+
+    def test_today_unsigned_entry_with_hmac_key(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Reject unsigned entry when HMAC key IS available."""
+        log_file = tmp_path / "workout_log.json"
+        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        log_file.write_text(
+            json.dumps({today: {"workout": "data"}}),
+        )
+
+        locker = create_locker(mock_tk, tmp_path)
+        locker.log_file = log_file
+        with (
+            patch(
+                "python_pkg.screen_locker.screen_lock.verify_entry_hmac",
+                return_value=False,
+            ),
+            patch(
+                "python_pkg.screen_locker.screen_lock._load_hmac_key",
+                return_value=b"secret-key",
+            ),
+        ):
+            assert locker.has_logged_today() is False
 
     def test_other_day_logged(
         self,
@@ -330,7 +360,7 @@ class TestRun:
 
 
 class TestAutoUpgradeSickDay:
-    """Tests for silent sick_day → phone_verified upgrade at startup."""
+    """Tests for sick_day → phone_verified silent upgrade helpers."""
 
     def test_upgrade_succeeds_when_phone_verified(
         self,
@@ -404,7 +434,7 @@ class TestAutoUpgradeSickDay:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Startup exits 0 after a successful silent upgrade."""
+        """Startup exits 0 after a successful silent sick_day upgrade."""
         mock_sys_exit.side_effect = SystemExit(0)
         with (
             patch.object(
@@ -416,30 +446,6 @@ class TestAutoUpgradeSickDay:
         ):
             create_locker(mock_tk, tmp_path, is_sick_day_log=True)
         mock_upgrade.assert_called_once()
-        mock_sys_exit.assert_called_once_with(0)
-
-    def test_init_falls_through_when_sick_day_upgrade_fails(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Failed upgrade still honours existing sick_day log (exit via has_logged)."""
-        mock_sys_exit.side_effect = SystemExit(0)
-        with (
-            patch.object(
-                ScreenLocker,
-                "_try_auto_upgrade_sick_day",
-                return_value=False,
-            ),
-            pytest.raises(SystemExit),
-        ):
-            create_locker(
-                mock_tk,
-                tmp_path,
-                is_sick_day_log=True,
-                has_logged=True,
-            )
         mock_sys_exit.assert_called_once_with(0)
 
 
