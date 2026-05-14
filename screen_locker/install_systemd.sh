@@ -89,4 +89,4 @@ fi
 # Immediately check if today's workout is done; block if not
 echo ""
 echo "=== Checking today's workout status ==="
-python3 "$SCREEN_LOCK_PATH" --production
+PYTHONPATH="$(cd "$SCRIPT_DIR/../.." && pwd)" python3 "$SCREEN_LOCK_PATH" --production
