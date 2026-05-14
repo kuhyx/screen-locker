@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 import sqlite3
 import subprocess
@@ -779,10 +780,17 @@ class TestIsWorkoutFinishRecent:
             "CREATE TABLE workouts "
             "(id TEXT PRIMARY KEY, start INTEGER, finish INTEGER)",
         )
-        now_ms = int(time.time() * 1000)
+        # Anchor to local noon to avoid midnight boundary issues: the SQL
+        # date() filter requires start and now to share the same local date.
+        local_noon = (
+            datetime.datetime.now(tz=datetime.timezone.utc)
+            .astimezone()
+            .replace(hour=12, minute=0, second=0, microsecond=0)
+        )
+        local_noon_ms = int(local_noon.timestamp() * 1000)
         conn.execute(
             "INSERT INTO workouts VALUES (?, ?, ?)",
-            ("w1", now_ms - 3600000, now_ms),
+            ("w1", local_noon_ms, local_noon_ms + 3_600_000),
         )
         conn.commit()
         conn.close()
