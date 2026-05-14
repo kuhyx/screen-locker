@@ -5,10 +5,11 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor  # pylint: disable=no-name-in-module
 from typing import TYPE_CHECKING
 
+from python_pkg.screen_locker import _sick_tracker
 from python_pkg.screen_locker._constants import (
+    NO_PHONE_EXTRA_LOCKOUT_SECONDS,
     PHONE_PENALTY_DELAY_DEMO,
     PHONE_PENALTY_DELAY_PRODUCTION,
-    SICK_LOCKOUT_SECONDS,
 )
 
 if TYPE_CHECKING:
@@ -37,10 +38,12 @@ class UIFlowsMixin:
             self.root.after(500, self._poll_phone_check)
 
     def _show_retry_and_sick(self, message: str) -> None:
-        """Show TRY AGAIN and I'm sick buttons after a failed phone check."""
+        """Show TRY AGAIN and (if budget allows) I'm sick after a failed check."""
         self.clear_container()
         self._label("No Workout Found", font_size=36, color="#ff4444", pady=20)
         self._text(message, color="#ffaa00")
+        history = _sick_tracker.load_history()
+        self._text(_sick_tracker.budget_summary(history), color="#888888")
         frame = self._button_row()
         self._button(
             frame,
@@ -49,13 +52,19 @@ class UIFlowsMixin:
             command=self._start_phone_check,
             width=12,
         ).pack(side="left", padx=10)
-        self._button(
-            frame,
-            "I'm sick",
-            bg="#cc6600",
-            command=self.ask_if_sick,
-            width=12,
-        ).pack(side="left", padx=10)
+        if _sick_tracker.is_budget_exhausted(history):
+            self._text(
+                "Sick budget exhausted. No 'I'm sick' option available.",
+                color="#ff6666",
+            )
+        else:
+            self._button(
+                frame,
+                "I'm sick",
+                bg="#cc6600",
+                command=self.ask_if_sick,
+                width=12,
+            ).pack(side="left", padx=10)
 
     def _handle_startup_phone_result(self, status: str, message: str) -> None:
         """Route to appropriate screen based on startup phone check result."""
@@ -98,32 +107,8 @@ class UIFlowsMixin:
             self._show_phone_penalty(message)
 
     def ask_if_sick(self) -> None:
-        """Display sick day question dialog."""
-        self.clear_container()
-        self._label("Are you sick?", pady=30)
-        self._text(
-            "If yes, shutdown time will be moved 1.5 hours earlier",
-            color="#ffaa00",
-        )
-        self._sick_question_buttons()
-
-    def _sick_question_buttons(self) -> None:
-        """Create the sick day yes/no buttons."""
-        frame = self._button_row()
-        self._button(
-            frame,
-            "YES (sick)",
-            bg="#cc6600",
-            command=self.handle_sick_day,
-            width=12,
-        ).pack(side="left", padx=20)
-        self._button(
-            frame,
-            "NO",
-            bg="#aa0000",
-            command=self.lockout,
-            width=12,
-        ).pack(side="left", padx=20)
+        """Display the structured sick-day justification dialog."""
+        self._show_sick_justification()
 
     def _get_sick_day_status(self) -> tuple[str, str]:
         """Determine sick day status text and color."""
@@ -135,25 +120,40 @@ class UIFlowsMixin:
             ), "#00aa00"
         return "Could not adjust shutdown time (check permissions)", "#ff4444"
 
-    def handle_sick_day(self) -> None:
-        """Handle sick day: adjust shutdown time and start 2-minute wait."""
+    def _proceed_to_sick_countdown(self) -> None:
+        """Start the (escalated) sick day countdown after justification."""
+        history = getattr(
+            self,
+            "_sick_history_cache",
+            None,
+        )
+        if history is None:
+            history = _sick_tracker.load_history()
+            self._sick_history_cache = history
+        countdown = _sick_tracker.compute_lockout_seconds(history)
         self.clear_container()
         status_text, status_color = self._get_sick_day_status()
-        self._show_sick_day_ui(status_text, status_color)
-        self.sick_remaining_time = SICK_LOCKOUT_SECONDS
+        self._show_sick_day_ui(status_text, status_color, countdown)
+        self.sick_remaining_time = countdown
         self._update_sick_countdown()
 
-    def _show_sick_day_ui(self, status_text: str, status_color: str) -> None:
+    def _show_sick_day_ui(
+        self,
+        status_text: str,
+        status_color: str,
+        countdown: int,
+    ) -> None:
         """Display sick day UI labels and countdown."""
         self._label("Sick Day Mode", color="#cc6600", pady=20)
         self._text(status_text, color=status_color)
+        minutes = countdown // 60
         self._text(
-            "Please wait 2 minutes before unlocking...",
+            f"Please wait ~{minutes} min before unlocking...",
             font_size=24,
             pady=20,
         )
         self.sick_countdown_label = self._label(
-            str(SICK_LOCKOUT_SECONDS),
+            str(countdown),
             font_size=80,
             pady=30,
         )
@@ -165,10 +165,22 @@ class UIFlowsMixin:
             self.sick_remaining_time -= 1
             self.root.after(1000, self._update_sick_countdown)
         else:
-            # Record sick day and unlock
-            self.workout_data["type"] = "sick_day"
-            self.workout_data["note"] = "Sick day - shutdown moved earlier"
-            self.unlock_screen()
+            self._finalize_sick_day()
+
+    def _finalize_sick_day(self) -> None:
+        """Persist sick-day history and unlock the screen."""
+        history = getattr(self, "_sick_history_cache", None)
+        if history is None:
+            history = _sick_tracker.load_history()
+        if _sick_tracker.had_commitment_for_today(history):
+            _sick_tracker.mark_commitment_broken(history)
+            self.workout_data["broke_commitment"] = "true"
+        new_debt = _sick_tracker.add_sick_day(history)
+        _sick_tracker.save_history(history)
+        self.workout_data["type"] = "sick_day"
+        self.workout_data["note"] = "Sick day - shutdown moved earlier"
+        self.workout_data["debt"] = str(new_debt)
+        self.unlock_screen()
 
     # ------------------------------------------------------------------
     # Lockout flow
@@ -214,10 +226,16 @@ class UIFlowsMixin:
             if on_done is not None
             else lambda: self._show_retry_and_sick(message)
         )
-        delay = (
+        base_delay = (
             PHONE_PENALTY_DELAY_DEMO
             if self.demo_mode
             else PHONE_PENALTY_DELAY_PRODUCTION
+        )
+        # Disconnecting the phone shouldn't be a fast path into sick mode.
+        delay = (
+            base_delay
+            if self.demo_mode
+            else base_delay + NO_PHONE_EXTRA_LOCKOUT_SECONDS
         )
         self._label(
             "Cannot Verify Workout",

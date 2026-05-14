@@ -121,27 +121,14 @@ class TestTimerLogic:
 class TestAskIfSick:
     """Tests for ask_if_sick method."""
 
-    def test_ask_if_sick_displays_dialog(
+    def test_ask_if_sick_invokes_justification_dialog(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
-        """Test ask_if_sick shows sick day question."""
+        """ask_if_sick now delegates to the structured justification dialog."""
         locker = create_locker(mock_tk, tmp_path)
-        object.__setattr__(locker, "clear_container", MagicMock())
+        object.__setattr__(locker, "_show_sick_justification", MagicMock())
         locker.ask_if_sick()
-        locker.clear_container.assert_called_once()
-        mock_tk.Label.assert_called()
-
-
-class TestSickQuestionButtons:
-    """Tests for _sick_question_buttons method."""
-
-    def test_creates_buttons(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        """Test _sick_question_buttons creates yes/no buttons."""
-        locker = create_locker(mock_tk, tmp_path)
-        locker._sick_question_buttons()
-        mock_tk.Button.assert_called()
+        locker._show_sick_justification.assert_called_once_with()
 
 
 class TestGetSickDayStatus:

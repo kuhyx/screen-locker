@@ -52,7 +52,25 @@ def _block_real_tk_and_exit() -> Iterator[None]:
 
     with (
         patch("python_pkg.screen_locker.screen_lock.tk", mock),
+        patch("python_pkg.screen_locker._sick_dialog.tk", mock),
         patch("python_pkg.screen_locker.screen_lock.sys.exit"),
+    ):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def _isolate_sick_history(tmp_path: Path) -> Iterator[None]:
+    """Redirect SICK_HISTORY_FILE to tmp_path so tests cannot touch real state."""
+    target = tmp_path / "sick_history.json"
+    with (
+        patch(
+            "python_pkg.screen_locker._sick_tracker.SICK_HISTORY_FILE",
+            target,
+        ),
+        patch(
+            "python_pkg.screen_locker._constants.SICK_HISTORY_FILE",
+            target,
+        ),
     ):
         yield
 

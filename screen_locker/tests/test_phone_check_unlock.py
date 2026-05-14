@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+from python_pkg.screen_locker._constants import NO_PHONE_EXTRA_LOCKOUT_SECONDS
 from python_pkg.screen_locker.screen_lock import (
     PHONE_PENALTY_DELAY_DEMO,
     PHONE_PENALTY_DELAY_PRODUCTION,
@@ -516,13 +517,14 @@ class TestShowPhonePenalty:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Test production mode uses long penalty delay."""
+        """Test production mode uses long penalty delay (base + no-phone bump)."""
         locker = create_locker(mock_tk, tmp_path, demo_mode=False)
         object.__setattr__(locker, "clear_container", MagicMock())
 
         locker._show_phone_penalty("test message")
 
-        assert locker.phone_penalty_remaining == PHONE_PENALTY_DELAY_PRODUCTION - 1
+        expected = PHONE_PENALTY_DELAY_PRODUCTION + NO_PHONE_EXTRA_LOCKOUT_SECONDS - 1
+        assert locker.phone_penalty_remaining == expected
 
     def test_update_phone_penalty_countdown(
         self,

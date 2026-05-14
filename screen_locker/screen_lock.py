@@ -15,6 +15,7 @@ import sys
 import tkinter as tk
 from typing import TYPE_CHECKING
 
+from python_pkg.screen_locker import _sick_tracker
 from python_pkg.screen_locker._constants import (
     EARLY_BIRD_END_HOUR,
     EARLY_BIRD_END_MINUTE,
@@ -34,6 +35,7 @@ from python_pkg.screen_locker._log_integrity import (
 )
 from python_pkg.screen_locker._phone_verification import PhoneVerificationMixin
 from python_pkg.screen_locker._shutdown import ShutdownMixin
+from python_pkg.screen_locker._sick_dialog import SickDialogMixin
 from python_pkg.screen_locker._ui_flows import UIFlowsMixin
 from python_pkg.wake_alarm._state import has_workout_skip_today
 
@@ -76,6 +78,7 @@ def _assert_not_under_pytest() -> None:
 class ScreenLocker(
     ShutdownMixin,
     PhoneVerificationMixin,
+    SickDialogMixin,
     UIFlowsMixin,
 ):
     """Screen locker that requires workout logging to unlock."""
@@ -378,10 +381,26 @@ class ScreenLocker(
             _logger.info("Shutdown time moved 1.5 hours later as workout reward")
         return adjusted
 
+    def _clear_debt_on_verified_workout(self) -> int | None:
+        """Decrement workout debt by one for a verified workout.
+
+        Returns the new debt count, or ``None`` when this wasn't a
+        phone-verified workout.
+        """
+        if self.workout_data.get("type") != "phone_verified":
+            return None
+        history = _sick_tracker.load_history()
+        if history.debt <= 0:
+            return 0
+        new_debt = _sick_tracker.clear_one_debt(history)
+        _sick_tracker.save_history(history)
+        return new_debt
+
     def unlock_screen(self) -> None:
         """Save workout log and display success message."""
         self.save_workout_log()
         shutdown_adjusted = self._try_adjust_shutdown_for_workout()
+        new_debt = self._clear_debt_on_verified_workout()
         self.clear_container()
         self._label("Great job! 💪", font_size=48, color="#00ff00", pady=30)
         if shutdown_adjusted:
@@ -390,8 +409,20 @@ class ScreenLocker(
                 font_size=24,
                 color="#ffaa00",
             )
+        if new_debt is not None:
+            self._text(
+                f"Workout debt: {new_debt}",
+                font_size=20,
+                color="#ffaa00" if new_debt > 0 else "#888888",
+            )
         self._text("Screen Unlocked!", font_size=36, pady=20)
-        self.root.after(1500, self.close)
+        if self.workout_data.get("type") == "phone_verified":
+            self.root.after(
+                1500,
+                lambda: self._show_commitment_prompt(on_done=self.close),
+            )
+        else:
+            self.root.after(1500, self.close)
 
     def has_logged_today(self) -> bool:
         """Check if workout has been logged today with valid HMAC."""
