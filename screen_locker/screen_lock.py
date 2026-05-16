@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 import json
 import logging
 from pathlib import Path
+import shutil
+import subprocess
 import sys
 import tkinter as tk
 from typing import TYPE_CHECKING
@@ -118,6 +120,25 @@ class ScreenLocker(
             self._start_phone_check()
             self._grab_input()
 
+    def _disable_vt_switching(self) -> None:
+        """Disable VT switching in X11 while the lock is active.
+
+        Prevents bypassing the lock by switching to a TTY with Ctrl+Alt+Fn.
+        Best-effort: silently ignored if setxkbmap is unavailable.
+        """
+        setxkbmap = shutil.which("setxkbmap")
+        if setxkbmap is None:
+            _logger.warning("setxkbmap not found; VT switching will not be disabled")
+            return
+        subprocess.run([setxkbmap, "-option", "srvrkeys:none"], check=False)
+
+    def _restore_vt_switching(self) -> None:
+        """Restore VT switching after the lock is dismissed."""
+        setxkbmap = shutil.which("setxkbmap")
+        if setxkbmap is None:
+            return
+        subprocess.run([setxkbmap, "-option", ""], check=False)
+
     def _setup_window(self) -> None:
         """Configure the window for fullscreen lock."""
         screen_w = self.root.winfo_screenwidth()
@@ -127,6 +148,8 @@ class ScreenLocker(
         self.root.attributes(fullscreen=True)
         self.root.attributes(topmost=True)
         self.root.configure(bg="#1a1a1a", cursor="arrow")
+        if not self.demo_mode:
+            self._disable_vt_switching()
 
     def _setup_verify_window(self) -> None:
         """Configure window for post-sick-day workout verification."""
@@ -483,6 +506,8 @@ class ScreenLocker(
 
     def close(self) -> None:
         """Close the application and exit."""
+        if not self.demo_mode:
+            self._restore_vt_switching()
         self.root.destroy()
         sys.exit(0)
 

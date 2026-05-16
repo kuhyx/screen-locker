@@ -59,6 +59,26 @@ def _block_real_tk_and_exit() -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
+def mock_subprocess_run() -> Generator[MagicMock]:
+    """Block real subprocess calls (e.g. setxkbmap) for every test.
+
+    Also exposed as a named fixture so individual tests can assert
+    on the calls made (e.g. VT switching tests).
+
+    ``shutil.which`` is mocked to return a stable fake path so tests work
+    regardless of whether setxkbmap is installed on the host machine.
+    """
+    with (
+        patch(
+            "python_pkg.screen_locker.screen_lock.shutil.which",
+            return_value="/usr/bin/setxkbmap",
+        ),
+        patch("python_pkg.screen_locker.screen_lock.subprocess.run") as mock,
+    ):
+        yield mock
+
+
+@pytest.fixture(autouse=True)
 def _isolate_sick_history(tmp_path: Path) -> Iterator[None]:
     """Redirect SICK_HISTORY_FILE to tmp_path so tests cannot touch real state."""
     target = tmp_path / "sick_history.json"
