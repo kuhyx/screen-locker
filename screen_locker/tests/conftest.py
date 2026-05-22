@@ -70,10 +70,10 @@ def mock_subprocess_run() -> Generator[MagicMock]:
     """
     with (
         patch(
-            "python_pkg.screen_locker.screen_lock.shutil.which",
+            "python_pkg.screen_locker._window_setup.shutil.which",
             return_value="/usr/bin/setxkbmap",
         ),
-        patch("python_pkg.screen_locker.screen_lock.subprocess.run") as mock,
+        patch("python_pkg.screen_locker._window_setup.subprocess.run") as mock,
     ):
         yield mock
 

@@ -6,13 +6,10 @@ Requires user to log their workout to unlock the screen.
 
 from __future__ import annotations
 
-import contextlib
 from datetime import datetime, timezone
 import json
 import logging
 from pathlib import Path
-import shutil
-import subprocess
 import sys
 import tkinter as tk
 from typing import TYPE_CHECKING
@@ -31,6 +28,7 @@ from python_pkg.screen_locker._constants import (
     SICK_LOCKOUT_SECONDS,
     STRONGLIFTS_DB_REMOTE,
 )
+from python_pkg.screen_locker._early_bird import EarlyBirdMixin
 from python_pkg.screen_locker._log_integrity import (
     _load_hmac_key,
     compute_entry_hmac,
@@ -40,6 +38,7 @@ from python_pkg.screen_locker._phone_verification import PhoneVerificationMixin
 from python_pkg.screen_locker._shutdown import ShutdownMixin
 from python_pkg.screen_locker._sick_dialog import SickDialogMixin
 from python_pkg.screen_locker._ui_flows import UIFlowsMixin
+from python_pkg.screen_locker._window_setup import WindowSetupMixin
 from python_pkg.wake_alarm._state import has_workout_skip_today
 
 if TYPE_CHECKING:
@@ -80,6 +79,8 @@ def _assert_not_under_pytest() -> None:
 
 
 class ScreenLocker(
+    EarlyBirdMixin,
+    WindowSetupMixin,
     ShutdownMixin,
     PhoneVerificationMixin,
     SickDialogMixin,
@@ -121,43 +122,6 @@ class ScreenLocker(
         else:
             self._start_phone_check()
             self._grab_input()
-
-    def _disable_vt_switching(self) -> None:
-        """Disable VT switching in X11 while the lock is active.
-
-        Prevents bypassing the lock by switching to a TTY with Ctrl+Alt+Fn.
-        Best-effort: silently ignored if setxkbmap is unavailable.
-        """
-        setxkbmap = shutil.which("setxkbmap")
-        if setxkbmap is None:
-            _logger.warning("setxkbmap not found; VT switching will not be disabled")
-            return
-        subprocess.run([setxkbmap, "-option", "srvrkeys:none"], check=False)
-
-    def _restore_vt_switching(self) -> None:
-        """Restore VT switching after the lock is dismissed."""
-        setxkbmap = shutil.which("setxkbmap")
-        if setxkbmap is None:
-            return
-        subprocess.run([setxkbmap, "-option", ""], check=False)
-
-    def _setup_window(self) -> None:
-        """Configure the window for fullscreen lock."""
-        screen_w = self.root.winfo_screenwidth()
-        screen_h = self.root.winfo_screenheight()
-        self.root.overrideredirect(boolean=True)
-        self.root.geometry(f"{screen_w}x{screen_h}+0+0")
-        self.root.attributes(fullscreen=True)
-        self.root.attributes(topmost=True)
-        self.root.configure(bg="#1a1a1a", cursor="arrow")
-        if not self.demo_mode:
-            self._disable_vt_switching()
-
-    def _setup_verify_window(self) -> None:
-        """Configure window for post-sick-day workout verification."""
-        self.root.geometry("600x400")
-        self.root.configure(bg="#1a1a1a", cursor="arrow")
-        self.root.protocol("WM_DELETE_WINDOW", self.close)
 
     def _is_sick_day_log(self) -> bool:
         """Check if today's workout log is a sick day (not yet verified)."""
@@ -219,59 +183,6 @@ class ScreenLocker(
             )
             sys.exit(0)
 
-    def _get_local_time_minutes(self) -> int:
-        """Return current local time as minutes from midnight."""
-        now = datetime.now(tz=timezone.utc).astimezone()
-        return now.hour * 60 + now.minute
-
-    def _is_early_bird_time(self) -> bool:
-        """Return True if current local time is in the early bird window."""
-        minutes = self._get_local_time_minutes()
-        start = EARLY_BIRD_START_HOUR * 60
-        end = EARLY_BIRD_END_HOUR * 60 + EARLY_BIRD_END_MINUTE
-        return start <= minutes < end
-
-    def _is_early_bird_log(self) -> bool:
-        """Check if today's workout log entry is an early_bird provisional entry."""
-        if not self.log_file.exists():
-            return False
-        try:
-            with self.log_file.open() as f:
-                logs = json.load(f)
-        except (OSError, json.JSONDecodeError):
-            return False
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-        entry = logs.get(today)
-        if entry is None:
-            return False
-        return entry.get("workout_data", {}).get("type") == "early_bird"
-
-    def _save_early_bird_log(self) -> None:
-        """Save an early_bird provisional entry to the workout log."""
-        self.workout_data = {"type": "early_bird"}
-        self.save_workout_log()
-
-    def _try_auto_upgrade_early_bird(self) -> bool:
-        """Silently upgrade today's early_bird entry if phone shows a workout."""
-        try:
-            status, message = self._verify_phone_workout()
-        except (OSError, RuntimeError) as exc:
-            _logger.info("Early bird upgrade phone check failed: %s", exc)
-            return False
-        if status != "verified":
-            _logger.info(
-                "Early bird upgrade skipped (phone status=%s): %s",
-                status,
-                message,
-            )
-            return False
-        self.workout_data["type"] = "phone_verified"
-        self.workout_data["source"] = message
-        self.workout_data["after_early_bird"] = "true"
-        self._adjust_shutdown_time_later()
-        self.save_workout_log()
-        return True
-
     def _try_auto_upgrade_sick_day(self) -> bool:
         """Silently upgrade today's sick_day entry if phone shows a workout."""
         try:
@@ -292,34 +203,6 @@ class ScreenLocker(
         self._adjust_shutdown_time_later()
         self.save_workout_log()
         return True
-
-    def _setup_demo_close_button(self) -> None:
-        """Add close button for demo mode."""
-        close_btn = tk.Button(
-            self.root,
-            text="✕ Close Demo",
-            font=("Arial", 12),
-            bg="#ff4444",
-            fg="white",
-            command=self.close,
-            cursor="hand2",
-        )
-        close_btn.place(x=10, y=10)
-
-    def _grab_input(self) -> None:
-        """Force input focus to the locker window."""
-        self.root.update_idletasks()
-        self.root.focus_force()
-        if self.demo_mode:
-            with contextlib.suppress(tk.TclError):
-                self.root.grab_set()
-        else:
-            try:
-                self.root.grab_set_global()
-            except tk.TclError:
-                _logger.warning("Global grab failed, falling back to local grab")
-                with contextlib.suppress(tk.TclError):
-                    self.root.grab_set()
 
     def clear_container(self) -> None:
         """Remove all widgets from the main container."""
