@@ -95,6 +95,17 @@ def _isolate_sick_history(tmp_path: Path) -> Iterator[None]:
         yield
 
 
+@pytest.fixture(autouse=True)
+def _isolate_scheduled_skips(tmp_path: Path) -> Iterator[None]:
+    """Redirect SCHEDULED_SKIPS_FILE to tmp_path so tests use a clean file."""
+    target = tmp_path / "scheduled_skips.json"
+    with patch(
+        "python_pkg.screen_locker.screen_lock.SCHEDULED_SKIPS_FILE",
+        target,
+    ):
+        yield
+
+
 @pytest.fixture
 def mock_tk() -> Generator[MagicMock]:
     """Mock tkinter module for testing without display."""

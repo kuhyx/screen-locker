@@ -46,3 +46,5 @@ SICK_DAY_STATE_FILE = Path(__file__).resolve().parent / "sick_day_state.json"
 # Persistent sick-day history (rate-limit, debt, commitments, justifications).
 # Distinct from SICK_DAY_STATE_FILE which is a one-day shutdown-config snapshot.
 SICK_HISTORY_FILE = Path(__file__).resolve().parent / "sick_history.json"
+# JSON list of ISO date strings ("YYYY-MM-DD") for which the screen lock is skipped.
+SCHEDULED_SKIPS_FILE = Path(__file__).resolve().parent / "scheduled_skips.json"

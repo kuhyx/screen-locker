@@ -27,6 +27,7 @@ from python_pkg.screen_locker._constants import (
     MIN_WORKOUT_DURATION_MINUTES,
     PHONE_PENALTY_DELAY_DEMO,
     PHONE_PENALTY_DELAY_PRODUCTION,
+    SCHEDULED_SKIPS_FILE,
     SICK_LOCKOUT_SECONDS,
     STRONGLIFTS_DB_REMOTE,
 )
@@ -54,6 +55,7 @@ __all__ = [
     "MIN_WORKOUT_DURATION_MINUTES",
     "PHONE_PENALTY_DELAY_DEMO",
     "PHONE_PENALTY_DELAY_PRODUCTION",
+    "SCHEDULED_SKIPS_FILE",
     "SICK_LOCKOUT_SECONDS",
     "STRONGLIFTS_DB_REMOTE",
     "ScreenLocker",
@@ -185,6 +187,9 @@ class ScreenLocker(
 
     def _check_non_verify_exits(self) -> None:
         """Check all normal (non-verify) startup early-exit conditions."""
+        if self._is_scheduled_skip_today():
+            _logger.info("Today is a scheduled skip day. Skipping screen lock.")
+            sys.exit(0)
         if self._is_early_bird_log() and not self._is_early_bird_time():
             if self._try_auto_upgrade_early_bird():
                 _logger.info(
@@ -483,6 +488,18 @@ class ScreenLocker(
                 return json.load(f)
         except (OSError, json.JSONDecodeError):
             return {}
+
+    def _is_scheduled_skip_today(self) -> bool:
+        """Return True if today's date is listed in the scheduled skips file."""
+        if not SCHEDULED_SKIPS_FILE.exists():
+            return False
+        try:
+            with SCHEDULED_SKIPS_FILE.open() as f:
+                skips = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return False
+        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        return today in skips
 
     def save_workout_log(self) -> None:
         """Save workout data to log file with HMAC signature."""

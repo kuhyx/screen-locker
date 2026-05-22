@@ -293,8 +293,10 @@ class ShutdownMixin:
     def _schedule_rtcwake() -> bool:
         """Set rtcwake to power on the PC after WAKE_AFTER_HOURS.
 
-        Uses ``rtcwake -m no`` so the system can shut down normally while
-        the RTC alarm remains set.
+        Uses ``rtcwake -m disk`` to hibernate immediately while programming
+        the RTC to restore power at wake_epoch.  Hibernate is completely
+        silent and dark (state written to swap file), making it suitable
+        when the PC is in a bedroom.
 
         Returns:
             True if rtcwake was set successfully, False otherwise.
@@ -304,7 +306,7 @@ class ShutdownMixin:
             "/usr/bin/sudo",
             RTCWAKE_BIN,
             "-m",
-            "no",
+            "disk",
             "-t",
             str(wake_epoch),
         ]
