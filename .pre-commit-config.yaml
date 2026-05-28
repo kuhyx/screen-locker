@@ -129,3 +129,8 @@ repos:
         entry: bash -c 'printf "%s\0" "$@" | xargs -0 -n 40 shellcheck --severity=warning' --
         language: system
         types: [shell]
+      - id: max-file-length
+        name: Max file length (400 lines)
+        entry: python3 scripts/check_file_length.py
+        language: system
+        types_or: [python, shell]

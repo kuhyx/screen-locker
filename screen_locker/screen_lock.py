@@ -38,6 +38,8 @@ from screen_locker._phone_verification import PhoneVerificationMixin
 from screen_locker._shutdown import ShutdownMixin
 from screen_locker._sick_dialog import SickDialogMixin
 from screen_locker._ui_flows import UIFlowsMixin
+from screen_locker._ui_flows_relaxed import UIFlowsRelaxedMixin
+from screen_locker._ui_widgets import UIWidgetsMixin
 from screen_locker._wake_state import has_workout_skip_today
 from screen_locker._weekly_check import (
     WEEKLY_WORKOUT_MINIMUM,
@@ -47,7 +49,6 @@ from screen_locker._weekly_check import (
 from screen_locker._window_setup import WindowSetupMixin
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from concurrent.futures import Future
 
 __all__ = [
@@ -91,6 +92,8 @@ class ScreenLocker(
     PhoneVerificationMixin,
     SickDialogMixin,
     UIFlowsMixin,
+    UIFlowsRelaxedMixin,
+    UIWidgetsMixin,
 ):
     """Screen locker that requires workout logging to unlock."""
 
@@ -226,80 +229,6 @@ class ScreenLocker(
         self._adjust_shutdown_time_later()
         self.save_workout_log()
         return True
-
-    def clear_container(self) -> None:
-        """Remove all widgets from the main container."""
-        for widget in self.container.winfo_children():
-            widget.destroy()
-
-    # ------------------------------------------------------------------
-    # UI helper methods
-    # ------------------------------------------------------------------
-
-    def _label(
-        self,
-        text: str,
-        *,
-        font_size: int = 36,
-        color: str = "white",
-        pady: int = 20,
-    ) -> tk.Label:
-        """Create and pack a bold label in the container."""
-        label = tk.Label(
-            self.container,
-            text=text,
-            font=("Arial", font_size, "bold"),
-            fg=color,
-            bg="#1a1a1a",
-        )
-        label.pack(pady=pady)
-        return label
-
-    def _text(
-        self,
-        text: str,
-        *,
-        font_size: int = 18,
-        color: str = "white",
-        pady: int = 10,
-    ) -> tk.Label:
-        """Create and pack a non-bold text label in the container."""
-        label = tk.Label(
-            self.container,
-            text=text,
-            font=("Arial", font_size),
-            fg=color,
-            bg="#1a1a1a",
-        )
-        label.pack(pady=pady)
-        return label
-
-    def _button(
-        self,
-        parent: tk.Widget,
-        text: str,
-        *,
-        bg: str,
-        command: Callable[[], None],
-        width: int = 10,
-    ) -> tk.Button:
-        """Create a styled button (caller must pack)."""
-        return tk.Button(
-            parent,
-            text=text,
-            font=("Arial", 24, "bold"),
-            bg=bg,
-            fg="white",
-            width=width,
-            command=command,
-            cursor="hand2" if self.demo_mode else "",
-        )
-
-    def _button_row(self) -> tk.Frame:
-        """Create and pack a horizontal button container."""
-        frame = tk.Frame(self.container, bg="#1a1a1a")
-        frame.pack(pady=20)
-        return frame
 
     # ------------------------------------------------------------------
     # Unlock, logging
