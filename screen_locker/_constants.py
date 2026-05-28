@@ -60,4 +60,6 @@ WAKE_AFTER_HOURS: int = 8
 # Path to the rtcwake binary.
 RTCWAKE_BIN: str = "/usr/sbin/rtcwake"
 # State file written by wake_alarm; read here to check for workout skip.
-WAKE_STATE_FILE = Path(__file__).resolve().parent.parent / "wake_alarm" / "wake_state.json"
+WAKE_STATE_FILE = (
+    Path(__file__).resolve().parent.parent / "wake_alarm" / "wake_state.json"
+)

@@ -10,12 +10,10 @@ import subprocess
 
 from screen_locker._constants import (
     ADJUST_SHUTDOWN_SCRIPT,
-    SHUTDOWN_CONFIG_FILE,
-    SICK_DAY_STATE_FILE,
-)
-from screen_locker._constants import (
     ALARM_DAYS,
     RTCWAKE_BIN,
+    SHUTDOWN_CONFIG_FILE,
+    SICK_DAY_STATE_FILE,
     WAKE_AFTER_HOURS,
 )
 

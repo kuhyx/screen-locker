@@ -3,16 +3,13 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from screen_locker._wake_state import has_workout_skip_today, load_wake_state
 
 if TYPE_CHECKING:
-    pass
+    from pathlib import Path
 
 _TODAY = "2026-05-28"
 _STATE_PATH = "screen_locker._wake_state.WAKE_STATE_FILE"
@@ -196,8 +193,8 @@ class TestLoadWakeStateOsError:
         with (
             patch(_STATE_PATH, state_file),
             patch("screen_locker._wake_state.open", mock_open, create=True),
-        ):
             # We can't easily patch builtins.open for a specific file,
             # so we test by patching the json.load path
-            with patch("json.load", side_effect=OSError("disk error")):
-                assert load_wake_state() is None
+            patch("json.load", side_effect=OSError("disk error")),
+        ):
+            assert load_wake_state() is None

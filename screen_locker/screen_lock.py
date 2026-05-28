@@ -38,13 +38,13 @@ from screen_locker._phone_verification import PhoneVerificationMixin
 from screen_locker._shutdown import ShutdownMixin
 from screen_locker._sick_dialog import SickDialogMixin
 from screen_locker._ui_flows import UIFlowsMixin
+from screen_locker._wake_state import has_workout_skip_today
 from screen_locker._weekly_check import (
     WEEKLY_WORKOUT_MINIMUM,
     has_weekly_minimum,
     is_relaxed_day,
 )
 from screen_locker._window_setup import WindowSetupMixin
-from screen_locker._wake_state import has_workout_skip_today
 
 if TYPE_CHECKING:
     from collections.abc import Callable
