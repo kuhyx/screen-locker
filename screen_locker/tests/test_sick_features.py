@@ -6,9 +6,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-from python_pkg.screen_locker import _sick_tracker
-from python_pkg.screen_locker._sick_tracker import SickHistory
-from python_pkg.screen_locker.tests.conftest import create_locker
+from screen_locker import _sick_tracker
+from screen_locker._sick_tracker import SickHistory
+from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -439,7 +439,7 @@ class TestDisablePaste:
     """Tests for the _disable_paste helper."""
 
     def test_swallows_tcl_error(self) -> None:
-        from python_pkg.screen_locker._sick_dialog import _disable_paste
+        from screen_locker._sick_dialog import _disable_paste
 
         widget = MagicMock()
         import tkinter as tk

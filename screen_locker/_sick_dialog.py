@@ -7,8 +7,8 @@ import logging
 import tkinter as tk
 from typing import TYPE_CHECKING
 
-from python_pkg.screen_locker import _sick_tracker
-from python_pkg.screen_locker._constants import (
+from screen_locker import _sick_tracker
+from screen_locker._constants import (
     COMMITMENT_PROMPT_TIMEOUT_SECONDS,
     SICK_COMMITMENT_FORCED_READ_SECONDS,
     SICK_JUSTIFICATION_MIN_CHARS,
@@ -17,7 +17,7 @@ from python_pkg.screen_locker._constants import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from python_pkg.screen_locker._sick_tracker import SickHistory
+    from screen_locker._sick_tracker import SickHistory
 
 _logger = logging.getLogger(__name__)
 

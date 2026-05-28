@@ -1,0 +1,14 @@
+# Screen Locker — development dependencies
+# Runtime: pure Python stdlib (tkinter, subprocess, socket, sqlite3, etc.)
+bandit>=1.7.0
+codespell>=2.2.0
+coverage>=7.4.0
+mypy>=1.8.0
+pre-commit>=3.6.0
+pylint>=3.0.0
+pytest>=8.0.0
+pytest-cov>=4.1.0
+pytest-randomly>=3.15.0
+pytest-sugar>=1.0.0
+pytest-xdist>=3.5.0
+ruff>=0.8.0

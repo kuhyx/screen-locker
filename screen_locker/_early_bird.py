@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import json
 import logging
 
-from python_pkg.screen_locker._constants import (
+from screen_locker._constants import (
     EARLY_BIRD_END_HOUR,
     EARLY_BIRD_END_MINUTE,
     EARLY_BIRD_START_HOUR,

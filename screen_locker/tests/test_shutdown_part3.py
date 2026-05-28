@@ -7,8 +7,8 @@ import subprocess
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-from python_pkg.screen_locker._constants import ADJUST_SHUTDOWN_SCRIPT
-from python_pkg.screen_locker.tests.conftest import create_locker
+from screen_locker._constants import ADJUST_SHUTDOWN_SCRIPT
+from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -28,7 +28,7 @@ class TestRestoreOriginalConfigIfNeeded:
         mock_file = MagicMock()
         mock_file.exists.return_value = False
         with patch(
-            "python_pkg.screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
             mock_file,
         ):
             locker._restore_original_config_if_needed()
@@ -53,7 +53,7 @@ class TestRestoreOriginalConfigIfNeeded:
         )
         with (
             patch(
-                "python_pkg.screen_locker._shutdown.SICK_DAY_STATE_FILE",
+                "screen_locker._shutdown.SICK_DAY_STATE_FILE",
                 state_file,
             ),
             patch.object(locker, "_write_restored_config") as mock_restore,
@@ -84,7 +84,7 @@ class TestRestoreOriginalConfigIfNeeded:
         )
         with (
             patch(
-                "python_pkg.screen_locker._shutdown.SICK_DAY_STATE_FILE",
+                "screen_locker._shutdown.SICK_DAY_STATE_FILE",
                 state_file,
             ),
             patch.object(locker, "_write_restored_config") as mock_restore,
@@ -104,7 +104,7 @@ class TestRestoreOriginalConfigIfNeeded:
         state_file.write_text(json.dumps({"date": "2020-01-01"}))
         with (
             patch(
-                "python_pkg.screen_locker._shutdown.SICK_DAY_STATE_FILE",
+                "screen_locker._shutdown.SICK_DAY_STATE_FILE",
                 state_file,
             ),
             patch.object(locker, "_write_restored_config") as mock_restore,
@@ -124,7 +124,7 @@ class TestRestoreOriginalConfigIfNeeded:
         mock_file.exists.return_value = True
         mock_file.open.side_effect = OSError("fail")
         with patch(
-            "python_pkg.screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
             mock_file,
         ):
             locker._restore_original_config_if_needed()
@@ -140,7 +140,7 @@ class TestRestoreOriginalConfigIfNeeded:
         state_file = tmp_path / "state.json"
         state_file.write_text("not valid json{{{")
         with patch(
-            "python_pkg.screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
             state_file,
         ):
             locker._restore_original_config_if_needed()
@@ -160,7 +160,7 @@ class TestReadShutdownConfig:
         mock_file = MagicMock()
         mock_file.exists.return_value = False
         with patch(
-            "python_pkg.screen_locker._shutdown.SHUTDOWN_CONFIG_FILE",
+            "screen_locker._shutdown.SHUTDOWN_CONFIG_FILE",
             mock_file,
         ):
             assert locker._read_shutdown_config() is None
@@ -176,7 +176,7 @@ class TestReadShutdownConfig:
         config_file = tmp_path / "shutdown.conf"
         config_file.write_text("MON_WED_HOUR=21\nTHU_SUN_HOUR=20\nMORNING_END_HOUR=8\n")
         with patch(
-            "python_pkg.screen_locker._shutdown.SHUTDOWN_CONFIG_FILE",
+            "screen_locker._shutdown.SHUTDOWN_CONFIG_FILE",
             config_file,
         ):
             result = locker._read_shutdown_config()
@@ -193,7 +193,7 @@ class TestReadShutdownConfig:
         config_file = tmp_path / "shutdown.conf"
         config_file.write_text("MON_WED_HOUR=21\n")
         with patch(
-            "python_pkg.screen_locker._shutdown.SHUTDOWN_CONFIG_FILE",
+            "screen_locker._shutdown.SHUTDOWN_CONFIG_FILE",
             config_file,
         ):
             result = locker._read_shutdown_config()
@@ -253,7 +253,7 @@ class TestWriteShutdownConfig:
         mock_script = MagicMock()
         mock_script.exists.return_value = False
         with patch(
-            "python_pkg.screen_locker._shutdown.ADJUST_SHUTDOWN_SCRIPT",
+            "screen_locker._shutdown.ADJUST_SHUTDOWN_SCRIPT",
             mock_script,
         ):
             result = locker._write_shutdown_config(21, 20, 8)
@@ -271,7 +271,7 @@ class TestWriteShutdownConfig:
         mock_script.exists.return_value = True
         with (
             patch(
-                "python_pkg.screen_locker._shutdown.ADJUST_SHUTDOWN_SCRIPT",
+                "screen_locker._shutdown.ADJUST_SHUTDOWN_SCRIPT",
                 mock_script,
             ),
             patch.object(locker, "_run_shutdown_cmd", return_value=True) as mock_run,
@@ -294,7 +294,7 @@ class TestRunShutdownCmd:
         locker = create_locker(mock_tk, tmp_path)
         mock_result = MagicMock(stdout="OK\n")
         with patch(
-            "python_pkg.screen_locker._shutdown.subprocess.run",
+            "screen_locker._shutdown.subprocess.run",
             return_value=mock_result,
         ):
             result = locker._run_shutdown_cmd(["cmd"], 21, 20)
@@ -309,7 +309,7 @@ class TestRunShutdownCmd:
         """Test returns False on SubprocessError."""
         locker = create_locker(mock_tk, tmp_path)
         with patch(
-            "python_pkg.screen_locker._shutdown.subprocess.run",
+            "screen_locker._shutdown.subprocess.run",
             side_effect=subprocess.CalledProcessError(1, "cmd"),
         ):
             result = locker._run_shutdown_cmd(["cmd"], 21, 20)

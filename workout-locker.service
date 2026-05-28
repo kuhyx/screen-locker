@@ -4,11 +4,11 @@ After=graphical-session.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/kuhy/testsAndMisc
+WorkingDirectory=/opt/screen-locker
 Environment=DISPLAY=:0
-Environment=PYTHONPATH=/home/kuhy/testsAndMisc
+Environment=PYTHONPATH=/opt/screen-locker
 ExecStartPre=/bin/sleep 1
-ExecStart=/usr/bin/python3 -m python_pkg.screen_locker.screen_lock --production
+ExecStart=/usr/bin/python3 -m screen_locker.screen_lock --production
 Restart=on-failure
 RestartSec=2s
 RestartPreventExitStatus=0

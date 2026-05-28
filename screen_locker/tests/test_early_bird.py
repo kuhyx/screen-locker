@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from python_pkg.screen_locker.screen_lock import ScreenLocker
-from python_pkg.screen_locker.tests.conftest import (
+from screen_locker.screen_lock import ScreenLocker
+from screen_locker.tests.conftest import (
     create_locker,
     create_locker_early_bird,
 )
@@ -222,7 +222,7 @@ class TestSaveEarlyBirdLog:
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         with patch(
-            "python_pkg.screen_locker.screen_lock.compute_entry_hmac",
+            "screen_locker.screen_lock.compute_entry_hmac",
             return_value=None,
         ):
             locker._save_early_bird_log()
@@ -258,7 +258,7 @@ class TestTryAutoUpgradeEarlyBird:
             MagicMock(return_value=True),
         )
         with patch(
-            "python_pkg.screen_locker.screen_lock.compute_entry_hmac",
+            "screen_locker.screen_lock.compute_entry_hmac",
             return_value=None,
         ):
             result = locker._try_auto_upgrade_early_bird()
@@ -334,7 +334,7 @@ class TestHasLoggedTodayEarlyBird:
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         with patch(
-            "python_pkg.screen_locker.screen_lock.verify_entry_hmac",
+            "screen_locker.screen_lock.verify_entry_hmac",
             return_value=True,
         ):
             assert locker.has_logged_today() is False
@@ -366,7 +366,7 @@ class TestInitEarlyBirdFlow:
             patch.object(ScreenLocker, "_start_phone_check"),
             patch.object(ScreenLocker, "_start_verify_workout_check"),
             patch(
-                "python_pkg.screen_locker.screen_lock.has_workout_skip_today",
+                "screen_locker.screen_lock.has_workout_skip_today",
                 return_value=False,
             ),
             pytest.raises(SystemExit),

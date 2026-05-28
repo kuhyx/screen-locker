@@ -12,7 +12,7 @@ import json
 import logging
 from typing import Any
 
-from python_pkg.screen_locker._constants import (
+from screen_locker._constants import (
     SICK_BUDGET_PER_7_DAYS,
     SICK_BUDGET_PER_30_DAYS,
     SICK_BUDGET_PER_90_DAYS,
@@ -23,7 +23,7 @@ from python_pkg.screen_locker._constants import (
     SICK_LOCKOUT_MULTIPLIER_PER_RECENT,
     SICK_LOCKOUT_SECONDS,
 )
-from python_pkg.shared.log_integrity import compute_entry_hmac
+from screen_locker._log_integrity import compute_entry_hmac
 
 _logger = logging.getLogger(__name__)
 

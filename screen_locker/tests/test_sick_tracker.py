@@ -8,8 +8,8 @@ from unittest.mock import patch
 
 import pytest
 
-from python_pkg.screen_locker import _sick_tracker
-from python_pkg.screen_locker._constants import (
+from screen_locker import _sick_tracker
+from screen_locker._constants import (
     SICK_BUDGET_PER_7_DAYS,
     SICK_BUDGET_PER_30_DAYS,
     SICK_BUDGET_PER_90_DAYS,
@@ -19,7 +19,7 @@ from python_pkg.screen_locker._constants import (
     SICK_LOCKOUT_MULTIPLIER_PER_RECENT,
     SICK_LOCKOUT_SECONDS,
 )
-from python_pkg.screen_locker._sick_tracker import (
+from screen_locker._sick_tracker import (
     JustificationDraft,
     SickHistory,
     add_justification,

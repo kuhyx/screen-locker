@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-from python_pkg.screen_locker.tests.conftest import create_locker
+from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -55,7 +55,7 @@ class TestVerifyPhoneWorkout:
         )
 
         with patch(
-            "python_pkg.screen_locker._phone_verification.check_clock_skew",
+            "screen_locker._phone_verification.check_clock_skew",
             return_value=(True, "Clock OK"),
         ):
             status, message = locker._verify_phone_workout()
@@ -90,7 +90,7 @@ class TestVerifyPhoneWorkout:
         )
 
         with patch(
-            "python_pkg.screen_locker._phone_verification.check_clock_skew",
+            "screen_locker._phone_verification.check_clock_skew",
             return_value=(True, "Clock OK"),
         ):
             status, message = locker._verify_phone_workout()
@@ -138,7 +138,7 @@ class TestVerifyPhoneWorkout:
         )
 
         with patch(
-            "python_pkg.screen_locker._phone_verification.check_clock_skew",
+            "screen_locker._phone_verification.check_clock_skew",
             return_value=(True, "Clock OK"),
         ):
             status, message = locker._verify_phone_workout()
@@ -162,7 +162,7 @@ class TestVerifyPhoneWorkout:
         )
 
         with patch(
-            "python_pkg.screen_locker._phone_verification.check_clock_skew",
+            "screen_locker._phone_verification.check_clock_skew",
             return_value=(True, "Clock OK"),
         ):
             status, _ = locker._verify_phone_workout()
@@ -189,7 +189,7 @@ class TestVerifyPhoneWorkout:
         )
 
         with patch(
-            "python_pkg.screen_locker._phone_verification.check_clock_skew",
+            "screen_locker._phone_verification.check_clock_skew",
             return_value=(True, "Clock OK"),
         ):
             status, message = locker._verify_phone_workout()
@@ -207,7 +207,7 @@ class TestVerifyPhoneWorkout:
         locker = create_locker(mock_tk, tmp_path)
 
         with patch(
-            "python_pkg.screen_locker._phone_verification.check_clock_skew",
+            "screen_locker._phone_verification.check_clock_skew",
             return_value=(False, "System clock is 600s ahead"),
         ):
             status, message = locker._verify_phone_workout()
@@ -245,7 +245,7 @@ class TestVerifyPhoneWorkout:
         )
 
         with patch(
-            "python_pkg.screen_locker._phone_verification.check_clock_skew",
+            "screen_locker._phone_verification.check_clock_skew",
             return_value=(True, "Clock OK"),
         ):
             status, message = locker._verify_phone_workout()
@@ -288,7 +288,7 @@ class TestVerifyPhoneWorkout:
         )
 
         with patch(
-            "python_pkg.screen_locker._phone_verification.check_clock_skew",
+            "screen_locker._phone_verification.check_clock_skew",
             return_value=(True, "Clock OK"),
         ):
             status, message = locker._verify_phone_workout()

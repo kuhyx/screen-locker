@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-VENV="$REPO_ROOT/.venv"
+VENV="$SCRIPT_DIR/.venv"
 [[ ! -d "$VENV" ]] && python3 -m venv "$VENV"
 # tkinter is from Python stdlib; install python-tk system package if missing:
 #   Arch:   sudo pacman -S python-tk
 #   Debian: sudo apt-get install python3-tk
-cd "$REPO_ROOT"
-"$VENV/bin/python" -m python_pkg.screen_locker.screen_lock "$@"
+cd "$SCRIPT_DIR"
+"$VENV/bin/python" -m screen_locker.screen_lock "$@"

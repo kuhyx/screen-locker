@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, call, patch
 
-from python_pkg.screen_locker.tests.conftest import create_locker
+from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -109,7 +109,7 @@ class TestVTSwitching:
     ) -> None:
         """No crash and no subprocess call when setxkbmap is not installed."""
         with patch(
-            "python_pkg.screen_locker._window_setup.shutil.which",
+            "screen_locker._window_setup.shutil.which",
             return_value=None,
         ):
             create_locker(mock_tk, tmp_path, demo_mode=False)
@@ -128,7 +128,7 @@ class TestVTSwitching:
         mock_subprocess_run.reset_mock()
 
         with patch(
-            "python_pkg.screen_locker._window_setup.shutil.which",
+            "screen_locker._window_setup.shutil.which",
             return_value=None,
         ):
             locker.close()

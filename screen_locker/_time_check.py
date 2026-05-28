@@ -7,7 +7,7 @@ import socket
 import struct
 import time
 
-from python_pkg.screen_locker._constants import MAX_CLOCK_SKEW_SECONDS
+from screen_locker._constants import MAX_CLOCK_SKEW_SECONDS
 
 _logger = logging.getLogger(__name__)
 

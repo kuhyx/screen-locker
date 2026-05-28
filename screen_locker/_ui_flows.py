@@ -5,13 +5,13 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor  # pylint: disable=no-name-in-module
 from typing import TYPE_CHECKING
 
-from python_pkg.screen_locker import _sick_tracker
-from python_pkg.screen_locker._constants import (
+from screen_locker import _sick_tracker
+from screen_locker._constants import (
     NO_PHONE_EXTRA_LOCKOUT_SECONDS,
     PHONE_PENALTY_DELAY_DEMO,
     PHONE_PENALTY_DELAY_PRODUCTION,
 )
-from python_pkg.screen_locker._weekly_check import (
+from screen_locker._weekly_check import (
     WEEKLY_WORKOUT_MINIMUM,
     count_weekly_workouts,
 )

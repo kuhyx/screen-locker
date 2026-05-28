@@ -6,12 +6,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
-from python_pkg.screen_locker._constants import NO_PHONE_EXTRA_LOCKOUT_SECONDS
-from python_pkg.screen_locker.screen_lock import (
+from screen_locker._constants import NO_PHONE_EXTRA_LOCKOUT_SECONDS
+from screen_locker.screen_lock import (
     PHONE_PENALTY_DELAY_DEMO,
     PHONE_PENALTY_DELAY_PRODUCTION,
 )
-from python_pkg.screen_locker.tests.conftest import create_locker
+from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path

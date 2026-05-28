@@ -8,14 +8,14 @@ import json
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-from python_pkg.screen_locker._log_integrity import (
+from screen_locker._log_integrity import (
     _generate_hmac_key,
     _load_hmac_key,
     compute_entry_hmac,
     verify_entry_hmac,
 )
 
-_HMAC_KEY_FILE_PATH = "python_pkg.shared.log_integrity.HMAC_KEY_FILE"
+_HMAC_KEY_FILE_PATH = "screen_locker._log_integrity.HMAC_KEY_FILE"
 
 if TYPE_CHECKING:
     from pathlib import Path

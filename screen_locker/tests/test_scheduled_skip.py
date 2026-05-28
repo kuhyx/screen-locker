@@ -9,12 +9,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from python_pkg.screen_locker.tests.conftest import create_locker
+from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from python_pkg.screen_locker.screen_lock import ScreenLocker
+    from screen_locker.screen_lock import ScreenLocker
 
 
 class TestIsScheduledSkipToday:
@@ -33,7 +33,7 @@ class TestIsScheduledSkipToday:
         locker = self._make_locker(mock_tk, tmp_path)
         skip_file = tmp_path / "scheduled_skips.json"
         with patch(
-            "python_pkg.screen_locker.screen_lock.SCHEDULED_SKIPS_FILE",
+            "screen_locker.screen_lock.SCHEDULED_SKIPS_FILE",
             skip_file,
         ):
             assert locker._is_scheduled_skip_today() is False
@@ -50,7 +50,7 @@ class TestIsScheduledSkipToday:
         skip_file = tmp_path / "scheduled_skips.json"
         skip_file.write_text(json.dumps([today]))
         with patch(
-            "python_pkg.screen_locker.screen_lock.SCHEDULED_SKIPS_FILE",
+            "screen_locker.screen_lock.SCHEDULED_SKIPS_FILE",
             skip_file,
         ):
             assert locker._is_scheduled_skip_today() is True
@@ -66,7 +66,7 @@ class TestIsScheduledSkipToday:
         skip_file = tmp_path / "scheduled_skips.json"
         skip_file.write_text(json.dumps(["1999-01-01", "2000-06-15"]))
         with patch(
-            "python_pkg.screen_locker.screen_lock.SCHEDULED_SKIPS_FILE",
+            "screen_locker.screen_lock.SCHEDULED_SKIPS_FILE",
             skip_file,
         ):
             assert locker._is_scheduled_skip_today() is False
@@ -82,7 +82,7 @@ class TestIsScheduledSkipToday:
         skip_file = tmp_path / "scheduled_skips.json"
         skip_file.write_text("{not valid json}")
         with patch(
-            "python_pkg.screen_locker.screen_lock.SCHEDULED_SKIPS_FILE",
+            "screen_locker.screen_lock.SCHEDULED_SKIPS_FILE",
             skip_file,
         ):
             assert locker._is_scheduled_skip_today() is False
@@ -99,7 +99,7 @@ class TestIsScheduledSkipToday:
         skip_file.write_text("[]")
         with (
             patch(
-                "python_pkg.screen_locker.screen_lock.SCHEDULED_SKIPS_FILE",
+                "screen_locker.screen_lock.SCHEDULED_SKIPS_FILE",
                 skip_file,
             ),
             patch("builtins.open", side_effect=OSError("permission denied")),
@@ -117,7 +117,7 @@ class TestIsScheduledSkipToday:
         skip_file = tmp_path / "scheduled_skips.json"
         skip_file.write_text("[]")
         with patch(
-            "python_pkg.screen_locker.screen_lock.SCHEDULED_SKIPS_FILE",
+            "screen_locker.screen_lock.SCHEDULED_SKIPS_FILE",
             skip_file,
         ):
             assert locker._is_scheduled_skip_today() is False

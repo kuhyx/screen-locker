@@ -17,12 +17,12 @@ import subprocess
 import tempfile
 import time
 
-from python_pkg.screen_locker._constants import (
+from screen_locker._constants import (
     ADB_TIMEOUT,
     MIN_WORKOUT_DURATION_MINUTES,
     STRONGLIFTS_DB_REMOTE,
 )
-from python_pkg.screen_locker._time_check import check_clock_skew
+from screen_locker._time_check import check_clock_skew
 
 _logger = logging.getLogger(__name__)
 

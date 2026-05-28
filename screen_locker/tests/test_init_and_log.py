@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from python_pkg.screen_locker.screen_lock import _assert_not_under_pytest
-from python_pkg.screen_locker.tests.conftest import create_locker
+from screen_locker.screen_lock import _assert_not_under_pytest
+from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -23,7 +23,7 @@ class TestAssertNotUnderPytest:
     def test_raises_when_tk_is_real(self) -> None:
         """Guard fires if tk.Tk is the real tkinter class under pytest."""
         with (
-            patch("python_pkg.screen_locker.screen_lock.tk", tk),
+            patch("screen_locker.screen_lock.tk", tk),
             pytest.raises(RuntimeError, match="SAFETY"),
         ):
             _assert_not_under_pytest()
@@ -128,7 +128,7 @@ class TestHasLoggedToday:
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         with patch(
-            "python_pkg.screen_locker.screen_lock.verify_entry_hmac",
+            "screen_locker.screen_lock.verify_entry_hmac",
             return_value=True,
         ):
             assert locker.has_logged_today() is True
@@ -149,7 +149,7 @@ class TestHasLoggedToday:
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         with patch(
-            "python_pkg.screen_locker.screen_lock.verify_entry_hmac",
+            "screen_locker.screen_lock.verify_entry_hmac",
             return_value=False,
         ):
             assert locker.has_logged_today() is False
@@ -171,11 +171,11 @@ class TestHasLoggedToday:
         locker.log_file = log_file
         with (
             patch(
-                "python_pkg.screen_locker.screen_lock.verify_entry_hmac",
+                "screen_locker.screen_lock.verify_entry_hmac",
                 return_value=False,
             ),
             patch(
-                "python_pkg.screen_locker.screen_lock._load_hmac_key",
+                "screen_locker.screen_lock._load_hmac_key",
                 return_value=None,
             ),
         ):
@@ -198,11 +198,11 @@ class TestHasLoggedToday:
         locker.log_file = log_file
         with (
             patch(
-                "python_pkg.screen_locker.screen_lock.verify_entry_hmac",
+                "screen_locker.screen_lock.verify_entry_hmac",
                 return_value=False,
             ),
             patch(
-                "python_pkg.screen_locker.screen_lock._load_hmac_key",
+                "screen_locker.screen_lock._load_hmac_key",
                 return_value=b"secret-key",
             ),
         ):
@@ -238,7 +238,7 @@ class TestSaveWorkoutLog:
         locker.log_file = log_file
         locker.workout_data = {"type": "running"}
         with patch(
-            "python_pkg.screen_locker.screen_lock.compute_entry_hmac",
+            "screen_locker.screen_lock.compute_entry_hmac",
             return_value="abc123",
         ):
             locker.save_workout_log()
@@ -263,7 +263,7 @@ class TestSaveWorkoutLog:
         locker.log_file = log_file
         locker.workout_data = {"type": "running"}
         with patch(
-            "python_pkg.screen_locker.screen_lock.compute_entry_hmac",
+            "screen_locker.screen_lock.compute_entry_hmac",
             return_value=None,
         ):
             locker.save_workout_log()
@@ -287,7 +287,7 @@ class TestSaveWorkoutLog:
         locker.log_file = log_file
         locker.workout_data = {"type": "strength"}
         with patch(
-            "python_pkg.screen_locker.screen_lock.compute_entry_hmac",
+            "screen_locker.screen_lock.compute_entry_hmac",
             return_value="sig",
         ):
             locker.save_workout_log()
@@ -312,7 +312,7 @@ class TestSaveWorkoutLog:
         locker.log_file = log_file
         locker.workout_data = {"type": "running"}
         with patch(
-            "python_pkg.screen_locker.screen_lock.compute_entry_hmac",
+            "screen_locker.screen_lock.compute_entry_hmac",
             return_value="sig",
         ):
             locker.save_workout_log()
@@ -335,7 +335,7 @@ class TestSaveWorkoutLog:
         locker.log_file = log_file
         locker.workout_data = {"type": "running"}
         with patch(
-            "python_pkg.screen_locker.screen_lock.compute_entry_hmac",
+            "screen_locker.screen_lock.compute_entry_hmac",
             return_value="sig",
         ):
             # Should not raise, just log warning

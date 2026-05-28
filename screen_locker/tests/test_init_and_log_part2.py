@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from python_pkg.screen_locker.screen_lock import ScreenLocker
-from python_pkg.screen_locker.tests.conftest import create_locker
+from screen_locker.screen_lock import ScreenLocker
+from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -59,7 +59,7 @@ class TestAutoUpgradeSickDay:
                 return_value=True,
             ) as mock_adjust,
             patch(
-                "python_pkg.screen_locker.screen_lock.compute_entry_hmac",
+                "screen_locker.screen_lock.compute_entry_hmac",
                 return_value="sig",
             ),
         ):

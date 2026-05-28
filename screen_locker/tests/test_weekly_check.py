@@ -8,7 +8,7 @@ import json
 from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
-from python_pkg.screen_locker._weekly_check import (
+from screen_locker._weekly_check import (
     _RELAXED_WEEKDAYS,
     WEEKLY_WORKOUT_MINIMUM,
     count_weekly_workouts,

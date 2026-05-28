@@ -9,8 +9,8 @@ import time
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-from python_pkg.screen_locker.screen_lock import STRONGLIFTS_DB_REMOTE
-from python_pkg.screen_locker.tests.conftest import create_locker
+from screen_locker.screen_lock import STRONGLIFTS_DB_REMOTE
+from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -29,7 +29,7 @@ class TestRunAdb:
         locker = create_locker(mock_tk, tmp_path)
         mock_result = MagicMock(returncode=0, stdout="ok\n")
         with patch(
-            "python_pkg.screen_locker._phone_verification.subprocess.run",
+            "screen_locker._phone_verification.subprocess.run",
             return_value=mock_result,
         ) as mock_run:
             success, output = locker._run_adb(["devices"])
@@ -48,7 +48,7 @@ class TestRunAdb:
         locker = create_locker(mock_tk, tmp_path)
         mock_result = MagicMock(returncode=1, stdout="")
         with patch(
-            "python_pkg.screen_locker._phone_verification.subprocess.run",
+            "screen_locker._phone_verification.subprocess.run",
             return_value=mock_result,
         ):
             success, _output = locker._run_adb(["devices"])
@@ -64,7 +64,7 @@ class TestRunAdb:
         """Test ADB binary not found."""
         locker = create_locker(mock_tk, tmp_path)
         with patch(
-            "python_pkg.screen_locker._phone_verification.subprocess.run",
+            "screen_locker._phone_verification.subprocess.run",
             side_effect=FileNotFoundError("adb not found"),
         ):
             success, output = locker._run_adb(["devices"])
@@ -81,7 +81,7 @@ class TestRunAdb:
         """Test ADB OSError."""
         locker = create_locker(mock_tk, tmp_path)
         with patch(
-            "python_pkg.screen_locker._phone_verification.subprocess.run",
+            "screen_locker._phone_verification.subprocess.run",
             side_effect=OSError("permission denied"),
         ):
             success, output = locker._run_adb(["devices"])
@@ -98,7 +98,7 @@ class TestRunAdb:
         """Test ADB command timeout."""
         locker = create_locker(mock_tk, tmp_path)
         with patch(
-            "python_pkg.screen_locker._phone_verification.subprocess.run",
+            "screen_locker._phone_verification.subprocess.run",
             side_effect=subprocess.TimeoutExpired("adb", 15),
         ):
             success, output = locker._run_adb(["devices"])

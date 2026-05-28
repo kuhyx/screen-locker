@@ -48,3 +48,16 @@ SICK_DAY_STATE_FILE = Path(__file__).resolve().parent / "sick_day_state.json"
 SICK_HISTORY_FILE = Path(__file__).resolve().parent / "sick_history.json"
 # JSON list of ISO date strings ("YYYY-MM-DD") for which the screen lock is skipped.
 SCHEDULED_SKIPS_FILE = Path(__file__).resolve().parent / "scheduled_skips.json"
+
+# ---------------------------------------------------------------------------
+# Wake-alarm integration (originally from wake_alarm._constants / _state).
+# These must match the values used by the companion wake_alarm service.
+# ---------------------------------------------------------------------------
+# Days on which the wake alarm fires (0=Mon … 6=Sun).
+ALARM_DAYS: frozenset[int] = frozenset({0, 4, 5, 6})
+# How many hours after midnight the alarm triggers (configurable in wake_alarm).
+WAKE_AFTER_HOURS: int = 8
+# Path to the rtcwake binary.
+RTCWAKE_BIN: str = "/usr/sbin/rtcwake"
+# State file written by wake_alarm; read here to check for workout skip.
+WAKE_STATE_FILE = Path(__file__).resolve().parent.parent / "wake_alarm" / "wake_state.json"

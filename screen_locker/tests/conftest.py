@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from python_pkg.screen_locker.screen_lock import ScreenLocker
+from screen_locker.screen_lock import ScreenLocker
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
@@ -51,9 +51,9 @@ def _block_real_tk_and_exit() -> Iterator[None]:
     mock = _make_mock_tk()
 
     with (
-        patch("python_pkg.screen_locker.screen_lock.tk", mock),
-        patch("python_pkg.screen_locker._sick_dialog.tk", mock),
-        patch("python_pkg.screen_locker.screen_lock.sys.exit"),
+        patch("screen_locker.screen_lock.tk", mock),
+        patch("screen_locker._sick_dialog.tk", mock),
+        patch("screen_locker.screen_lock.sys.exit"),
     ):
         yield
 
@@ -70,10 +70,10 @@ def mock_subprocess_run() -> Generator[MagicMock]:
     """
     with (
         patch(
-            "python_pkg.screen_locker._window_setup.shutil.which",
+            "screen_locker._window_setup.shutil.which",
             return_value="/usr/bin/setxkbmap",
         ),
-        patch("python_pkg.screen_locker._window_setup.subprocess.run") as mock,
+        patch("screen_locker._window_setup.subprocess.run") as mock,
     ):
         yield mock
 
@@ -84,11 +84,11 @@ def _isolate_sick_history(tmp_path: Path) -> Iterator[None]:
     target = tmp_path / "sick_history.json"
     with (
         patch(
-            "python_pkg.screen_locker._sick_tracker.SICK_HISTORY_FILE",
+            "screen_locker._sick_tracker.SICK_HISTORY_FILE",
             target,
         ),
         patch(
-            "python_pkg.screen_locker._constants.SICK_HISTORY_FILE",
+            "screen_locker._constants.SICK_HISTORY_FILE",
             target,
         ),
     ):
@@ -100,7 +100,7 @@ def _isolate_scheduled_skips(tmp_path: Path) -> Iterator[None]:
     """Redirect SCHEDULED_SKIPS_FILE to tmp_path so tests use a clean file."""
     target = tmp_path / "scheduled_skips.json"
     with patch(
-        "python_pkg.screen_locker.screen_lock.SCHEDULED_SKIPS_FILE",
+        "screen_locker.screen_lock.SCHEDULED_SKIPS_FILE",
         target,
     ):
         yield
@@ -117,11 +117,11 @@ def _mock_weekly_logic() -> Iterator[None]:
     """
     with (
         patch(
-            "python_pkg.screen_locker.screen_lock.is_relaxed_day",
+            "screen_locker.screen_lock.is_relaxed_day",
             return_value=False,
         ),
         patch(
-            "python_pkg.screen_locker.screen_lock.has_weekly_minimum",
+            "screen_locker.screen_lock.has_weekly_minimum",
             return_value=False,
         ),
     ):
@@ -131,7 +131,7 @@ def _mock_weekly_logic() -> Iterator[None]:
 @pytest.fixture
 def mock_tk() -> Generator[MagicMock]:
     """Mock tkinter module for testing without display."""
-    with patch("python_pkg.screen_locker.screen_lock.tk") as mock:
+    with patch("screen_locker.screen_lock.tk") as mock:
         # Set up Tk root mock
         mock_root = MagicMock()
         mock_root.winfo_screenwidth.return_value = 1920
@@ -152,7 +152,7 @@ def mock_tk() -> Generator[MagicMock]:
 @pytest.fixture
 def mock_sys_exit() -> Generator[MagicMock]:
     """Mock sys.exit to prevent test termination."""
-    with patch("python_pkg.screen_locker.screen_lock.sys.exit") as mock:
+    with patch("screen_locker.screen_lock.sys.exit") as mock:
         yield mock
 
 
@@ -223,9 +223,9 @@ def create_locker_relaxed_day(
         patch.object(ScreenLocker, "_is_early_bird_log", return_value=False),
         patch.object(ScreenLocker, "_is_early_bird_time", return_value=False),
         patch.object(ScreenLocker, "_try_auto_upgrade_early_bird", return_value=False),
-        patch("python_pkg.screen_locker.screen_lock.is_relaxed_day", return_value=True),
+        patch("screen_locker.screen_lock.is_relaxed_day", return_value=True),
         patch(
-            "python_pkg.screen_locker.screen_lock.has_weekly_minimum",
+            "screen_locker.screen_lock.has_weekly_minimum",
             return_value=False,
         ),
         patch.object(ScreenLocker, "_start_phone_check"),

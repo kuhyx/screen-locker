@@ -6,7 +6,7 @@ import struct
 import time
 from unittest.mock import MagicMock, patch
 
-from python_pkg.screen_locker._time_check import (
+from screen_locker._time_check import (
     _NTP_EPOCH_OFFSET,
     _query_ntp_offset,
     check_clock_skew,
@@ -66,7 +66,7 @@ class TestCheckClockSkew:
     def test_ok_within_threshold(self) -> None:
         """Test returns ok when clock offset is small."""
         with patch(
-            "python_pkg.screen_locker._time_check._query_ntp_offset",
+            "screen_locker._time_check._query_ntp_offset",
             return_value=2.5,
         ):
             ok, message = check_clock_skew()
@@ -77,7 +77,7 @@ class TestCheckClockSkew:
     def test_fails_when_skew_exceeds_threshold(self) -> None:
         """Test returns failure when clock offset exceeds max."""
         with patch(
-            "python_pkg.screen_locker._time_check._query_ntp_offset",
+            "screen_locker._time_check._query_ntp_offset",
             return_value=600.0,
         ):
             ok, message = check_clock_skew()
@@ -88,7 +88,7 @@ class TestCheckClockSkew:
     def test_ntp_unreachable_passes(self) -> None:
         """Test returns ok when NTP server is unreachable (fail-open)."""
         with patch(
-            "python_pkg.screen_locker._time_check._query_ntp_offset",
+            "screen_locker._time_check._query_ntp_offset",
             return_value=None,
         ):
             ok, message = check_clock_skew()
@@ -99,7 +99,7 @@ class TestCheckClockSkew:
     def test_negative_offset_detected(self) -> None:
         """Test detects clock ahead with negative offset."""
         with patch(
-            "python_pkg.screen_locker._time_check._query_ntp_offset",
+            "screen_locker._time_check._query_ntp_offset",
             return_value=-400.0,
         ):
             ok, message = check_clock_skew()

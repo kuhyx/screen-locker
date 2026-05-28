@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-from python_pkg.screen_locker.tests.conftest import create_locker
+from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -144,7 +144,7 @@ class TestGetLocalSubnetPrefix:
         mock_sock.__enter__ = MagicMock(return_value=mock_sock)
         mock_sock.__exit__ = MagicMock(return_value=False)
         with patch(
-            "python_pkg.screen_locker._phone_verification.socket.socket",
+            "screen_locker._phone_verification.socket.socket",
             return_value=mock_sock,
         ):
             result = locker._get_local_subnet_prefix()
@@ -159,7 +159,7 @@ class TestGetLocalSubnetPrefix:
         """Test returns None when socket raises OSError."""
         locker = create_locker(mock_tk, tmp_path)
         with patch(
-            "python_pkg.screen_locker._phone_verification.socket.socket",
+            "screen_locker._phone_verification.socket.socket",
             side_effect=OSError("no network"),
         ):
             result = locker._get_local_subnet_prefix()
@@ -194,7 +194,7 @@ class TestTryWirelessReconnect:
             patch.object(locker, "_try_adb_connect", return_value=True),
             patch.object(locker, "_has_adb_device", return_value=True),
             patch(
-                "python_pkg.screen_locker._phone_verification.socket.create_connection",
+                "screen_locker._phone_verification.socket.create_connection",
             ) as mock_conn,
         ):
             mock_sock = MagicMock()
@@ -215,7 +215,7 @@ class TestTryWirelessReconnect:
         with (
             patch.object(locker, "_get_local_subnet_prefix", return_value="192.168.1"),
             patch(
-                "python_pkg.screen_locker._phone_verification.socket.create_connection",
+                "screen_locker._phone_verification.socket.create_connection",
                 side_effect=OSError("refused"),
             ),
         ):
@@ -235,7 +235,7 @@ class TestTryWirelessReconnect:
             patch.object(locker, "_try_adb_connect", return_value=True),
             patch.object(locker, "_has_adb_device", return_value=False),
             patch(
-                "python_pkg.screen_locker._phone_verification.socket.create_connection",
+                "screen_locker._phone_verification.socket.create_connection",
             ) as mock_conn,
         ):
             mock_sock = MagicMock()
@@ -257,7 +257,7 @@ class TestTryWirelessReconnect:
             patch.object(locker, "_get_local_subnet_prefix", return_value="192.168.1"),
             patch.object(locker, "_try_adb_connect", return_value=False),
             patch(
-                "python_pkg.screen_locker._phone_verification.socket.create_connection",
+                "screen_locker._phone_verification.socket.create_connection",
             ) as mock_conn,
         ):
             mock_sock = MagicMock()

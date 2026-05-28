@@ -6,7 +6,7 @@ import json
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-from python_pkg.screen_locker.tests.conftest import create_locker
+from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -228,7 +228,7 @@ class TestSickModeUsedToday:
         mock_file = MagicMock()
         mock_file.exists.return_value = False
         with patch(
-            "python_pkg.screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
             mock_file,
         ):
             assert locker._sick_mode_used_today() is False
@@ -243,7 +243,7 @@ class TestSickModeUsedToday:
         locker = create_locker(mock_tk, tmp_path)
         state_file = tmp_path / "state.json"
         with patch(
-            "python_pkg.screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
             state_file,
         ):
             from datetime import datetime, timezone
@@ -262,7 +262,7 @@ class TestSickModeUsedToday:
         locker = create_locker(mock_tk, tmp_path)
         state_file = tmp_path / "state.json"
         with patch(
-            "python_pkg.screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
             state_file,
         ):
             state_file.write_text(json.dumps({"date": "2020-01-01"}))
@@ -278,7 +278,7 @@ class TestSickModeUsedToday:
         locker = create_locker(mock_tk, tmp_path)
         state_file = tmp_path / "state.json"
         with patch(
-            "python_pkg.screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
             state_file,
         ):
             state_file.write_text("not json{{{")
@@ -298,7 +298,7 @@ class TestSaveSickDayState:
         locker = create_locker(mock_tk, tmp_path)
         state_file = tmp_path / "state.json"
         with patch(
-            "python_pkg.screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
             state_file,
         ):
             result = locker._save_sick_day_state("2026-03-21", 21, 20)
@@ -319,7 +319,7 @@ class TestSaveSickDayState:
         mock_path = MagicMock()
         mock_path.open.side_effect = OSError("permission denied")
         with patch(
-            "python_pkg.screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
             mock_path,
         ):
             result = locker._save_sick_day_state("2026-03-21", 21, 20)
@@ -348,7 +348,7 @@ class TestLoadSickDayState:
             )
         )
         with patch(
-            "python_pkg.screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
             state_file,
         ):
             result = locker._load_sick_day_state()
@@ -365,7 +365,7 @@ class TestLoadSickDayState:
         state_file = tmp_path / "state.json"
         state_file.write_text(json.dumps({"date": "2026-03-20"}))
         with patch(
-            "python_pkg.screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
             state_file,
         ):
             result = locker._load_sick_day_state()
@@ -391,7 +391,7 @@ class TestWriteRestoredConfig:
                 locker, "_write_shutdown_config", return_value=True
             ) as mock_write,
             patch(
-                "python_pkg.screen_locker._shutdown.SICK_DAY_STATE_FILE",
+                "screen_locker._shutdown.SICK_DAY_STATE_FILE",
                 state_file,
             ),
         ):
@@ -412,7 +412,7 @@ class TestWriteRestoredConfig:
         with (
             patch.object(locker, "_read_shutdown_config", return_value=None),
             patch(
-                "python_pkg.screen_locker._shutdown.SICK_DAY_STATE_FILE",
+                "screen_locker._shutdown.SICK_DAY_STATE_FILE",
                 state_file,
             ),
         ):

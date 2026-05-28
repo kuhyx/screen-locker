@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from python_pkg.screen_locker.tests.conftest import create_locker
+from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path

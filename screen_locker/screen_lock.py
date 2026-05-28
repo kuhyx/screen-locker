@@ -14,8 +14,8 @@ import sys
 import tkinter as tk
 from typing import TYPE_CHECKING
 
-from python_pkg.screen_locker import _sick_tracker
-from python_pkg.screen_locker._constants import (
+from screen_locker import _sick_tracker
+from screen_locker._constants import (
     EARLY_BIRD_END_HOUR,
     EARLY_BIRD_END_MINUTE,
     EARLY_BIRD_START_HOUR,
@@ -28,23 +28,23 @@ from python_pkg.screen_locker._constants import (
     SICK_LOCKOUT_SECONDS,
     STRONGLIFTS_DB_REMOTE,
 )
-from python_pkg.screen_locker._early_bird import EarlyBirdMixin
-from python_pkg.screen_locker._log_integrity import (
+from screen_locker._early_bird import EarlyBirdMixin
+from screen_locker._log_integrity import (
     _load_hmac_key,
     compute_entry_hmac,
     verify_entry_hmac,
 )
-from python_pkg.screen_locker._phone_verification import PhoneVerificationMixin
-from python_pkg.screen_locker._shutdown import ShutdownMixin
-from python_pkg.screen_locker._sick_dialog import SickDialogMixin
-from python_pkg.screen_locker._ui_flows import UIFlowsMixin
-from python_pkg.screen_locker._weekly_check import (
+from screen_locker._phone_verification import PhoneVerificationMixin
+from screen_locker._shutdown import ShutdownMixin
+from screen_locker._sick_dialog import SickDialogMixin
+from screen_locker._ui_flows import UIFlowsMixin
+from screen_locker._weekly_check import (
     WEEKLY_WORKOUT_MINIMUM,
     has_weekly_minimum,
     is_relaxed_day,
 )
-from python_pkg.screen_locker._window_setup import WindowSetupMixin
-from python_pkg.wake_alarm._state import has_workout_skip_today
+from screen_locker._window_setup import WindowSetupMixin
+from screen_locker._wake_state import has_workout_skip_today
 
 if TYPE_CHECKING:
     from collections.abc import Callable

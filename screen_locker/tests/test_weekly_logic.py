@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from python_pkg.screen_locker.screen_lock import ScreenLocker
-from python_pkg.screen_locker.tests.conftest import (
+from screen_locker.screen_lock import ScreenLocker
+from screen_locker.tests.conftest import (
     create_locker,
     create_locker_relaxed_day,
 )
@@ -43,11 +43,11 @@ class TestRelaxedDayBranch:
                 ScreenLocker, "_try_auto_upgrade_early_bird", return_value=False
             ),
             patch(
-                "python_pkg.screen_locker.screen_lock.is_relaxed_day",
+                "screen_locker.screen_lock.is_relaxed_day",
                 return_value=True,
             ),
             patch(
-                "python_pkg.screen_locker.screen_lock.has_weekly_minimum",
+                "screen_locker.screen_lock.has_weekly_minimum",
                 return_value=False,
             ),
             patch.object(ScreenLocker, "_start_phone_check") as mock_phone,
@@ -75,11 +75,11 @@ class TestRelaxedDayBranch:
                 ScreenLocker, "_try_auto_upgrade_early_bird", return_value=False
             ),
             patch(
-                "python_pkg.screen_locker.screen_lock.is_relaxed_day",
+                "screen_locker.screen_lock.is_relaxed_day",
                 return_value=True,
             ),
             patch(
-                "python_pkg.screen_locker.screen_lock.has_weekly_minimum",
+                "screen_locker.screen_lock.has_weekly_minimum",
                 return_value=False,
             ),
             patch.object(ScreenLocker, "_setup_window") as mock_full,
@@ -109,11 +109,11 @@ class TestRelaxedDayBranch:
                 ScreenLocker, "_try_auto_upgrade_early_bird", return_value=False
             ),
             patch(
-                "python_pkg.screen_locker.screen_lock.is_relaxed_day",
+                "screen_locker.screen_lock.is_relaxed_day",
                 return_value=True,
             ),
             patch(
-                "python_pkg.screen_locker.screen_lock.has_weekly_minimum",
+                "screen_locker.screen_lock.has_weekly_minimum",
                 return_value=False,
             ),
             patch.object(ScreenLocker, "_grab_input") as mock_grab,
@@ -148,7 +148,7 @@ class TestWeeklyMinimumBranch:
         tmp_path: Path,
     ) -> None:
         with patch(
-            "python_pkg.screen_locker.screen_lock.has_weekly_minimum",
+            "screen_locker.screen_lock.has_weekly_minimum",
             return_value=True,
         ):
             create_locker(mock_tk, tmp_path, has_logged=False)
@@ -164,7 +164,7 @@ class TestWeeklyMinimumBranch:
         # create_locker already stubs _start_phone_check; just verify no exit
         # and _relaxed_day_mode stays False (full lock path taken).
         with patch(
-            "python_pkg.screen_locker.screen_lock.has_weekly_minimum",
+            "screen_locker.screen_lock.has_weekly_minimum",
             return_value=False,
         ):
             locker = create_locker(mock_tk, tmp_path, has_logged=False)
@@ -179,7 +179,7 @@ class TestWeeklyMinimumBranch:
         tmp_path: Path,
     ) -> None:
         with patch(
-            "python_pkg.screen_locker.screen_lock.has_weekly_minimum",
+            "screen_locker.screen_lock.has_weekly_minimum",
         ) as mock_weekly:
             create_locker_relaxed_day(mock_tk, tmp_path)
 
@@ -192,7 +192,7 @@ class TestWeeklyMinimumBranch:
         tmp_path: Path,
     ) -> None:
         with patch(
-            "python_pkg.screen_locker.screen_lock.has_weekly_minimum",
+            "screen_locker.screen_lock.has_weekly_minimum",
         ) as mock_weekly:
             create_locker(mock_tk, tmp_path, has_logged=True)
 
@@ -217,7 +217,7 @@ class TestStartRelaxedDayFlow:
         locker = self._make_locker(mock_tk, tmp_path)
         with (
             patch(
-                "python_pkg.screen_locker._ui_flows.count_weekly_workouts",
+                "screen_locker._ui_flows.count_weekly_workouts",
                 return_value=2,
             ),
             patch.object(locker, "_text") as mock_text,
@@ -241,7 +241,7 @@ class TestStartRelaxedDayFlow:
         locker = self._make_locker(mock_tk, tmp_path)
         with (
             patch(
-                "python_pkg.screen_locker._ui_flows.count_weekly_workouts",
+                "screen_locker._ui_flows.count_weekly_workouts",
                 return_value=0,
             ),
             patch.object(locker, "_button") as mock_button,
@@ -268,7 +268,7 @@ class TestStartRelaxedDayFlow:
         locker = self._make_locker(mock_tk, tmp_path)
         with (
             patch(
-                "python_pkg.screen_locker._ui_flows.count_weekly_workouts",
+                "screen_locker._ui_flows.count_weekly_workouts",
                 return_value=1,
             ),
             patch.object(locker, "_button") as mock_button,
@@ -534,7 +534,7 @@ class TestCheckTodayStateExits:
             patch.object(locker, "_is_sick_day_log", return_value=False),
             patch.object(locker, "has_logged_today", return_value=False),
             patch(
-                "python_pkg.screen_locker.screen_lock.has_workout_skip_today",
+                "screen_locker.screen_lock.has_workout_skip_today",
                 return_value=True,
             ),
         ):
@@ -553,7 +553,7 @@ class TestCheckTodayStateExits:
             patch.object(locker, "_is_sick_day_log", return_value=False),
             patch.object(locker, "has_logged_today", return_value=False),
             patch(
-                "python_pkg.screen_locker.screen_lock.has_workout_skip_today",
+                "screen_locker.screen_lock.has_workout_skip_today",
                 return_value=False,
             ),
             patch.object(locker, "_is_early_bird_time", return_value=True),
@@ -574,7 +574,7 @@ class TestCheckTodayStateExits:
             patch.object(locker, "_is_sick_day_log", return_value=False),
             patch.object(locker, "has_logged_today", return_value=False),
             patch(
-                "python_pkg.screen_locker.screen_lock.has_workout_skip_today",
+                "screen_locker.screen_lock.has_workout_skip_today",
                 return_value=False,
             ),
             patch.object(locker, "_is_early_bird_time", return_value=False),
