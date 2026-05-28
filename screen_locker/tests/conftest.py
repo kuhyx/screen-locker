@@ -106,6 +106,28 @@ def _isolate_scheduled_skips(tmp_path: Path) -> Iterator[None]:
         yield
 
 
+@pytest.fixture(autouse=True)
+def _mock_weekly_logic() -> Iterator[None]:
+    """Default to Fri-Mon enforcement with weekly minimum not yet met.
+
+    Without this, tests that run on a Tue/Wed/Thu would hit the relaxed-day
+    branch instead of the full-lock path that existing tests expect.
+    Setting has_weekly_minimum=False ensures the full lock is shown
+    (weekly quota not reached → enforce).
+    """
+    with (
+        patch(
+            "python_pkg.screen_locker.screen_lock.is_relaxed_day",
+            return_value=False,
+        ),
+        patch(
+            "python_pkg.screen_locker.screen_lock.has_weekly_minimum",
+            return_value=False,
+        ),
+    ):
+        yield
+
+
 @pytest.fixture
 def mock_tk() -> Generator[MagicMock]:
     """Mock tkinter module for testing without display."""
@@ -172,12 +194,45 @@ def create_locker(
             return_value=False,
         ),
         patch.object(ScreenLocker, "_start_phone_check"),
+        patch.object(ScreenLocker, "_start_relaxed_day_flow"),
         patch.object(ScreenLocker, "_start_verify_workout_check"),
     ):
         return ScreenLocker(
             demo_mode=demo_mode,
             verify_only=verify_only,
         )
+
+
+def create_locker_relaxed_day(
+    _mock_tk: MagicMock,
+    tmp_path: Path,
+    *,
+    demo_mode: bool = True,
+    has_logged: bool = False,
+) -> ScreenLocker:
+    """Create a ScreenLocker in relaxed-day mode (Tue/Wed/Thu).
+
+    ``is_relaxed_day`` returns True so ``_relaxed_day_mode`` is set and
+    ``_start_relaxed_day_flow`` is called instead of ``_start_phone_check``.
+    The autouse ``_mock_weekly_logic`` fixture is overridden here.
+    """
+    with (
+        patch.object(Path, "resolve", return_value=tmp_path),
+        patch.object(ScreenLocker, "has_logged_today", return_value=has_logged),
+        patch.object(ScreenLocker, "_is_sick_day_log", return_value=False),
+        patch.object(ScreenLocker, "_is_early_bird_log", return_value=False),
+        patch.object(ScreenLocker, "_is_early_bird_time", return_value=False),
+        patch.object(ScreenLocker, "_try_auto_upgrade_early_bird", return_value=False),
+        patch("python_pkg.screen_locker.screen_lock.is_relaxed_day", return_value=True),
+        patch(
+            "python_pkg.screen_locker.screen_lock.has_weekly_minimum",
+            return_value=False,
+        ),
+        patch.object(ScreenLocker, "_start_phone_check"),
+        patch.object(ScreenLocker, "_start_relaxed_day_flow"),
+        patch.object(ScreenLocker, "_start_verify_workout_check"),
+    ):
+        return ScreenLocker(demo_mode=demo_mode)
 
 
 def create_locker_early_bird(
@@ -212,6 +267,7 @@ def create_locker_early_bird(
         ),
         patch.object(ScreenLocker, "_try_auto_upgrade_early_bird", return_value=False),
         patch.object(ScreenLocker, "_start_phone_check"),
+        patch.object(ScreenLocker, "_start_relaxed_day_flow"),
         patch.object(ScreenLocker, "_start_verify_workout_check"),
     ):
         return ScreenLocker(demo_mode=demo_mode)

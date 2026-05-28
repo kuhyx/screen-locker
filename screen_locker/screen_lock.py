@@ -38,6 +38,11 @@ from python_pkg.screen_locker._phone_verification import PhoneVerificationMixin
 from python_pkg.screen_locker._shutdown import ShutdownMixin
 from python_pkg.screen_locker._sick_dialog import SickDialogMixin
 from python_pkg.screen_locker._ui_flows import UIFlowsMixin
+from python_pkg.screen_locker._weekly_check import (
+    WEEKLY_WORKOUT_MINIMUM,
+    has_weekly_minimum,
+    is_relaxed_day,
+)
 from python_pkg.screen_locker._window_setup import WindowSetupMixin
 from python_pkg.wake_alarm._state import has_workout_skip_today
 
@@ -57,6 +62,7 @@ __all__ = [
     "SCHEDULED_SKIPS_FILE",
     "SICK_LOCKOUT_SECONDS",
     "STRONGLIFTS_DB_REMOTE",
+    "WEEKLY_WORKOUT_MINIMUM",
     "ScreenLocker",
 ]
 
@@ -100,6 +106,7 @@ class ScreenLocker(
         self.log_file = script_dir / "workout_log.json"
         self.verify_only = verify_only
         self.workout_data: dict[str, str] = {}
+        self._relaxed_day_mode: bool = False
         self._check_early_exits(verify_only=verify_only)
         self.root = tk.Tk()
         title_suffix = (
@@ -110,6 +117,8 @@ class ScreenLocker(
         self.lockout_time = 10 if demo_mode else 1800
         if verify_only:
             self._setup_verify_window()
+        elif self._relaxed_day_mode:
+            self._setup_relaxed_day_window()
         else:
             self._setup_window()
             if demo_mode:
@@ -119,6 +128,8 @@ class ScreenLocker(
         self._phone_future: Future[tuple[str, str]] | None = None
         if verify_only:
             self._start_verify_workout_check()
+        elif self._relaxed_day_mode:
+            self._start_relaxed_day_flow()
         else:
             self._start_phone_check()
             self._grab_input()
@@ -149,39 +160,51 @@ class ScreenLocker(
             return
         self._check_non_verify_exits()
 
+    def _check_today_state_exits(self) -> bool:
+        """Handle early-bird and today's log states. Return True to stop startup."""
+        if self._is_early_bird_log() and not self._is_early_bird_time():
+            if self._try_auto_upgrade_early_bird():
+                _logger.info("Auto-upgraded early_bird entry to phone_verified.")
+                sys.exit(0)
+                return True
+            return False  # Expired early bird, upgrade unavailable — full lock.
+        if self._is_early_bird_log():
+            _logger.info("Early bird window still active — skipping lock.")
+        elif self._is_sick_day_log() and self._try_auto_upgrade_sick_day():
+            _logger.info("Auto-upgraded today's sick_day entry to phone_verified.")
+        elif self.has_logged_today():
+            _logger.info("Workout already logged today. Skipping screen lock.")
+        elif has_workout_skip_today():
+            _logger.info("Wake alarm earned workout skip. Skipping screen lock.")
+        elif self._is_early_bird_time():
+            self._save_early_bird_log()
+            _logger.info("Early bird time — skipping lock, will re-check at 08:30.")
+        else:
+            return False
+        sys.exit(0)
+        return True
+
     def _check_non_verify_exits(self) -> None:
         """Check all normal (non-verify) startup early-exit conditions."""
         if self._is_scheduled_skip_today():
             _logger.info("Today is a scheduled skip day. Skipping screen lock.")
             sys.exit(0)
-        if self._is_early_bird_log() and not self._is_early_bird_time():
-            if self._try_auto_upgrade_early_bird():
-                _logger.info(
-                    "Auto-upgraded early_bird entry to phone_verified.",
-                )
-                sys.exit(0)
-        elif self._is_early_bird_log():
-            _logger.info("Early bird window still active — skipping lock.")
-            sys.exit(0)
-        elif self._is_sick_day_log() and self._try_auto_upgrade_sick_day():
+            return
+        if self._check_today_state_exits():
+            return
+        # Day-of-week routing: Tue/Wed/Thu relaxed (optional), Fri-Mon enforced.
+        if is_relaxed_day():
+            _logger.info("Relaxed day (Tue-Thu) - showing optional workout prompt.")
+            self._relaxed_day_mode = True
+            return
+        # Fri-Mon: skip lock when weekly minimum is already met.
+        if has_weekly_minimum(self.log_file):
             _logger.info(
-                "Auto-upgraded today's sick_day entry to phone_verified.",
+                "Weekly minimum of %d workouts met. Skipping screen lock.",
+                WEEKLY_WORKOUT_MINIMUM,
             )
             sys.exit(0)
-        elif self.has_logged_today():
-            _logger.info("Workout already logged today. Skipping screen lock.")
-            sys.exit(0)
-        elif has_workout_skip_today():
-            _logger.info(
-                "Wake alarm earned workout skip. Skipping screen lock.",
-            )
-            sys.exit(0)
-        elif self._is_early_bird_time():
-            self._save_early_bird_log()
-            _logger.info(
-                "Early bird time — skipping lock, will re-check at 08:30.",
-            )
-            sys.exit(0)
+            return
 
     def _try_auto_upgrade_sick_day(self) -> bool:
         """Silently upgrade today's sick_day entry if phone shows a workout."""

@@ -64,6 +64,12 @@ class WindowSetupMixin:
         )
         close_btn.place(x=10, y=10)
 
+    def _setup_relaxed_day_window(self) -> None:
+        """Configure a small non-locking window for the optional Tue-Thu prompt."""
+        self.root.geometry("700x450")
+        self.root.configure(bg="#1a1a1a", cursor="arrow")
+        self.root.protocol("WM_DELETE_WINDOW", self.close)
+
     def _grab_input(self) -> None:
         """Force input focus to the locker window."""
         self.root.update_idletasks()
