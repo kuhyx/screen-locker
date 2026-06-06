@@ -1,10 +1,18 @@
-/// History screen: past workout list with per-exercise weight progress chart.
+/// Progress screen: total-load view plus per-exercise drill-down.
+///
+/// "Total" (default): total-volume chart, full calendar, all sessions.
+/// Specific exercise: streak card, weight chart, exercise-only calendar,
+/// exercise-only session list.
 library;
 
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/services/storage_service.dart';
+import 'package:workout_app/widgets/calendar_widget.dart';
+
+const _kTotal = 'Total (all workouts)';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -16,8 +24,11 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   List<Map<String, dynamic>> _rows = [];
   bool _loading = true;
-  String? _selectedExercise;
+  String _selected = _kTotal;
   List<String> _exerciseNames = [];
+  ExerciseState? _selectedState;
+  DateTime _calendarMonth =
+      DateTime(DateTime.now().year, DateTime.now().month);
 
   @override
   void initState() {
@@ -26,59 +37,134 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<void> _load() async {
-    final rows = await StorageService.instance.getWorkoutHistory();
-    final names = <String>{};
+    final rows = await StorageService.instance.getWorkoutHistory(limit: 200);
+    final names = <String>[];
+    final seen = <String>{};
     for (final row in rows) {
       final json =
           jsonDecode(row['json'] as String) as Map<String, dynamic>;
       for (final ex in (json['exercises'] as List)) {
-        names.add((ex as Map<String, dynamic>)['name'] as String);
+        final name = (ex as Map<String, dynamic>)['name'] as String;
+        if (seen.add(name)) names.add(name);
       }
+    }
+    ExerciseState? state;
+    if (_selected != _kTotal) {
+      state = await StorageService.instance.getExerciseState(_selected);
     }
     if (mounted) {
       setState(() {
         _rows = rows;
-        _exerciseNames = names.toList();
-        _selectedExercise =
-            _exerciseNames.isNotEmpty ? _exerciseNames.first : null;
+        _exerciseNames = names;
+        _selectedState = state;
         _loading = false;
       });
     }
   }
 
-  String _formatDuration(int secs) {
-    final m = (secs ~/ 60).toString().padLeft(2, '0');
-    final s = (secs % 60).toString().padLeft(2, '0');
-    return '${secs ~/ 3600 > 0 ? '${secs ~/ 3600}h ' : ''}${m}m ${s}s';
+  Future<void> _pickExercise(String name) async {
+    ExerciseState? state;
+    if (name != _kTotal) {
+      state = await StorageService.instance.getExerciseState(name);
+    }
+    if (mounted) {
+      setState(() {
+        _selected = name;
+        _selectedState = state;
+      });
+    }
   }
 
-  /// Extract (date, weight) points for the selected exercise from history.
-  List<(DateTime, double)> _buildChartPoints(String exerciseName) {
+  // ── Data helpers ────────────────────────────────────────────────────────────
+
+  /// All workout dates (YYYY-MM-DD) across all sessions.
+  Set<String> get _allWorkoutDates =>
+      _rows.map((r) => r['date'] as String).toSet();
+
+  /// Dates when the selected exercise appeared.
+  Set<String> _exerciseDates(String name) {
+    final result = <String>{};
+    for (final row in _rows) {
+      final json =
+          jsonDecode(row['json'] as String) as Map<String, dynamic>;
+      for (final ex in (json['exercises'] as List)) {
+        if ((ex as Map<String, dynamic>)['name'] == name) {
+          result.add(row['date'] as String);
+          break;
+        }
+      }
+    }
+    return result;
+  }
+
+  /// (date, total volume) per session – sum of targetWeight × targetSets.
+  List<(DateTime, double)> _totalVolumePoints() {
+    final points = <(DateTime, double)>[];
+    for (final row in _rows.reversed) {
+      final json =
+          jsonDecode(row['json'] as String) as Map<String, dynamic>;
+      double total = 0;
+      for (final ex in (json['exercises'] as List)) {
+        final m = ex as Map<String, dynamic>;
+        final w = (m['targetWeight'] as num?)?.toDouble() ?? 0;
+        final s = (m['targetSets'] as num?)?.toInt() ?? 0;
+        final r = (m['targetReps'] as num?)?.toInt() ?? 0;
+        total += w * s * r;
+      }
+      final date = DateTime.tryParse(row['date'] as String);
+      if (date != null) points.add((date, total));
+    }
+    return points;
+  }
+
+  /// (date, weight) for the selected exercise.
+  List<(DateTime, double)> _exerciseWeightPoints(String name) {
     final points = <(DateTime, double)>[];
     for (final row in _rows.reversed) {
       final json =
           jsonDecode(row['json'] as String) as Map<String, dynamic>;
       for (final ex in (json['exercises'] as List)) {
         final m = ex as Map<String, dynamic>;
-        if (m['name'] == exerciseName) {
+        if (m['name'] == name) {
           final date = DateTime.tryParse(row['date'] as String);
-          final weight = (m['targetWeight'] as num?)?.toDouble();
-          if (date != null && weight != null) {
-            points.add((date, weight));
-          }
+          final w = (m['targetWeight'] as num?)?.toDouble();
+          if (date != null && w != null) points.add((date, w));
+          break;
         }
       }
     }
     return points;
   }
 
+  /// Sessions filtered to those containing the selected exercise, newest first.
+  List<Map<String, dynamic>> _sessionsForExercise(String name) {
+    final result = <Map<String, dynamic>>[];
+    for (final row in _rows) {
+      final json =
+          jsonDecode(row['json'] as String) as Map<String, dynamic>;
+      for (final ex in (json['exercises'] as List)) {
+        final m = ex as Map<String, dynamic>;
+        if (m['name'] == name) {
+          result.add({...row, 'exerciseData': m});
+          break;
+        }
+      }
+    }
+    return result;
+  }
+
+  // ── Build ───────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
+    final allNames = [_kTotal, ..._exerciseNames];
+    final isTotal = _selected == _kTotal;
+
     return Scaffold(
       backgroundColor: Colors.grey.shade900,
       appBar: AppBar(
         backgroundColor: Colors.grey.shade800,
-        title: const Text('History', style: TextStyle(color: Colors.white)),
+        title: const Text('Progress', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: _loading
@@ -93,39 +179,113 @@ class _HistoryScreenState extends State<HistoryScreen> {
               : ListView(
                   padding: const EdgeInsets.all(12),
                   children: [
-                    if (_selectedExercise != null) ...[
-                      _ExercisePicker(
-                        names: _exerciseNames,
-                        selected: _selectedExercise!,
-                        onChanged: (v) =>
-                            setState(() => _selectedExercise = v),
-                      ),
-                      const SizedBox(height: 8),
-                      _WeightChart(
-                        points: _buildChartPoints(_selectedExercise!),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    const Text(
-                      'SESSIONS',
-                      style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 11,
-                        letterSpacing: 1.3,
-                      ),
+                    _ExercisePicker(
+                      names: allNames,
+                      selected: _selected,
+                      onChanged: _pickExercise,
                     ),
-                    const SizedBox(height: 8),
-                    ..._rows.map((row) => _SessionTile(
-                          row: row,
-                          formatDuration: _formatDuration,
-                        )),
+                    const SizedBox(height: 12),
+                    if (isTotal) ..._buildTotalView()
+                    else ..._buildExerciseView(_selected),
                   ],
                 ),
     );
   }
+
+  /// Rolling average of 2 consecutive points to smooth A/B alternation.
+  static List<(DateTime, double)> _rollingAvg2(
+    List<(DateTime, double)> pts,
+  ) {
+    if (pts.length < 2) return pts;
+    return [
+      for (int i = 0; i < pts.length; i++)
+        (pts[i].$1, i == 0 ? pts[0].$2 : (pts[i].$2 + pts[i - 1].$2) / 2),
+    ];
+  }
+
+  List<Widget> _buildTotalView() => [
+        _SectionLabel('TOTAL VOLUME (2-session rolling avg, kg)'),
+        const SizedBox(height: 6),
+        _WeightChart(
+          points: _rollingAvg2(_totalVolumePoints()),
+        ),
+        const SizedBox(height: 16),
+        WorkoutCalendar(
+          workoutDates: _allWorkoutDates,
+          month: _calendarMonth,
+          onPrevMonth: () => setState(() {
+            _calendarMonth = DateTime(
+              _calendarMonth.year,
+              _calendarMonth.month - 1,
+            );
+          }),
+          onNextMonth: () => setState(() {
+            _calendarMonth = DateTime(
+              _calendarMonth.year,
+              _calendarMonth.month + 1,
+            );
+          }),
+        ),
+        const SizedBox(height: 16),
+        _SectionLabel('ALL SESSIONS'),
+        const SizedBox(height: 8),
+        ..._rows.map((row) => _AllSessionTile(row: row)),
+      ];
+
+  List<Widget> _buildExerciseView(String name) => [
+        if (_selectedState != null) ...[
+          _ProgressStatsCard(state: _selectedState!),
+          const SizedBox(height: 12),
+        ],
+        _SectionLabel('WEIGHT OVER TIME'),
+        const SizedBox(height: 6),
+        _WeightChart(
+          points: _exerciseWeightPoints(name),
+        ),
+        const SizedBox(height: 16),
+        WorkoutCalendar(
+          workoutDates: _exerciseDates(name),
+          month: _calendarMonth,
+          onPrevMonth: () => setState(() {
+            _calendarMonth = DateTime(
+              _calendarMonth.year,
+              _calendarMonth.month - 1,
+            );
+          }),
+          onNextMonth: () => setState(() {
+            _calendarMonth = DateTime(
+              _calendarMonth.year,
+              _calendarMonth.month + 1,
+            );
+          }),
+        ),
+        const SizedBox(height: 16),
+        _SectionLabel(name.toUpperCase()),
+        const SizedBox(height: 8),
+        ..._sessionsForExercise(name)
+            .map((s) => _ExerciseSessionTile(session: s)),
+      ];
 }
 
-// ── Sub-widgets ────────────────────────────────────────────────────────────────
+// ── Shared sub-widgets ─────────────────────────────────────────────────────────
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: Colors.white54,
+        fontSize: 11,
+        letterSpacing: 1.3,
+      ),
+    );
+  }
+}
 
 class _ExercisePicker extends StatelessWidget {
   const _ExercisePicker({
@@ -150,13 +310,135 @@ class _ExercisePicker extends StatelessWidget {
           .map(
             (n) => DropdownMenuItem(
               value: n,
-              child: Text(n, style: const TextStyle(color: Colors.white)),
+              child: Text(
+                n,
+                style: TextStyle(
+                  color: n == _kTotal ? Colors.white70 : Colors.white,
+                  fontStyle:
+                      n == _kTotal ? FontStyle.italic : FontStyle.normal,
+                ),
+              ),
             ),
           )
           .toList(),
       onChanged: (v) {
         if (v != null) onChanged(v);
       },
+    );
+  }
+}
+
+class _ProgressStatsCard extends StatelessWidget {
+  const _ProgressStatsCard({required this.state});
+
+  final ExerciseState state;
+
+  String _nextWeightLabel(double current, double max, double inc) {
+    if (current >= max) return '+1 rep';
+    return '+${inc}kg (${(current + inc).clamp(0.0, max)}kg)';
+  }
+
+  String _prevWeightLabel(double current, double inc) {
+    return '-${inc}kg (${(current - inc).clamp(0.0, double.infinity)}kg)';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final successLeft = state.successThreshold - state.successStreak;
+    final failLeft = state.failThreshold - state.failStreak;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade800,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${state.name}  —  ${state.weight}kg',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _StreakRow(
+            icon: Icons.trending_up,
+            color: Colors.greenAccent,
+            current: state.successStreak,
+            threshold: state.successThreshold,
+            leftLabel: '$successLeft more',
+            actionLabel: _nextWeightLabel(
+              state.weight,
+              state.maxWeight,
+              kWeightIncrement,
+            ),
+            direction: '↑',
+          ),
+          const SizedBox(height: 6),
+          _StreakRow(
+            icon: Icons.trending_down,
+            color: Colors.redAccent,
+            current: state.failStreak,
+            threshold: state.failThreshold,
+            leftLabel: '$failLeft more',
+            actionLabel: _prevWeightLabel(state.weight, kWeightIncrement),
+            direction: '↓',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StreakRow extends StatelessWidget {
+  const _StreakRow({
+    required this.icon,
+    required this.color,
+    required this.current,
+    required this.threshold,
+    required this.leftLabel,
+    required this.actionLabel,
+    required this.direction,
+  });
+
+  final IconData icon;
+  final Color color;
+  final int current;
+  final int threshold;
+  final String leftLabel;
+  final String actionLabel;
+  final String direction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 14),
+        const SizedBox(width: 6),
+        ...List.generate(
+          threshold,
+          (i) => Container(
+            width: 8,
+            height: 8,
+            margin: const EdgeInsets.only(right: 3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: i < current ? color : Colors.white24,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            '$leftLabel to $direction $actionLabel',
+            style: const TextStyle(color: Colors.white60, fontSize: 12),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -170,16 +452,16 @@ class _WeightChart extends StatelessWidget {
   Widget build(BuildContext context) {
     if (points.length < 2) {
       return Container(
-        height: 100,
+        height: 80,
         alignment: Alignment.center,
         child: const Text(
-          'Not enough data',
+          'Not enough data for chart',
           style: TextStyle(color: Colors.white38),
         ),
       );
     }
     return SizedBox(
-      height: 120,
+      height: 140,
       child: CustomPaint(
         painter: _ChartPainter(points),
         size: Size.infinite,
@@ -193,6 +475,18 @@ class _ChartPainter extends CustomPainter {
 
   final List<(DateTime, double)> points;
 
+  // Layout constants
+  static const _topPad = 14.0; // room for top Y label
+  static const _bottomPad = 22.0; // room for X-axis dates
+  static const _hPad = 8.0;
+
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  static String _shortDate(DateTime d) => '${_months[d.month - 1]} ${d.day}';
+
   @override
   void paint(Canvas canvas, Size size) {
     final minW = points.map((p) => p.$2).reduce(min);
@@ -202,12 +496,19 @@ class _ChartPainter extends CustomPainter {
     final wRange = maxW - minW;
     final tRange = maxMs - minMs;
 
-    double xOf(DateTime t) =>
-        tRange == 0 ? size.width / 2 :
-        (t.millisecondsSinceEpoch - minMs) / tRange * (size.width - 16) + 8;
-    double yOf(double w) =>
-        wRange == 0 ? size.height / 2 :
-        (1 - (w - minW) / wRange) * (size.height - 16) + 8;
+    final plotTop = _topPad;
+    final plotBottom = size.height - _bottomPad;
+    final plotLeft = _hPad;
+    final plotRight = size.width - _hPad;
+    final plotHeight = plotBottom - plotTop;
+    final plotWidth = plotRight - plotLeft;
+
+    double xOf(DateTime t) => tRange == 0
+        ? (plotLeft + plotRight) / 2
+        : (t.millisecondsSinceEpoch - minMs) / tRange * plotWidth + plotLeft;
+    double yOf(double w) => wRange == 0
+        ? (plotTop + plotBottom) / 2
+        : (1 - (w - minW) / wRange) * plotHeight + plotTop;
 
     final linePaint = Paint()
       ..color = Colors.indigoAccent
@@ -223,45 +524,65 @@ class _ChartPainter extends CustomPainter {
       path.lineTo(xOf(p.$1), yOf(p.$2));
     }
     canvas.drawPath(path, linePaint);
-
     for (final p in points) {
       canvas.drawCircle(Offset(xOf(p.$1), yOf(p.$2)), 4, dotPaint);
     }
 
-    // Label min/max weight
+    // Y-axis labels
     final tp = TextPainter(textDirection: TextDirection.ltr);
-    void drawLabel(String text, Offset offset) {
+    void drawText(String text, Offset offset, {double fontSize = 10}) {
       tp
         ..text = TextSpan(
           text: text,
-          style: const TextStyle(color: Colors.white54, fontSize: 10),
+          style: TextStyle(color: Colors.white54, fontSize: fontSize),
         )
         ..layout()
         ..paint(canvas, offset);
     }
-    drawLabel('${maxW}kg', Offset(8, 0));
-    drawLabel('${minW}kg', Offset(8, size.height - 14));
+
+    drawText('${maxW.round()}kg', Offset(plotLeft, 0));
+    drawText('${minW.round()}kg', Offset(plotLeft, plotBottom + 2));
+
+    // X-axis date labels: first, middle, last
+    final n = points.length;
+    final xIndices = n <= 2 ? [0, n - 1] : [0, n ~/ 2, n - 1];
+    for (final i in xIndices) {
+      final p = points[i];
+      final label = _shortDate(p.$1);
+      tp
+        ..text = TextSpan(
+          text: label,
+          style: const TextStyle(color: Colors.white38, fontSize: 9),
+        )
+        ..layout();
+      final cx = xOf(p.$1);
+      final dx = (cx - tp.width / 2).clamp(plotLeft, plotRight - tp.width);
+      tp.paint(canvas, Offset(dx, size.height - tp.height));
+    }
   }
 
   @override
   bool shouldRepaint(_ChartPainter old) => old.points != points;
 }
 
-class _SessionTile extends StatelessWidget {
-  const _SessionTile({
-    required this.row,
-    required this.formatDuration,
-  });
+class _AllSessionTile extends StatelessWidget {
+  const _AllSessionTile({required this.row});
 
   final Map<String, dynamic> row;
-  final String Function(int) formatDuration;
+
+  String _formatDuration(int secs) {
+    final h = secs ~/ 3600;
+    final m = (secs ~/ 60).remainder(60).toString().padLeft(2, '0');
+    final s = (secs % 60).toString().padLeft(2, '0');
+    return h > 0 ? '${h}h ${m}m ${s}s' : '${m}m ${s}s';
+  }
 
   @override
   Widget build(BuildContext context) {
     final succeeded = (row['succeeded'] as int) == 1;
     final type = row['workout_type'] as String;
     final date = row['date'] as String;
-    final dur = formatDuration(row['duration_seconds'] as int);
+    final dur = _formatDuration(row['duration_seconds'] as int);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -295,7 +616,104 @@ class _SessionTile extends StatelessWidget {
                 ),
                 Text(
                   dur,
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  style:
+                      const TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExerciseSessionTile extends StatelessWidget {
+  const _ExerciseSessionTile({required this.session});
+
+  final Map<String, dynamic> session;
+
+  String _formatDuration(int secs) {
+    final h = secs ~/ 3600;
+    final m = (secs ~/ 60).remainder(60).toString().padLeft(2, '0');
+    final s = (secs % 60).toString().padLeft(2, '0');
+    return h > 0 ? '${h}h ${m}m ${s}s' : '${m}m ${s}s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final exData = session['exerciseData'] as Map<String, dynamic>;
+    final succeeded = (exData['succeeded'] as bool?) == true;
+    final date = session['date'] as String;
+    final dur = _formatDuration(session['duration_seconds'] as int);
+    final weight = (exData['targetWeight'] as num?)?.toDouble();
+    final warmupDone = exData['warmupDone'] as bool? ?? false;
+    final sets =
+        (exData['sets'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final targetSets = exData['targetSets'] as int? ?? sets.length;
+    final doneSets = sets.where((s) => s['succeeded'] == true).length;
+    final repsSummary = sets.map((s) => '${s['doneReps']}').join(', ');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade800,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: succeeded ? Colors.green.shade800 : Colors.red.shade900,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(
+              succeeded ? Icons.check_circle : Icons.cancel,
+              color: succeeded ? Colors.greenAccent : Colors.redAccent,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  date,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${weight ?? '?'}kg  ·  $doneSets/$targetSets sets'
+                  '  ·  ${warmupDone ? '⬤ warmup' : '○ no warmup'}',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                ),
+                if (repsSummary.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'reps: $repsSummary',
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 2),
+                Text(
+                  'workout: $dur',
+                  style: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),

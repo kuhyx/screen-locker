@@ -1,24 +1,17 @@
-/// Active workout screen: per-rep breaks, warmup, back-button protection,
+/// Active workout screen: per-rep tracking, warmup, back-button protection,
 /// and crash-safe session persistence.
 library;
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart';
-import 'package:vibration/vibration.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/exercise_result.dart';
 import 'package:workout_app/models/set_result.dart';
 import 'package:workout_app/models/workout_session.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_service.dart';
-import 'package:workout_app/widgets/break_banner.dart';
 import 'package:workout_app/widgets/exercise_tile.dart';
 import 'package:workout_app/widgets/workout_summary_dialog.dart';
-
-const _successBreakSecs = 180; // 3 min after successful rep
-const _failBreakSecs = 300; // 5 min after failed rep
-const _warmupBreakSecs = 180; // 3 min after warmup
 
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({
@@ -30,8 +23,6 @@ class WorkoutScreen extends StatefulWidget {
 
   final String workoutType;
   final List<Exercise> exercises;
-
-  /// Non-null when resuming a previously interrupted session.
   final Map<String, dynamic>? savedState;
 
   @override
@@ -46,18 +37,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   late Timer _elapsedTimer;
   Duration _elapsed = Duration.zero;
 
-  // Break state
-  int _breakRemaining = 0;
-  int _breakDurationSecs = 0;
-  DateTime? _breakStartTime;
-  Timer? _breakTimer;
-  String _breakLabel = '';
-  int _breakForExIdx = -1;
-  int _breakForRepIdx = -1; // -1 = warmup break
+  Map<String, ExerciseState> _exerciseStates = {};
 
-  bool get _inBreak => _breakRemaining > 0;
-
-  final _audio = AudioPlayer();
   final _sync = SyncService();
   bool _finished = false;
 
@@ -73,6 +54,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       setState(() => _elapsed = DateTime.now().difference(_startTime));
     });
+    _loadExerciseStates();
   }
 
   void _initFresh() {
@@ -97,29 +79,20 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         .map((row) => (row as List).cast<int>())
         .toList();
     _warmupTapped = (s['warmupTapped'] as List).cast<bool>();
+  }
 
-    final breakEndMs = s['breakEndMs'] as int? ?? 0;
-    final breakDur = s['breakDurationSecs'] as int? ?? 0;
-    if (breakEndMs > 0 && breakDur > 0) {
-      final endTime = DateTime.fromMillisecondsSinceEpoch(breakEndMs);
-      final remaining = endTime.difference(DateTime.now()).inSeconds;
-      if (remaining > 0) {
-        _breakForExIdx = s['breakForExIdx'] as int? ?? -1;
-        _breakForRepIdx = s['breakForRepIdx'] as int? ?? -1;
-        _breakLabel = s['breakLabel'] as String? ?? 'Rest';
-        _breakDurationSecs = breakDur;
-        _breakStartTime = endTime.subtract(Duration(seconds: breakDur));
-        _breakRemaining = remaining;
-        _breakTimer = Timer.periodic(const Duration(seconds: 1), _tickBreak);
-      }
+  Future<void> _loadExerciseStates() async {
+    final states = await StorageService.instance.getAllExerciseStates();
+    if (mounted) {
+      setState(() {
+        _exerciseStates = {for (final s in states) s.name: s};
+      });
     }
   }
 
   @override
   void dispose() {
     _elapsedTimer.cancel();
-    _breakTimer?.cancel();
-    _audio.dispose();
     super.dispose();
   }
 
@@ -132,15 +105,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       'tapped': _tapped,
       'doneReps': _doneReps,
       'warmupTapped': _warmupTapped,
-      'breakForExIdx': _breakForExIdx,
-      'breakForRepIdx': _breakForRepIdx,
-      'breakLabel': _breakLabel,
-      'breakDurationSecs': _breakDurationSecs,
-      'breakEndMs': _breakStartTime != null
-          ? _breakStartTime!
-              .add(Duration(seconds: _breakDurationSecs))
-              .millisecondsSinceEpoch
-          : 0,
     });
   }
 
@@ -154,60 +118,24 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   bool get _allSetsCompleted => _tapped.every((row) => row.every((t) => t));
 
-  bool _isLastUntappedCircle(int exIdx, int repIdx) {
-    int remaining = 0;
-    for (int i = 0; i < widget.exercises.length; i++) {
-      for (int s = 0; s < widget.exercises[i].sets; s++) {
-        if (!_tapped[i][s]) remaining++;
-      }
-    }
-    return remaining == 1;
-  }
-
   // ── Interaction ────────────────────────────────────────────────────────────
 
   void _tapCircle(int exIdx, int repIdx) {
     if (_finished) return;
-
-    final wasNotTapped = !_tapped[exIdx][repIdx];
-    if (wasNotTapped && _inBreak) return;
-
     setState(() {
-      if (wasNotTapped) {
+      if (!_tapped[exIdx][repIdx]) {
         _tapped[exIdx][repIdx] = true;
       } else {
-        // Subsequent taps decrement reps (records actual reps done).
         _doneReps[exIdx][repIdx] =
             (_doneReps[exIdx][repIdx] - 1).clamp(0, 999);
-        _recomputeBreakIfNeeded(exIdx, repIdx);
       }
     });
-
-    if (wasNotTapped) {
-      final isLast = _isLastUntappedCircle(exIdx, repIdx);
-      if (!isLast) {
-        final succeeded =
-            _doneReps[exIdx][repIdx] >= widget.exercises[exIdx].reps;
-        _startBreak(
-          succeeded ? _successBreakSecs : _failBreakSecs,
-          succeeded
-              ? 'Rest (3 min — well done!)'
-              : 'Rest (5 min — keep going!)',
-          exIdx,
-          repIdx,
-        );
-      }
-    }
-
     _saveActiveSession();
   }
 
   void _tapWarmup(int exIdx) {
     if (_finished || _warmupTapped[exIdx]) return;
     setState(() => _warmupTapped[exIdx] = true);
-    if (!_inBreak) {
-      _startBreak(_warmupBreakSecs, 'Warmup rest (3 min)', exIdx, -1);
-    }
     _saveActiveSession();
   }
 
@@ -217,81 +145,36 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       _tapped[exIdx][repIdx] = false;
       _doneReps[exIdx][repIdx] = widget.exercises[exIdx].reps;
     });
-    if (_breakForExIdx == exIdx && _breakForRepIdx == repIdx) {
-      _cancelBreak();
+    _saveActiveSession();
+  }
+
+  Future<void> _onThresholdChanged(
+    String name,
+    int success,
+    int fail,
+  ) async {
+    await StorageService.instance.setExerciseThresholds(
+      name,
+      successThreshold: success,
+      failThreshold: fail,
+    );
+    if (mounted) {
+      setState(() {
+        final s = _exerciseStates[name];
+        if (s != null) {
+          _exerciseStates[name] = ExerciseState(
+            name: s.name,
+            weight: s.weight,
+            reps: s.reps,
+            successStreak: s.successStreak,
+            failStreak: s.failStreak,
+            maxWeight: s.maxWeight,
+            successThreshold: success,
+            failThreshold: fail,
+          );
+        }
+      });
     }
-    _saveActiveSession();
-  }
-
-  // ── Break management ───────────────────────────────────────────────────────
-
-  void _startBreak(int secs, String label, int exIdx, int repIdx) {
-    _breakTimer?.cancel();
-    setState(() {
-      _breakDurationSecs = secs;
-      _breakRemaining = secs;
-      _breakLabel = label;
-      _breakForExIdx = exIdx;
-      _breakForRepIdx = repIdx;
-      _breakStartTime = DateTime.now();
-    });
-    _breakTimer = Timer.periodic(const Duration(seconds: 1), _tickBreak);
-  }
-
-  void _tickBreak(Timer t) {
-    setState(() => _breakRemaining--);
-    if (_breakRemaining <= 0) {
-      t.cancel();
-      _onBreakFinished();
-    }
-  }
-
-  void _cancelBreak() {
-    _breakTimer?.cancel();
-    setState(() {
-      _breakRemaining = 0;
-      _breakForExIdx = -1;
-      _breakForRepIdx = -1;
-      _breakStartTime = null;
-    });
-  }
-
-  void _skipBreak() {
-    _cancelBreak();
-    _saveActiveSession();
-  }
-
-  /// If the user reduces reps on the rep that triggered the current break,
-  /// switch from 3-min to 5-min (or vice versa).
-  void _recomputeBreakIfNeeded(int exIdx, int repIdx) {
-    if (!_inBreak) return;
-    if (_breakForExIdx != exIdx || _breakForRepIdx != repIdx) return;
-    if (_breakForRepIdx == -1) return; // warmup break, never recompute
-
-    final succeeded =
-        _doneReps[exIdx][repIdx] >= widget.exercises[exIdx].reps;
-    final newDuration = succeeded ? _successBreakSecs : _failBreakSecs;
-    if (newDuration == _breakDurationSecs) return;
-
-    final elapsed = DateTime.now().difference(_breakStartTime!).inSeconds;
-    final newRemaining = (newDuration - elapsed).clamp(0, newDuration);
-
-    _breakDurationSecs = newDuration;
-    _breakRemaining = newRemaining;
-    _breakLabel =
-        succeeded ? 'Rest (3 min — well done!)' : 'Rest (5 min — keep going!)';
-  }
-
-  Future<void> _onBreakFinished() async {
-    await _audio.play(AssetSource('sounds/break_end.mp3')).catchError((_) {});
-    final hasVibrator = await Vibration.hasVibrator() == true;
-    if (hasVibrator) Vibration.vibrate(duration: 800);
-    setState(() {
-      _breakForExIdx = -1;
-      _breakForRepIdx = -1;
-      _breakStartTime = null;
-    });
-    _saveActiveSession();
   }
 
   // ── Finish / Reset ─────────────────────────────────────────────────────────
@@ -359,7 +242,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   Future<void> _finishWorkout() async {
     _elapsedTimer.cancel();
-    _breakTimer?.cancel();
     setState(() => _finished = true);
 
     final endTime = DateTime.now();
@@ -369,6 +251,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       final ex = widget.exercises[i];
       results.add(ExerciseResult(
         exercise: ex,
+        warmupDone: _warmupTapped[i],
         sets: List.generate(
           ex.sets,
           (s) => SetResult(
@@ -425,7 +308,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      // canPop: true → back navigates home, workout stays in DB
       // ignore: avoid_redundant_argument_values
       canPop: true,
       child: Scaffold(
@@ -460,31 +342,27 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               ),
           ],
         ),
-        body: Column(
-          children: [
-            if (_inBreak)
-              BreakBanner(
-                breakRemaining: _breakRemaining,
-                breakLabel: _breakLabel,
-                onSkip: _skipBreak,
-              ),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.all(12),
-                itemCount: widget.exercises.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 8),
-                itemBuilder: (_, i) => ExerciseTile(
-                  exercise: widget.exercises[i],
-                  tapped: _tapped[i],
-                  doneReps: _doneReps[i],
-                  warmupTapped: _warmupTapped[i],
-                  onTapCircle: (s) => _tapCircle(i, s),
-                  onLongPressCircle: (s) => _resetCircle(i, s),
-                  onTapWarmup: () => _tapWarmup(i),
-                ),
-              ),
-            ),
-          ],
+        body: ListView.separated(
+          padding: const EdgeInsets.all(12),
+          itemCount: widget.exercises.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
+          itemBuilder: (_, i) {
+            final exName = widget.exercises[i].name;
+            final state = _exerciseStates[exName];
+            return ExerciseTile(
+              exercise: widget.exercises[i],
+              tapped: _tapped[i],
+              doneReps: _doneReps[i],
+              warmupTapped: _warmupTapped[i],
+              successThreshold: state?.successThreshold ?? 3,
+              failThreshold: state?.failThreshold ?? 2,
+              onTapCircle: (s) => _tapCircle(i, s),
+              onLongPressCircle: (s) => _resetCircle(i, s),
+              onTapWarmup: () => _tapWarmup(i),
+              onThresholdChanged: (success, fail) =>
+                  _onThresholdChanged(exName, success, fail),
+            );
+          },
         ),
       ),
     );

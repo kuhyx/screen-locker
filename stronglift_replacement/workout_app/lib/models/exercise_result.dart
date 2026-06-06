@@ -8,10 +8,12 @@ class ExerciseResult {
   const ExerciseResult({
     required this.exercise,
     required this.sets,
+    this.warmupDone = false,
   });
 
   final Exercise exercise;
   final List<SetResult> sets;
+  final bool warmupDone;
 
   /// True when every set was fully completed.
   bool get succeeded => sets.isNotEmpty && sets.every((s) => s.succeeded);
@@ -21,6 +23,7 @@ class ExerciseResult {
         'targetSets': exercise.sets,
         'targetReps': exercise.reps,
         'targetWeight': exercise.weight,
+        'warmupDone': warmupDone,
         'sets': sets.map((s) => s.toJson()).toList(),
         'succeeded': succeeded,
       };

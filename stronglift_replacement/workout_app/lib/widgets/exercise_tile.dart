@@ -12,24 +12,26 @@ class ExerciseTile extends StatelessWidget {
     required this.tapped,
     required this.doneReps,
     required this.warmupTapped,
+    required this.successThreshold,
+    required this.failThreshold,
     required this.onTapCircle,
     required this.onLongPressCircle,
     required this.onTapWarmup,
+    required this.onThresholdChanged,
   });
 
   final Exercise exercise;
-
-  /// tapped[setIdx] - whether each main set circle has been tapped.
   final List<bool> tapped;
-
-  /// doneReps[setIdx] - how many reps recorded for each set.
   final List<int> doneReps;
-
   final bool warmupTapped;
-
+  final int successThreshold;
+  final int failThreshold;
   final void Function(int setIdx) onTapCircle;
   final void Function(int setIdx) onLongPressCircle;
   final VoidCallback onTapWarmup;
+
+  /// Called when user changes thresholds inline; args are (newSuccess, newFail).
+  final void Function(int success, int fail) onThresholdChanged;
 
   bool get _allCompleted => tapped.every((t) => t);
 
@@ -51,7 +53,6 @@ class ExerciseTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row: name + target
             Row(
               children: [
                 Expanded(
@@ -71,14 +72,12 @@ class ExerciseTile extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            // Warmup row
             _WarmupRow(
               warmupWeight: exercise.warmupWeight,
               tapped: warmupTapped,
               onTap: onTapWarmup,
             ),
             const SizedBox(height: 10),
-            // Main set circles
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -93,11 +92,120 @@ class ExerciseTile extends StatelessWidget {
                 ),
               ),
             ),
+            const Divider(color: Colors.white12, height: 20),
+            _ThresholdRow(
+              successThreshold: successThreshold,
+              failThreshold: failThreshold,
+              onSuccessChanged: (v) => onThresholdChanged(v, failThreshold),
+              onFailChanged: (v) => onThresholdChanged(successThreshold, v),
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+class _ThresholdRow extends StatelessWidget {
+  const _ThresholdRow({
+    required this.successThreshold,
+    required this.failThreshold,
+    required this.onSuccessChanged,
+    required this.onFailChanged,
+  });
+
+  final int successThreshold;
+  final int failThreshold;
+  final ValueChanged<int> onSuccessChanged;
+  final ValueChanged<int> onFailChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(Icons.trending_up, size: 13, color: Colors.greenAccent),
+        const SizedBox(width: 4),
+        const Text(
+          'after',
+          style: TextStyle(color: Colors.white38, fontSize: 11),
+        ),
+        const SizedBox(width: 6),
+        _MiniStepper(
+          value: successThreshold,
+          onChanged: onSuccessChanged,
+        ),
+        const SizedBox(width: 4),
+        const Text(
+          '↑',
+          style: TextStyle(color: Colors.white38, fontSize: 11),
+        ),
+        const Spacer(),
+        const Icon(Icons.trending_down, size: 13, color: Colors.redAccent),
+        const SizedBox(width: 4),
+        const Text(
+          'after',
+          style: TextStyle(color: Colors.white38, fontSize: 11),
+        ),
+        const SizedBox(width: 6),
+        _MiniStepper(
+          value: failThreshold,
+          onChanged: onFailChanged,
+        ),
+        const SizedBox(width: 4),
+        const Text(
+          '↓',
+          style: TextStyle(color: Colors.white38, fontSize: 11),
+        ),
+      ],
+    );
+  }
+}
+
+class _MiniStepper extends StatelessWidget {
+  const _MiniStepper({required this.value, required this.onChanged});
+
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  static const _min = 1;
+  static const _max = 5;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _btn(Icons.remove, value > _min ? () => onChanged(value - 1) : null),
+        SizedBox(
+          width: 22,
+          child: Text(
+            '$value',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+          ),
+        ),
+        _btn(Icons.add, value < _max ? () => onChanged(value + 1) : null),
+      ],
+    );
+  }
+
+  Widget _btn(IconData icon, VoidCallback? onTap) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 22,
+          height: 22,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade700,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          alignment: Alignment.center,
+          child: Icon(
+            icon,
+            size: 12,
+            color: onTap != null ? Colors.white : Colors.white24,
+          ),
+        ),
+      );
 }
 
 class _WarmupRow extends StatelessWidget {

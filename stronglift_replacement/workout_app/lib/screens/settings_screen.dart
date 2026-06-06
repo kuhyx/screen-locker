@@ -1,6 +1,8 @@
 /// Settings screen: per-exercise streak thresholds and manual weight overrides.
+/// Changes are saved immediately; a "Reset to defaults" button reverts all.
 library;
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/workout_plan.dart';
@@ -16,16 +18,26 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   List<ExerciseState>? _states;
   bool _loading = true;
-  bool _saving = false;
 
   final Map<String, int> _successThresholds = {};
   final Map<String, int> _failThresholds = {};
   final Map<String, double> _weights = {};
 
+  // Debounce weight saves to avoid resetting streaks on every tap.
+  final Map<String, Timer> _weightTimers = {};
+
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    for (final t in _weightTimers.values) {
+      t.cancel();
+    }
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -43,21 +55,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _save() async {
-    setState(() => _saving = true);
-    final storage = StorageService.instance;
-    for (final s in _states!) {
-      await storage.setExerciseThresholds(
-        s.name,
-        successThreshold: _successThresholds[s.name]!,
-        failThreshold: _failThresholds[s.name]!,
-      );
-      final newWeight = _weights[s.name] ?? s.weight;
-      if ((newWeight - s.weight).abs() > 0.001) {
-        await storage.setExerciseWeight(s.name, newWeight);
+  void _onWeightChanged(String name, double value) {
+    setState(() => _weights[name] = value);
+    _weightTimers[name]?.cancel();
+    _weightTimers[name] = Timer(const Duration(milliseconds: 600), () {
+      StorageService.instance.setExerciseWeight(name, value);
+    });
+  }
+
+  Future<void> _onThresholdChanged(String name, int success, int fail) async {
+    setState(() {
+      _successThresholds[name] = success;
+      _failThresholds[name] = fail;
+    });
+    await StorageService.instance.setExerciseThresholds(
+      name,
+      successThreshold: success,
+      failThreshold: fail,
+    );
+  }
+
+  Future<void> _resetToDefaults() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: Colors.grey.shade900,
+        title: const Text(
+          'Reset to defaults?',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'All weights and thresholds will be reset. '
+          'Streak counters will be cleared.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child:
+                const Text('Cancel', style: TextStyle(color: Colors.white70)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child:
+                const Text('Reset', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      for (final name in _orderedNames) {
+        await StorageService.instance.resetExerciseToDefaults(name);
       }
+      await _load();
     }
-    if (mounted) Navigator.of(context).pop();
   }
 
   List<String> get _orderedNames {
@@ -78,8 +129,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           TextButton(
-            onPressed: (_loading || _saving) ? null : _save,
-            child: const Text('Save', style: TextStyle(color: Colors.white)),
+            onPressed: _loading ? null : _resetToDefaults,
+            child: const Text(
+              'Reset defaults',
+              style: TextStyle(color: Colors.redAccent),
+            ),
           ),
         ],
       ),
@@ -102,7 +156,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   return _WeightRow(
                     name: name,
                     weight: w,
-                    onChanged: (v) => setState(() => _weights[name] = v),
+                    onChanged: (v) => _onWeightChanged(name, v),
                   );
                 }),
                 const SizedBox(height: 20),
@@ -122,9 +176,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     successThreshold: sThresh,
                     failThreshold: fThresh,
                     onSuccessChanged: (v) =>
-                        setState(() => _successThresholds[name] = v),
+                        _onThresholdChanged(name, v, _failThresholds[name]!),
                     onFailChanged: (v) =>
-                        setState(() => _failThresholds[name] = v),
+                        _onThresholdChanged(name, _successThresholds[name]!, v),
                   );
                 }),
               ],
@@ -180,10 +234,12 @@ class _WeightRow extends StatelessWidget {
               (weight - kWeightIncrement).clamp(0.0, 999.0),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
+          // Fixed-width container supports up to "999.9kg" (7 chars).
+          SizedBox(
+            width: 72,
             child: Text(
               '${weight}kg',
+              textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 14,

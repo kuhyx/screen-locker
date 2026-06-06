@@ -361,4 +361,30 @@ class StorageService {
       [limit],
     );
   }
+
+  Future<List<String>> getAllWorkoutDates() async {
+    final rows = await _db.rawQuery(
+      'SELECT DISTINCT date FROM workout_history ORDER BY date DESC',
+    );
+    return rows.map((r) => r['date'] as String).toList();
+  }
+
+  Future<void> resetExerciseToDefaults(String name) async {
+    final defaults = [...workoutA, ...workoutB].firstWhere(
+      (e) => e.name == name,
+      orElse: () => throw Exception('Unknown exercise: $name'),
+    );
+    await _db.update(
+      'exercise_state',
+      {
+        'weight': defaults.weight,
+        'success_threshold': 3,
+        'fail_threshold': 2,
+        'success_streak': 0,
+        'fail_streak': 0,
+      },
+      where: 'name = ?',
+      whereArgs: [name],
+    );
+  }
 }
