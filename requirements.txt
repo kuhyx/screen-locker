@@ -1,6 +1,7 @@
-# Screen Locker — development dependencies
-# Runtime: pure Python stdlib (tkinter, subprocess, socket, sqlite3, etc.)
+# Screen Locker — runtime + development dependencies
+# Runtime: tkinter/subprocess/socket/sqlite3 (stdlib) plus gatelock (below).
 bandit>=1.7.0
+gatelock @ git+https://github.com/kuhyx/gatelock@v0.1.0
 codespell>=2.2.0
 coverage>=7.4.0
 mypy>=1.8.0
