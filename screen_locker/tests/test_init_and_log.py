@@ -175,7 +175,7 @@ class TestHasLoggedToday:
                 return_value=False,
             ),
             patch(
-                "screen_locker.screen_lock._load_hmac_key",
+                "screen_locker.screen_lock.compute_entry_hmac",
                 return_value=None,
             ),
         ):
@@ -202,8 +202,8 @@ class TestHasLoggedToday:
                 return_value=False,
             ),
             patch(
-                "screen_locker.screen_lock._load_hmac_key",
-                return_value=b"secret-key",
+                "screen_locker.screen_lock.compute_entry_hmac",
+                return_value="some-signature",
             ),
         ):
             assert locker.has_logged_today() is False

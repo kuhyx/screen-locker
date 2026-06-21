@@ -89,6 +89,7 @@ repos:
           - --jobs=4
         additional_dependencies:
           - pytest
+          - gatelock @ git+https://github.com/kuhyx/gatelock@v0.1.0
 
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.10
@@ -134,3 +135,17 @@ repos:
         entry: python3 scripts/check_file_length.py
         language: system
         types_or: [python, shell]
+      - id: flutter-analyze
+        name: flutter analyze (workout app)
+        entry: bash -c 'cd stronglift_replacement/workout_app && flutter analyze'
+        language: system
+        files: '^stronglift_replacement/workout_app/.*\.(dart|yaml)$'
+        pass_filenames: false
+      - id: flutter-test-coverage
+        name: flutter test --coverage 100% (workout app)
+        entry: bash scripts/check_flutter_coverage.sh
+        language: system
+        files: '^stronglift_replacement/workout_app/.*\.dart$'
+        pass_filenames: false
+        require_serial: true
+        stages: [pre-push]

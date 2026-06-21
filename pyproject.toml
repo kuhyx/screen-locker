@@ -3,7 +3,10 @@ name = "screen-locker"
 version = "1.0.0"
 description = "Tkinter/systemd screen locker with workout tracking, sick-day management, and wake-alarm integration"
 requires-python = ">=3.10"
-dependencies = []  # pure stdlib — tkinter is bundled with Python
+# gatelock: shared lock-window/HMAC backend, also used by diet_guard and wake_alarm
+dependencies = [
+    "gatelock @ git+https://github.com/kuhyx/gatelock@v0.1.0",
+]
 
 [tool.ruff]
 target-version = "py310"

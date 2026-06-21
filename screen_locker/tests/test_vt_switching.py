@@ -109,7 +109,7 @@ class TestVTSwitching:
     ) -> None:
         """No crash and no subprocess call when setxkbmap is not installed."""
         with patch(
-            "screen_locker._window_setup.shutil.which",
+            "gatelock._vt.shutil.which",
             return_value=None,
         ):
             create_locker(mock_tk, tmp_path, demo_mode=False)
@@ -128,7 +128,7 @@ class TestVTSwitching:
         mock_subprocess_run.reset_mock()
 
         with patch(
-            "screen_locker._window_setup.shutil.which",
+            "gatelock._vt.shutil.which",
             return_value=None,
         ):
             locker.close()

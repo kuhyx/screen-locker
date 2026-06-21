@@ -2,7 +2,8 @@
 
 Safety:
   ``_block_real_tk_and_exit`` (autouse) replaces the **entire** ``tk``
-  module reference inside ``screen_lock`` with a MagicMock and stubs
+  module reference inside ``screen_lock`` with a MagicMock, replaces
+  ``GateRoot`` with a callable returning that same mock root, and stubs
   ``sys.exit``.  This makes it physically impossible for any test to
   create a real Tk root window, go fullscreen, or grab input — even if
   the test forgets to request the explicit ``mock_tk`` fixture.
@@ -10,6 +11,7 @@ Safety:
 
 from __future__ import annotations
 
+from contextlib import ExitStack
 from pathlib import Path
 import tkinter as tk
 from typing import TYPE_CHECKING
@@ -22,6 +24,20 @@ from screen_locker.screen_lock import ScreenLocker
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
     from typing import Literal
+
+
+# Every module that imports ``tkinter as tk`` and calls it directly. The UI was
+# split across these modules, so each ``tk`` reference must be patched — both to
+# guarantee no test can touch a real display and so a test holding ``mock_tk``
+# sees widgets created on that same mock (not a divergent autouse mock).
+_TK_MODULES = (
+    "screen_locker.screen_lock",
+    "screen_locker._sick_dialog",
+    "screen_locker._ui_widgets",
+    "screen_locker._window_setup",
+)
+_VT_SHUTIL = "gatelock._vt.shutil"
+_VT_SUBPROCESS = "gatelock._vt.subprocess"
 
 
 def _make_mock_tk() -> MagicMock:
@@ -50,11 +66,16 @@ def _block_real_tk_and_exit() -> Iterator[None]:
     """
     mock = _make_mock_tk()
 
-    with (
-        patch("screen_locker.screen_lock.tk", mock),
-        patch("screen_locker._sick_dialog.tk", mock),
-        patch("screen_locker.screen_lock.sys.exit"),
-    ):
+    with ExitStack() as stack:
+        for module in _TK_MODULES:
+            stack.enter_context(patch(f"{module}.tk", mock))
+        stack.enter_context(
+            patch(
+                "screen_locker.screen_lock.GateRoot",
+                return_value=mock.Tk.return_value,
+            )
+        )
+        stack.enter_context(patch("screen_locker.screen_lock.sys.exit"))
         yield
 
 
@@ -69,13 +90,27 @@ def mock_subprocess_run() -> Generator[MagicMock]:
     regardless of whether setxkbmap is installed on the host machine.
     """
     with (
-        patch(
-            "screen_locker._window_setup.shutil.which",
-            return_value="/usr/bin/setxkbmap",
-        ),
-        patch("screen_locker._window_setup.subprocess.run") as mock,
+        patch(f"{_VT_SHUTIL}.which", return_value="/usr/bin/setxkbmap"),
+        patch(f"{_VT_SUBPROCESS}.run") as mock,
     ):
         yield mock
+
+
+@pytest.fixture(autouse=True)
+def _block_real_network() -> Iterator[None]:
+    """Block real subnet probes for every test.
+
+    ``_scan_for_http_server`` / ``_try_wireless_reconnect`` open real TCP
+    sockets to scan the LAN; without this an unmocked ``_verify_phone_workout``
+    would actually reach the phone over the network (flaky, environment-coupled).
+    Defaults ``create_connection`` to refuse — tests needing a successful probe
+    patch it locally, which takes precedence inside the test body.
+    """
+    with patch(
+        "screen_locker._phone_verification.socket.create_connection",
+        side_effect=OSError("network blocked in tests"),
+    ):
+        yield
 
 
 @pytest.fixture(autouse=True)
@@ -130,22 +165,22 @@ def _mock_weekly_logic() -> Iterator[None]:
 
 @pytest.fixture
 def mock_tk() -> Generator[MagicMock]:
-    """Mock tkinter module for testing without display."""
-    with patch("screen_locker.screen_lock.tk") as mock:
-        # Set up Tk root mock
-        mock_root = MagicMock()
-        mock_root.winfo_screenwidth.return_value = 1920
-        mock_root.winfo_screenheight.return_value = 1080
-        mock.Tk.return_value = mock_root
+    """Mock the ``tkinter`` module across every UI module for display-free tests.
 
-        # Set up Frame mock
-        mock_frame = MagicMock()
-        mock_frame.winfo_children.return_value = []
-        mock.Frame.return_value = mock_frame
-
-        # Set up TclError as actual exception class
-        mock.TclError = tk.TclError
-
+    Patches the same single mock into all ``_TK_MODULES`` so assertions on
+    ``mock_tk.Button`` capture widgets created by any of the split UI mixins
+    (``_ui_widgets``, ``_sick_dialog``, ...), not just ``screen_lock``.
+    """
+    mock = _make_mock_tk()
+    with ExitStack() as stack:
+        for module in _TK_MODULES:
+            stack.enter_context(patch(f"{module}.tk", mock))
+        stack.enter_context(
+            patch(
+                "screen_locker.screen_lock.GateRoot",
+                return_value=mock.Tk.return_value,
+            )
+        )
         yield mock
 
 

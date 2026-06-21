@@ -161,6 +161,27 @@ class TestVerifyOnlyInit:
         )
         locker.root.title.assert_called_with("Workout Locker [VERIFY]")
 
+    def test_close_and_run_use_root_directly(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """No LockWindow is built for verify_only; close()/run() use root."""
+        locker = create_locker(
+            mock_tk,
+            tmp_path,
+            verify_only=True,
+            is_sick_day_log=True,
+        )
+        assert locker._lock is None
+
+        locker.run()
+        locker.root.mainloop.assert_called_once()
+
+        locker.close()
+        locker.root.destroy.assert_called_once()
+
 
 class TestSetupVerifyWindow:
     """Tests for _setup_verify_window."""

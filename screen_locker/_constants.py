@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from gatelock.log_integrity import DEFAULT_HMAC_KEY_FILE
+
+# Single-sourced from gatelock so the literal key path can't drift.
+HMAC_KEY_FILE = DEFAULT_HMAC_KEY_FILE
 SICK_LOCKOUT_SECONDS = 120  # base 2 minutes wait when sick (escalates with usage)
 PHONE_PENALTY_DELAY_DEMO = 10
 PHONE_PENALTY_DELAY_PRODUCTION = 100
@@ -28,17 +32,22 @@ SICK_COMMITMENT_PENALTY_DAYS = 2
 # How long the commitment prompt stays visible after a workout unlock.
 COMMITMENT_PROMPT_TIMEOUT_SECONDS = 15
 ADB_TIMEOUT = 15
-STRONGLIFTS_DB_REMOTE = (
-    "/data/data/com.stronglifts.app/databases/StrongLifts-Database-3"
+# Workout app JSON candidate paths on the phone, in the order the app prefers
+# when writing (see sync_service.dart). The app writes to the primary /sdcard/
+# path first and only falls back to its app-external files dir if /sdcard/ is
+# not writable, so the locker must check both — primary first.
+WORKOUT_APP_JSON_REMOTES = (
+    "/sdcard/workout_result.json",
+    "/storage/emulated/0/Android/data/com.kuhy.workout_app/files/workout_result.json",
 )
-MIN_WORKOUT_DURATION_MINUTES = 50
+# Port the workout app's HTTP server listens on (no ADB/developer-options needed).
+WORKOUT_HTTP_PORT = 8765
+MIN_WORKOUT_DURATION_MINUTES = 60
 MAX_CLOCK_SKEW_SECONDS = 300  # 5 minutes max time skew from NTP
 EARLY_BIRD_START_HOUR = 5
 EARLY_BIRD_END_HOUR = 8
 EARLY_BIRD_END_MINUTE = 30
 SHUTDOWN_CONFIG_FILE = Path("/etc/shutdown-schedule.conf")
-# HMAC key for signing workout log entries (root-owned, 0600)
-HMAC_KEY_FILE = Path("/etc/workout-locker/hmac.key")
 # Helper script path (relative to this file)
 ADJUST_SHUTDOWN_SCRIPT = Path(__file__).resolve().parent / "adjust_shutdown_schedule.sh"
 # State file to track sick day usage and original config values

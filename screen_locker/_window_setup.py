@@ -1,49 +1,28 @@
-"""Window configuration and input-grab helpers for ScreenLocker."""
+"""Auxiliary (non-lock) window setup for ScreenLocker.
+
+The fullscreen lock-window mechanics (overrideredirect, input grab,
+VT-disable) now live in the shared ``gatelock`` package. This module keeps
+only the screen-locker-specific windows that are never the lock itself: the
+post-sick-day verification window, the demo close button, and the optional
+relaxed-day prompt.
+"""
 
 from __future__ import annotations
 
-import contextlib
-import logging
-import shutil
-import subprocess
 import tkinter as tk
-
-_logger = logging.getLogger(__name__)
 
 
 class WindowSetupMixin:
-    """Mixin providing window setup, VT switching control, and input-grab helpers."""
+    """Mixin providing the screen-locker-specific auxiliary windows."""
 
-    def _disable_vt_switching(self) -> None:
-        """Disable VT switching in X11 while the lock is active.
+    def on_focus_ready(self) -> None:
+        """No typed-input field in the lock window; nothing to focus."""
 
-        Prevents bypassing the lock by switching to a TTY with Ctrl+Alt+Fn.
-        Best-effort: silently ignored if setxkbmap is unavailable.
-        """
-        setxkbmap = shutil.which("setxkbmap")
-        if setxkbmap is None:
-            _logger.warning("setxkbmap not found; VT switching will not be disabled")
-            return
-        subprocess.run([setxkbmap, "-option", "srvrkeys:none"], check=False)
+    def on_callback_error(self) -> None:
+        """Surfaced via GateRoot's logging already; no extra action yet."""
 
-    def _restore_vt_switching(self) -> None:
-        """Restore VT switching after the lock is dismissed."""
-        setxkbmap = shutil.which("setxkbmap")
-        if setxkbmap is None:
-            return
-        subprocess.run([setxkbmap, "-option", ""], check=False)
-
-    def _setup_window(self) -> None:
-        """Configure the window for fullscreen lock."""
-        screen_w = self.root.winfo_screenwidth()
-        screen_h = self.root.winfo_screenheight()
-        self.root.overrideredirect(boolean=True)
-        self.root.geometry(f"{screen_w}x{screen_h}+0+0")
-        self.root.attributes(fullscreen=True)
-        self.root.attributes(topmost=True)
-        self.root.configure(bg="#1a1a1a", cursor="arrow")
-        if not self.demo_mode:
-            self._disable_vt_switching()
+    def on_close(self) -> None:
+        """No extra hardware/state beyond what close() already handles."""
 
     def _setup_verify_window(self) -> None:
         """Configure window for post-sick-day workout verification."""
@@ -69,18 +48,3 @@ class WindowSetupMixin:
         self.root.geometry("700x450")
         self.root.configure(bg="#1a1a1a", cursor="arrow")
         self.root.protocol("WM_DELETE_WINDOW", self.close)
-
-    def _grab_input(self) -> None:
-        """Force input focus to the locker window."""
-        self.root.update_idletasks()
-        self.root.focus_force()
-        if self.demo_mode:
-            with contextlib.suppress(tk.TclError):
-                self.root.grab_set()
-        else:
-            try:
-                self.root.grab_set_global()
-            except tk.TclError:
-                _logger.warning("Global grab failed, falling back to local grab")
-                with contextlib.suppress(tk.TclError):
-                    self.root.grab_set()

@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-from screen_locker.screen_lock import ScreenLocker
-from screen_locker.tests.conftest import create_locker
+from screen_locker.tests.conftest import create_locker, create_locker_relaxed_day
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from screen_locker.screen_lock import ScreenLocker
 
 # ---------------------------------------------------------------------------
 # _check_today_state_exits: return True/False branches
@@ -156,3 +160,22 @@ class TestCheckNonVerifyExitsScheduledSkip:
         with patch.object(locker, "_is_scheduled_skip_today", return_value=True):
             locker._check_non_verify_exits()
         mock_sys_exit.assert_called_once_with(0)
+
+
+class TestRelaxedDayCloseAndRun:
+    """No LockWindow is built on a relaxed day; close()/run() use root."""
+
+    def test_relaxed_day_close_and_run_use_root_directly(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        locker = create_locker_relaxed_day(mock_tk, tmp_path)
+        assert locker._lock is None
+
+        locker.run()
+        locker.root.mainloop.assert_called_once()
+
+        locker.close()
+        locker.root.destroy.assert_called_once()

@@ -12,6 +12,8 @@ import json
 import logging
 from typing import Any
 
+from gatelock.log_integrity import compute_entry_hmac
+
 from screen_locker._constants import (
     SICK_BUDGET_PER_7_DAYS,
     SICK_BUDGET_PER_30_DAYS,
@@ -23,7 +25,6 @@ from screen_locker._constants import (
     SICK_LOCKOUT_MULTIPLIER_PER_RECENT,
     SICK_LOCKOUT_SECONDS,
 )
-from screen_locker._log_integrity import compute_entry_hmac
 
 _logger = logging.getLogger(__name__)
 

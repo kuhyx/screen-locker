@@ -14,6 +14,9 @@ import sys
 import tkinter as tk
 from typing import TYPE_CHECKING
 
+from gatelock import GateRoot, LockConfig, LockWindow
+from gatelock.log_integrity import compute_entry_hmac, verify_entry_hmac
+
 from screen_locker import _sick_tracker
 from screen_locker._constants import (
     EARLY_BIRD_END_HOUR,
@@ -26,14 +29,8 @@ from screen_locker._constants import (
     PHONE_PENALTY_DELAY_PRODUCTION,
     SCHEDULED_SKIPS_FILE,
     SICK_LOCKOUT_SECONDS,
-    STRONGLIFTS_DB_REMOTE,
 )
 from screen_locker._early_bird import EarlyBirdMixin
-from screen_locker._log_integrity import (
-    _load_hmac_key,
-    compute_entry_hmac,
-    verify_entry_hmac,
-)
 from screen_locker._phone_verification import PhoneVerificationMixin
 from screen_locker._shutdown import ShutdownMixin
 from screen_locker._sick_dialog import SickDialogMixin
@@ -62,7 +59,6 @@ __all__ = [
     "PHONE_PENALTY_DELAY_PRODUCTION",
     "SCHEDULED_SKIPS_FILE",
     "SICK_LOCKOUT_SECONDS",
-    "STRONGLIFTS_DB_REMOTE",
     "WEEKLY_WORKOUT_MINIMUM",
     "ScreenLocker",
 ]
@@ -111,19 +107,27 @@ class ScreenLocker(
         self.workout_data: dict[str, str] = {}
         self._relaxed_day_mode: bool = False
         self._check_early_exits(verify_only=verify_only)
-        self.root = tk.Tk()
+        self.root = GateRoot()
+        self.root.on_callback_error = self.on_callback_error
         title_suffix = (
             " [VERIFY]" if verify_only else (" [DEMO MODE]" if demo_mode else "")
         )
         self.root.title("Workout Locker" + title_suffix)
         self.demo_mode = demo_mode
         self.lockout_time = 10 if demo_mode else 1800
+        self._lock: LockWindow | None = None
         if verify_only:
             self._setup_verify_window()
         elif self._relaxed_day_mode:
             self._setup_relaxed_day_window()
         else:
-            self._setup_window()
+            config = LockConfig(
+                mode="hard",
+                grab="local" if demo_mode else "global",
+                disable_vt=not demo_mode,
+            )
+            self._lock = LockWindow(self.root, config, hooks=self)
+            self._lock.setup()
             if demo_mode:
                 self._setup_demo_close_button()
         self.container = tk.Frame(self.root, bg="#1a1a1a")
@@ -135,7 +139,10 @@ class ScreenLocker(
             self._start_relaxed_day_flow()
         else:
             self._start_phone_check()
-            self._grab_input()
+            # Always set on this branch; guard only for mypy (can't narrow
+            # across two separate if/elif/else statements).
+            if self._lock is not None:  # pragma: no branch
+                self._lock.grab_input()
 
     def _is_sick_day_log(self) -> bool:
         """Check if today's workout log is a sick day (not yet verified)."""
@@ -304,7 +311,7 @@ class ScreenLocker(
                 return False
             if verify_entry_hmac(entry):
                 return entry.get("workout_data", {}).get("type") != "early_bird"
-            if _load_hmac_key() is None and "hmac" not in entry:
+            if compute_entry_hmac({"_probe": True}) is None and "hmac" not in entry:
                 _logger.info(
                     "HMAC key unavailable — accepting unsigned entry",
                 )
@@ -358,14 +365,18 @@ class ScreenLocker(
 
     def close(self) -> None:
         """Close the application and exit."""
-        if not self.demo_mode:
-            self._restore_vt_switching()
-        self.root.destroy()
+        if self._lock is not None:
+            self._lock.close()
+        else:
+            self.root.destroy()
         sys.exit(0)
 
     def run(self) -> None:
         """Start the Tkinter main event loop."""
-        self.root.mainloop()
+        if self._lock is not None:
+            self._lock.run()
+        else:
+            self.root.mainloop()
 
 
 if __name__ == "__main__":

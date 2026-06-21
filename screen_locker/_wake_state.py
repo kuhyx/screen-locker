@@ -15,8 +15,9 @@ from datetime import datetime, timezone
 import json
 import logging
 
+from gatelock.log_integrity import verify_entry_hmac
+
 from screen_locker._constants import WAKE_STATE_FILE
-from screen_locker._log_integrity import verify_entry_hmac
 
 _logger = logging.getLogger(__name__)
 
