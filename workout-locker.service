@@ -4,9 +4,10 @@ After=graphical-session.target
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/screen-locker
+# No WorkingDirectory/PYTHONPATH needed: screen_locker is pip-installed
+# (pip install --user --break-system-packages -e .), so /usr/bin/python3
+# finds it via user site-packages.
 Environment=DISPLAY=:0
-Environment=PYTHONPATH=/opt/screen-locker
 ExecStartPre=/bin/sleep 1
 ExecStart=/usr/bin/python3 -m screen_locker.screen_lock --production
 Restart=on-failure
