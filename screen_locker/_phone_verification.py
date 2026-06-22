@@ -1,4 +1,4 @@
-"""Phone workout verification mixin using ADB and StrongLifts."""
+"""Phone workout verification: ADB pull first, HTTP scan as fallback."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ from concurrent.futures import (  # pylint: disable=no-name-in-module
     as_completed,
 )
 import contextlib
+from http import client as _http_client
 import json
 import logging
 from pathlib import Path
 import shutil
 import socket
-import sqlite3
 import subprocess
 import tempfile
 import time
@@ -20,9 +20,14 @@ import time
 from screen_locker._constants import (
     ADB_TIMEOUT,
     MIN_WORKOUT_DURATION_MINUTES,
-    STRONGLIFTS_DB_REMOTE,
+    WORKOUT_APP_JSON_REMOTES,
+    WORKOUT_HTTP_PORT,
 )
 from screen_locker._time_check import check_clock_skew
+
+_HTTPConnection = _http_client.HTTPConnection
+_HTTPException = _http_client.HTTPException
+_HTTP_OK = _http_client.OK
 
 _logger = logging.getLogger(__name__)
 
@@ -58,23 +63,14 @@ class PhoneVerificationMixin:
             return False, ""
         return not result.returncode, result.stdout
 
-    def _adb_shell(
-        self,
-        command: str,
-        *,
-        root: bool = False,
-    ) -> tuple[bool, str]:
+    def _adb_shell(self, command: str, *, root: bool = False) -> tuple[bool, str]:
         """Run a shell command on the connected Android device."""
         if root:
             return self._run_adb(["shell", "su", "-c", command])
         return self._run_adb(["shell", command])
 
     def _get_wireless_serial(self) -> str | None:
-        """Return the serial (ip:port) of the first connected wireless ADB device.
-
-        Used to pin ADB commands to the wireless device when multiple devices
-        (e.g. USB cable + wireless debugging) are simultaneously connected.
-        """
+        """Return the serial (ip:port) of the first connected wireless ADB device."""
         success, output = self._run_adb(["devices"])
         if not success:
             return None
@@ -137,219 +133,144 @@ class PhoneVerificationMixin:
     def _is_phone_connected(self) -> bool:
         """Check if an Android device is connected via ADB.
 
-        If no device is visible, attempts wireless reconnection using the
-        stored phone IP/port config. USB-connected devices are detected
-        automatically by adb devices without any extra steps.
+        If no device is visible, attempts wireless reconnection via subnet scan.
         """
         if self._has_adb_device():
             return True
         _logger.info("No ADB device detected — attempting wireless reconnect...")
         return self._try_wireless_reconnect()
 
-    def _pull_stronglifts_db(self) -> Path | None:
-        """Pull StrongLifts database from phone to a local temp file.
+    # ── ADB verification ──────────────────────────────────────────────────────
 
-        Returns:
-            Path to the local copy, or None on failure.
+    def _pull_workout_app_json(self) -> dict | None:
+        """Pull workout_result.json from the phone (ADB, no root needed).
+
+        The app writes to one of several candidate paths (see sync_service.dart),
+        so we pull every candidate and prefer the one dated today. A stale file
+        can linger at a fallback path from a day the primary write failed, so
+        "first that parses" is not safe — we explicitly favour today's data and
+        only fall back to a stale/older payload if no candidate is from today.
         """
-        tmp = Path(tempfile.gettempdir()) / "stronglifts_check.db"
-        success, _ = self._adb_shell(
-            f"cat '{STRONGLIFTS_DB_REMOTE}' > /sdcard/_sl_tmp.db",
-            root=True,
+        tmp = Path(tempfile.gettempdir()) / "workout_result.json"
+        today = time.strftime("%Y-%m-%d")
+        first_parsed: dict | None = None
+        for remote in WORKOUT_APP_JSON_REMOTES:
+            ok, _ = self._run_adb(["pull", remote, str(tmp)])
+            if not ok:
+                continue
+            try:
+                data = json.loads(tmp.read_text())
+            except (json.JSONDecodeError, OSError):
+                continue
+            if data.get("date") == today:
+                return data
+            if first_parsed is None:
+                first_parsed = data
+        return first_parsed
+
+    def _validate_json_data(self, data: dict) -> tuple[str, str]:
+        """Validate parsed workout JSON. Returns (status, message)."""
+        today = time.strftime("%Y-%m-%d")
+        if data.get("date") != today:
+            return "stale", f"Workout JSON is from {data.get('date')}, not today"
+        if not data.get("exercises"):
+            return "no_exercises", "No exercises found in today's workout JSON"
+        duration_min = data.get("duration_seconds", 0) / 60.0
+        if duration_min < MIN_WORKOUT_DURATION_MINUTES:
+            return (
+                "too_short",
+                f"Workout too short! {duration_min:.0f} min logged, "
+                f"need at least {MIN_WORKOUT_DURATION_MINUTES} min.",
+            )
+        flag = "all succeeded" if data.get("succeeded") else "partial"
+        return "verified", f"Workout verified! ({duration_min:.0f} min, {flag})"
+
+    # ── HTTP fallback (no ADB / developer options required) ───────────────────
+
+    def _scan_for_http_server(self) -> str | None:
+        """Scan local /24 subnet for the workout app HTTP server on port 8765.
+
+        Returns the first reachable URL or None.
+        """
+        prefix = self._get_local_subnet_prefix()
+        if prefix is None:
+            return None
+
+        def probe(i: int) -> str | None:
+            ip = f"{prefix}.{i}"
+            with (
+                contextlib.suppress(OSError),
+                socket.create_connection((ip, WORKOUT_HTTP_PORT), timeout=0.3),
+            ):
+                return f"http://{ip}:{WORKOUT_HTTP_PORT}/workout"
+            return None
+
+        _logger.info(
+            "Scanning %s.1-254:%d for workout app...", prefix, WORKOUT_HTTP_PORT
         )
-        if not success:
-            return None
-        ok, _ = self._run_adb(["pull", "/sdcard/_sl_tmp.db", str(tmp)])
-        if not ok:
-            return None
-        return tmp
-
-    def _count_today_workouts(self, db_path: Path) -> int:
-        """Count today's workouts in a local copy of StrongLifts DB.
-
-        Args:
-            db_path: Path to the locally-pulled StrongLifts database.
-
-        Returns:
-            Number of workouts started today (local time).
-        """
-        try:
-            conn = sqlite3.connect(str(db_path))
-            try:
-                cursor = conn.execute(
-                    "SELECT COUNT(*) FROM workouts "
-                    "WHERE date(start / 1000, 'unixepoch', 'localtime') "
-                    "= date('now', 'localtime')",
-                )
-                row = cursor.fetchone()
-                return int(row[0]) if row else 0
-            finally:
-                conn.close()
-        except (sqlite3.Error, ValueError, TypeError):
-            _logger.warning("Failed to query StrongLifts database")
-            return 0
-
-    def _get_today_workout_duration_minutes(self, db_path: Path) -> float:
-        """Get the total duration in minutes of today's workouts.
-
-        Args:
-            db_path: Path to the locally-pulled StrongLifts database.
-
-        Returns:
-            Total duration in minutes of all workouts started today.
-            Returns 0.0 on any error or if no workouts found.
-        """
-        try:
-            conn = sqlite3.connect(str(db_path))
-            try:
-                cursor = conn.execute(
-                    "SELECT SUM((finish - start) / 1000.0 / 60.0) "
-                    "FROM workouts "
-                    "WHERE date(start / 1000, 'unixepoch', 'localtime') "
-                    "= date('now', 'localtime') "
-                    "AND finish > start",
-                )
-                row = cursor.fetchone()
-                return float(row[0]) if row and row[0] is not None else 0.0
-            finally:
-                conn.close()
-        except (sqlite3.Error, ValueError, TypeError):
-            _logger.warning("Failed to query workout duration")
-            return 0.0
-
-    def _get_today_exercise_count(self, db_path: Path) -> int:
-        """Count distinct exercises in today's workouts.
-
-        Parses the JSON ``exercises`` column in the ``workouts`` table.
-        Each workout row stores its exercises as a JSON array, not in a
-        separate relational table.
-
-        Args:
-            db_path: Path to the locally-pulled StrongLifts database.
-
-        Returns:
-            Number of distinct exercises across today's workouts.
-            Returns 0 on any error.
-        """
-        try:
-            conn = sqlite3.connect(str(db_path))
-            try:
-                cursor = conn.execute(
-                    "SELECT exercises FROM workouts "
-                    "WHERE date(start / 1000, 'unixepoch', 'localtime') "
-                    "= date('now', 'localtime')",
-                )
-                exercise_ids: set[str] = set()
-                for (exercises_json,) in cursor:
-                    if not exercises_json:
-                        continue
-                    for ex in json.loads(exercises_json):
-                        ex_id = ex.get("id") or ex.get("name", "")
-                        if ex_id:
-                            exercise_ids.add(ex_id)
-                return len(exercise_ids)
-            finally:
-                conn.close()
-        except (sqlite3.Error, ValueError, TypeError, json.JSONDecodeError):
-            _logger.warning("Failed to query exercise count")
-            return 0
-
-    def _is_workout_finish_recent(self, db_path: Path) -> bool:
-        """Check if the latest workout's finish time is recent.
-
-        A fresh workout should have finished within the last 24 hours.
-        This prevents using an old pre-prepared database dump while
-        still accepting workouts done earlier the same day.
-
-        Args:
-            db_path: Path to the locally-pulled StrongLifts database.
-
-        Returns:
-            True if the latest finish time is within 24 hours of now.
-        """
-        max_age_seconds = 24 * 3600  # accept same-day workouts
-        try:
-            conn = sqlite3.connect(str(db_path))
-            try:
-                cursor = conn.execute(
-                    "SELECT MAX(finish) FROM workouts "
-                    "WHERE date(start / 1000, 'unixepoch', 'localtime') "
-                    "= date('now', 'localtime') "
-                    "AND finish > start",
-                )
-                row = cursor.fetchone()
-                if not row or row[0] is None:
-                    return False
-                finish_epoch = int(row[0]) / 1000.0
-                return (time.time() - finish_epoch) < max_age_seconds
-            finally:
-                conn.close()
-        except (sqlite3.Error, ValueError, TypeError):
-            _logger.warning("Failed to query workout finish time")
-            return False
-
-    def _validate_workout_db(
-        self,
-        local_db: Path,
-    ) -> tuple[str, str] | None:
-        """Validate workout database has a recent, real workout.
-
-        Returns:
-            A (status, message) tuple if validation fails, or None if OK.
-        """
-        count = self._count_today_workouts(local_db)
-        if count <= 0:
-            return "not_verified", "No workout found on phone today"
-        if not self._is_workout_finish_recent(local_db):
-            return (
-                "stale",
-                "Workout finish time is too old. Did you actually work out today?",
-            )
-        exercise_count = self._get_today_exercise_count(local_db)
-        if exercise_count < 1:
-            return (
-                "no_exercises",
-                "No exercises found in today's workout. "
-                "Log actual exercises in StrongLifts!",
-            )
+        with ThreadPoolExecutor(max_workers=64) as executor:
+            for future in as_completed(
+                executor.submit(probe, i) for i in range(1, 255)
+            ):
+                result = future.result()
+                if result is not None:
+                    return result
         return None
 
-    def _verify_phone_workout(self) -> tuple[str, str]:
-        """Verify workout was recorded in StrongLifts on the phone.
+    def _fetch_http_workout(self) -> dict | None:
+        """Fetch workout JSON from the app's HTTP server on the local network.
 
-        Returns:
-            Tuple of (status, message) where status is one of:
-            - "verified": Workout confirmed and >= minimum duration.
-            - "too_short": Workout found but shorter than minimum.
-            - "not_verified": Phone connected but no workout found.
-            - "no_phone": No phone connected via ADB.
-            - "error": Could not access StrongLifts database.
-            - "stale": Workout finish time is not recent.
-            - "no_exercises": Workout has no logged exercises.
-            - "clock_tampered": System clock skew exceeds threshold.
+        Uses http.client directly to avoid urllib URL-open security lint rules.
+        The URL is always http://<local-ip>:8765/workout — no user input involved.
+        """
+        url = self._scan_for_http_server()
+        if url is None:
+            return None
+        # url is always "http://<ip>:<port>/workout" — constructed internally.
+        try:
+            _, _, hostport = url.partition("://")
+            host, _, path = hostport.partition("/")
+            hostname, _, port_str = host.partition(":")
+            conn = _HTTPConnection(hostname, int(port_str), timeout=5)
+            conn.request("GET", f"/{path}")
+            resp = conn.getresponse()
+            if resp.status != _HTTP_OK:
+                return None
+            return json.loads(resp.read().decode())
+        except (_HTTPException, OSError, ValueError, json.JSONDecodeError):
+            return None
+
+    # ── Main verification entry point ─────────────────────────────────────────
+
+    def _verify_phone_workout(self) -> tuple[str, str]:
+        """Verify today's workout: ADB pull if available, HTTP scan as fallback.
+
+        Returns (status, message). Status values:
+        verified / too_short / not_verified / no_phone /
+        stale / no_exercises / clock_tampered.
         """
         clock_ok, clock_msg = check_clock_skew()
         if not clock_ok:
             return "clock_tampered", clock_msg
-        if not self._is_phone_connected():
-            return "no_phone", "No phone connected via ADB"
-        local_db = self._pull_stronglifts_db()
-        if local_db is None:
-            return "error", "StrongLifts database not found on phone"
-        db_error = self._validate_workout_db(local_db)
-        if db_error is not None:
-            return db_error
-        duration = self._get_today_workout_duration_minutes(local_db)
-        if duration < MIN_WORKOUT_DURATION_MINUTES:
+
+        # Prefer ADB when a device is visible, but if the pull yields no usable
+        # JSON, fall through to the HTTP/WiFi scan — the app's in-memory HTTP
+        # server may still hold today's workout even when the file pull fails.
+        adb_connected = self._is_phone_connected()
+        if adb_connected:
+            data = self._pull_workout_app_json()
+            if data is not None:
+                return self._validate_json_data(data)
+            _logger.info("ADB pull found no workout JSON — trying HTTP scan...")
+        else:
+            _logger.info("No ADB device — trying HTTP scan on local network...")
+
+        data = self._fetch_http_workout()
+        if data is not None:
+            return self._validate_json_data(data)
+        if adb_connected:
             return (
-                "too_short",
-                f"Workout too short! {duration:.0f} min logged, "
-                f"need at least {MIN_WORKOUT_DURATION_MINUTES} min.",
+                "not_verified",
+                "Workout app JSON not found. Complete a workout in the app first.",
             )
-        exercise_count = self._get_today_exercise_count(local_db)
-        return (
-            "verified",
-            f"Workout verified! ({self._count_today_workouts(local_db)}"
-            f" session(s), {duration:.0f} min, "
-            f"{exercise_count} exercise(s))",
-        )
+        return "no_phone", "Phone not reachable via ADB or HTTP on local network"
