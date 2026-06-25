@@ -84,25 +84,59 @@ class UIFlowsMixin:
                 "Actually do the full workout, don't just\n"
                 "spam through the exercises.",
             )
-        elif status in ("stale", "no_exercises"):
-            self._show_retry_and_sick(
-                f"❌ {message}\n\nReason: {status}",
-            )
         elif status == "clock_tampered":
             self._show_retry_and_sick(
                 f"❌ {message}\n\n"
                 "System clock appears to be manipulated.\n"
                 "Fix your system time and try again.",
             )
-        elif status == "not_verified":
-            self._show_retry_and_sick(
-                f"❌ {message}\n\n"
-                "StrongLifts shows no workout today.\n"
-                "Go do your workout first!",
+        elif status in ("stale", "no_exercises", "not_verified"):
+            # Try RunnerUp before showing failure — user may have run instead of lifted.
+            self._start_runnerup_fallback(
+                lambda: self._show_retry_and_sick(
+                    f"❌ {message}\n\n"
+                    "Neither StrongLifts nor RunnerUp found a workout today.\n"
+                    "Go do your workout first!",
+                )
             )
         else:
-            # no_phone or error — penalty timer, then retry+sick screen
-            self._show_phone_penalty(message)
+            # no_phone or error — try RunnerUp first, then penalty timer.
+            self._start_runnerup_fallback(lambda: self._show_phone_penalty(message))
+
+    def _start_runnerup_fallback(
+        self, on_failure: "Callable[[], None]"
+    ) -> None:
+        """Check RunnerUp as fallback after phone check fails.
+
+        Shows a waiting screen, runs the check in a background thread, then
+        either unlocks (run verified) or calls ``on_failure``.
+        """
+        self.clear_container()
+        self._label("Checking RunnerUp...", font_size=36, color="#ffaa00", pady=30)
+        self._text("Looking for today's run in RunnerUp...", font_size=18)
+        executor = ThreadPoolExecutor(max_workers=1)
+        self._runnerup_future = executor.submit(self._verify_runnerup_workout)
+        executor.shutdown(wait=False)
+        self._runnerup_on_failure = on_failure
+        self._poll_runnerup_fallback()
+
+    def _poll_runnerup_fallback(self) -> None:
+        """Poll the RunnerUp background check and route to result handler."""
+        if self._runnerup_future is not None and self._runnerup_future.done():
+            status, message = self._runnerup_future.result()
+            if status == "verified":
+                self.workout_data["type"] = "runnerup_verified"
+                self.workout_data["source"] = message
+                self.clear_container()
+                self._label("✓ Run Verified!", font_size=42, color="#00cc44", pady=30)
+                self._text(message, font_size=20, color="#aaffaa")
+                self._text("Unlocking...", font_size=18, color="#888888")
+                unlock_delay = 1500 if self.demo_mode else 2000
+                self.root.after(unlock_delay, self.unlock_screen)
+            else:
+                self._runnerup_on_failure()
+        else:
+            self.root.after(500, self._poll_runnerup_fallback)
 
     def ask_if_sick(self) -> None:
         """Display the structured sick-day justification dialog."""

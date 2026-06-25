@@ -26,8 +26,13 @@ WEEKLY_WORKOUT_MINIMUM: int = 4
 # Python weekday(): Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
 _RELAXED_WEEKDAYS: frozenset[int] = frozenset({1, 2, 3})  # Tue, Wed, Thu
 
-# Only phone-verified workouts count toward the weekly minimum.
-_COUNTED_WORKOUT_TYPES: frozenset[str] = frozenset({"phone_verified"})
+# Workout types that count toward the weekly minimum *and* earn the
+# shutdown-time bonus (see screen_lock._try_adjust_shutdown_for_workout).
+# Exported (no leading underscore) so screen_lock.py can share this single
+# source of truth instead of duplicating the type check.
+COUNTED_WORKOUT_TYPES: frozenset[str] = frozenset(
+    {"phone_verified", "runnerup_manual", "runnerup_verified"},
+)
 
 
 def is_relaxed_day(*, today: datetime | None = None) -> bool:
@@ -86,7 +91,7 @@ def count_weekly_workouts(
         if not isinstance(entry, dict):
             continue
         wtype = entry.get("workout_data", {}).get("type", "")
-        if wtype in _COUNTED_WORKOUT_TYPES:
+        if wtype in COUNTED_WORKOUT_TYPES:
             count += 1
     return count
 

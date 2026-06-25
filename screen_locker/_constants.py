@@ -43,6 +43,12 @@ WORKOUT_APP_JSON_REMOTES = (
 # Port the workout app's HTTP server listens on (no ADB/developer-options needed).
 WORKOUT_HTTP_PORT = 8765
 MIN_WORKOUT_DURATION_MINUTES = 60
+RUNNERUP_PACKAGES = ("org.runnerup", "org.runnerup.free")
+RUNNERUP_DB_SDCARD_TMP = "/sdcard/.runnerup_tmp_verification.db"
+MIN_RUN_DURATION_MINUTES = 30
+MIN_RUN_DISTANCE_KM = 5.0
+RUNNERUP_ACCEPTED_SPORTS: frozenset[int] = frozenset({0, 3, 5})
+# 0=RUNNING, 3=ORIENTEERING, 5=TREADMILL
 MAX_CLOCK_SKEW_SECONDS = 300  # 5 minutes max time skew from NTP
 EARLY_BIRD_START_HOUR = 5
 EARLY_BIRD_END_HOUR = 8

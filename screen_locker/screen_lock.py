@@ -32,6 +32,7 @@ from screen_locker._constants import (
 )
 from screen_locker._early_bird import EarlyBirdMixin
 from screen_locker._phone_verification import PhoneVerificationMixin
+from screen_locker._runnerup_verification import RunnerUpVerificationMixin
 from screen_locker._shutdown import ShutdownMixin
 from screen_locker._sick_dialog import SickDialogMixin
 from screen_locker._ui_flows import UIFlowsMixin
@@ -39,6 +40,7 @@ from screen_locker._ui_flows_relaxed import UIFlowsRelaxedMixin
 from screen_locker._ui_widgets import UIWidgetsMixin
 from screen_locker._wake_state import has_workout_skip_today
 from screen_locker._weekly_check import (
+    COUNTED_WORKOUT_TYPES,
     WEEKLY_WORKOUT_MINIMUM,
     has_weekly_minimum,
     is_relaxed_day,
@@ -86,6 +88,7 @@ class ScreenLocker(
     WindowSetupMixin,
     ShutdownMixin,
     PhoneVerificationMixin,
+    RunnerUpVerificationMixin,
     SickDialogMixin,
     UIFlowsMixin,
     UIFlowsRelaxedMixin,
@@ -133,6 +136,8 @@ class ScreenLocker(
         self.container = tk.Frame(self.root, bg="#1a1a1a")
         self.container.place(relx=0.5, rely=0.5, anchor="center")
         self._phone_future: Future[tuple[str, str]] | None = None
+        self._runnerup_future: Future[tuple[str, str]] | None = None
+        self._runnerup_on_failure: "Callable[[], None] | None" = None
         if verify_only:
             self._start_verify_workout_check()
         elif self._relaxed_day_mode:
@@ -217,22 +222,65 @@ class ScreenLocker(
             return
 
     def _try_auto_upgrade_sick_day(self) -> bool:
-        """Silently upgrade today's sick_day entry if phone shows a workout."""
+        """Silently upgrade today's sick_day entry if phone or RunnerUp shows a workout."""
         try:
             status, message = self._verify_phone_workout()
         except (OSError, RuntimeError) as exc:
             _logger.info("Auto-upgrade phone check failed: %s", exc)
+            status, message = "error", str(exc)
+        if status == "verified":
+            self.workout_data["type"] = "phone_verified"
+            self.workout_data["source"] = message
+            self.workout_data["after_sick_day"] = "true"
+            self._adjust_shutdown_time_later()
+            self.save_workout_log()
+            return True
+        _logger.info("Auto-upgrade phone skipped (%s), trying RunnerUp...", status)
+        try:
+            runnerup_status, runnerup_msg = self._verify_runnerup_workout()
+        except (OSError, RuntimeError) as exc:
+            _logger.info("Auto-upgrade RunnerUp check failed: %s", exc)
             return False
-        if status != "verified":
+        if runnerup_status != "verified":
             _logger.info(
-                "Auto-upgrade skipped (phone status=%s): %s",
-                status,
-                message,
+                "Auto-upgrade RunnerUp skipped (%s): %s", runnerup_status, runnerup_msg
             )
             return False
-        self.workout_data["type"] = "phone_verified"
-        self.workout_data["source"] = message
+        self.workout_data["type"] = "runnerup_verified"
+        self.workout_data["source"] = runnerup_msg
         self.workout_data["after_sick_day"] = "true"
+        self._adjust_shutdown_time_later()
+        self.save_workout_log()
+        return True
+
+    def _try_auto_upgrade_early_bird(self) -> bool:
+        """Override: try phone then RunnerUp to upgrade an early_bird entry."""
+        try:
+            status, message = self._verify_phone_workout()
+        except (OSError, RuntimeError) as exc:
+            _logger.info("Early bird upgrade phone check failed: %s", exc)
+            status, message = "error", str(exc)
+        if status == "verified":
+            self.workout_data["type"] = "phone_verified"
+            self.workout_data["source"] = message
+            self.workout_data["after_early_bird"] = "true"
+            self._adjust_shutdown_time_later()
+            self.save_workout_log()
+            return True
+        _logger.info("Early bird phone skipped (%s), trying RunnerUp...", status)
+        try:
+            runnerup_status, runnerup_msg = self._verify_runnerup_workout()
+        except (OSError, RuntimeError) as exc:
+            _logger.info("Early bird RunnerUp check failed: %s", exc)
+            return False
+        if runnerup_status != "verified":
+            _logger.info(
+                "Early bird RunnerUp skipped (%s): %s", runnerup_status, runnerup_msg
+            )
+            return False
+        self.workout_data["type"] = "runnerup_verified"
+        self.workout_data["source"] = runnerup_msg
+        self.workout_data["after_early_bird"] = "true"
         self._adjust_shutdown_time_later()
         self.save_workout_log()
         return True
@@ -244,11 +292,11 @@ class ScreenLocker(
     def _try_adjust_shutdown_for_workout(self) -> bool:
         """Try to adjust shutdown time later for actual workouts."""
         workout_type = self.workout_data.get("type", "")
-        if workout_type != "phone_verified":
+        if workout_type not in COUNTED_WORKOUT_TYPES:
             return False
         adjusted = self._adjust_shutdown_time_later()
         if adjusted:
-            _logger.info("Shutdown time moved 1.5 hours later as workout reward")
+            _logger.info("Shutdown time moved 2 hours later as workout reward")
         return adjusted
 
     def _clear_debt_on_verified_workout(self) -> int | None:
@@ -257,7 +305,7 @@ class ScreenLocker(
         Returns the new debt count, or ``None`` when this wasn't a
         phone-verified workout.
         """
-        if self.workout_data.get("type") != "phone_verified":
+        if self.workout_data.get("type") not in ("phone_verified", "runnerup_verified"):
             return None
         history = _sick_tracker.load_history()
         if history.debt <= 0:
@@ -275,7 +323,7 @@ class ScreenLocker(
         self._label("Great job! 💪", font_size=48, color="#00ff00", pady=30)
         if shutdown_adjusted:
             self._text(
-                "Shutdown time +1.5h later! 🎁",
+                "Shutdown time +2h later! 🎁",
                 font_size=24,
                 color="#ffaa00",
             )
@@ -286,7 +334,7 @@ class ScreenLocker(
                 color="#ffaa00" if new_debt > 0 else "#888888",
             )
         self._text("Screen Unlocked!", font_size=36, pady=20)
-        if self.workout_data.get("type") == "phone_verified":
+        if self.workout_data.get("type") in ("phone_verified", "runnerup_verified"):
             self.root.after(
                 1500,
                 lambda: self._show_commitment_prompt(on_done=self.close),
