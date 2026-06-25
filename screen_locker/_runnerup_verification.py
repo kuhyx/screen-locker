@@ -1,8 +1,16 @@
-"""RunnerUp run auto-verification via ADB SQLite DB pull.
+"""RunnerUp run auto-verification via ADB.
 
-Pulls RunnerUp's private database directly from a rooted device, then
-queries it locally.  No user interaction is required — the whole pipeline
-runs in the background just like ``_phone_verification.py``.
+Two verification paths, tried in order:
+
+1. **File-based** (no root, works over WiFi): reads per-activity TCX files
+   that RunnerUp's File Synchronizer writes to ``/sdcard/Documents/RunnerUp/``
+   after each run.  Requires one-time setup in RunnerUp:
+   Settings → Accounts → Add → File → format=TCX, dir=Documents/RunnerUp.
+
+2. **Root DB pull** (fallback): copies RunnerUp's private SQLite database to
+   sdcard via ``su``, pulls it locally, and queries it directly.  Used when
+   no today's TCX export is found (e.g. sync hasn't fired yet, or File
+   Synchronizer isn't configured).
 """
 
 from __future__ import annotations
@@ -13,6 +21,8 @@ import shutil
 import sqlite3
 import tempfile
 import time
+import xml.etree.ElementTree as ET
+from datetime import datetime
 from typing import Any
 
 from screen_locker._constants import (
@@ -20,6 +30,7 @@ from screen_locker._constants import (
     MIN_RUN_DURATION_MINUTES,
     RUNNERUP_ACCEPTED_SPORTS,
     RUNNERUP_DB_SDCARD_TMP,
+    RUNNERUP_EXPORT_DIRS,
     RUNNERUP_PACKAGES,
 )
 from screen_locker._time_check import check_clock_skew
@@ -37,9 +48,115 @@ _SPORT_NAMES: dict[int, str] = {
     7: "Stationary Bike",
 }
 
+# TCX uses sport name strings; map back to integer codes for unified validation.
+_TCX_SPORT_TO_INT: dict[str, int] = {v: k for k, v in _SPORT_NAMES.items()}
+
+# TCX XML namespace used by Garmin/RunnerUp.
+_TCX_NS = "http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"
+
 
 class RunnerUpVerificationMixin:
-    """Mixin providing RunnerUp-based workout verification via ADB DB pull."""
+    """Mixin providing RunnerUp-based workout verification via ADB."""
+
+    # ------------------------------------------------------------------
+    # File-based path (no root required)
+    # ------------------------------------------------------------------
+
+    def _find_todays_runnerup_exports(self) -> list[str]:
+        """Return adb paths of today's RunnerUp TCX exports, or empty list."""
+        today = datetime.now().strftime("%Y-%m-%d")
+        found: list[str] = []
+        for dirpath in RUNNERUP_EXPORT_DIRS:
+            ok, out = self._run_adb(["shell", "ls", dirpath])
+            if not ok or not out.strip():
+                continue
+            for name in out.strip().splitlines():
+                name = name.strip()
+                if today in name and name.endswith(".tcx"):
+                    remote = f"{dirpath}/{name}"
+                    if remote not in found:
+                        found.append(remote)
+        return found
+
+    def _pull_and_parse_tcx(self, remote_path: str) -> dict[str, Any] | None:
+        """Pull a remote TCX file and parse it. Returns activity dict or None."""
+        tmp_dir = tempfile.mkdtemp(prefix="runnerup_tcx_")
+        local_path = os.path.join(tmp_dir, "activity.tcx")
+        try:
+            ok, _ = self._run_adb(["pull", remote_path, local_path])
+            if not ok or not os.path.exists(local_path):
+                _logger.info("Failed to pull TCX file: %s", remote_path)
+                return None
+            return self._parse_tcx(local_path)
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    def _parse_tcx(self, tcx_path: str) -> dict[str, Any] | None:
+        """Parse a local TCX file and return activity summary dict.
+
+        Sums ``TotalTimeSeconds`` and ``DistanceMeters`` across all Laps so
+        multi-segment runs (pause/resume) are counted in full.
+        """
+        try:
+            tree = ET.parse(tcx_path)  # noqa: S314 — local file we pulled
+        except ET.ParseError as exc:
+            _logger.info("TCX parse error in %s: %s", tcx_path, exc)
+            return None
+
+        root = tree.getroot()
+        activity = root.find(f".//{{{_TCX_NS}}}Activity")
+        if activity is None:
+            _logger.info("No Activity element in TCX file")
+            return None
+
+        sport_str = activity.get("Sport", "")
+        sport_int = _TCX_SPORT_TO_INT.get(sport_str, -1)
+
+        total_seconds = 0.0
+        total_distance = 0.0
+        for lap in activity.findall(f"{{{_TCX_NS}}}Lap"):
+            t_elem = lap.find(f"{{{_TCX_NS}}}TotalTimeSeconds")
+            d_elem = lap.find(f"{{{_TCX_NS}}}DistanceMeters")
+            if t_elem is not None and t_elem.text:
+                total_seconds += float(t_elem.text)
+            if d_elem is not None and d_elem.text:
+                total_distance += float(d_elem.text)
+
+        return {
+            "sport": sport_int,
+            "duration_seconds": int(total_seconds),
+            "distance_m": total_distance,
+        }
+
+    def _verify_runnerup_via_files(self) -> tuple[str, str] | None:
+        """Try to verify today's run via TCX export files.
+
+        Returns ``(status, message)`` if a today's file was found (even if it
+        fails validation), or ``None`` if no today's file exists at all
+        (caller should try the root DB path instead).
+        """
+        exports = self._find_todays_runnerup_exports()
+        if not exports:
+            return None
+
+        # Try each file; return the best result (verified > validation error).
+        best: tuple[str, str] | None = None
+        for remote in exports:
+            data = self._pull_and_parse_tcx(remote)
+            if data is None:
+                continue
+            status, msg = self._validate_runnerup_data(data)
+            if status == "verified":
+                return status, msg
+            if best is None:
+                best = (status, msg)
+
+        # All files found but none passed validation.
+        return best or ("not_verified", "RunnerUp TCX export found but could not be read")
+
+    # ------------------------------------------------------------------
+    # Root DB pull path (fallback)
+    # ------------------------------------------------------------------
 
     def _find_runnerup_package(self) -> str | None:
         """Return the first installed RunnerUp package name, or None."""
@@ -52,10 +169,10 @@ class RunnerUpVerificationMixin:
     def _pull_runnerup_db(self) -> str | None:
         """Pull RunnerUp's SQLite DB from the device to a local temp file.
 
-        Copies the DB and any WAL/SHM sidecar files via root shell to
-        ``/sdcard`` (accessible without root by adb pull), then pulls them
-        locally.  WAL files must travel with the main DB so that
-        ``PRAGMA wal_checkpoint`` can merge in-flight writes.
+        Copies the DB and WAL/SHM sidecar files via root shell to ``/sdcard``
+        (accessible without root by adb pull), then pulls them locally.
+        WAL files must travel with the main DB so that ``PRAGMA wal_checkpoint``
+        can merge in-flight writes.
 
         Returns the local DB path on success, or ``None`` on any failure.
         """
@@ -68,7 +185,6 @@ class RunnerUpVerificationMixin:
         tmp_dir = tempfile.mkdtemp(prefix="runnerup_verify_")
         local_db = os.path.join(tmp_dir, "runnerup.db")
 
-        # Copy the main DB to sdcard where adb pull can reach it (root needed).
         ok, err = self._adb_shell(
             f"cp {db_device} {RUNNERUP_DB_SDCARD_TMP}",
             root=True,
@@ -78,7 +194,6 @@ class RunnerUpVerificationMixin:
             shutil.rmtree(tmp_dir, ignore_errors=True)
             return None
 
-        # Copy WAL and SHM sidecars if they exist; ignore failure (they may not).
         for suffix in ("-wal", "-shm"):
             self._adb_shell(
                 f"test -f {db_device}{suffix} "
@@ -87,7 +202,6 @@ class RunnerUpVerificationMixin:
                 root=True,
             )
 
-        # Pull main DB.
         ok, _ = self._run_adb(["pull", RUNNERUP_DB_SDCARD_TMP, local_db])
         if not ok:
             _logger.info("adb pull of RunnerUp DB failed")
@@ -95,7 +209,6 @@ class RunnerUpVerificationMixin:
             shutil.rmtree(tmp_dir, ignore_errors=True)
             return None
 
-        # Pull sidecars (best-effort; sqlite3 tolerates missing ones).
         for suffix in ("-wal", "-shm"):
             self._run_adb(
                 ["pull", f"{RUNNERUP_DB_SDCARD_TMP}{suffix}", f"{local_db}{suffix}"]
@@ -116,13 +229,9 @@ class RunnerUpVerificationMixin:
     def _query_todays_run(self, db_path: str) -> dict[str, Any] | None:
         """Query the pulled RunnerUp DB for today's most recent activity.
 
-        Runs ``PRAGMA wal_checkpoint`` first so that any uncommitted WAL
-        entries are visible to the query (important for runs just finished).
-
-        Returns a dict with ``distance_m``, ``duration_seconds``, and
-        ``sport`` on success; ``None`` if no matching row exists.
+        Runs ``PRAGMA wal_checkpoint`` first so that uncommitted WAL entries
+        are visible (important for runs just finished before connecting).
         """
-        # Build today's epoch window in local time (RunnerUp stores seconds).
         local_midnight = time.mktime(time.localtime()[:3] + (0, 0, 0, 0, 0, -1))
         local_end = local_midnight + 86400
 
@@ -156,6 +265,26 @@ class RunnerUpVerificationMixin:
             "duration_seconds": int(duration_seconds or 0),
             "sport": int(sport or 0),
         }
+
+    def _verify_runnerup_via_db(self) -> tuple[str, str]:
+        """Verify today's run via root DB pull (fallback path)."""
+        db_path = self._pull_runnerup_db()
+        if db_path is None:
+            return "not_verified", "Could not retrieve RunnerUp database from phone"
+
+        try:
+            run_data = self._query_todays_run(db_path)
+        finally:
+            shutil.rmtree(os.path.dirname(db_path), ignore_errors=True)
+
+        if run_data is None:
+            return "not_verified", "No RunnerUp activity found for today"
+
+        return self._validate_runnerup_data(run_data)
+
+    # ------------------------------------------------------------------
+    # Shared validation
+    # ------------------------------------------------------------------
 
     def _validate_runnerup_data(
         self, data: dict[str, Any]
@@ -193,10 +322,16 @@ class RunnerUpVerificationMixin:
             f"{sport_name}: {distance_km:.1f} km in {duration_min:.0f} min",
         )
 
-    def _verify_runnerup_workout(self) -> tuple[str, str]:
-        """Verify today's run via RunnerUp DB pull.
+    # ------------------------------------------------------------------
+    # Main entry point
+    # ------------------------------------------------------------------
 
-        Entry point mirroring ``PhoneVerificationMixin._verify_phone_workout``.
+    def _verify_runnerup_workout(self) -> tuple[str, str]:
+        """Verify today's run via RunnerUp.
+
+        Tries TCX file exports first (no root, works over WiFi); falls back to
+        root DB pull if no today's files are found.
+
         Status values: ``verified | not_verified | no_phone | too_short |
         wrong_sport | clock_tampered``.
         """
@@ -207,19 +342,15 @@ class RunnerUpVerificationMixin:
         if not self._has_adb_device():
             return (
                 "no_phone",
-                "Phone not connected — plug in via ADB to verify RunnerUp run",
+                "Phone not connected — plug in via USB or enable wireless ADB",
             )
 
-        db_path = self._pull_runnerup_db()
-        if db_path is None:
-            return "not_verified", "Could not retrieve RunnerUp database from phone"
+        # Path 1: file-based (no root needed).
+        file_result = self._verify_runnerup_via_files()
+        if file_result is not None:
+            _logger.info("RunnerUp file-based result: %s", file_result[0])
+            return file_result
 
-        try:
-            run_data = self._query_todays_run(db_path)
-        finally:
-            shutil.rmtree(os.path.dirname(db_path), ignore_errors=True)
-
-        if run_data is None:
-            return "not_verified", "No RunnerUp activity found for today"
-
-        return self._validate_runnerup_data(run_data)
+        # Path 2: root DB pull (fallback when no export files found yet).
+        _logger.info("No TCX exports found today; trying root DB pull...")
+        return self._verify_runnerup_via_db()

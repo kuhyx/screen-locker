@@ -78,3 +78,10 @@ RTCWAKE_BIN: str = "/usr/sbin/rtcwake"
 WAKE_STATE_FILE = (
     Path(__file__).resolve().parent.parent / "wake_alarm" / "wake_state.json"
 )
+
+# Directories where RunnerUp writes per-activity TCX exports (File Synchronizer).
+# Listed in preference order; both resolve to the same path on most devices.
+RUNNERUP_EXPORT_DIRS: tuple[str, ...] = (
+    "/sdcard/Documents/RunnerUp",
+    "/storage/emulated/0/Documents/RunnerUp",
+)
