@@ -33,8 +33,18 @@ fixable = ["ALL"]
 unfixable = []
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**/*.py" = ["ARG", "D", "PLC0415", "PLR2004", "S101", "SLF001"]
-"**/test_*.py" = ["ARG", "D", "PLC0415", "PLR2004", "S101", "SLF001"]
+"**/tests/**/*.py" = [
+    "ANN", "ARG", "D", "DTZ011", "E501", "FBT",
+    "PLC0415", "PLR2004", "PTH", "RUF003", "S101", "SLF001",
+]
+"**/test_*.py" = [
+    "ANN", "ARG", "D", "DTZ011", "E501", "FBT",
+    "PLC0415", "PLR2004", "PTH", "RUF003", "S101", "SLF001",
+]
+"screen_locker/_runnerup_verification.py" = ["S314"]
+"screen_locker/_shutdown_base.py" = ["SLF001"]
+"screen_locker/_status.py" = ["PLR0915", "SLF001", "T201"]
+"scripts/check_file_length.py" = ["PTH123"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

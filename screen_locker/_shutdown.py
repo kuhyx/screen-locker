@@ -81,6 +81,32 @@ class ShutdownMixin:
             _logger.warning("Failed to adjust shutdown time for workout: %s", e)
             return False
 
+    def _adjust_shutdown_time_by(self, extra_hours: int) -> bool:
+        """Adjust shutdown hours by *extra_hours*, capped at 24 (midnight).
+
+        Used for extra-workout bonuses beyond the weekly minimum.  A cap of 24
+        works because ``day-specific-shutdown-check.sh`` fires at 00:00 and
+        catches it via the morning-window condition (0 <= 300 minutes).
+
+        Returns True if successful, False otherwise.
+        """
+        try:
+            config_values = self._read_shutdown_config()
+            if config_values is None:
+                return False
+            mw, ts, morning = config_values
+            return self._write_shutdown_config(
+                min(24, mw + extra_hours),
+                min(24, ts + extra_hours),
+                morning,
+                restore=True,
+            )
+        except (OSError, ValueError) as e:
+            _logger.warning(
+                "Failed to adjust shutdown time by %d h: %s", extra_hours, e
+            )
+            return False
+
     def _sick_mode_used_today(self) -> bool:
         """Check if sick mode was already used today."""
         if not SICK_DAY_STATE_FILE.exists():

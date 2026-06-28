@@ -59,7 +59,7 @@ class TestAutoUpgradeSickDay:
                 return_value=True,
             ) as mock_adjust,
             patch(
-                "screen_locker.screen_lock.compute_entry_hmac",
+                "screen_locker._log_mixin.compute_entry_hmac",
                 return_value="sig",
             ),
         ):

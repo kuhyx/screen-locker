@@ -10,7 +10,9 @@ from screen_locker._constants import (
     EARLY_BIRD_END_HOUR,
     EARLY_BIRD_END_MINUTE,
     EARLY_BIRD_START_HOUR,
+    EXTRA_BENEFITS_FILE,
 )
+from screen_locker._extra_benefits import has_extended_early_bird
 
 _logger = logging.getLogger(__name__)
 
@@ -24,10 +26,18 @@ class EarlyBirdMixin:
         return now.hour * 60 + now.minute
 
     def _is_early_bird_time(self) -> bool:
-        """Return True if current local time is in the early bird window."""
+        """Return True if current local time is in the early bird window.
+
+        Normally the window closes at 08:30. When the current ISO week has an
+        extended early-bird reward (earned by 5+ workouts the prior week) the
+        window extends to 09:00.
+        """
         minutes = self._get_local_time_minutes()
         start = EARLY_BIRD_START_HOUR * 60
-        end = EARLY_BIRD_END_HOUR * 60 + EARLY_BIRD_END_MINUTE
+        if has_extended_early_bird(EXTRA_BENEFITS_FILE):
+            end = 9 * 60  # 09:00
+        else:
+            end = EARLY_BIRD_END_HOUR * 60 + EARLY_BIRD_END_MINUTE
         return start <= minutes < end
 
     def _is_early_bird_log(self) -> bool:
@@ -49,24 +59,3 @@ class EarlyBirdMixin:
         """Save an early_bird provisional entry to the workout log."""
         self.workout_data = {"type": "early_bird"}
         self.save_workout_log()
-
-    def _try_auto_upgrade_early_bird(self) -> bool:
-        """Silently upgrade today's early_bird entry if phone shows a workout."""
-        try:
-            status, message = self._verify_phone_workout()
-        except (OSError, RuntimeError) as exc:
-            _logger.info("Early bird upgrade phone check failed: %s", exc)
-            return False
-        if status != "verified":
-            _logger.info(
-                "Early bird upgrade skipped (phone status=%s): %s",
-                status,
-                message,
-            )
-            return False
-        self.workout_data["type"] = "phone_verified"
-        self.workout_data["source"] = message
-        self.workout_data["after_early_bird"] = "true"
-        self._adjust_shutdown_time_later()
-        self.save_workout_log()
-        return True

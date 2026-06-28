@@ -1,9 +1,9 @@
 # Screen Locker — runtime + development dependencies
 # Runtime: tkinter/subprocess/socket/sqlite3 (stdlib) plus gatelock (below).
 bandit>=1.7.0
-gatelock @ git+https://github.com/kuhyx/gatelock@v0.1.0
 codespell>=2.2.0
 coverage>=7.4.0
+gatelock @ git+https://github.com/kuhyx/gatelock@v0.1.0
 mypy>=1.8.0
 pre-commit>=3.6.0
 pylint>=3.0.0

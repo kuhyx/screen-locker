@@ -6,8 +6,6 @@ Requires user to log their workout to unlock the screen.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-import json
 import logging
 from pathlib import Path
 import sys
@@ -15,39 +13,51 @@ import tkinter as tk
 from typing import TYPE_CHECKING
 
 from gatelock import GateRoot, LockConfig, LockWindow
-from gatelock.log_integrity import compute_entry_hmac, verify_entry_hmac
 
 from screen_locker import _sick_tracker
+from screen_locker._auto_upgrade import AutoUpgradeMixin
 from screen_locker._constants import (
     EARLY_BIRD_END_HOUR,
     EARLY_BIRD_END_MINUTE,
     EARLY_BIRD_START_HOUR,
+    EXTRA_BENEFITS_FILE,
     HMAC_KEY_FILE,
     MAX_CLOCK_SKEW_SECONDS,
     MIN_WORKOUT_DURATION_MINUTES,
     PHONE_PENALTY_DELAY_DEMO,
     PHONE_PENALTY_DELAY_PRODUCTION,
     SCHEDULED_SKIPS_FILE,
+    SHUTDOWN_BASE_FILE,
+    SICK_DAY_STATE_FILE,
     SICK_LOCKOUT_SECONDS,
 )
 from screen_locker._early_bird import EarlyBirdMixin
+from screen_locker._extra_benefits import (
+    consume_skip_credit,
+    current_streak,
+    has_skip_credit,
+    process_week_transition,
+)
+from screen_locker._log_mixin import LogMixin
 from screen_locker._phone_verification import PhoneVerificationMixin
 from screen_locker._runnerup_verification import RunnerUpVerificationMixin
 from screen_locker._shutdown import ShutdownMixin
+from screen_locker._shutdown_base import reset_to_base_if_new_day
 from screen_locker._sick_dialog import SickDialogMixin
 from screen_locker._ui_flows import UIFlowsMixin
 from screen_locker._ui_flows_relaxed import UIFlowsRelaxedMixin
 from screen_locker._ui_widgets import UIWidgetsMixin
-from screen_locker._wake_state import has_workout_skip_today
 from screen_locker._weekly_check import (
     COUNTED_WORKOUT_TYPES,
     WEEKLY_WORKOUT_MINIMUM,
+    count_weekly_workouts,
     has_weekly_minimum,
     is_relaxed_day,
 )
 from screen_locker._window_setup import WindowSetupMixin
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from concurrent.futures import Future
 
 __all__ = [
@@ -84,7 +94,9 @@ def _assert_not_under_pytest() -> None:
 
 
 class ScreenLocker(
+    AutoUpgradeMixin,
     EarlyBirdMixin,
+    LogMixin,
     WindowSetupMixin,
     ShutdownMixin,
     PhoneVerificationMixin,
@@ -137,7 +149,7 @@ class ScreenLocker(
         self.container.place(relx=0.5, rely=0.5, anchor="center")
         self._phone_future: Future[tuple[str, str]] | None = None
         self._runnerup_future: Future[tuple[str, str]] | None = None
-        self._runnerup_on_failure: "Callable[[], None] | None" = None
+        self._runnerup_on_failure: Callable[[], None] | None = None
         if verify_only:
             self._start_verify_workout_check()
         elif self._relaxed_day_mode:
@@ -149,62 +161,34 @@ class ScreenLocker(
             if self._lock is not None:  # pragma: no branch
                 self._lock.grab_input()
 
-    def _is_sick_day_log(self) -> bool:
-        """Check if today's workout log is a sick day (not yet verified)."""
-        if not self.log_file.exists():
-            return False
-        try:
-            with self.log_file.open() as f:
-                logs = json.load(f)
-        except (OSError, json.JSONDecodeError):
-            return False
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-        entry = logs.get(today)
-        if entry is None:
-            return False
-        return entry.get("workout_data", {}).get("type") == "sick_day"
-
-    def _check_early_exits(self, *, verify_only: bool) -> None:
-        """Check startup conditions and exit early when appropriate."""
-        if verify_only:
-            if not self._is_sick_day_log():
-                _logger.info(
-                    "No sick day logged today. Nothing to verify.",
-                )
-                sys.exit(0)
-            return
-        self._check_non_verify_exits()
-
-    def _check_today_state_exits(self) -> bool:
-        """Handle early-bird and today's log states. Return True to stop startup."""
-        if self._is_early_bird_log() and not self._is_early_bird_time():
-            if self._try_auto_upgrade_early_bird():
-                _logger.info("Auto-upgraded early_bird entry to phone_verified.")
-                sys.exit(0)
-                return True
-            return False  # Expired early bird, upgrade unavailable — full lock.
-        if self._is_early_bird_log():
-            _logger.info("Early bird window still active — skipping lock.")
-        elif self._is_sick_day_log() and self._try_auto_upgrade_sick_day():
-            _logger.info("Auto-upgraded today's sick_day entry to phone_verified.")
-        elif self.has_logged_today():
-            _logger.info("Workout already logged today. Skipping screen lock.")
-        elif has_workout_skip_today():
-            _logger.info("Wake alarm earned workout skip. Skipping screen lock.")
-        elif self._is_early_bird_time():
-            self._save_early_bird_log()
-            _logger.info("Early bird time — skipping lock, will re-check at 08:30.")
-        else:
-            return False
-        sys.exit(0)
-        return True
-
     def _check_non_verify_exits(self) -> None:
         """Check all normal (non-verify) startup early-exit conditions."""
         if self._is_scheduled_skip_today():
             _logger.info("Today is a scheduled skip day. Skipping screen lock.")
             sys.exit(0)
             return
+        # Reset shutdown config to base (21:00) at the start of each new day
+        # so workout bonuses always layer on top of a known floor.
+        reset_to_base_if_new_day(
+            SHUTDOWN_BASE_FILE, self, sick_day_state_file=SICK_DAY_STATE_FILE
+        )
+        # Auto-fill any RunnerUp workouts from earlier in the current ISO week
+        # before any early-exit check, so gaps are closed regardless of today's
+        # logged state (early_bird, sick_day, etc.).
+        prev_count = count_weekly_workouts(self.log_file)
+        n_filled = self._scan_and_fill_week_runnerup(self.log_file)
+        if n_filled:
+            new_count = count_weekly_workouts(self.log_file)
+            _logger.info(
+                "Auto-filled %d RunnerUp workout(s) from TCX exports.", n_filled
+            )
+            # Award +1h for each newly auto-filled workout above the minimum.
+            bonus = max(0, new_count - max(WEEKLY_WORKOUT_MINIMUM, prev_count))
+            if bonus > 0 and self._adjust_shutdown_time_by(bonus):
+                _logger.info("Auto-fill extra bonus: +%dh shutdown time.", bonus)
+        # Award streak / skip-credit / EB-extension rewards from last week.
+        for reward_msg in process_week_transition(self.log_file, EXTRA_BENEFITS_FILE):
+            _logger.info("Weekly reward: %s", reward_msg)
         if self._check_today_state_exits():
             return
         # Day-of-week routing: Tue/Wed/Thu relaxed (optional), Fri-Mon enforced.
@@ -220,74 +204,12 @@ class ScreenLocker(
             )
             sys.exit(0)
             return
-
-    def _try_auto_upgrade_sick_day(self) -> bool:
-        """Silently upgrade today's sick_day entry if phone or RunnerUp shows a workout."""
-        try:
-            status, message = self._verify_phone_workout()
-        except (OSError, RuntimeError) as exc:
-            _logger.info("Auto-upgrade phone check failed: %s", exc)
-            status, message = "error", str(exc)
-        if status == "verified":
-            self.workout_data["type"] = "phone_verified"
-            self.workout_data["source"] = message
-            self.workout_data["after_sick_day"] = "true"
-            self._adjust_shutdown_time_later()
-            self.save_workout_log()
-            return True
-        _logger.info("Auto-upgrade phone skipped (%s), trying RunnerUp...", status)
-        try:
-            runnerup_status, runnerup_msg = self._verify_runnerup_workout()
-        except (OSError, RuntimeError) as exc:
-            _logger.info("Auto-upgrade RunnerUp check failed: %s", exc)
-            return False
-        if runnerup_status != "verified":
-            _logger.info(
-                "Auto-upgrade RunnerUp skipped (%s): %s", runnerup_status, runnerup_msg
-            )
-            return False
-        self.workout_data["type"] = "runnerup_verified"
-        self.workout_data["source"] = runnerup_msg
-        self.workout_data["after_sick_day"] = "true"
-        self._adjust_shutdown_time_later()
-        self.save_workout_log()
-        return True
-
-    def _try_auto_upgrade_early_bird(self) -> bool:
-        """Override: try phone then RunnerUp to upgrade an early_bird entry."""
-        try:
-            status, message = self._verify_phone_workout()
-        except (OSError, RuntimeError) as exc:
-            _logger.info("Early bird upgrade phone check failed: %s", exc)
-            status, message = "error", str(exc)
-        if status == "verified":
-            self.workout_data["type"] = "phone_verified"
-            self.workout_data["source"] = message
-            self.workout_data["after_early_bird"] = "true"
-            self._adjust_shutdown_time_later()
-            self.save_workout_log()
-            return True
-        _logger.info("Early bird phone skipped (%s), trying RunnerUp...", status)
-        try:
-            runnerup_status, runnerup_msg = self._verify_runnerup_workout()
-        except (OSError, RuntimeError) as exc:
-            _logger.info("Early bird RunnerUp check failed: %s", exc)
-            return False
-        if runnerup_status != "verified":
-            _logger.info(
-                "Early bird RunnerUp skipped (%s): %s", runnerup_status, runnerup_msg
-            )
-            return False
-        self.workout_data["type"] = "runnerup_verified"
-        self.workout_data["source"] = runnerup_msg
-        self.workout_data["after_early_bird"] = "true"
-        self._adjust_shutdown_time_later()
-        self.save_workout_log()
-        return True
-
-    # ------------------------------------------------------------------
-    # Unlock, logging
-    # ------------------------------------------------------------------
+        # Spend a banked skip credit if the minimum hasn't been reached yet.
+        if has_skip_credit(EXTRA_BENEFITS_FILE):
+            consume_skip_credit(EXTRA_BENEFITS_FILE)
+            _logger.info("Used a banked skip credit — no lock today.")
+            sys.exit(0)
+            return
 
     def _try_adjust_shutdown_for_workout(self) -> bool:
         """Try to adjust shutdown time later for actual workouts."""
@@ -319,6 +241,17 @@ class ScreenLocker(
         self.save_workout_log()
         shutdown_adjusted = self._try_adjust_shutdown_for_workout()
         new_debt = self._clear_debt_on_verified_workout()
+
+        # Extra-workout bonus: +1h per workout above the weekly minimum.
+        extra_bonus_delta = 0
+        weekly_count = count_weekly_workouts(self.log_file)
+        if weekly_count > WEEKLY_WORKOUT_MINIMUM:
+            old_cfg = self._read_shutdown_config()
+            if old_cfg and self._adjust_shutdown_time_by(1):
+                new_cfg = self._read_shutdown_config()
+                if new_cfg:
+                    extra_bonus_delta = new_cfg[1] - old_cfg[1]
+
         self.clear_container()
         self._label("Great job! 💪", font_size=48, color="#00ff00", pady=30)
         if shutdown_adjusted:
@@ -327,11 +260,25 @@ class ScreenLocker(
                 font_size=24,
                 color="#ffaa00",
             )
+        if extra_bonus_delta > 0:
+            extra_n = weekly_count - WEEKLY_WORKOUT_MINIMUM
+            self._text(
+                f"Extra workout #{extra_n}! +{extra_bonus_delta}h tonight",
+                font_size=20,
+                color="#ffaa00",
+            )
         if new_debt is not None:
             self._text(
                 f"Workout debt: {new_debt}",
                 font_size=20,
                 color="#ffaa00" if new_debt > 0 else "#888888",
+            )
+        streak = current_streak(EXTRA_BENEFITS_FILE)
+        if streak >= 1:
+            self._text(
+                f"🔥 {streak}-week streak (5+ workouts each)",
+                font_size=14,
+                color="#888888",
             )
         self._text("Screen Unlocked!", font_size=36, pady=20)
         if self.workout_data.get("type") in ("phone_verified", "runnerup_verified"):
@@ -341,75 +288,6 @@ class ScreenLocker(
             )
         else:
             self.root.after(1500, self.close)
-
-    def has_logged_today(self) -> bool:
-        """Check if workout has been logged today with valid HMAC."""
-        if not self.log_file.exists():
-            return False
-
-        try:
-            with self.log_file.open() as f:
-                logs = json.load(f)
-        except (OSError, json.JSONDecodeError):
-            return False
-        else:
-            today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-            entry = logs.get(today)
-            if entry is None:
-                return False
-            if verify_entry_hmac(entry):
-                return entry.get("workout_data", {}).get("type") != "early_bird"
-            if compute_entry_hmac({"_probe": True}) is None and "hmac" not in entry:
-                _logger.info(
-                    "HMAC key unavailable — accepting unsigned entry",
-                )
-                return entry.get("workout_data", {}).get("type") != "early_bird"
-            _logger.warning(
-                "HMAC verification failed for today's log entry",
-            )
-            return False
-
-    def _load_existing_logs(self) -> dict:
-        """Load existing workout logs from file."""
-        if not self.log_file.exists():
-            return {}
-        try:
-            with self.log_file.open() as f:
-                return json.load(f)
-        except (OSError, json.JSONDecodeError):
-            return {}
-
-    def _is_scheduled_skip_today(self) -> bool:
-        """Return True if today's date is listed in the scheduled skips file."""
-        if not SCHEDULED_SKIPS_FILE.exists():
-            return False
-        try:
-            with SCHEDULED_SKIPS_FILE.open() as f:
-                skips = json.load(f)
-        except (OSError, json.JSONDecodeError):
-            return False
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-        return today in skips
-
-    def save_workout_log(self) -> None:
-        """Save workout data to log file with HMAC signature."""
-        logs = self._load_existing_logs()
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-        entry: dict[str, object] = {
-            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
-            "workout_data": self.workout_data,
-        }
-        signature = compute_entry_hmac(entry)
-        if signature is not None:
-            entry["hmac"] = signature
-        else:
-            _logger.warning("HMAC key unavailable — saving unsigned entry")
-        logs[today] = entry
-        try:
-            with self.log_file.open("w") as f:
-                json.dump(logs, f, indent=2)
-        except OSError as e:
-            _logger.warning("Could not save workout log: %s", e)
 
     def close(self) -> None:
         """Close the application and exit."""
@@ -428,8 +306,16 @@ class ScreenLocker(
 
 
 if __name__ == "__main__":
-    # Check for --production flag
-    demo_mode = True  # Default to demo mode for safety
+    if "--status" in sys.argv:
+        from screen_locker._status import run_status
+
+        # Bypass __init__ (no UI) — only log_file and workout_data are needed.
+        _sl = object.__new__(ScreenLocker)
+        _sl.log_file = Path(__file__).resolve().parent / "workout_log.json"
+        _sl.workout_data = {}
+        run_status(_sl)
+
+    demo_mode = True
     verify_only = "--verify-workout" in sys.argv
 
     if "--production" in sys.argv:

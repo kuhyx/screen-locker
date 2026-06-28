@@ -13,12 +13,10 @@ def main() -> int:
         try:
             with open(filepath, encoding="utf-8", errors="replace") as fh:
                 count = sum(1 for _ in fh)
-        except OSError as exc:
-            print(f"ERROR reading {filepath}: {exc}", file=sys.stderr)
+        except OSError:
             failed = True
             continue
         if count > MAX_LINES:
-            print(f"{filepath}: {count} lines (max {MAX_LINES})")
             failed = True
     return 1 if failed else 0
 

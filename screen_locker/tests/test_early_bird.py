@@ -110,6 +110,34 @@ class TestIsEarlyBirdTime:
         locker = self._locker(mock_tk, tmp_path, 540)
         assert locker._is_early_bird_time() is False
 
+    def test_extended_window_ends_at_9am(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """When has_extended_early_bird is True, window closes at 09:00 (540 min)."""
+        locker = self._locker(mock_tk, tmp_path, 539)  # 08:59 — still inside
+        with patch(
+            "screen_locker._early_bird.has_extended_early_bird",
+            return_value=True,
+        ):
+            assert locker._is_early_bird_time() is True
+
+    def test_extended_window_closed_at_9am(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Extended window excludes exactly 09:00 (540 min)."""
+        locker = self._locker(mock_tk, tmp_path, 540)  # 09:00 — exclusive end
+        with patch(
+            "screen_locker._early_bird.has_extended_early_bird",
+            return_value=True,
+        ):
+            assert locker._is_early_bird_time() is False
+
     def test_midnight(
         self,
         mock_tk: MagicMock,
@@ -222,7 +250,7 @@ class TestSaveEarlyBirdLog:
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         with patch(
-            "screen_locker.screen_lock.compute_entry_hmac",
+            "screen_locker._log_mixin.compute_entry_hmac",
             return_value=None,
         ):
             locker._save_early_bird_log()

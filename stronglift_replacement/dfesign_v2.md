@@ -1,8 +1,8 @@
 This is a continouation from design.md file with what is left to be done and what new ideas came to me since the last time arranged in order of importance
 
 Crucial (max 1 feature):
-    If user starts workout and later either exit the app completely or clicks the arrow in upper left the workout gets reseted completely, all progress is lost this is very bad 
-    once user starts workout only by tapping finish and confriming that they INDEED finished workout should end it OR if user clicks and confirms RESET button, NOTHING ELSE
+    If user starts workout and later either exit the app completely or clicks the arrow in upper left the workout gets reset completely, all progress is lost this is very bad
+    once user starts workout only by tapping finish and confirming that they INDEED finished workout should end it OR if user clicks and confirms RESET button, NOTHING ELSE
 
 High (max 2 features):
     adds breaks between REPS (3 minutes if REP succeeded (as in all reps were done) and 5 minutes if it failed) <-- currently app ads breaks between SETS which wrong

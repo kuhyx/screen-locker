@@ -41,7 +41,7 @@ class TestTryAutoUpgradeEarlyBird:
             MagicMock(return_value=True),
         )
         with patch(
-            "screen_locker.screen_lock.compute_entry_hmac",
+            "screen_locker._log_mixin.compute_entry_hmac",
             return_value=None,
         ):
             result = locker._try_auto_upgrade_early_bird()
@@ -117,7 +117,7 @@ class TestHasLoggedTodayEarlyBird:
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         with patch(
-            "screen_locker.screen_lock.verify_entry_hmac",
+            "screen_locker._log_mixin.verify_entry_hmac",
             return_value=True,
         ):
             assert locker.has_logged_today() is False
@@ -149,7 +149,7 @@ class TestInitEarlyBirdFlow:
             patch.object(ScreenLocker, "_start_phone_check"),
             patch.object(ScreenLocker, "_start_verify_workout_check"),
             patch(
-                "screen_locker.screen_lock.has_workout_skip_today",
+                "screen_locker._auto_upgrade.has_workout_skip_today",
                 return_value=False,
             ),
             pytest.raises(SystemExit),

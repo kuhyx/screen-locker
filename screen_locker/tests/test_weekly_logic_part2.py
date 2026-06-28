@@ -98,7 +98,7 @@ class TestCheckTodayStateExits:
             patch.object(locker, "_is_sick_day_log", return_value=False),
             patch.object(locker, "has_logged_today", return_value=False),
             patch(
-                "screen_locker.screen_lock.has_workout_skip_today",
+                "screen_locker._auto_upgrade.has_workout_skip_today",
                 return_value=True,
             ),
         ):
@@ -117,7 +117,7 @@ class TestCheckTodayStateExits:
             patch.object(locker, "_is_sick_day_log", return_value=False),
             patch.object(locker, "has_logged_today", return_value=False),
             patch(
-                "screen_locker.screen_lock.has_workout_skip_today",
+                "screen_locker._auto_upgrade.has_workout_skip_today",
                 return_value=False,
             ),
             patch.object(locker, "_is_early_bird_time", return_value=True),
@@ -138,7 +138,7 @@ class TestCheckTodayStateExits:
             patch.object(locker, "_is_sick_day_log", return_value=False),
             patch.object(locker, "has_logged_today", return_value=False),
             patch(
-                "screen_locker.screen_lock.has_workout_skip_today",
+                "screen_locker._auto_upgrade.has_workout_skip_today",
                 return_value=False,
             ),
             patch.object(locker, "_is_early_bird_time", return_value=False),

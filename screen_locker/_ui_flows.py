@@ -103,9 +103,7 @@ class UIFlowsMixin:
             # no_phone or error — try RunnerUp first, then penalty timer.
             self._start_runnerup_fallback(lambda: self._show_phone_penalty(message))
 
-    def _start_runnerup_fallback(
-        self, on_failure: "Callable[[], None]"
-    ) -> None:
+    def _start_runnerup_fallback(self, on_failure: Callable[[], None]) -> None:
         """Check RunnerUp as fallback after phone check fails.
 
         Shows a waiting screen, runs the check in a background thread, then

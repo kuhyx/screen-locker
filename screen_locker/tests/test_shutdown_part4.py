@@ -145,3 +145,84 @@ class TestWriteRestoredConfig:
         ):
             locker._write_restored_config(21, 20, "2026-03-20")
         assert not state_file.exists()
+
+
+class TestAdjustShutdownTimeBy:
+    """Tests for _adjust_shutdown_time_by method (extra-workout bonus)."""
+
+    def test_adjusts_time_successfully(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Normal path: reads config, increments both hours, writes back."""
+        locker = create_locker(mock_tk, tmp_path)
+        object.__setattr__(
+            locker, "_read_shutdown_config", MagicMock(return_value=(21, 21, 5))
+        )
+        object.__setattr__(
+            locker, "_write_shutdown_config", MagicMock(return_value=True)
+        )
+        assert locker._adjust_shutdown_time_by(1) is True
+        locker._write_shutdown_config.assert_called_once_with(22, 22, 5, restore=True)
+
+    def test_caps_hours_at_24(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Hours are capped at 24 (midnight-safe shutdown)."""
+        locker = create_locker(mock_tk, tmp_path)
+        object.__setattr__(
+            locker, "_read_shutdown_config", MagicMock(return_value=(23, 23, 5))
+        )
+        object.__setattr__(
+            locker, "_write_shutdown_config", MagicMock(return_value=True)
+        )
+        locker._adjust_shutdown_time_by(2)
+        locker._write_shutdown_config.assert_called_once_with(24, 24, 5, restore=True)
+
+    def test_returns_false_when_config_is_none(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """_read_shutdown_config returns None → return False immediately."""
+        locker = create_locker(mock_tk, tmp_path)
+        object.__setattr__(
+            locker, "_read_shutdown_config", MagicMock(return_value=None)
+        )
+        assert locker._adjust_shutdown_time_by(1) is False
+
+    def test_returns_false_on_oserror(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """OSError during read is caught; returns False."""
+        locker = create_locker(mock_tk, tmp_path)
+        object.__setattr__(
+            locker,
+            "_read_shutdown_config",
+            MagicMock(side_effect=OSError("permission denied")),
+        )
+        assert locker._adjust_shutdown_time_by(1) is False
+
+    def test_returns_false_on_value_error(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """ValueError during processing is caught; returns False."""
+        locker = create_locker(mock_tk, tmp_path)
+        object.__setattr__(
+            locker,
+            "_read_shutdown_config",
+            MagicMock(side_effect=ValueError("bad value")),
+        )
+        assert locker._adjust_shutdown_time_by(1) is False

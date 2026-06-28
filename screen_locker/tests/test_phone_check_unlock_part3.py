@@ -63,9 +63,14 @@ class TestStartPhoneCheck:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Test not_verified result shows retry and sick buttons."""
+        """Test not_verified result tries RunnerUp fallback then shows retry+sick."""
         locker = create_locker(mock_tk, tmp_path)
         object.__setattr__(locker, "_show_retry_and_sick", MagicMock())
+        object.__setattr__(
+            locker,
+            "_start_runnerup_fallback",
+            MagicMock(side_effect=lambda cb: cb()),
+        )
         locker._handle_startup_phone_result(
             "not_verified", "No workout found on phone today"
         )
@@ -95,14 +100,19 @@ class TestStartPhoneCheck:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Test stale result shows retry and sick buttons."""
+        """Test stale result tries RunnerUp fallback then shows retry+sick."""
         locker = create_locker(mock_tk, tmp_path)
         object.__setattr__(locker, "_show_retry_and_sick", MagicMock())
+        object.__setattr__(
+            locker,
+            "_start_runnerup_fallback",
+            MagicMock(side_effect=lambda cb: cb()),
+        )
         locker._handle_startup_phone_result("stale", "Workout too old")
 
         locker._show_retry_and_sick.assert_called_once()
         call_args = locker._show_retry_and_sick.call_args[0][0]
-        assert "reason: stale" in call_args.lower()
+        assert "workout too old" in call_args.lower()
 
     def test_handle_startup_no_exercises_shows_retry_and_sick(
         self,
@@ -110,14 +120,19 @@ class TestStartPhoneCheck:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Test no_exercises result shows retry and sick buttons."""
+        """Test no_exercises result tries RunnerUp fallback then shows retry+sick."""
         locker = create_locker(mock_tk, tmp_path)
         object.__setattr__(locker, "_show_retry_and_sick", MagicMock())
+        object.__setattr__(
+            locker,
+            "_start_runnerup_fallback",
+            MagicMock(side_effect=lambda cb: cb()),
+        )
         locker._handle_startup_phone_result("no_exercises", "No exercises found")
 
         locker._show_retry_and_sick.assert_called_once()
         call_args = locker._show_retry_and_sick.call_args[0][0]
-        assert "reason: no_exercises" in call_args.lower()
+        assert "no exercises found" in call_args.lower()
 
     def test_handle_startup_clock_tampered_shows_retry_and_sick(
         self,
@@ -143,9 +158,14 @@ class TestStartPhoneCheck:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Test no_phone result triggers penalty with default retry+sick callback."""
+        """Test no_phone result tries RunnerUp fallback then shows penalty."""
         locker = create_locker(mock_tk, tmp_path)
         object.__setattr__(locker, "_show_phone_penalty", MagicMock())
+        object.__setattr__(
+            locker,
+            "_start_runnerup_fallback",
+            MagicMock(side_effect=lambda cb: cb()),
+        )
 
         locker._handle_startup_phone_result("no_phone", "No phone")
 
@@ -157,9 +177,14 @@ class TestStartPhoneCheck:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Test error result triggers penalty with default retry+sick callback."""
+        """Test error result tries RunnerUp fallback then shows penalty."""
         locker = create_locker(mock_tk, tmp_path)
         object.__setattr__(locker, "_show_phone_penalty", MagicMock())
+        object.__setattr__(
+            locker,
+            "_start_runnerup_fallback",
+            MagicMock(side_effect=lambda cb: cb()),
+        )
 
         locker._handle_startup_phone_result("error", "DB not found")
 

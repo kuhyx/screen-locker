@@ -2,7 +2,6 @@
 # Install workout locker as a systemd user service
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCREEN_LOCK_PATH="$SCRIPT_DIR/screen_lock.py"
 SERVICE_FILE="$SCRIPT_DIR/workout-locker.service"
 EARLY_BIRD_TIMER_FILE="$SCRIPT_DIR/early-bird-workout-check.timer"
 USER_SERVICE_DIR="$HOME/.config/systemd/user"
@@ -32,6 +31,13 @@ if systemctl --user is-active "workout-locker.timer" &>/dev/null; then
 fi
 rm -f "$USER_SERVICE_DIR/workout-locker.timer"
 
+# Seed shutdown_base.json with base=21 if not already present
+SHUTDOWN_BASE="$SCRIPT_DIR/screen_locker/shutdown_base.json"
+if [[ ! -f "$SHUTDOWN_BASE" ]]; then
+	printf '{\n  "base_mon_wed_hour": 21,\n  "base_thu_sun_hour": 21,\n  "last_reset_date": ""\n}\n' > "$SHUTDOWN_BASE"
+	echo "✓ Created shutdown_base.json with base=21:00"
+fi
+
 # Copy service file to user systemd directory
 cp "$SERVICE_FILE" "$USER_SERVICE_DIR/$SERVICE_NAME"
 
@@ -39,10 +45,10 @@ cp "$SERVICE_FILE" "$USER_SERVICE_DIR/$SERVICE_NAME"
 cp "$EARLY_BIRD_TIMER_FILE" "$USER_SERVICE_DIR/$EARLY_BIRD_TIMER_NAME"
 
 # Update paths in the service file to use absolute paths
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+REPO_ROOT="$SCRIPT_DIR"
 sed -i "s|WorkingDirectory=.*|WorkingDirectory=$REPO_ROOT|" "$USER_SERVICE_DIR/$SERVICE_NAME"
 sed -i "s|Environment=PYTHONPATH=.*|Environment=PYTHONPATH=$REPO_ROOT|" "$USER_SERVICE_DIR/$SERVICE_NAME"
-sed -i "s|ExecStart=/usr/bin/python3.*|ExecStart=/usr/bin/python3 -m python_pkg.screen_locker.screen_lock --production|" "$USER_SERVICE_DIR/$SERVICE_NAME"
+sed -i "s|ExecStart=/usr/bin/python3.*|ExecStart=/usr/bin/python3 -m screen_locker.screen_lock --production|" "$USER_SERVICE_DIR/$SERVICE_NAME"
 
 # Reload systemd daemon
 systemctl --user daemon-reload
@@ -83,10 +89,10 @@ else
 	echo "  i3 autostart: not installed"
 	echo ""
 	echo "To add i3 startup hook (recommended), add this line to $I3_CONFIG:"
-	echo "  exec --no-startup-id /usr/bin/python3 -m python_pkg.screen_locker.screen_lock --production"
+	echo "  exec --no-startup-id /usr/bin/python3 -m screen_locker.screen_lock --production"
 fi
 
 # Immediately check if today's workout is done; block if not
 echo ""
 echo "=== Checking today's workout status ==="
-PYTHONPATH="$(cd "$SCRIPT_DIR/../.." && pwd)" python3 "$SCREEN_LOCK_PATH" --production
+PYTHONPATH="$SCRIPT_DIR" python3 -m screen_locker.screen_lock --production

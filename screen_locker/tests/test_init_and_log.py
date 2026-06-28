@@ -128,7 +128,7 @@ class TestHasLoggedToday:
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         with patch(
-            "screen_locker.screen_lock.verify_entry_hmac",
+            "screen_locker._log_mixin.verify_entry_hmac",
             return_value=True,
         ):
             assert locker.has_logged_today() is True
@@ -149,7 +149,7 @@ class TestHasLoggedToday:
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         with patch(
-            "screen_locker.screen_lock.verify_entry_hmac",
+            "screen_locker._log_mixin.verify_entry_hmac",
             return_value=False,
         ):
             assert locker.has_logged_today() is False
@@ -171,11 +171,11 @@ class TestHasLoggedToday:
         locker.log_file = log_file
         with (
             patch(
-                "screen_locker.screen_lock.verify_entry_hmac",
+                "screen_locker._log_mixin.verify_entry_hmac",
                 return_value=False,
             ),
             patch(
-                "screen_locker.screen_lock.compute_entry_hmac",
+                "screen_locker._log_mixin.compute_entry_hmac",
                 return_value=None,
             ),
         ):
@@ -198,11 +198,11 @@ class TestHasLoggedToday:
         locker.log_file = log_file
         with (
             patch(
-                "screen_locker.screen_lock.verify_entry_hmac",
+                "screen_locker._log_mixin.verify_entry_hmac",
                 return_value=False,
             ),
             patch(
-                "screen_locker.screen_lock.compute_entry_hmac",
+                "screen_locker._log_mixin.compute_entry_hmac",
                 return_value="some-signature",
             ),
         ):
@@ -238,7 +238,7 @@ class TestSaveWorkoutLog:
         locker.log_file = log_file
         locker.workout_data = {"type": "running"}
         with patch(
-            "screen_locker.screen_lock.compute_entry_hmac",
+            "screen_locker._log_mixin.compute_entry_hmac",
             return_value="abc123",
         ):
             locker.save_workout_log()
@@ -263,7 +263,7 @@ class TestSaveWorkoutLog:
         locker.log_file = log_file
         locker.workout_data = {"type": "running"}
         with patch(
-            "screen_locker.screen_lock.compute_entry_hmac",
+            "screen_locker._log_mixin.compute_entry_hmac",
             return_value=None,
         ):
             locker.save_workout_log()
@@ -287,7 +287,7 @@ class TestSaveWorkoutLog:
         locker.log_file = log_file
         locker.workout_data = {"type": "strength"}
         with patch(
-            "screen_locker.screen_lock.compute_entry_hmac",
+            "screen_locker._log_mixin.compute_entry_hmac",
             return_value="sig",
         ):
             locker.save_workout_log()
@@ -312,7 +312,7 @@ class TestSaveWorkoutLog:
         locker.log_file = log_file
         locker.workout_data = {"type": "running"}
         with patch(
-            "screen_locker.screen_lock.compute_entry_hmac",
+            "screen_locker._log_mixin.compute_entry_hmac",
             return_value="sig",
         ):
             locker.save_workout_log()
@@ -335,7 +335,7 @@ class TestSaveWorkoutLog:
         locker.log_file = log_file
         locker.workout_data = {"type": "running"}
         with patch(
-            "screen_locker.screen_lock.compute_entry_hmac",
+            "screen_locker._log_mixin.compute_entry_hmac",
             return_value="sig",
         ):
             # Should not raise, just log warning

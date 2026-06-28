@@ -22,7 +22,7 @@ class TestWakeSkipIntegration:
     ) -> None:
         """Screen locker exits if wake alarm granted workout skip today."""
         with patch(
-            "screen_locker.screen_lock.has_workout_skip_today",
+            "screen_locker._auto_upgrade.has_workout_skip_today",
             return_value=True,
         ):
             create_locker(mock_tk, tmp_path, has_logged=False)
@@ -37,7 +37,7 @@ class TestWakeSkipIntegration:
     ) -> None:
         """Screen locker proceeds normally if no wake skip active."""
         with patch(
-            "screen_locker.screen_lock.has_workout_skip_today",
+            "screen_locker._auto_upgrade.has_workout_skip_today",
             return_value=False,
         ):
             locker = create_locker(mock_tk, tmp_path, has_logged=False)
@@ -53,7 +53,7 @@ class TestWakeSkipIntegration:
     ) -> None:
         """has_logged_today exits before wake skip is even checked."""
         with patch(
-            "screen_locker.screen_lock.has_workout_skip_today",
+            "screen_locker._auto_upgrade.has_workout_skip_today",
             return_value=True,
         ):
             create_locker(mock_tk, tmp_path, has_logged=True)
@@ -69,7 +69,7 @@ class TestWakeSkipIntegration:
     ) -> None:
         """verify_only mode checks sick day log, not wake skip."""
         with patch(
-            "screen_locker.screen_lock.has_workout_skip_today",
+            "screen_locker._auto_upgrade.has_workout_skip_today",
             return_value=True,
         ):
             create_locker(

@@ -63,6 +63,10 @@ SICK_DAY_STATE_FILE = Path(__file__).resolve().parent / "sick_day_state.json"
 SICK_HISTORY_FILE = Path(__file__).resolve().parent / "sick_history.json"
 # JSON list of ISO date strings ("YYYY-MM-DD") for which the screen lock is skipped.
 SCHEDULED_SKIPS_FILE = Path(__file__).resolve().parent / "scheduled_skips.json"
+# State file tracking streak, skip credits, and early-bird extension weeks.
+EXTRA_BENEFITS_FILE = Path(__file__).resolve().parent / "extra_benefits_state.json"
+# State file storing the base (pre-bonus) shutdown hours and last reset date.
+SHUTDOWN_BASE_FILE = Path(__file__).resolve().parent / "shutdown_base.json"
 
 # ---------------------------------------------------------------------------
 # Wake-alarm integration (originally from wake_alarm._constants / _state).

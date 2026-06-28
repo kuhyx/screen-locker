@@ -135,7 +135,7 @@ def _isolate_scheduled_skips(tmp_path: Path) -> Iterator[None]:
     """Redirect SCHEDULED_SKIPS_FILE to tmp_path so tests use a clean file."""
     target = tmp_path / "scheduled_skips.json"
     with patch(
-        "screen_locker.screen_lock.SCHEDULED_SKIPS_FILE",
+        "screen_locker._log_mixin.SCHEDULED_SKIPS_FILE",
         target,
     ):
         yield
@@ -231,6 +231,7 @@ def create_locker(
         patch.object(ScreenLocker, "_start_phone_check"),
         patch.object(ScreenLocker, "_start_relaxed_day_flow"),
         patch.object(ScreenLocker, "_start_verify_workout_check"),
+        patch.object(ScreenLocker, "_scan_and_fill_week_runnerup", return_value=0),
     ):
         return ScreenLocker(
             demo_mode=demo_mode,
