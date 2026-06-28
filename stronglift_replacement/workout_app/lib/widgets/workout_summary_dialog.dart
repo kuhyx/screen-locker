@@ -5,14 +5,19 @@ import 'package:flutter/material.dart';
 import 'package:workout_app/models/workout_session.dart';
 import 'package:workout_app/services/sync_service.dart';
 
+/// Dialog that summarises a completed workout and reports the sync status.
 class WorkoutSummaryDialog extends StatelessWidget {
+  /// Creates a [WorkoutSummaryDialog].
   const WorkoutSummaryDialog({
-    super.key,
     required this.session,
     required this.syncResult,
+    super.key,
   });
 
+  /// The completed workout session to summarise.
   final WorkoutSession session;
+
+  /// Result of writing the session to disk/HTTP server.
   final SyncResult syncResult;
 
   String _fmt(Duration d) {

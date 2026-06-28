@@ -8,7 +8,9 @@ import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/services/storage_service.dart';
 
+/// Screen for editing per-exercise thresholds and manual weight overrides.
 class SettingsScreen extends StatefulWidget {
+  /// Creates a [SettingsScreen].
   const SettingsScreen({super.key});
 
   @override
@@ -16,7 +18,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  List<ExerciseState>? _states;
   bool _loading = true;
 
   final Map<String, int> _successThresholds = {};
@@ -29,7 +30,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
   @override
@@ -44,7 +45,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final states = await StorageService.instance.getAllExerciseStates();
     if (mounted) {
       setState(() {
-        _states = states;
         for (final s in states) {
           _successThresholds[s.name] = s.successThreshold;
           _failThresholds[s.name] = s.failThreshold;
@@ -59,7 +59,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _weights[name] = value);
     _weightTimers[name]?.cancel();
     _weightTimers[name] = Timer(const Duration(milliseconds: 600), () {
-      StorageService.instance.setExerciseWeight(name, value);
+      unawaited(StorageService.instance.setExerciseWeight(name, value));
     });
   }
 
@@ -92,13 +92,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child:
-                const Text('Cancel', style: TextStyle(color: Colors.white70)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white70),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child:
-                const Text('Reset', style: TextStyle(color: Colors.redAccent)),
+            child: const Text(
+              'Reset',
+              style: TextStyle(color: Colors.redAccent),
+            ),
           ),
         ],
       ),
@@ -113,10 +117,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   List<String> get _orderedNames {
     final seen = <String>{};
-    return [...workoutA, ...workoutB]
-        .map((e) => e.name)
-        .where(seen.add)
-        .toList();
+    return [
+      ...workoutA,
+      ...workoutB,
+    ].map((e) => e.name).where(seen.add).toList();
   }
 
   @override

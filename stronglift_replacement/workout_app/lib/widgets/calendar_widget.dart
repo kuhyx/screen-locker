@@ -3,27 +3,44 @@ library;
 
 import 'package:flutter/material.dart';
 
+/// Monthly calendar widget that highlights days with completed workouts.
 class WorkoutCalendar extends StatelessWidget {
+  /// Creates a [WorkoutCalendar].
   const WorkoutCalendar({
-    super.key,
     required this.workoutDates,
     required this.month,
     required this.onPrevMonth,
     required this.onNextMonth,
+    super.key,
   });
 
+  /// Set of YYYY-MM-DD date strings that had at least one workout.
   final Set<String> workoutDates;
 
   /// Only the year and month of this DateTime are used.
   final DateTime month;
+
+  /// Called when the user taps the previous-month chevron.
   final VoidCallback onPrevMonth;
+
+  /// Called when the user taps the next-month chevron.
   final VoidCallback onNextMonth;
 
   static const _weekHeaders = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
   static const _monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
 
   String _dateKey(int year, int m, int day) =>
@@ -35,7 +52,7 @@ class WorkoutCalendar extends StatelessWidget {
     final m = month.month;
     final daysInMonth = DateTime(year, m + 1, 0).day;
     // weekday: 1=Mon..7=Sun → offset 0..6
-    final firstWeekday = DateTime(year, m, 1).weekday - 1;
+    final firstWeekday = DateTime(year, m).weekday - 1;
     final totalCells = firstWeekday + daysInMonth;
     final rows = (totalCells / 7).ceil();
 
@@ -123,8 +140,7 @@ class WorkoutCalendar extends StatelessWidget {
                     style: TextStyle(
                       color: worked ? Colors.white : Colors.white38,
                       fontSize: 12,
-                      fontWeight:
-                          worked ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: worked ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                 );

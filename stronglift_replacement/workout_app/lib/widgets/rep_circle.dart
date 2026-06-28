@@ -7,34 +7,53 @@
 ///   failed   – red, shows 0 (all reps deducted)
 ///
 /// Interaction:
-///   single tap  → neutral→success, success→partial(-1 rep), partial→partial(-1 rep),
-///                  failed stays failed
+///   single tap  → neutral→success, success→partial(-1 rep),
+///                  partial→partial(-1 rep), failed stays failed
 ///   long press  → reset to neutral
 library;
 
 import 'package:flutter/material.dart';
 
-enum RepCircleState { neutral, success, partial, failed }
+/// Visual state of a [RepCircle].
+enum RepCircleState {
+  /// Not yet tapped; shows target reps.
+  neutral,
 
+  /// All reps completed; green.
+  success,
+
+  /// Some reps completed; orange, shows actual count.
+  partial,
+
+  /// All reps deducted; red.
+  failed,
+}
+
+/// Tappable circle representing one working set of an exercise.
 class RepCircle extends StatelessWidget {
+  /// Creates a [RepCircle].
   const RepCircle({
-    super.key,
     required this.targetReps,
     required this.doneReps,
     required this.tapped,
     required this.onTap,
     required this.onLongPress,
+    super.key,
   });
 
+  /// Number of reps the user is aiming for this set.
   final int targetReps;
 
-  /// Reps currently registered (may be < targetReps if user tapped multiple times).
+  /// Reps currently registered (may be < targetReps after repeated taps).
   final int doneReps;
 
-  /// Whether this circle has been tapped at all (distinguishes neutral from success).
+  /// Whether this circle has been tapped at all (neutral vs success).
   final bool tapped;
 
+  /// Called on a single tap.
   final VoidCallback onTap;
+
+  /// Called on a long press (resets to neutral).
   final VoidCallback onLongPress;
 
   RepCircleState get _state {

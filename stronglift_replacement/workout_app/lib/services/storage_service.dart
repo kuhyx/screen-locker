@@ -1,14 +1,18 @@
 /// Persistent storage for exercise progression state using SQLite.
 library;
 
+import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/workout_plan.dart';
+import 'package:workout_app/services/backup_service.dart';
 
 /// Per-exercise progression state stored in SQLite.
 class ExerciseState {
+  /// Creates an [ExerciseState] with all required progression fields.
   ExerciseState({
     required this.name,
     required this.weight,
@@ -20,23 +24,42 @@ class ExerciseState {
     required this.failThreshold,
   });
 
+  /// Exercise name (matches [Exercise.name], used as primary key).
   final String name;
+
+  /// Current working weight in kg.
   double weight;
+
+  /// Current target reps per set.
   int reps;
+
+  /// Consecutive successful workouts since last progression.
   int successStreak;
+
+  /// Consecutive failed workouts since last regression.
   int failStreak;
+
+  /// Weight cap; reps increase instead of weight when this is reached.
   final double maxWeight;
+
+  /// Successes needed in a row before weight/reps increase.
   int successThreshold;
+
+  /// Failures needed in a row before weight decreases.
   int failThreshold;
 }
 
+/// Singleton SQLite service for workout data persistence.
 class StorageService {
   StorageService._();
   static StorageService? _instance;
+
+  /// Returns the initialized singleton; throws if [init] was not called first.
   static StorageService get instance => _instance!;
 
   late Database _db;
 
+  /// Initializes the singleton and opens the database (idempotent).
   static Future<StorageService> init() async {
     if (_instance != null) return _instance!;
     final svc = StorageService._();
@@ -45,8 +68,22 @@ class StorageService {
     return svc;
   }
 
+  // Overrides the DB path for unit tests (set by resetForTesting).
+  static String? _testDbPath;
+
+  /// Resets the singleton so [init] can be called again in tests.
+  ///
+  /// Also switches to an in-memory database so each test starts with a clean
+  /// slate and file-based data from other tests does not leak in.
+  @visibleForTesting
+  static void resetForTesting() {
+    _instance = null;
+    _testDbPath = ':memory:';
+  }
+
   Future<void> _open() async {
-    final dbPath = p.join(await getDatabasesPath(), 'workout_app.db');
+    final dbPath =
+        _testDbPath ?? p.join(await getDatabasesPath(), 'workout_app.db');
     _db = await openDatabase(
       dbPath,
       version: 3,
@@ -100,15 +137,18 @@ class StorageService {
   ) async {
     if (oldVersion < 2) {
       await db.execute(
-        'ALTER TABLE exercise_state ADD COLUMN success_threshold INTEGER NOT NULL DEFAULT 3',
+        'ALTER TABLE exercise_state '
+        'ADD COLUMN success_threshold INTEGER NOT NULL DEFAULT 3',
       );
       await db.execute(
-        'ALTER TABLE exercise_state ADD COLUMN fail_threshold INTEGER NOT NULL DEFAULT 2',
+        'ALTER TABLE exercise_state '
+        'ADD COLUMN fail_threshold INTEGER NOT NULL DEFAULT 2',
       );
     }
     if (oldVersion < 3) {
       await db.execute(
-        'CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
+        'CREATE TABLE IF NOT EXISTS settings '
+        '(key TEXT PRIMARY KEY, value TEXT NOT NULL)',
       );
       await db.execute(
         'CREATE TABLE IF NOT EXISTS active_session '
@@ -147,7 +187,7 @@ class StorageService {
       where: 'key = ?',
       whereArgs: [key],
     );
-    return rows.isEmpty ? null : rows.first['value'] as String;
+    return rows.isEmpty ? null : rows.first['value']! as String;
   }
 
   Future<void> _setSetting(String key, String value) async {
@@ -158,17 +198,21 @@ class StorageService {
     );
   }
 
+  /// Returns 'A' or 'B' — the type that should be done next.
   Future<String> getNextWorkoutType() async {
     final last = await _getSetting('last_workout_type');
     return last == 'A' ? 'B' : 'A';
   }
 
+  /// Persists [type] as the most recently completed workout type.
   Future<void> setLastWorkoutType(String type) async {
     await _setSetting('last_workout_type', type);
+    unawaited(_backupNow());
   }
 
   // ── Active session (crash / exit recovery) ─────────────────────────────────
 
+  /// Persists [data] as the currently active (in-progress) session.
   Future<void> saveActiveSession(Map<String, dynamic> data) async {
     await _db.insert(
       'active_session',
@@ -177,18 +221,21 @@ class StorageService {
     );
   }
 
+  /// Returns the saved active session, or null if none exists.
   Future<Map<String, dynamic>?> loadActiveSession() async {
     final rows = await _db.query('active_session', where: 'id = 1');
     if (rows.isEmpty) return null;
-    return jsonDecode(rows.first['json'] as String) as Map<String, dynamic>;
+    return jsonDecode(rows.first['json']! as String) as Map<String, dynamic>;
   }
 
+  /// Removes the active session record (called after a session is committed).
   Future<void> clearActiveSession() async {
     await _db.delete('active_session', where: 'id = 1');
   }
 
   // ── Exercise state ─────────────────────────────────────────────────────────
 
+  /// Returns the progression state for [name], or null if not found.
   Future<ExerciseState?> getExerciseState(String name) async {
     final rows = await _db.query(
       'exercise_state',
@@ -198,17 +245,18 @@ class StorageService {
     if (rows.isEmpty) return null;
     final r = rows.first;
     return ExerciseState(
-      name: r['name'] as String,
-      weight: r['weight'] as double,
-      reps: r['reps'] as int,
-      successStreak: r['success_streak'] as int,
-      failStreak: r['fail_streak'] as int,
-      maxWeight: r['max_weight'] as double,
+      name: r['name']! as String,
+      weight: r['weight']! as double,
+      reps: r['reps']! as int,
+      successStreak: r['success_streak']! as int,
+      failStreak: r['fail_streak']! as int,
+      maxWeight: r['max_weight']! as double,
       successThreshold: r['success_threshold'] as int? ?? 3,
       failThreshold: r['fail_threshold'] as int? ?? 2,
     );
   }
 
+  /// Returns progression states for every exercise across both plans.
   Future<List<ExerciseState>> getAllExerciseStates() async {
     final allNames = [...workoutA, ...workoutB].map((e) => e.name).toSet();
     final states = <ExerciseState>[];
@@ -219,6 +267,7 @@ class StorageService {
     return states;
   }
 
+  /// Updates the streak thresholds for exercise [name].
   Future<void> setExerciseThresholds(
     String name, {
     required int successThreshold,
@@ -235,6 +284,7 @@ class StorageService {
     );
   }
 
+  /// Sets the working weight for [name], resetting streaks.
   Future<void> setExerciseWeight(String name, double weight) async {
     await _db.update(
       'exercise_state',
@@ -242,8 +292,10 @@ class StorageService {
       where: 'name = ?',
       whereArgs: [name],
     );
+    unawaited(_backupNow());
   }
 
+  /// Returns exercises for [workoutType] with weights/reps from stored state.
   Future<List<Exercise>> getCurrentExercises(String workoutType) async {
     final template = workoutType == 'A' ? workoutA : workoutB;
     final result = <Exercise>[];
@@ -258,6 +310,7 @@ class StorageService {
     return result;
   }
 
+  /// Applies progressive overload or regression based on [succeededExercises].
   Future<void> applyProgression({
     required Map<String, bool> succeededExercises,
     required DateTime lastWorkoutDate,
@@ -270,8 +323,10 @@ class StorageService {
       if (state == null) continue;
 
       if (hadBreak) {
-        final newWeight =
-            (state.weight - kWeightIncrement).clamp(0.0, state.maxWeight);
+        final newWeight = (state.weight - kWeightIncrement).clamp(
+          0.0,
+          state.maxWeight,
+        );
         await _db.update(
           'exercise_state',
           {'weight': newWeight, 'success_streak': 0, 'fail_streak': 0},
@@ -284,15 +339,17 @@ class StorageService {
       if (entry.value) {
         final newStreak = state.successStreak + 1;
         final shouldProgress = newStreak >= state.successThreshold;
-        double newWeight = state.weight;
-        int newReps = state.reps;
+        var newWeight = state.weight;
+        var newReps = state.reps;
 
         if (shouldProgress) {
           if (state.weight >= state.maxWeight) {
             newReps = state.reps + 1;
           } else {
-            newWeight =
-                (state.weight + kWeightIncrement).clamp(0.0, state.maxWeight);
+            newWeight = (state.weight + kWeightIncrement).clamp(
+              0.0,
+              state.maxWeight,
+            );
           }
         }
 
@@ -328,6 +385,7 @@ class StorageService {
     }
   }
 
+  /// Persists a completed session to the workout history table.
   Future<void> saveSession({
     required String date,
     required String workoutType,
@@ -342,16 +400,19 @@ class StorageService {
       'succeeded': succeeded ? 1 : 0,
       'json': json,
     });
+    unawaited(_backupNow());
   }
 
+  /// Returns the date of the most recent completed session, or null.
   Future<DateTime?> getLastWorkoutDate() async {
     final rows = await _db.rawQuery(
       'SELECT date FROM workout_history ORDER BY date DESC LIMIT 1',
     );
     if (rows.isEmpty) return null;
-    return DateTime.tryParse(rows.first['date'] as String);
+    return DateTime.tryParse(rows.first['date']! as String);
   }
 
+  /// Returns up to [limit] rows from workout history, newest first.
   Future<List<Map<String, dynamic>>> getWorkoutHistory({
     int limit = 60,
   }) async {
@@ -362,13 +423,15 @@ class StorageService {
     );
   }
 
+  /// Returns all distinct workout dates (YYYY-MM-DD), newest first.
   Future<List<String>> getAllWorkoutDates() async {
     final rows = await _db.rawQuery(
       'SELECT DISTINCT date FROM workout_history ORDER BY date DESC',
     );
-    return rows.map((r) => r['date'] as String).toList();
+    return rows.map((r) => r['date']! as String).toList();
   }
 
+  /// Resets [name] to its default weight and thresholds, clearing streaks.
   Future<void> resetExerciseToDefaults(String name) async {
     final defaults = [...workoutA, ...workoutB].firstWhere(
       (e) => e.name == name,
@@ -386,5 +449,62 @@ class StorageService {
       where: 'name = ?',
       whereArgs: [name],
     );
+    unawaited(_backupNow());
+  }
+
+  // ── Backup / restore ───────────────────────────────────────────────────────
+
+  /// Exports all persistent data to external storage as a JSON snapshot.
+  Future<void> _backupNow() async {
+    final exerciseRows = await _db.query('exercise_state');
+    final historyRows = await _db.query('workout_history');
+    final settingsRows = await _db.query('settings');
+    await BackupService.instance.export({
+      'exercise_state': exerciseRows,
+      'workout_history': historyRows,
+      'settings': settingsRows,
+    });
+  }
+
+  /// Restores from backup if the local DB is empty (fresh install).
+  ///
+  /// "Empty" means no workout history and no [last_workout_type] setting.
+  Future<void> restoreFromBackupIfNeeded() async {
+    final hasHistory =
+        (await _db.rawQuery('SELECT COUNT(*) AS c FROM workout_history'))
+            .first['c'] as int? ??
+        0;
+    final hasType = await _getSetting('last_workout_type');
+    if (hasHistory > 0 || hasType != null) return; // DB has real data
+
+    final backup = await BackupService.instance.readBackup();
+    if (backup == null) return;
+
+    await _db.transaction((txn) async {
+      for (final row in (backup['exercise_state'] as List? ?? [])
+          .cast<Map<String, dynamic>>()) {
+        await txn.insert(
+          'exercise_state',
+          row,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      for (final row in (backup['workout_history'] as List? ?? [])
+          .cast<Map<String, dynamic>>()) {
+        await txn.insert(
+          'workout_history',
+          row,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      for (final row in (backup['settings'] as List? ?? [])
+          .cast<Map<String, dynamic>>()) {
+        await txn.insert(
+          'settings',
+          row,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
   }
 }

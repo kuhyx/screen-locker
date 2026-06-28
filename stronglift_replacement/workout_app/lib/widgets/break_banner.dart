@@ -3,16 +3,23 @@ library;
 
 import 'package:flutter/material.dart';
 
+/// Banner widget showing a break countdown and a skip button.
 class BreakBanner extends StatelessWidget {
+  /// Creates a [BreakBanner].
   const BreakBanner({
-    super.key,
     required this.breakRemaining,
     required this.breakLabel,
     required this.onSkip,
+    super.key,
   });
 
+  /// Seconds remaining in the current break.
   final int breakRemaining;
+
+  /// Display label for the break (e.g. 'Rest' or 'Warmup rest').
   final String breakLabel;
+
+  /// Called when the user taps the Skip button.
   final VoidCallback onSkip;
 
   String _fmt(int secs) {

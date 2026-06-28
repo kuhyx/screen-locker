@@ -5,6 +5,7 @@
 /// exercise-only session list.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -14,7 +15,9 @@ import 'package:workout_app/widgets/calendar_widget.dart';
 
 const _kTotal = 'Total (all workouts)';
 
+/// Screen showing workout history with per-exercise drill-down and charts.
 class HistoryScreen extends StatefulWidget {
+  /// Creates a [HistoryScreen].
   const HistoryScreen({super.key});
 
   @override
@@ -27,13 +30,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
   String _selected = _kTotal;
   List<String> _exerciseNames = [];
   ExerciseState? _selectedState;
-  DateTime _calendarMonth =
-      DateTime(DateTime.now().year, DateTime.now().month);
+  DateTime _calendarMonth = DateTime(DateTime.now().year, DateTime.now().month);
 
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
   Future<void> _load() async {
@@ -41,9 +43,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final names = <String>[];
     final seen = <String>{};
     for (final row in rows) {
-      final json =
-          jsonDecode(row['json'] as String) as Map<String, dynamic>;
-      for (final ex in (json['exercises'] as List)) {
+      final json = jsonDecode(row['json'] as String) as Map<String, dynamic>;
+      for (final ex in (json['exercises'] as List? ?? const [])) {
         final name = (ex as Map<String, dynamic>)['name'] as String;
         if (seen.add(name)) names.add(name);
       }
@@ -75,7 +76,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
-  // ── Data helpers ────────────────────────────────────────────────────────────
+  // ── Data helpers ──────────────────────────────────────────────────────────
 
   /// All workout dates (YYYY-MM-DD) across all sessions.
   Set<String> get _allWorkoutDates =>
@@ -85,9 +86,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Set<String> _exerciseDates(String name) {
     final result = <String>{};
     for (final row in _rows) {
-      final json =
-          jsonDecode(row['json'] as String) as Map<String, dynamic>;
-      for (final ex in (json['exercises'] as List)) {
+      final json = jsonDecode(row['json'] as String) as Map<String, dynamic>;
+      for (final ex in (json['exercises'] as List? ?? const [])) {
         if ((ex as Map<String, dynamic>)['name'] == name) {
           result.add(row['date'] as String);
           break;
@@ -101,10 +101,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
   List<(DateTime, double)> _totalVolumePoints() {
     final points = <(DateTime, double)>[];
     for (final row in _rows.reversed) {
-      final json =
-          jsonDecode(row['json'] as String) as Map<String, dynamic>;
+      final json = jsonDecode(row['json'] as String) as Map<String, dynamic>;
       double total = 0;
-      for (final ex in (json['exercises'] as List)) {
+      for (final ex in (json['exercises'] as List? ?? const [])) {
         final m = ex as Map<String, dynamic>;
         final w = (m['targetWeight'] as num?)?.toDouble() ?? 0;
         final s = (m['targetSets'] as num?)?.toInt() ?? 0;
@@ -121,9 +120,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   List<(DateTime, double)> _exerciseWeightPoints(String name) {
     final points = <(DateTime, double)>[];
     for (final row in _rows.reversed) {
-      final json =
-          jsonDecode(row['json'] as String) as Map<String, dynamic>;
-      for (final ex in (json['exercises'] as List)) {
+      final json = jsonDecode(row['json'] as String) as Map<String, dynamic>;
+      for (final ex in (json['exercises'] as List? ?? const [])) {
         final m = ex as Map<String, dynamic>;
         if (m['name'] == name) {
           final date = DateTime.tryParse(row['date'] as String);
@@ -140,9 +138,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   List<Map<String, dynamic>> _sessionsForExercise(String name) {
     final result = <Map<String, dynamic>>[];
     for (final row in _rows) {
-      final json =
-          jsonDecode(row['json'] as String) as Map<String, dynamic>;
-      for (final ex in (json['exercises'] as List)) {
+      final json = jsonDecode(row['json'] as String) as Map<String, dynamic>;
+      for (final ex in (json['exercises'] as List? ?? const [])) {
         final m = ex as Map<String, dynamic>;
         if (m['name'] == name) {
           result.add({...row, 'exerciseData': m});
@@ -153,7 +150,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return result;
   }
 
-  // ── Build ───────────────────────────────────────────────────────────────────
+  // ── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -170,25 +167,27 @@ class _HistoryScreenState extends State<HistoryScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _rows.isEmpty
-              ? const Center(
-                  child: Text(
-                    'No workouts yet.',
-                    style: TextStyle(color: Colors.white54),
-                  ),
-                )
-              : ListView(
-                  padding: const EdgeInsets.all(12),
-                  children: [
-                    _ExercisePicker(
-                      names: allNames,
-                      selected: _selected,
-                      onChanged: _pickExercise,
-                    ),
-                    const SizedBox(height: 12),
-                    if (isTotal) ..._buildTotalView()
-                    else ..._buildExerciseView(_selected),
-                  ],
+          ? const Center(
+              child: Text(
+                'No workouts yet.',
+                style: TextStyle(color: Colors.white54),
+              ),
+            )
+          : ListView(
+              padding: const EdgeInsets.all(12),
+              children: [
+                _ExercisePicker(
+                  names: allNames,
+                  selected: _selected,
+                  onChanged: _pickExercise,
                 ),
+                const SizedBox(height: 12),
+                if (isTotal)
+                  ..._buildTotalView()
+                else
+                  ..._buildExerciseView(_selected),
+              ],
+            ),
     );
   }
 
@@ -204,70 +203,69 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   List<Widget> _buildTotalView() => [
-        _SectionLabel('TOTAL VOLUME (2-session rolling avg, kg)'),
-        const SizedBox(height: 6),
-        _WeightChart(
-          points: _rollingAvg2(_totalVolumePoints()),
-        ),
-        const SizedBox(height: 16),
-        WorkoutCalendar(
-          workoutDates: _allWorkoutDates,
-          month: _calendarMonth,
-          onPrevMonth: () => setState(() {
-            _calendarMonth = DateTime(
-              _calendarMonth.year,
-              _calendarMonth.month - 1,
-            );
-          }),
-          onNextMonth: () => setState(() {
-            _calendarMonth = DateTime(
-              _calendarMonth.year,
-              _calendarMonth.month + 1,
-            );
-          }),
-        ),
-        const SizedBox(height: 16),
-        _SectionLabel('ALL SESSIONS'),
-        const SizedBox(height: 8),
-        ..._rows.map((row) => _AllSessionTile(row: row)),
-      ];
+    const _SectionLabel('TOTAL VOLUME (2-session rolling avg, kg)'),
+    const SizedBox(height: 6),
+    _WeightChart(
+      points: _rollingAvg2(_totalVolumePoints()),
+    ),
+    const SizedBox(height: 16),
+    WorkoutCalendar(
+      workoutDates: _allWorkoutDates,
+      month: _calendarMonth,
+      onPrevMonth: () => setState(() {
+        _calendarMonth = DateTime(
+          _calendarMonth.year,
+          _calendarMonth.month - 1,
+        );
+      }),
+      onNextMonth: () => setState(() {
+        _calendarMonth = DateTime(
+          _calendarMonth.year,
+          _calendarMonth.month + 1,
+        );
+      }),
+    ),
+    const SizedBox(height: 16),
+    const _SectionLabel('ALL SESSIONS'),
+    const SizedBox(height: 8),
+    ..._rows.map((row) => _AllSessionTile(row: row)),
+  ];
 
   List<Widget> _buildExerciseView(String name) => [
-        if (_selectedState != null) ...[
-          _ProgressStatsCard(state: _selectedState!),
-          const SizedBox(height: 12),
-        ],
-        _SectionLabel('WEIGHT OVER TIME'),
-        const SizedBox(height: 6),
-        _WeightChart(
-          points: _exerciseWeightPoints(name),
-        ),
-        const SizedBox(height: 16),
-        WorkoutCalendar(
-          workoutDates: _exerciseDates(name),
-          month: _calendarMonth,
-          onPrevMonth: () => setState(() {
-            _calendarMonth = DateTime(
-              _calendarMonth.year,
-              _calendarMonth.month - 1,
-            );
-          }),
-          onNextMonth: () => setState(() {
-            _calendarMonth = DateTime(
-              _calendarMonth.year,
-              _calendarMonth.month + 1,
-            );
-          }),
-        ),
-        const SizedBox(height: 16),
-        _SectionLabel(name.toUpperCase()),
-        const SizedBox(height: 8),
-        ..._sessionsForExercise(name)
-            .map((s) => _ExerciseSessionTile(session: s)),
-      ];
+    if (_selectedState != null) ...[
+      _ProgressStatsCard(state: _selectedState!),
+      const SizedBox(height: 12),
+    ],
+    const _SectionLabel('WEIGHT OVER TIME'),
+    const SizedBox(height: 6),
+    _WeightChart(
+      points: _exerciseWeightPoints(name),
+    ),
+    const SizedBox(height: 16),
+    WorkoutCalendar(
+      workoutDates: _exerciseDates(name),
+      month: _calendarMonth,
+      onPrevMonth: () => setState(() {
+        _calendarMonth = DateTime(
+          _calendarMonth.year,
+          _calendarMonth.month - 1,
+        );
+      }),
+      onNextMonth: () => setState(() {
+        _calendarMonth = DateTime(
+          _calendarMonth.year,
+          _calendarMonth.month + 1,
+        );
+      }),
+    ),
+    const SizedBox(height: 16),
+    _SectionLabel(name.toUpperCase()),
+    const SizedBox(height: 8),
+    ..._sessionsForExercise(name).map((s) => _ExerciseSessionTile(session: s)),
+  ];
 }
 
-// ── Shared sub-widgets ─────────────────────────────────────────────────────────
+// ── Shared sub-widgets ──────────────────────────────────────────────────────
 
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text);
@@ -314,8 +312,7 @@ class _ExercisePicker extends StatelessWidget {
                 n,
                 style: TextStyle(
                   color: n == _kTotal ? Colors.white70 : Colors.white,
-                  fontStyle:
-                      n == _kTotal ? FontStyle.italic : FontStyle.normal,
+                  fontStyle: n == _kTotal ? FontStyle.italic : FontStyle.normal,
                 ),
               ),
             ),
@@ -481,8 +478,18 @@ class _ChartPainter extends CustomPainter {
   static const _hPad = 8.0;
 
   static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   static String _shortDate(DateTime d) => '${_months[d.month - 1]} ${d.day}';
@@ -496,9 +503,9 @@ class _ChartPainter extends CustomPainter {
     final wRange = maxW - minW;
     final tRange = maxMs - minMs;
 
-    final plotTop = _topPad;
+    const plotTop = _topPad;
     final plotBottom = size.height - _bottomPad;
-    final plotLeft = _hPad;
+    const plotLeft = _hPad;
     final plotRight = size.width - _hPad;
     final plotHeight = plotBottom - plotTop;
     final plotWidth = plotRight - plotLeft;
@@ -518,8 +525,7 @@ class _ChartPainter extends CustomPainter {
       ..color = Colors.indigoAccent
       ..style = PaintingStyle.fill;
 
-    final path = Path()
-      ..moveTo(xOf(points.first.$1), yOf(points.first.$2));
+    final path = Path()..moveTo(xOf(points.first.$1), yOf(points.first.$2));
     for (final p in points.skip(1)) {
       path.lineTo(xOf(p.$1), yOf(p.$2));
     }
@@ -540,7 +546,7 @@ class _ChartPainter extends CustomPainter {
         ..paint(canvas, offset);
     }
 
-    drawText('${maxW.round()}kg', Offset(plotLeft, 0));
+    drawText('${maxW.round()}kg', const Offset(plotLeft, 0));
     drawText('${minW.round()}kg', Offset(plotLeft, plotBottom + 2));
 
     // X-axis date labels: first, middle, last
@@ -592,7 +598,6 @@ class _AllSessionTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: succeeded ? Colors.green.shade800 : Colors.red.shade900,
-          width: 1,
         ),
       ),
       child: Row(
@@ -616,8 +621,7 @@ class _AllSessionTile extends StatelessWidget {
                 ),
                 Text(
                   dur,
-                  style:
-                      const TextStyle(color: Colors.white54, fontSize: 12),
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
                 ),
               ],
             ),
@@ -648,8 +652,7 @@ class _ExerciseSessionTile extends StatelessWidget {
     final dur = _formatDuration(session['duration_seconds'] as int);
     final weight = (exData['targetWeight'] as num?)?.toDouble();
     final warmupDone = exData['warmupDone'] as bool? ?? false;
-    final sets =
-        (exData['sets'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final sets = (exData['sets'] as List?)?.cast<Map<String, dynamic>>() ?? [];
     final targetSets = exData['targetSets'] as int? ?? sets.length;
     final doneSets = sets.where((s) => s['succeeded'] == true).length;
     final repsSummary = sets.map((s) => '${s['doneReps']}').join(', ');
@@ -662,7 +665,6 @@ class _ExerciseSessionTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: succeeded ? Colors.green.shade800 : Colors.red.shade900,
-          width: 1,
         ),
       ),
       child: Row(

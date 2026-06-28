@@ -1,6 +1,7 @@
 /// Home screen: auto-resumes an active session, shows done-today status.
 library;
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/screens/history_screen.dart';
@@ -9,7 +10,9 @@ import 'package:workout_app/screens/workout_screen.dart';
 import 'package:workout_app/services/http_server_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 
+/// Home screen: auto-resumes active sessions and shows done-today status.
 class HomeScreen extends StatefulWidget {
+  /// Creates a [HomeScreen].
   const HomeScreen({super.key});
 
   @override
@@ -17,7 +20,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List<Exercise>? _exercises;
+  late List<Exercise> _exercises;
   String _nextType = 'A';
   List<String> _serverAddresses = [];
   bool _loading = true;
@@ -31,7 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
   Future<void> _load() async {
@@ -42,7 +45,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final addrs = await HttpServerService.instance.localAddresses;
     final lastDate = await storage.getLastWorkoutDate();
     final today = DateTime.now();
-    final doneToday = lastDate != null &&
+    final doneToday =
+        lastDate != null &&
         lastDate.year == today.year &&
         lastDate.month == today.month &&
         lastDate.day == today.day;
@@ -61,7 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (saved != null && !_hasAutoResumed) {
         _hasAutoResumed = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _openWorkout(resume: true);
+          if (mounted) unawaited(_openWorkout(resume: true));
         });
       }
     }
@@ -70,8 +74,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openWorkout({bool resume = false}) async {
     final storage = StorageService.instance;
     Map<String, dynamic>? savedState;
-    String type = _nextType;
-    List<Exercise> exercises = _exercises!;
+    var type = _nextType;
+    var exercises = _exercises;
 
     if (resume && _savedSession != null) {
       savedState = _savedSession;
@@ -90,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-    _load();
+    unawaited(_load());
   }
 
   @override
@@ -118,7 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   builder: (_) => const SettingsScreen(),
                 ),
               );
-              _load();
+              unawaited(_load());
             },
           ),
         ],
@@ -132,10 +136,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   _WorkoutCard(
                     type: _nextType,
-                    exercises: _exercises!,
+                    exercises: _exercises,
                     doneToday: _doneToday,
                     hasActiveSession: _savedSession != null,
-                    onStart: () => _openWorkout(resume: false),
+                    onStart: _openWorkout,
                     onResume: () => _openWorkout(resume: true),
                   ),
                   const SizedBox(height: 20),
@@ -147,7 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ── Sub-widgets ────────────────────────────────────────────────────────────────
+// ── Sub-widgets ──────────────────────────────────────────────────────────────
 
 class _WorkoutCard extends StatelessWidget {
   const _WorkoutCard({

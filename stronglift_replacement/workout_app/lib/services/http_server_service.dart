@@ -16,8 +16,11 @@ import 'package:workout_app/services/sync_service.dart';
 /// Port the HTTP server listens on. Must match the constant on the PC side.
 const int kWorkoutServerPort = 8765;
 
+/// Singleton HTTP server that serves the latest workout JSON over LAN.
 class HttpServerService {
   HttpServerService._();
+
+  /// Singleton instance.
   static final HttpServerService instance = HttpServerService._();
 
   HttpServer? _server;
@@ -38,14 +41,22 @@ class HttpServerService {
     return addrs;
   }
 
-  void updateLatestWorkout(String json) => _latestJson = json;
+  /// The most recent workout JSON served at /workout, or null if none.
+  String? get latestWorkout => _latestJson;
 
+  /// Updates the JSON payload served at /workout.
+  set latestWorkout(String json) => _latestJson = json;
+
+  /// Starts the HTTP server, loading the last saved workout from disk first.
   Future<void> start() async {
     if (_server != null) return; // already running
     await _loadFromDisk();
     try {
-      _server = await HttpServer.bind(InternetAddress.anyIPv4, kWorkoutServerPort);
-      _serve();
+      _server = await HttpServer.bind(
+        InternetAddress.anyIPv4,
+        kWorkoutServerPort,
+      );
+      unawaited(_serve());
     } on SocketException {
       // Port already in use or binding failed — not fatal.
       _server = null;
@@ -64,7 +75,7 @@ class HttpServerService {
     }
     for (final path in candidates) {
       final file = File(path);
-      if (await file.exists()) {
+      if (file.existsSync()) {
         try {
           _latestJson = await file.readAsString();
           return;
@@ -97,6 +108,7 @@ class HttpServerService {
     }
   }
 
+  /// Stops the HTTP server.
   Future<void> stop() async {
     await _server?.close(force: true);
     _server = null;

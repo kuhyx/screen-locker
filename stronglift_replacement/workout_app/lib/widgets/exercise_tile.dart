@@ -5,9 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/widgets/rep_circle.dart';
 
+/// Card widget displaying warmup and working-set rep circles for one exercise.
 class ExerciseTile extends StatelessWidget {
+  /// Creates an [ExerciseTile].
   const ExerciseTile({
-    super.key,
     required this.exercise,
     required this.tapped,
     required this.doneReps,
@@ -18,19 +19,37 @@ class ExerciseTile extends StatelessWidget {
     required this.onLongPressCircle,
     required this.onTapWarmup,
     required this.onThresholdChanged,
+    super.key,
   });
 
+  /// The exercise definition to display.
   final Exercise exercise;
+
+  /// Per-set tap state; true when a set circle has been tapped.
   final List<bool> tapped;
+
+  /// Per-set rep count; may be less than target after repeated taps.
   final List<int> doneReps;
+
+  /// Whether the warmup circle has been tapped.
   final bool warmupTapped;
+
+  /// Success streak threshold shown in the inline settings row.
   final int successThreshold;
+
+  /// Fail streak threshold shown in the inline settings row.
   final int failThreshold;
+
+  /// Called when a working-set circle is tapped.
   final void Function(int setIdx) onTapCircle;
+
+  /// Called when a working-set circle is long-pressed (resets to neutral).
   final void Function(int setIdx) onLongPressCircle;
+
+  /// Called when the warmup circle is tapped.
   final VoidCallback onTapWarmup;
 
-  /// Called when user changes thresholds inline; args are (newSuccess, newFail).
+  /// Called when the user changes thresholds inline (newSuccess, newFail).
   final void Function(int success, int fail) onThresholdChanged;
 
   bool get _allCompleted => tapped.every((t) => t);
@@ -40,10 +59,9 @@ class ExerciseTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color headerColor = Colors.grey.shade800;
+    var headerColor = Colors.grey.shade800;
     if (_allCompleted) {
-      headerColor =
-          _allSucceeded ? Colors.green.shade800 : Colors.red.shade900;
+      headerColor = _allSucceeded ? Colors.green.shade800 : Colors.red.shade900;
     }
 
     return Card(
@@ -72,12 +90,14 @@ class ExerciseTile extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            _WarmupRow(
-              warmupWeight: exercise.warmupWeight,
-              tapped: warmupTapped,
-              onTap: onTapWarmup,
-            ),
-            const SizedBox(height: 10),
+            if (exercise.hasWarmup) ...[
+              _WarmupRow(
+                warmupWeight: exercise.warmupWeight,
+                tapped: warmupTapped,
+                onTap: onTapWarmup,
+              ),
+              const SizedBox(height: 10),
+            ],
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -190,22 +210,22 @@ class _MiniStepper extends StatelessWidget {
   }
 
   Widget _btn(IconData icon, VoidCallback? onTap) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 22,
-          height: 22,
-          decoration: BoxDecoration(
-            color: Colors.grey.shade700,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          alignment: Alignment.center,
-          child: Icon(
-            icon,
-            size: 12,
-            color: onTap != null ? Colors.white : Colors.white24,
-          ),
-        ),
-      );
+    onTap: onTap,
+    child: Container(
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade700,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      alignment: Alignment.center,
+      child: Icon(
+        icon,
+        size: 12,
+        color: onTap != null ? Colors.white : Colors.white24,
+      ),
+    ),
+  );
 }
 
 class _WarmupRow extends StatelessWidget {
