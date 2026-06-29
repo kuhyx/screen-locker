@@ -21,6 +21,8 @@ from screen_locker._constants import (
     EARLY_BIRD_END_MINUTE,
     EARLY_BIRD_START_HOUR,
     EXTRA_BENEFITS_FILE,
+    HEAT_SKIP_CITY,
+    HEAT_SKIP_TEMP_THRESHOLD,
     HMAC_KEY_FILE,
     MAX_CLOCK_SKEW_SECONDS,
     MIN_WORKOUT_DURATION_MINUTES,
@@ -38,12 +40,14 @@ from screen_locker._extra_benefits import (
     has_skip_credit,
     process_week_transition,
 )
+from screen_locker._heat_skip import HeatSkipMixin
 from screen_locker._log_mixin import LogMixin
 from screen_locker._phone_verification import PhoneVerificationMixin
 from screen_locker._runnerup_verification import RunnerUpVerificationMixin
 from screen_locker._shutdown import ShutdownMixin
 from screen_locker._shutdown_base import reset_to_base_if_new_day
 from screen_locker._sick_dialog import SickDialogMixin
+from screen_locker._temperature import is_too_hot
 from screen_locker._ui_flows import UIFlowsMixin
 from screen_locker._ui_flows_relaxed import UIFlowsRelaxedMixin
 from screen_locker._ui_widgets import UIWidgetsMixin
@@ -96,6 +100,7 @@ def _assert_not_under_pytest() -> None:
 class ScreenLocker(
     AutoUpgradeMixin,
     EarlyBirdMixin,
+    HeatSkipMixin,
     LogMixin,
     WindowSetupMixin,
     ShutdownMixin,
@@ -204,6 +209,19 @@ class ScreenLocker(
             )
             sys.exit(0)
             return
+        # Offer heat skip before consuming a banked credit — credit is preserved
+        # for another day if the user chooses to skip due to temperature.
+        hot_temp = is_too_hot(HEAT_SKIP_CITY, HEAT_SKIP_TEMP_THRESHOLD)
+        if hot_temp is not None:
+            _logger.info(
+                "Temperature %.0f°C exceeds threshold — showing heat-skip dialog.",
+                hot_temp,
+            )
+            if self._show_heat_skip_dialog(hot_temp):
+                self._save_heat_skip_log(hot_temp)
+                _logger.info("User skipped workout due to heat (%.0f°C).", hot_temp)
+                sys.exit(0)
+                return
         # Spend a banked skip credit if the minimum hasn't been reached yet.
         if has_skip_credit(EXTRA_BENEFITS_FILE):
             consume_skip_credit(EXTRA_BENEFITS_FILE)

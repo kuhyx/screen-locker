@@ -1,10 +1,13 @@
 [Unit]
-Description=Re-check workout after early bird grace period expires at 08:30
+Description=Re-check workout after early bird grace period expires (08:30 normal, 09:05 extended)
 After=graphical-session.target
 
 [Timer]
-# Fires every day at 08:30 to verify workout if user logged in during 5–8:30 window
+# Fires at 08:30 for the normal early-bird window (5:00–8:30).
+# Also fires at 09:05 to catch the extended window (5:00–9:00) earned by 5+ workout weeks.
+# Both runs are idempotent: the service handles "already logged" and "window still active".
 OnCalendar=*-*-* 08:30:00
+OnCalendar=*-*-* 09:05:00
 Unit=workout-locker.service
 Persistent=false
 AccuracySec=1s

@@ -101,9 +101,27 @@ def run_status(locker: ScreenLocker) -> None:
     eb_ext = has_extended_early_bird(EXTRA_BENEFITS_FILE)
     eb_str = "Yes — until 09:00" if eb_ext else "No"
 
+    # Heat skips this month
+    from datetime import date
+
+    this_month = date.today().strftime("%Y-%m")
+    heat_entries = [
+        (d, e)
+        for d, e in log_data.items()
+        if d.startswith(this_month)
+        and e.get("workout_data", {}).get("type") == "heat_skip"
+    ]
+    if heat_entries:
+        last_date, last_e = sorted(heat_entries)[-1]
+        last_temp = last_e.get("workout_data", {}).get("temperature_celsius", "?")
+        heat_str = f"{len(heat_entries)} (last: {last_date}, {last_temp}°C)"
+    else:
+        heat_str = "0"
+
     print(f"  Skip credits banked : {credits}")
     print(f"  Streak (5+ wks)     : {streak}")
     print(f"  Early-bird extended : {eb_str}")
+    print(f"  Heat skips (month)  : {heat_str}")
     print()
 
     remaining = max(0, WEEKLY_WORKOUT_MINIMUM - after_count)

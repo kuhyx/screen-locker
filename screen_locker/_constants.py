@@ -53,6 +53,8 @@ MAX_CLOCK_SKEW_SECONDS = 300  # 5 minutes max time skew from NTP
 EARLY_BIRD_START_HOUR = 5
 EARLY_BIRD_END_HOUR = 8
 EARLY_BIRD_END_MINUTE = 30
+HEAT_SKIP_TEMP_THRESHOLD: int = 32  # °C — above this the heat-skip dialog is offered
+HEAT_SKIP_CITY: str = "Warsaw"
 SHUTDOWN_CONFIG_FILE = Path("/etc/shutdown-schedule.conf")
 # Helper script path (relative to this file)
 ADJUST_SHUTDOWN_SCRIPT = Path(__file__).resolve().parent / "adjust_shutdown_schedule.sh"
