@@ -149,19 +149,23 @@ class TestIsEarlyBirdTime:
         assert locker._is_early_bird_time() is False
 
 
-class TestIsEarlyBirdLog:
-    """Tests for _is_early_bird_log method."""
+class TestIsEarlyBirdPending:
+    """Tests for _is_early_bird_pending method.
 
-    def test_no_log_file(
+    early_bird is a same-day pending marker stored in its own HMAC-signed
+    file (EARLY_BIRD_PENDING_FILE), not in workout_log.json — see
+    _early_bird.py's module docstring for why.
+    """
+
+    def test_no_pending_file(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Return False when log file does not exist."""
+        """Return False when the pending file does not exist."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = tmp_path / "workout_log.json"
-        assert locker._is_early_bird_log() is False
+        assert locker._is_early_bird_pending() is False
 
     def test_invalid_json(
         self,
@@ -169,12 +173,12 @@ class TestIsEarlyBirdLog:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Return False when log file contains invalid JSON."""
-        log_file = tmp_path / "workout_log.json"
-        log_file.write_text("{bad json}")
+        """Return False when the pending file contains invalid JSON."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = log_file
-        assert locker._is_early_bird_log() is False
+        pending_file = tmp_path / "early_bird_pending.json"
+        pending_file.write_text("{bad json}")
+        with patch("screen_locker._early_bird.EARLY_BIRD_PENDING_FILE", pending_file):
+            assert locker._is_early_bird_pending() is False
 
     def test_os_error_on_open(
         self,
@@ -182,81 +186,136 @@ class TestIsEarlyBirdLog:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Return False when opening the log file raises OSError."""
+        """Return False when opening the pending file raises OSError."""
         locker = create_locker(mock_tk, tmp_path)
         mock_file = MagicMock()
         mock_file.exists.return_value = True
         mock_file.open.side_effect = OSError("permission denied")
-        locker.log_file = mock_file
-        assert locker._is_early_bird_log() is False
+        with patch("screen_locker._early_bird.EARLY_BIRD_PENDING_FILE", mock_file):
+            assert locker._is_early_bird_pending() is False
 
-    def test_no_entry_today(
+    def test_stale_date(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Return False when no entry exists for today."""
-        log_file = tmp_path / "workout_log.json"
-        log_file.write_text(json.dumps({"2020-01-01": {}}))
+        """Return False when the marker is from a previous day."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = log_file
-        assert locker._is_early_bird_log() is False
+        pending_file = tmp_path / "early_bird_pending.json"
+        pending_file.write_text(json.dumps({"date": "2000-01-01", "hmac": "sig"}))
+        with patch("screen_locker._early_bird.EARLY_BIRD_PENDING_FILE", pending_file):
+            assert locker._is_early_bird_pending() is False
 
-    def test_today_is_phone_verified(
+    def test_hmac_invalid(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Return False when today's entry is phone_verified."""
-        log_file = tmp_path / "workout_log.json"
+        """Return False when HMAC verification fails."""
+        locker = create_locker(mock_tk, tmp_path)
         today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-        log_file.write_text(
-            json.dumps({today: {"workout_data": {"type": "phone_verified"}}})
-        )
-        locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = log_file
-        assert locker._is_early_bird_log() is False
-
-    def test_today_is_early_bird(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Return True when today's entry type is early_bird."""
-        log_file = tmp_path / "workout_log.json"
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-        log_file.write_text(
-            json.dumps({today: {"workout_data": {"type": "early_bird"}}})
-        )
-        locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = log_file
-        assert locker._is_early_bird_log() is True
-
-
-class TestSaveEarlyBirdLog:
-    """Tests for _save_early_bird_log method."""
-
-    def test_saves_early_bird_entry(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Saves an entry with type early_bird to the log file."""
-        log_file = tmp_path / "workout_log.json"
-        locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = log_file
-        with patch(
-            "screen_locker._log_mixin.compute_entry_hmac",
-            return_value=None,
+        pending_file = tmp_path / "early_bird_pending.json"
+        pending_file.write_text(json.dumps({"date": today, "hmac": "bad"}))
+        with (
+            patch("screen_locker._early_bird.EARLY_BIRD_PENDING_FILE", pending_file),
+            patch("screen_locker._early_bird.verify_entry_hmac", return_value=False),
+            patch("screen_locker._early_bird.compute_entry_hmac", return_value="sig"),
         ):
-            locker._save_early_bird_log()
+            assert locker._is_early_bird_pending() is False
 
-        assert log_file.exists()
-        with log_file.open() as f:
+    def test_today_valid_marker(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Return True when today's marker is present and HMAC-valid."""
+        locker = create_locker(mock_tk, tmp_path)
+        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        pending_file = tmp_path / "early_bird_pending.json"
+        pending_file.write_text(json.dumps({"date": today, "hmac": "sig"}))
+        with (
+            patch("screen_locker._early_bird.EARLY_BIRD_PENDING_FILE", pending_file),
+            patch("screen_locker._early_bird.verify_entry_hmac", return_value=True),
+        ):
+            assert locker._is_early_bird_pending() is True
+
+    def test_unsigned_accepted_when_key_unavailable(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Unsigned marker is accepted when no HMAC key is configured."""
+        locker = create_locker(mock_tk, tmp_path)
+        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        pending_file = tmp_path / "early_bird_pending.json"
+        pending_file.write_text(json.dumps({"date": today}))
+        with (
+            patch("screen_locker._early_bird.EARLY_BIRD_PENDING_FILE", pending_file),
+            patch("screen_locker._early_bird.verify_entry_hmac", return_value=False),
+            patch("screen_locker._early_bird.compute_entry_hmac", return_value=None),
+        ):
+            assert locker._is_early_bird_pending() is True
+
+
+class TestSaveEarlyBirdPending:
+    """Tests for _save_early_bird_pending method."""
+
+    def test_saves_pending_marker(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Saves a date-stamped marker to the pending file, not workout_log.json."""
+        locker = create_locker(mock_tk, tmp_path)
+        pending_file = tmp_path / "early_bird_pending.json"
+        with (
+            patch("screen_locker._early_bird.EARLY_BIRD_PENDING_FILE", pending_file),
+            patch("screen_locker._early_bird.compute_entry_hmac", return_value=None),
+        ):
+            locker._save_early_bird_pending()
+
+        assert pending_file.exists()
+        with pending_file.open() as f:
             data: dict[str, Any] = json.load(f)
         today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-        assert data[today]["workout_data"]["type"] == "early_bird"
+        assert data["date"] == today
+        assert not locker.log_file.exists()
+
+    def test_signs_when_hmac_key_available(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Includes an hmac field when a signature is computed."""
+        locker = create_locker(mock_tk, tmp_path)
+        pending_file = tmp_path / "early_bird_pending.json"
+        with (
+            patch("screen_locker._early_bird.EARLY_BIRD_PENDING_FILE", pending_file),
+            patch("screen_locker._early_bird.compute_entry_hmac", return_value="sig"),
+        ):
+            locker._save_early_bird_pending()
+
+        data: dict[str, Any] = json.loads(pending_file.read_text())
+        assert data["hmac"] == "sig"
+
+    def test_os_error_on_save(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Warns and does not raise when writing the pending file fails."""
+        locker = create_locker(mock_tk, tmp_path)
+        mock_file = MagicMock()
+        mock_file.open.side_effect = OSError("disk full")
+        with (
+            patch("screen_locker._early_bird.EARLY_BIRD_PENDING_FILE", mock_file),
+            patch("screen_locker._early_bird.compute_entry_hmac", return_value=None),
+        ):
+            locker._save_early_bird_pending()

@@ -35,7 +35,7 @@ class TestCheckTodayStateExits:
     ) -> None:
         locker = self._make_locker(mock_tk, tmp_path)
         with (
-            patch.object(locker, "_is_early_bird_log", return_value=True),
+            patch.object(locker, "_is_early_bird_pending", return_value=True),
             patch.object(locker, "_is_early_bird_time", return_value=False),
             patch.object(locker, "_try_auto_upgrade_early_bird", return_value=True),
         ):
@@ -50,7 +50,7 @@ class TestCheckTodayStateExits:
     ) -> None:
         locker = self._make_locker(mock_tk, tmp_path)
         with (
-            patch.object(locker, "_is_early_bird_log", return_value=True),
+            patch.object(locker, "_is_early_bird_pending", return_value=True),
             patch.object(locker, "_is_early_bird_time", return_value=False),
             patch.object(locker, "_try_auto_upgrade_early_bird", return_value=False),
         ):
@@ -65,7 +65,7 @@ class TestCheckTodayStateExits:
     ) -> None:
         locker = self._make_locker(mock_tk, tmp_path)
         with (
-            patch.object(locker, "_is_early_bird_log", return_value=True),
+            patch.object(locker, "_is_early_bird_pending", return_value=True),
             patch.object(locker, "_is_early_bird_time", return_value=True),
         ):
             result = locker._check_today_state_exits()
@@ -79,9 +79,29 @@ class TestCheckTodayStateExits:
     ) -> None:
         locker = self._make_locker(mock_tk, tmp_path)
         with (
-            patch.object(locker, "_is_early_bird_log", return_value=False),
-            patch.object(locker, "_is_sick_day_log", return_value=True),
+            patch.object(locker, "_is_early_bird_pending", return_value=False),
+            patch.object(locker, "_is_sick_day_today", return_value=True),
             patch.object(locker, "_try_auto_upgrade_sick_day", return_value=True),
+        ):
+            result = locker._check_today_state_exits()
+        assert result is True
+
+    def test_sick_day_no_upgrade_still_returns_true(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """A sick day already marked today halts startup even when no real
+        workout is found to upgrade it - sick_day no longer lives in
+        workout_log.json, so this halt must be explicit (see
+        _auto_upgrade.py's _check_today_state_exits), not an accidental
+        side effect of has_logged_today() catching a leftover log entry."""
+        locker = self._make_locker(mock_tk, tmp_path)
+        with (
+            patch.object(locker, "_is_early_bird_pending", return_value=False),
+            patch.object(locker, "_is_sick_day_today", return_value=True),
+            patch.object(locker, "_try_auto_upgrade_sick_day", return_value=False),
         ):
             result = locker._check_today_state_exits()
         assert result is True
@@ -94,8 +114,8 @@ class TestCheckTodayStateExits:
     ) -> None:
         locker = self._make_locker(mock_tk, tmp_path)
         with (
-            patch.object(locker, "_is_early_bird_log", return_value=False),
-            patch.object(locker, "_is_sick_day_log", return_value=False),
+            patch.object(locker, "_is_early_bird_pending", return_value=False),
+            patch.object(locker, "_is_sick_day_today", return_value=False),
             patch.object(locker, "has_logged_today", return_value=False),
             patch(
                 "screen_locker._auto_upgrade.has_workout_skip_today",
@@ -113,15 +133,15 @@ class TestCheckTodayStateExits:
     ) -> None:
         locker = self._make_locker(mock_tk, tmp_path)
         with (
-            patch.object(locker, "_is_early_bird_log", return_value=False),
-            patch.object(locker, "_is_sick_day_log", return_value=False),
+            patch.object(locker, "_is_early_bird_pending", return_value=False),
+            patch.object(locker, "_is_sick_day_today", return_value=False),
             patch.object(locker, "has_logged_today", return_value=False),
             patch(
                 "screen_locker._auto_upgrade.has_workout_skip_today",
                 return_value=False,
             ),
             patch.object(locker, "_is_early_bird_time", return_value=True),
-            patch.object(locker, "_save_early_bird_log"),
+            patch.object(locker, "_save_early_bird_pending"),
         ):
             result = locker._check_today_state_exits()
         assert result is True
@@ -134,8 +154,8 @@ class TestCheckTodayStateExits:
     ) -> None:
         locker = self._make_locker(mock_tk, tmp_path)
         with (
-            patch.object(locker, "_is_early_bird_log", return_value=False),
-            patch.object(locker, "_is_sick_day_log", return_value=False),
+            patch.object(locker, "_is_early_bird_pending", return_value=False),
+            patch.object(locker, "_is_sick_day_today", return_value=False),
             patch.object(locker, "has_logged_today", return_value=False),
             patch(
                 "screen_locker._auto_upgrade.has_workout_skip_today",

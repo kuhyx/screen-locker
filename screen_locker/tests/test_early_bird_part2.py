@@ -99,30 +99,6 @@ class TestTryAutoUpgradeEarlyBird:
         assert locker._try_auto_upgrade_early_bird() is False
 
 
-class TestHasLoggedTodayEarlyBird:
-    """Tests that has_logged_today returns False for early_bird entries."""
-
-    def test_early_bird_entry_not_counted_as_logged(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """early_bird entries must not satisfy has_logged_today."""
-        log_file = tmp_path / "workout_log.json"
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-        log_file.write_text(
-            json.dumps({today: {"workout_data": {"type": "early_bird"}}})
-        )
-        locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = log_file
-        with patch(
-            "screen_locker._log_mixin.verify_entry_hmac",
-            return_value=True,
-        ):
-            assert locker.has_logged_today() is False
-
-
 class TestInitEarlyBirdFlow:
     """Integration tests for early bird branches in __init__."""
 
@@ -137,15 +113,15 @@ class TestInitEarlyBirdFlow:
         with (
             patch.object(Path, "resolve", return_value=tmp_path),
             patch.object(ScreenLocker, "has_logged_today", return_value=False),
-            patch.object(ScreenLocker, "_is_sick_day_log", return_value=False),
-            patch.object(ScreenLocker, "_is_early_bird_log", return_value=False),
+            patch.object(ScreenLocker, "_is_sick_day_today", return_value=False),
+            patch.object(ScreenLocker, "_is_early_bird_pending", return_value=False),
             patch.object(ScreenLocker, "_is_early_bird_time", return_value=True),
             patch.object(
                 ScreenLocker,
                 "_try_auto_upgrade_early_bird",
                 return_value=False,
             ),
-            patch.object(ScreenLocker, "_save_early_bird_log") as mock_save,
+            patch.object(ScreenLocker, "_save_early_bird_pending") as mock_save,
             patch.object(ScreenLocker, "_start_phone_check"),
             patch.object(ScreenLocker, "_start_verify_workout_check"),
             patch(
@@ -184,8 +160,8 @@ class TestInitEarlyBirdFlow:
         with (
             patch.object(Path, "resolve", return_value=tmp_path),
             patch.object(ScreenLocker, "has_logged_today", return_value=False),
-            patch.object(ScreenLocker, "_is_sick_day_log", return_value=False),
-            patch.object(ScreenLocker, "_is_early_bird_log", return_value=True),
+            patch.object(ScreenLocker, "_is_sick_day_today", return_value=False),
+            patch.object(ScreenLocker, "_is_early_bird_pending", return_value=True),
             patch.object(ScreenLocker, "_is_early_bird_time", return_value=False),
             patch.object(
                 ScreenLocker, "_try_auto_upgrade_early_bird", return_value=True

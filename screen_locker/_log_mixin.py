@@ -31,10 +31,10 @@ class LogMixin:
             if entry is None:
                 return False
             if verify_entry_hmac(entry):
-                return entry.get("workout_data", {}).get("type") != "early_bird"
+                return True
             if compute_entry_hmac({"_probe": True}) is None and "hmac" not in entry:
                 _logger.info("HMAC key unavailable — accepting unsigned entry")
-                return entry.get("workout_data", {}).get("type") != "early_bird"
+                return True
             _logger.warning("HMAC verification failed for today's log entry")
             return False
 

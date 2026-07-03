@@ -35,10 +35,9 @@ from screen_locker._constants import (
 )
 from screen_locker._early_bird import EarlyBirdMixin
 from screen_locker._extra_benefits import (
-    consume_skip_credit,
     current_streak,
-    has_skip_credit,
     process_week_transition,
+    weekly_shutdown_bonus_hours,
 )
 from screen_locker._heat_skip import HeatSkipMixin
 from screen_locker._log_mixin import LogMixin
@@ -172,11 +171,17 @@ class ScreenLocker(
             _logger.info("Today is a scheduled skip day. Skipping screen lock.")
             sys.exit(0)
             return
-        # Reset shutdown config to base (21:00) at the start of each new day
-        # so workout bonuses always layer on top of a known floor.
-        reset_to_base_if_new_day(
+        # Award streak / shutdown-bonus / EB-extension rewards from last week
+        # before the daily reset, so a Monday transition's bonus is recorded
+        # in time for _apply_weekly_shutdown_bonus below to see it.
+        for reward_msg in process_week_transition(self.log_file, EXTRA_BENEFITS_FILE):
+            _logger.info("Weekly reward: %s", reward_msg)
+        # Reset shutdown config to base (21:00) at the start of each new day,
+        # then layer this week's earned bonus back on top of the fresh base.
+        if reset_to_base_if_new_day(
             SHUTDOWN_BASE_FILE, self, sick_day_state_file=SICK_DAY_STATE_FILE
-        )
+        ):
+            self._apply_weekly_shutdown_bonus()
         # Auto-fill any RunnerUp workouts from earlier in the current ISO week
         # before any early-exit check, so gaps are closed regardless of today's
         # logged state (early_bird, sick_day, etc.).
@@ -191,9 +196,6 @@ class ScreenLocker(
             bonus = max(0, new_count - max(WEEKLY_WORKOUT_MINIMUM, prev_count))
             if bonus > 0 and self._adjust_shutdown_time_by(bonus):
                 _logger.info("Auto-fill extra bonus: +%dh shutdown time.", bonus)
-        # Award streak / skip-credit / EB-extension rewards from last week.
-        for reward_msg in process_week_transition(self.log_file, EXTRA_BENEFITS_FILE):
-            _logger.info("Weekly reward: %s", reward_msg)
         if self._check_today_state_exits():
             return
         # Day-of-week routing: Tue/Wed/Thu relaxed (optional), Fri-Mon enforced.
@@ -209,8 +211,11 @@ class ScreenLocker(
             )
             sys.exit(0)
             return
-        # Offer heat skip before consuming a banked credit — credit is preserved
-        # for another day if the user chooses to skip due to temperature.
+        # Only remaining same-day skip: genuine extreme heat. Sick days go
+        # through the justification flow instead; there is no banked
+        # "skip a workout" credit — that mechanic works against the goal of
+        # maximizing weekly workouts, so it was removed in favor of a
+        # shutdown-time-only reward (see _apply_weekly_shutdown_bonus).
         hot_temp = is_too_hot(HEAT_SKIP_CITY, HEAT_SKIP_TEMP_THRESHOLD)
         if hot_temp is not None:
             _logger.info(
@@ -222,12 +227,12 @@ class ScreenLocker(
                 _logger.info("User skipped workout due to heat (%.0f°C).", hot_temp)
                 sys.exit(0)
                 return
-        # Spend a banked skip credit if the minimum hasn't been reached yet.
-        if has_skip_credit(EXTRA_BENEFITS_FILE):
-            consume_skip_credit(EXTRA_BENEFITS_FILE)
-            _logger.info("Used a banked skip credit — no lock today.")
-            sys.exit(0)
-            return
+
+    def _apply_weekly_shutdown_bonus(self) -> None:
+        """Layer this week's earned shutdown bonus back on top of the fresh base."""
+        bonus = weekly_shutdown_bonus_hours(EXTRA_BENEFITS_FILE)
+        if bonus > 0 and self._adjust_shutdown_time_by(bonus):
+            _logger.info("Weekly bonus: +%dh shutdown time this week.", bonus)
 
     def _try_adjust_shutdown_for_workout(self) -> bool:
         """Try to adjust shutdown time later for actual workouts."""
@@ -256,7 +261,10 @@ class ScreenLocker(
 
     def unlock_screen(self) -> None:
         """Save workout log and display success message."""
-        self.save_workout_log()
+        # sick_day is already persisted to sick_history.json by
+        # _finalize_sick_day — workout_log.json is reserved for real outcomes.
+        if self.workout_data.get("type") != "sick_day":
+            self.save_workout_log()
         shutdown_adjusted = self._try_adjust_shutdown_for_workout()
         new_debt = self._clear_debt_on_verified_workout()
 

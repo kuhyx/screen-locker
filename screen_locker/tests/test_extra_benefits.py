@@ -1,4 +1,4 @@
-"""Tests for _extra_benefits module (streak, skip credits, EB extension)."""
+"""Tests for _extra_benefits module (streak, shutdown bonus, EB extension)."""
 
 from __future__ import annotations
 
@@ -10,11 +10,10 @@ from unittest.mock import MagicMock, patch
 from screen_locker._extra_benefits import (
     _load_state,
     _save_state,
-    consume_skip_credit,
     current_streak,
     has_extended_early_bird,
-    has_skip_credit,
     process_week_transition,
+    weekly_shutdown_bonus_hours,
 )
 
 if TYPE_CHECKING:
@@ -32,8 +31,8 @@ class TestLoadState:
     def test_returns_parsed_state_when_file_valid(self, tmp_path: Path) -> None:
         """Valid JSON file returns the parsed dict."""
         f = tmp_path / "state.json"
-        f.write_text(json.dumps({"skip_credits": 3}))
-        assert _load_state(f) == {"skip_credits": 3}
+        f.write_text(json.dumps({"weekly_shutdown_bonus_hours": {"2026-W01": 3}}))
+        assert _load_state(f) == {"weekly_shutdown_bonus_hours": {"2026-W01": 3}}
 
     def test_returns_empty_on_oserror(self) -> None:
         """OSError during read is caught and returns empty dict (lines 33-34)."""
@@ -55,8 +54,10 @@ class TestSaveState:
     def test_saves_state_to_file(self, tmp_path: Path) -> None:
         """Valid path writes JSON content (lines 39-41)."""
         f = tmp_path / "state.json"
-        _save_state(f, {"skip_credits": 2})
-        assert json.loads(f.read_text())["skip_credits"] == 2
+        _save_state(f, {"weekly_shutdown_bonus_hours": {"2026-W01": 2}})
+        assert json.loads(f.read_text())["weekly_shutdown_bonus_hours"] == {
+            "2026-W01": 2
+        }
 
     def test_logs_warning_on_oserror(self) -> None:
         """OSError during write is caught as warning, does not raise (lines 42-43)."""
@@ -80,15 +81,21 @@ class TestProcessWeekTransition:
         f.write_text(json.dumps({"last_processed_iso_week": f"{year}-W{week:02d}"}))
         assert process_week_transition(tmp_path / "log.json", f) == []
 
-    def test_awards_credits_for_5plus_workouts(self, tmp_path: Path) -> None:
-        """5+ workouts in previous week: streak += 1, skip_credits += extra (lines 87-96)."""
+    @staticmethod
+    def _current_week_str() -> str:
+        now = datetime.now(tz=timezone.utc).astimezone()
+        year, week, _ = now.isocalendar()
+        return f"{year}-W{week:02d}"
+
+    def test_awards_bonus_hours_for_5plus_workouts(self, tmp_path: Path) -> None:
+        """5+ workouts in previous week: streak += 1, bonus hours += extra."""
         f = tmp_path / "state.json"
         f.write_text(
             json.dumps(
                 {
                     "last_processed_iso_week": self._PAST_WEEK,
                     "consecutive_5plus_weeks": 0,
-                    "skip_credits": 0,
+                    "weekly_shutdown_bonus_hours": {},
                     "extended_early_bird_iso_weeks": [],
                 }
             )
@@ -99,20 +106,20 @@ class TestProcessWeekTransition:
             rewards = process_week_transition(tmp_path / "log.json", f)
 
         assert len(rewards) >= 1
-        assert "+2 skip credit" in rewards[0]
+        assert "+2h shutdown bonus" in rewards[0]
         state = json.loads(f.read_text())
         assert state["consecutive_5plus_weeks"] == 1
-        assert state["skip_credits"] == 2  # 6 − 4
+        assert state["weekly_shutdown_bonus_hours"][self._current_week_str()] == 2
 
     def test_awards_milestone_bonus_at_4_week_streak(self, tmp_path: Path) -> None:
-        """Streak reaches multiple of 4: +1 bonus skip credit (lines 97-99)."""
+        """Streak reaches multiple of 4: +1h extra shutdown bonus."""
         f = tmp_path / "state.json"
         f.write_text(
             json.dumps(
                 {
                     "last_processed_iso_week": self._PAST_WEEK,
                     "consecutive_5plus_weeks": 3,
-                    "skip_credits": 0,
+                    "weekly_shutdown_bonus_hours": {},
                     "extended_early_bird_iso_weeks": [],
                 }
             )
@@ -125,7 +132,7 @@ class TestProcessWeekTransition:
         assert any("milestone" in r for r in rewards)
         state = json.loads(f.read_text())
         assert state["consecutive_5plus_weeks"] == 4
-        assert state["skip_credits"] == 2  # 1 extra + 1 milestone
+        assert state["weekly_shutdown_bonus_hours"][self._current_week_str()] == 2
 
     def test_marks_current_week_as_extended_early_bird(self, tmp_path: Path) -> None:
         """5+ workouts mark current ISO week as extended EB (line 91-92)."""
@@ -156,7 +163,6 @@ class TestProcessWeekTransition:
                 {
                     "last_processed_iso_week": self._PAST_WEEK,
                     "consecutive_5plus_weeks": 2,
-                    "skip_credits": 3,
                 }
             )
         )
@@ -233,38 +239,28 @@ class TestCurrentStreak:
         assert current_streak(f) == 5
 
 
-class TestHasSkipCredit:
-    """Tests for has_skip_credit."""
+class TestWeeklyShutdownBonusHours:
+    """Tests for weekly_shutdown_bonus_hours."""
 
-    def test_returns_false_when_no_credits(self, tmp_path: Path) -> None:
-        """Zero credits → False."""
+    def test_returns_zero_when_missing(self, tmp_path: Path) -> None:
+        """No state file → 0."""
         f = tmp_path / "state.json"
-        f.write_text(json.dumps({"skip_credits": 0}))
-        assert has_skip_credit(f) is False
+        assert weekly_shutdown_bonus_hours(f) == 0
 
-    def test_returns_true_when_credits_available(self, tmp_path: Path) -> None:
-        """Non-zero credits → True."""
+    def test_returns_current_week_bonus(self, tmp_path: Path) -> None:
+        """Returns the banked bonus for the current ISO week."""
+        now = datetime.now(tz=timezone.utc).astimezone()
+        year, week, _ = now.isocalendar()
+        current_week = f"{year}-W{week:02d}"
         f = tmp_path / "state.json"
-        f.write_text(json.dumps({"skip_credits": 2}))
-        assert has_skip_credit(f) is True
+        f.write_text(json.dumps({"weekly_shutdown_bonus_hours": {current_week: 3}}))
+        assert weekly_shutdown_bonus_hours(f) == 3
 
-
-class TestConsumeSkipCredit:
-    """Tests for consume_skip_credit."""
-
-    def test_decrements_credit_count(self, tmp_path: Path) -> None:
-        """Credits > 0: decrement by 1 (lines 129-133)."""
+    def test_ignores_other_weeks(self, tmp_path: Path) -> None:
+        """A bonus banked for a different ISO week is not returned."""
         f = tmp_path / "state.json"
-        f.write_text(json.dumps({"skip_credits": 3}))
-        consume_skip_credit(f)
-        assert json.loads(f.read_text())["skip_credits"] == 2
-
-    def test_does_nothing_when_no_credits(self, tmp_path: Path) -> None:
-        """Credits == 0: no decrement (line 131 branch False)."""
-        f = tmp_path / "state.json"
-        f.write_text(json.dumps({"skip_credits": 0}))
-        consume_skip_credit(f)
-        assert json.loads(f.read_text())["skip_credits"] == 0
+        f.write_text(json.dumps({"weekly_shutdown_bonus_hours": {"2020-W01": 5}}))
+        assert weekly_shutdown_bonus_hours(f) == 0
 
 
 class TestHasExtendedEarlyBird:

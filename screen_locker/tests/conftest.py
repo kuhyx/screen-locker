@@ -12,8 +12,11 @@ Safety:
 from __future__ import annotations
 
 from contextlib import ExitStack
+from datetime import datetime, timezone
+import json
 from pathlib import Path
 import tkinter as tk
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
@@ -131,6 +134,74 @@ def _isolate_sick_history(tmp_path: Path) -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
+def _isolate_early_bird_pending(tmp_path: Path) -> Iterator[None]:
+    """Redirect EARLY_BIRD_PENDING_FILE to tmp_path so tests use a clean file."""
+    target = tmp_path / "early_bird_pending.json"
+    with (
+        patch(
+            "screen_locker._early_bird.EARLY_BIRD_PENDING_FILE",
+            target,
+        ),
+        patch(
+            "screen_locker._constants.EARLY_BIRD_PENDING_FILE",
+            target,
+        ),
+    ):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def _isolate_extra_benefits(tmp_path: Path) -> Iterator[None]:
+    """Redirect EXTRA_BENEFITS_FILE to tmp_path so tests cannot touch real state.
+
+    Bound by value into several modules at import time, so every bound name
+    needs patching individually — not just the ``_constants`` source.
+    """
+    target = tmp_path / "extra_benefits_state.json"
+    with (
+        patch("screen_locker._constants.EXTRA_BENEFITS_FILE", target),
+        patch("screen_locker.screen_lock.EXTRA_BENEFITS_FILE", target),
+        patch("screen_locker._early_bird.EXTRA_BENEFITS_FILE", target),
+        patch("screen_locker._status.EXTRA_BENEFITS_FILE", target),
+    ):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def _isolate_shutdown_base(tmp_path: Path) -> Iterator[None]:
+    """Redirect SHUTDOWN_BASE_FILE to tmp_path so tests cannot touch real state.
+
+    Pre-seeded with today's date so reset_to_base_if_new_day() is a no-op by
+    default (matching the real file's steady state) -- tests that want to
+    exercise the actual reset path patch reset_to_base_if_new_day directly,
+    same as the rest of the suite already does.
+    """
+    target = tmp_path / "shutdown_base.json"
+    today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    target.write_text(
+        json.dumps(
+            {"base_mon_wed_hour": 21, "base_thu_sun_hour": 21, "last_reset_date": today}
+        )
+    )
+    with (
+        patch("screen_locker._constants.SHUTDOWN_BASE_FILE", target),
+        patch("screen_locker.screen_lock.SHUTDOWN_BASE_FILE", target),
+    ):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def _isolate_sick_day_state(tmp_path: Path) -> Iterator[None]:
+    """Redirect SICK_DAY_STATE_FILE to tmp_path so tests cannot touch real state."""
+    target = tmp_path / "sick_day_state.json"
+    with (
+        patch("screen_locker._constants.SICK_DAY_STATE_FILE", target),
+        patch("screen_locker.screen_lock.SICK_DAY_STATE_FILE", target),
+    ):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def _isolate_scheduled_skips(tmp_path: Path) -> Iterator[None]:
     """Redirect SCHEDULED_SKIPS_FILE to tmp_path so tests use a clean file."""
     target = tmp_path / "scheduled_skips.json"
@@ -203,6 +274,24 @@ def temp_log_file(tmp_path: Path) -> Path:
     return tmp_path / "workout_log.json"
 
 
+def _make_locker(
+    log_file: Path,
+    *,
+    n_filled: int = 0,
+    bonus_applied: bool = False,
+    cfg: tuple | None = (22, 22, 5),
+):
+    """Build a minimal locker-like namespace for _status.run_status()."""
+    locker = SimpleNamespace(
+        log_file=log_file,
+        workout_data={},
+    )
+    locker._scan_and_fill_week_runnerup = MagicMock(return_value=n_filled)
+    locker._adjust_shutdown_time_by = MagicMock(return_value=bonus_applied)
+    locker._read_shutdown_config = MagicMock(return_value=cfg)
+    return locker
+
+
 def create_locker(
     _mock_tk: MagicMock,
     tmp_path: Path,
@@ -218,10 +307,10 @@ def create_locker(
         patch.object(ScreenLocker, "has_logged_today", return_value=has_logged),
         patch.object(
             ScreenLocker,
-            "_is_sick_day_log",
+            "_is_sick_day_today",
             return_value=is_sick_day_log,
         ),
-        patch.object(ScreenLocker, "_is_early_bird_log", return_value=False),
+        patch.object(ScreenLocker, "_is_early_bird_pending", return_value=False),
         patch.object(ScreenLocker, "_is_early_bird_time", return_value=False),
         patch.object(
             ScreenLocker,
@@ -255,8 +344,8 @@ def create_locker_relaxed_day(
     with (
         patch.object(Path, "resolve", return_value=tmp_path),
         patch.object(ScreenLocker, "has_logged_today", return_value=has_logged),
-        patch.object(ScreenLocker, "_is_sick_day_log", return_value=False),
-        patch.object(ScreenLocker, "_is_early_bird_log", return_value=False),
+        patch.object(ScreenLocker, "_is_sick_day_today", return_value=False),
+        patch.object(ScreenLocker, "_is_early_bird_pending", return_value=False),
         patch.object(ScreenLocker, "_is_early_bird_time", return_value=False),
         patch.object(ScreenLocker, "_try_auto_upgrade_early_bird", return_value=False),
         patch("screen_locker.screen_lock.is_relaxed_day", return_value=True),
@@ -294,9 +383,9 @@ def create_locker_early_bird(
     with (
         patch.object(Path, "resolve", return_value=tmp_path),
         patch.object(ScreenLocker, "has_logged_today", return_value=has_logged),
-        patch.object(ScreenLocker, "_is_sick_day_log", return_value=False),
+        patch.object(ScreenLocker, "_is_sick_day_today", return_value=False),
         patch.object(
-            ScreenLocker, "_is_early_bird_log", return_value=is_early_bird_log
+            ScreenLocker, "_is_early_bird_pending", return_value=is_early_bird_log
         ),
         patch.object(
             ScreenLocker, "_is_early_bird_time", return_value=is_early_bird_time

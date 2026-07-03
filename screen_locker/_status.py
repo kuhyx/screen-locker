@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 import json
 import sys
 from typing import TYPE_CHECKING
@@ -11,7 +11,9 @@ from screen_locker._constants import EXTRA_BENEFITS_FILE
 from screen_locker._extra_benefits import (
     current_streak,
     has_extended_early_bird,
+    weekly_shutdown_bonus_hours,
 )
+from screen_locker._sick_tracker import load_history
 from screen_locker._weekly_check import (
     COUNTED_WORKOUT_TYPES,
     WEEKLY_WORKOUT_MINIMUM,
@@ -45,12 +47,31 @@ def _load_extra_benefits() -> dict:
         return {}
 
 
+def _print_day_line(d: date, entry: dict | None, sick_days: set[str]) -> bool:
+    """Print one day's status line. Returns True if it counted as a workout."""
+    label = d.strftime("%a %b %d")
+    if entry is None:
+        if d.isoformat() in sick_days:
+            print(f"  {label}  ✗  sick_day")
+        else:
+            print(f"  {label}  —  no entry")
+        return False
+    wtype = entry.get("workout_data", {}).get("type", "?")
+    src = entry.get("workout_data", {}).get("source", "")
+    counted = wtype in COUNTED_WORKOUT_TYPES
+    src_str = f"  ({src[:45]})" if src else ""
+    mark = "✓" if counted else "✗"
+    print(f"  {label}  {mark}  {wtype}{src_str}")
+    return counted
+
+
 def run_status(locker: ScreenLocker) -> None:
     """Print weekly workout status, run RunnerUp scan, apply bonus, then exit."""
     today = datetime.now(tz=timezone.utc).astimezone().date()
     monday = today - timedelta(days=today.weekday())
     log_file: Path = locker.log_file  # type: ignore[attr-defined]
     log_data = _load_log(log_file)
+    sick_days = set(load_history().sick_days)
 
     print("=== Weekly Workout Status ===")
 
@@ -60,19 +81,8 @@ def run_status(locker: ScreenLocker) -> None:
         d = monday + timedelta(days=i)
         if d > today:
             break
-        dstr = d.isoformat()
-        entry = log_data.get(dstr)
-        if entry is None:
-            print(f"  {d.strftime('%a %b %d')}  —  no entry")
-        else:
-            wtype = entry.get("workout_data", {}).get("type", "?")
-            src = entry.get("workout_data", {}).get("source", "")
-            counted = wtype in COUNTED_WORKOUT_TYPES
-            src_str = f"  ({src[:45]})" if src else ""
-            mark = "✓" if counted else "✗"
-            print(f"  {d.strftime('%a %b %d')}  {mark}  {wtype}{src_str}")
-            if counted:
-                before_count += 1
+        if _print_day_line(d, log_data.get(d.isoformat()), sick_days):
+            before_count += 1
 
     print()
 
@@ -95,16 +105,13 @@ def run_status(locker: ScreenLocker) -> None:
     print()
 
     # Extra benefits summary
-    state = _load_extra_benefits()
-    credits = state.get("skip_credits", 0)
+    bonus_hours = weekly_shutdown_bonus_hours(EXTRA_BENEFITS_FILE)
     streak = current_streak(EXTRA_BENEFITS_FILE)
     eb_ext = has_extended_early_bird(EXTRA_BENEFITS_FILE)
     eb_str = "Yes — until 09:00" if eb_ext else "No"
 
     # Heat skips this month
-    from datetime import date
-
-    this_month = date.today().strftime("%Y-%m")
+    this_month = datetime.now(tz=timezone.utc).astimezone().date().strftime("%Y-%m")
     heat_entries = [
         (d, e)
         for d, e in log_data.items()
@@ -118,7 +125,7 @@ def run_status(locker: ScreenLocker) -> None:
     else:
         heat_str = "0"
 
-    print(f"  Skip credits banked : {credits}")
+    print(f"  Shutdown bonus (this wk): {bonus_hours}h")
     print(f"  Streak (5+ wks)     : {streak}")
     print(f"  Early-bird extended : {eb_str}")
     print(f"  Heat skips (month)  : {heat_str}")

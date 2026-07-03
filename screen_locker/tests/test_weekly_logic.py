@@ -36,8 +36,8 @@ class TestRelaxedDayBranch:
         with (
             patch.object(Path, "resolve", return_value=tmp_path),
             patch.object(ScreenLocker, "has_logged_today", return_value=False),
-            patch.object(ScreenLocker, "_is_sick_day_log", return_value=False),
-            patch.object(ScreenLocker, "_is_early_bird_log", return_value=False),
+            patch.object(ScreenLocker, "_is_sick_day_today", return_value=False),
+            patch.object(ScreenLocker, "_is_early_bird_pending", return_value=False),
             patch.object(ScreenLocker, "_is_early_bird_time", return_value=False),
             patch.object(
                 ScreenLocker, "_try_auto_upgrade_early_bird", return_value=False
@@ -68,8 +68,8 @@ class TestRelaxedDayBranch:
         with (
             patch.object(Path, "resolve", return_value=tmp_path),
             patch.object(ScreenLocker, "has_logged_today", return_value=False),
-            patch.object(ScreenLocker, "_is_sick_day_log", return_value=False),
-            patch.object(ScreenLocker, "_is_early_bird_log", return_value=False),
+            patch.object(ScreenLocker, "_is_sick_day_today", return_value=False),
+            patch.object(ScreenLocker, "_is_early_bird_pending", return_value=False),
             patch.object(ScreenLocker, "_is_early_bird_time", return_value=False),
             patch.object(
                 ScreenLocker, "_try_auto_upgrade_early_bird", return_value=False
@@ -102,8 +102,8 @@ class TestRelaxedDayBranch:
         with (
             patch.object(Path, "resolve", return_value=tmp_path),
             patch.object(ScreenLocker, "has_logged_today", return_value=False),
-            patch.object(ScreenLocker, "_is_sick_day_log", return_value=False),
-            patch.object(ScreenLocker, "_is_early_bird_log", return_value=False),
+            patch.object(ScreenLocker, "_is_sick_day_today", return_value=False),
+            patch.object(ScreenLocker, "_is_early_bird_pending", return_value=False),
             patch.object(ScreenLocker, "_is_early_bird_time", return_value=False),
             patch.object(
                 ScreenLocker, "_try_auto_upgrade_early_bird", return_value=False

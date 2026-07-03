@@ -15,45 +15,24 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-class TestIsSickDayLog:
-    """Tests for _is_sick_day_log method."""
+class TestIsSickDayToday:
+    """Tests for _is_sick_day_today method.
 
-    def test_no_log_file(
+    sick_day is tracked in sick_history.json (via _sick_tracker.py) as the
+    sole source of truth -- not in workout_log.json. The autouse
+    _isolate_sick_history fixture redirects SICK_HISTORY_FILE to
+    tmp_path/sick_history.json for every test.
+    """
+
+    def test_no_history_file(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Return False when log file does not exist."""
+        """Return False when sick_history.json does not exist."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = tmp_path / "workout_log.json"
-        assert locker._is_sick_day_log() is False
-
-    def test_invalid_json(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Return False when log file contains invalid JSON."""
-        log_file = tmp_path / "workout_log.json"
-        log_file.write_text("{bad json}")
-        locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = log_file
-        assert locker._is_sick_day_log() is False
-
-    def test_no_entry_today(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Return False when no entry exists for today."""
-        log_file = tmp_path / "workout_log.json"
-        log_file.write_text(json.dumps({"2020-01-01": {}}))
-        locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = log_file
-        assert locker._is_sick_day_log() is False
+        assert locker._is_sick_day_today() is False
 
     def test_today_not_sick_day(
         self,
@@ -61,19 +40,11 @@ class TestIsSickDayLog:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Return False when today's entry is a regular workout."""
-        log_file = tmp_path / "workout_log.json"
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-        log_file.write_text(
-            json.dumps(
-                {
-                    today: {"workout_data": {"type": "phone_verified"}},
-                }
-            )
-        )
+        """Return False when today is not in sick_history's sick_days list."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = log_file
-        assert locker._is_sick_day_log() is False
+        history_file = tmp_path / "sick_history.json"
+        history_file.write_text(json.dumps({"sick_days": ["2020-01-01"]}))
+        assert locker._is_sick_day_today() is False
 
     def test_today_is_sick_day(
         self,
@@ -81,33 +52,12 @@ class TestIsSickDayLog:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Return True when today's entry is a sick day."""
-        log_file = tmp_path / "workout_log.json"
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-        log_file.write_text(
-            json.dumps(
-                {
-                    today: {"workout_data": {"type": "sick_day"}},
-                }
-            )
-        )
+        """Return True when today is in sick_history's sick_days list."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = log_file
-        assert locker._is_sick_day_log() is True
-
-    def test_entry_missing_workout_data(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Return False when entry has no workout_data key."""
-        log_file = tmp_path / "workout_log.json"
         today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-        log_file.write_text(json.dumps({today: {}}))
-        locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = log_file
-        assert locker._is_sick_day_log() is False
+        history_file = tmp_path / "sick_history.json"
+        history_file.write_text(json.dumps({"sick_days": [today]}))
+        assert locker._is_sick_day_today() is True
 
 
 class TestVerifyOnlyInit:

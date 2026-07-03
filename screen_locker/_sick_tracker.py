@@ -93,6 +93,12 @@ def save_history(history: SickHistory) -> bool:
     return True
 
 
+def is_sick_day(history: SickHistory, *, today: str | None = None) -> bool:
+    """Return True if today is recorded as a sick day."""
+    today_str = today or _today_iso()
+    return today_str in history.sick_days
+
+
 def count_in_window(
     history: SickHistory,
     days: int,

@@ -86,7 +86,6 @@ class TestCheckNonVerifyExitsExtras:
             ),
             patch("screen_locker.screen_lock.is_relaxed_day", return_value=False),
             patch("screen_locker.screen_lock.has_weekly_minimum", return_value=False),
-            patch("screen_locker.screen_lock.has_skip_credit", return_value=False),
             patch("screen_locker.screen_lock.sys.exit"),
         ):
             locker._check_non_verify_exits()
@@ -108,7 +107,7 @@ class TestCheckNonVerifyExitsExtras:
             patch("screen_locker.screen_lock.reset_to_base_if_new_day"),
             patch(
                 "screen_locker.screen_lock.process_week_transition",
-                return_value=["🎉 +1 skip credit for 5-workout week!"],
+                return_value=["🎉 +1h shutdown bonus for 5-workout week!"],
             ),
             patch("screen_locker.screen_lock.is_relaxed_day", return_value=False),
             patch("screen_locker.screen_lock.has_weekly_minimum", return_value=True),
@@ -116,40 +115,79 @@ class TestCheckNonVerifyExitsExtras:
         ):
             locker._check_non_verify_exits()
 
-    def test_uses_skip_credit_when_minimum_not_met(
+    def test_applies_weekly_bonus_on_fresh_day_reset(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """has_skip_credit True + weekly min not met → consume credit and exit (251-254)."""
+        """reset_to_base_if_new_day True → weekly shutdown bonus is applied once."""
         locker = create_locker(mock_tk, tmp_path)
         object.__setattr__(
             locker,
             "_scan_and_fill_week_runnerup",
             MagicMock(return_value=0),
         )
-        # Prevent time-dependent early-exit that would skip the skip-credit branch.
         object.__setattr__(
             locker,
-            "_check_today_state_exits",
-            MagicMock(return_value=False),
+            "_adjust_shutdown_time_by",
+            MagicMock(return_value=True),
         )
-        mock_exit = MagicMock()
         with (
-            patch("screen_locker.screen_lock.reset_to_base_if_new_day"),
+            patch(
+                "screen_locker.screen_lock.reset_to_base_if_new_day", return_value=True
+            ),
             patch(
                 "screen_locker.screen_lock.process_week_transition",
                 return_value=[],
             ),
+            patch(
+                "screen_locker.screen_lock.weekly_shutdown_bonus_hours",
+                return_value=2,
+            ),
             patch("screen_locker.screen_lock.is_relaxed_day", return_value=False),
-            patch("screen_locker.screen_lock.has_weekly_minimum", return_value=False),
-            patch("screen_locker.screen_lock.has_skip_credit", return_value=True),
-            patch("screen_locker.screen_lock.consume_skip_credit"),
-            patch("screen_locker.screen_lock.sys.exit", mock_exit),
+            patch("screen_locker.screen_lock.has_weekly_minimum", return_value=True),
+            patch("screen_locker.screen_lock.sys.exit"),
         ):
             locker._check_non_verify_exits()
-        mock_exit.assert_called_once_with(0)
+        locker._adjust_shutdown_time_by.assert_called_once_with(2)
+
+    def test_no_weekly_bonus_applied_when_not_a_fresh_day(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """reset_to_base_if_new_day False (same-day restart) → bonus not re-applied."""
+        locker = create_locker(mock_tk, tmp_path)
+        object.__setattr__(
+            locker,
+            "_scan_and_fill_week_runnerup",
+            MagicMock(return_value=0),
+        )
+        object.__setattr__(
+            locker,
+            "_adjust_shutdown_time_by",
+            MagicMock(return_value=True),
+        )
+        with (
+            patch(
+                "screen_locker.screen_lock.reset_to_base_if_new_day", return_value=False
+            ),
+            patch(
+                "screen_locker.screen_lock.process_week_transition",
+                return_value=[],
+            ),
+            patch(
+                "screen_locker.screen_lock.weekly_shutdown_bonus_hours",
+                return_value=2,
+            ),
+            patch("screen_locker.screen_lock.is_relaxed_day", return_value=False),
+            patch("screen_locker.screen_lock.has_weekly_minimum", return_value=True),
+            patch("screen_locker.screen_lock.sys.exit"),
+        ):
+            locker._check_non_verify_exits()
+        locker._adjust_shutdown_time_by.assert_not_called()
 
 
 class TestTryAutoUpgradeSickDayRunnerUp:
