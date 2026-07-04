@@ -13,7 +13,13 @@
 set -euo pipefail
 
 CONFIG_FILE="/etc/shutdown-schedule.conf"
-CANONICAL_FILE="/usr/local/share/locked-shutdown-schedule.conf"
+GUARD_NAME="shutdown-schedule"
+
+CANONICAL_FILE="$(guardctl file-guard canonical-path "$GUARD_NAME" 2>/dev/null || true)"
+if [[ -z "$CANONICAL_FILE" ]]; then
+    echo "Error: guard-lib instance '$GUARD_NAME' is not installed (guardctl file-guard canonical-path returned empty)" >&2
+    exit 1
+fi
 
 # Check for --restore flag
 RESTORE_MODE=false
