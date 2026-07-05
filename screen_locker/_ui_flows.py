@@ -5,7 +5,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor  # pylint: disable=no-name-in-module
 from typing import TYPE_CHECKING
 
-from screen_locker import _sick_tracker
+from screen_locker import _manual_workout, _sick_tracker
 from screen_locker._constants import (
     NO_PHONE_EXTRA_LOCKOUT_SECONDS,
     PHONE_PENALTY_DELAY_DEMO,
@@ -44,6 +44,7 @@ class UIFlowsMixin:
         self._text(message, color="#ffaa00")
         history = _sick_tracker.load_history()
         self._text(_sick_tracker.budget_summary(history), color="#888888")
+        self._text(_manual_workout.budget_summary(self.log_file), color="#888888")
         frame = self._button_row()
         self._button(
             frame,
@@ -65,6 +66,33 @@ class UIFlowsMixin:
                 command=self.ask_if_sick,
                 width=12,
             ).pack(side="left", padx=10)
+        if _manual_workout.is_budget_exhausted(self.log_file):
+            self._text(
+                "Manual-workout budget exhausted. No manual-log option available.",
+                color="#ff6666",
+            )
+        else:
+            self._button(
+                frame,
+                "Log Manual Workout",
+                bg="#0088cc",
+                command=self._show_manual_workout_form,
+                width=16,
+            ).pack(side="left", padx=10)
+
+    def _on_manual_workout_saved(self, entry: dict) -> None:
+        """Show confirmation and unlock after a manual-workout entry is built."""
+        self.workout_data = entry
+        self.clear_container()
+        self._label("✓ Manual Workout Logged!", font_size=42, color="#00cc44", pady=30)
+        self._text(entry.get("source", ""), font_size=20, color="#aaffaa")
+        self._text("Unlocking...", font_size=18, color="#888888")
+        unlock_delay = 1500 if self.demo_mode else 2000
+        self.root.after(unlock_delay, self.unlock_screen)
+
+    def _on_manual_workout_cancelled(self) -> None:
+        """Return to the retry screen when the manual-workout form is cancelled."""
+        self._start_phone_check()
 
     def _handle_startup_phone_result(self, status: str, message: str) -> None:
         """Route to appropriate screen based on startup phone check result."""

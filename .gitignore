@@ -14,3 +14,11 @@ coverage.lcov
 htmlcov/
 *.log
 .DS_Store
+
+# Runtime state files — personal workout/health data, never public.
+screen_locker/workout_log.json
+screen_locker/sick_history.json
+screen_locker/extra_benefits_state.json
+screen_locker/scheduled_skips.json
+screen_locker/shutdown_base.json
+screen_locker/early_bird_pending.json

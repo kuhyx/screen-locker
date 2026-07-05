@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import TYPE_CHECKING
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from screen_locker._status import _load_extra_benefits, _load_log, run_status
 from screen_locker.tests.conftest import _make_locker
@@ -109,6 +109,30 @@ class TestRunStatusNormal:
         out = capsys.readouterr().out
         assert "No new workouts found" in out
         assert "Need" in out
+
+    def test_full_week_no_break_when_today_is_sunday(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        """Today == the week's Sunday: the per-day loop runs all 7 days, never breaking early."""
+        from datetime import datetime, timezone
+
+        fixed_now = datetime(2026, 7, 5, 12, 0, tzinfo=timezone.utc)  # a real Sunday
+        eb_file = tmp_path / "eb.json"
+        log_file = tmp_path / "log.json"
+        locker = _make_locker(log_file, n_filled=0)
+        mock_datetime_cls = MagicMock()
+        mock_datetime_cls.now.return_value = fixed_now
+        with (
+            patch("screen_locker._status.datetime", mock_datetime_cls),
+            patch("screen_locker._status.EXTRA_BENEFITS_FILE", eb_file),
+            patch("screen_locker._status.current_streak", return_value=0),
+            patch("screen_locker._status.has_extended_early_bird", return_value=False),
+            patch("screen_locker._status.count_weekly_workouts", return_value=0),
+            patch("sys.exit"),
+        ):
+            run_status(locker)
+        out = capsys.readouterr().out
+        assert out.count("no entry") == 7
 
     def test_sick_day_shown_when_no_log_entry(
         self, tmp_path: Path, capsys: pytest.CaptureFixture

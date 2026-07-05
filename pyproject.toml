@@ -8,6 +8,9 @@ dependencies = [
     "gatelock @ git+https://github.com/kuhyx/gatelock@v0.1.0",
 ]
 
+[project.scripts]
+screen-locker-status = "screen_locker.status_view:main"
+
 [tool.setuptools.packages.find]
 # This repo also holds stronglift_replacement/ (an unrelated Flutter app, not
 # a Python package); without this, setuptools' automatic flat-layout
@@ -35,15 +38,27 @@ unfixable = []
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**/*.py" = [
     "ANN", "ARG", "D", "DTZ011", "E501", "FBT",
-    "PLC0415", "PLR2004", "PTH", "RUF003", "S101", "SLF001",
+    "PLC0415", "PLR0913", "PLR2004", "PTH", "RUF003", "S101", "SLF001",
 ]
 "**/test_*.py" = [
     "ANN", "ARG", "D", "DTZ011", "E501", "FBT",
-    "PLC0415", "PLR2004", "PTH", "RUF003", "S101", "SLF001",
+    "PLC0415", "PLR0913", "PLR2004", "PTH", "RUF003", "S101", "SLF001",
 ]
 "screen_locker/_runnerup_verification.py" = ["S314"]
 "screen_locker/_shutdown_base.py" = ["SLF001"]
 "screen_locker/_status.py" = ["PLR0915", "SLF001", "T201"]
+"screen_locker/status_view.py" = ["PLC0415", "SLF001", "T201"]
+# explain_lock_decision takes one arg per real file path + sick history, and
+# returns early per lock-decision-chain stage (see module docstring) — both
+# are the deliberate design, not something to collapse into a config object.
+"screen_locker/_compliance_state.py" = ["C901", "PLR0911", "PLR0913"]
+# gather_status takes one arg per real file path, all independently
+# overridable for tests — same rationale as _compliance_state.py above.
+"screen_locker/_status_data.py" = ["PLR0913"]
+# validate_manual_workout returns early per failed evidence-form check (same
+# validation-chain shape as _compliance_state.py's explain_lock_decision) —
+# deliberate design, not something to collapse into a config object.
+"screen_locker/_manual_workout.py" = ["C901", "PLR0911"]
 "scripts/check_file_length.py" = ["PTH123"]
 
 [tool.ruff.lint.pydocstyle]

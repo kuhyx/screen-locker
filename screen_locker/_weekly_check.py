@@ -31,7 +31,7 @@ _RELAXED_WEEKDAYS: frozenset[int] = frozenset({1, 2, 3})  # Tue, Wed, Thu
 # Exported (no leading underscore) so screen_lock.py can share this single
 # source of truth instead of duplicating the type check.
 COUNTED_WORKOUT_TYPES: frozenset[str] = frozenset(
-    {"phone_verified", "runnerup_manual", "runnerup_verified"},
+    {"phone_verified", "runnerup_manual", "runnerup_verified", "manual_workout"},
 )
 
 

@@ -31,6 +31,19 @@ SICK_COMMITMENT_FORCED_READ_SECONDS = 5
 SICK_COMMITMENT_PENALTY_DAYS = 2
 # How long the commitment prompt stays visible after a workout unlock.
 COMMITMENT_PROMPT_TIMEOUT_SECONDS = 15
+# Manual (unverified) workout rate-limiting — looser than sick days since
+# activities like table tennis recur more often than illness. Once either
+# window is exhausted the "Log Manual Workout" option disappears entirely.
+MANUAL_WORKOUT_BUDGET_PER_7_DAYS = 2
+MANUAL_WORKOUT_BUDGET_PER_30_DAYS = 5
+# Minimum start-to-end duration for a manual entry to be accepted.
+MANUAL_WORKOUT_MIN_DURATION_MINUTES = 20
+# Minimum chars for the "what was done" activity-details field.
+MANUAL_WORKOUT_DESCRIPTION_MIN_CHARS = 40
+# Minimum chars for each reflection field (what went well / to improve / feeling).
+MANUAL_WORKOUT_REFLECTION_MIN_CHARS = 20
+MANUAL_WORKOUT_RPE_MIN = 1
+MANUAL_WORKOUT_RPE_MAX = 10
 ADB_TIMEOUT = 15
 # Workout app JSON candidate paths on the phone, in the order the app prefers
 # when writing (see sync_service.dart). The app writes to the primary /sdcard/

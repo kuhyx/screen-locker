@@ -220,8 +220,12 @@ class TestIsEarlyBirdPending:
         pending_file.write_text(json.dumps({"date": today, "hmac": "bad"}))
         with (
             patch("screen_locker._early_bird.EARLY_BIRD_PENDING_FILE", pending_file),
-            patch("screen_locker._early_bird.verify_entry_hmac", return_value=False),
-            patch("screen_locker._early_bird.compute_entry_hmac", return_value="sig"),
+            patch(
+                "screen_locker._compliance_state.verify_entry_hmac", return_value=False
+            ),
+            patch(
+                "screen_locker._compliance_state.compute_entry_hmac", return_value="sig"
+            ),
         ):
             assert locker._is_early_bird_pending() is False
 
@@ -238,7 +242,9 @@ class TestIsEarlyBirdPending:
         pending_file.write_text(json.dumps({"date": today, "hmac": "sig"}))
         with (
             patch("screen_locker._early_bird.EARLY_BIRD_PENDING_FILE", pending_file),
-            patch("screen_locker._early_bird.verify_entry_hmac", return_value=True),
+            patch(
+                "screen_locker._compliance_state.verify_entry_hmac", return_value=True
+            ),
         ):
             assert locker._is_early_bird_pending() is True
 
@@ -255,8 +261,12 @@ class TestIsEarlyBirdPending:
         pending_file.write_text(json.dumps({"date": today}))
         with (
             patch("screen_locker._early_bird.EARLY_BIRD_PENDING_FILE", pending_file),
-            patch("screen_locker._early_bird.verify_entry_hmac", return_value=False),
-            patch("screen_locker._early_bird.compute_entry_hmac", return_value=None),
+            patch(
+                "screen_locker._compliance_state.verify_entry_hmac", return_value=False
+            ),
+            patch(
+                "screen_locker._compliance_state.compute_entry_hmac", return_value=None
+            ),
         ):
             assert locker._is_early_bird_pending() is True
 

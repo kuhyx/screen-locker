@@ -5,12 +5,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+from screen_locker.screen_lock import ScreenLocker
 from screen_locker.tests.conftest import create_locker, create_locker_relaxed_day
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    from screen_locker.screen_lock import ScreenLocker
 
 # ---------------------------------------------------------------------------
 # _check_today_state_exits: return True/False branches
@@ -199,3 +198,64 @@ class TestRelaxedDayCloseAndRun:
 
         locker.close()
         locker.root.destroy.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _check_non_verify_exits: heat-skip branch (reached after weekly minimum
+# is not met — the only remaining same-day skip is genuine extreme heat)
+# ---------------------------------------------------------------------------
+
+
+class TestHeatSkipBranch:
+    def test_not_too_hot_no_dialog_shown(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        with (
+            patch("screen_locker.screen_lock.has_weekly_minimum", return_value=False),
+            patch(
+                "screen_locker.screen_lock.is_too_hot", return_value=None
+            ) as mock_hot,
+            patch.object(ScreenLocker, "_show_heat_skip_dialog") as mock_dialog,
+        ):
+            create_locker(mock_tk, tmp_path, has_logged=False)
+
+        mock_hot.assert_called_once()
+        mock_dialog.assert_not_called()
+        mock_sys_exit.assert_not_called()
+
+    def test_too_hot_and_user_confirms_skip(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        with (
+            patch("screen_locker.screen_lock.has_weekly_minimum", return_value=False),
+            patch("screen_locker.screen_lock.is_too_hot", return_value=35.0),
+            patch.object(ScreenLocker, "_show_heat_skip_dialog", return_value=True),
+            patch.object(ScreenLocker, "_save_heat_skip_log") as mock_save,
+        ):
+            create_locker(mock_tk, tmp_path, has_logged=False)
+
+        mock_save.assert_called_once_with(35.0)
+        mock_sys_exit.assert_called_once_with(0)
+
+    def test_too_hot_but_user_declines_skip(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        with (
+            patch("screen_locker.screen_lock.has_weekly_minimum", return_value=False),
+            patch("screen_locker.screen_lock.is_too_hot", return_value=35.0),
+            patch.object(ScreenLocker, "_show_heat_skip_dialog", return_value=False),
+            patch.object(ScreenLocker, "_save_heat_skip_log") as mock_save,
+        ):
+            create_locker(mock_tk, tmp_path, has_logged=False)
+
+        mock_save.assert_not_called()
+        mock_sys_exit.assert_not_called()

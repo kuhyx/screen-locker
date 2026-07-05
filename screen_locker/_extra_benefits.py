@@ -55,6 +55,23 @@ def _current_iso_week(now: datetime) -> str:
     return f"{year}-W{week:02d}"
 
 
+def preview_bonus_if_week_ended_now(
+    current_week_count: int, current_streak: int
+) -> tuple[int, int]:
+    """(would_be_new_streak, would_be_bonus_hours) if the ISO week ended now.
+
+    Pure extraction of ``process_week_transition``'s threshold math — no file
+    I/O, safe to call from a read-only status view for a "next week preview."
+    """
+    if current_week_count < _BONUS_THRESHOLD:
+        return 0, 0
+    streak = current_streak + 1
+    bonus_hours = current_week_count - 4
+    if streak % _MILESTONE_INTERVAL == 0:
+        bonus_hours += 1
+    return streak, bonus_hours
+
+
 def process_week_transition(log_file: Path, state_file: Path) -> list[str]:
     """Process last week's results if we've entered a new ISO week.
 
@@ -100,8 +117,7 @@ def process_week_transition(log_file: Path, state_file: Path) -> list[str]:
 
     if prev_week_count >= _BONUS_THRESHOLD:
         extra = prev_week_count - 4
-        streak += 1
-        bonus_hours = extra
+        streak, bonus_hours = preview_bonus_if_week_ended_now(prev_week_count, streak)
         if current_week_str not in eb_weeks:
             eb_weeks.append(current_week_str)
         rewards.append(
@@ -109,7 +125,6 @@ def process_week_transition(log_file: Path, state_file: Path) -> list[str]:
             f"+{extra}h shutdown bonus this week, early-bird extended to 09:00"
         )
         if streak % _MILESTONE_INTERVAL == 0:
-            bonus_hours += 1
             rewards.append(f"{streak}-week streak milestone! +1h extra shutdown bonus")
         weekly_bonus_hours[current_week_str] = bonus_hours
     else:
@@ -146,9 +161,9 @@ def weekly_shutdown_bonus_hours(
     return int(bonus_hours.get(current_week_str, 0))
 
 
-def has_extended_early_bird(state_file: Path) -> bool:
+def has_extended_early_bird(state_file: Path, *, today: datetime | None = None) -> bool:
     """Return True if the current ISO week has an extended early-bird window (09:00)."""
-    now = datetime.now(tz=timezone.utc).astimezone()
+    now = today if today is not None else datetime.now(tz=timezone.utc).astimezone()
     current_week_str = _current_iso_week(now)
     eb_weeks: list[str] = _load_state(state_file).get(
         "extended_early_bird_iso_weeks", []

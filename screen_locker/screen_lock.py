@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING
 
 from gatelock import GateRoot, LockConfig, LockWindow
 
-from screen_locker import _sick_tracker
 from screen_locker._auto_upgrade import AutoUpgradeMixin
 from screen_locker._constants import (
     EARLY_BIRD_END_HOUR,
@@ -41,6 +40,7 @@ from screen_locker._extra_benefits import (
 )
 from screen_locker._heat_skip import HeatSkipMixin
 from screen_locker._log_mixin import LogMixin
+from screen_locker._manual_workout_dialog import ManualWorkoutDialogMixin
 from screen_locker._phone_verification import PhoneVerificationMixin
 from screen_locker._runnerup_verification import RunnerUpVerificationMixin
 from screen_locker._shutdown import ShutdownMixin
@@ -51,13 +51,13 @@ from screen_locker._ui_flows import UIFlowsMixin
 from screen_locker._ui_flows_relaxed import UIFlowsRelaxedMixin
 from screen_locker._ui_widgets import UIWidgetsMixin
 from screen_locker._weekly_check import (
-    COUNTED_WORKOUT_TYPES,
     WEEKLY_WORKOUT_MINIMUM,
     count_weekly_workouts,
     has_weekly_minimum,
     is_relaxed_day,
 )
 from screen_locker._window_setup import WindowSetupMixin
+from screen_locker._workout_credit import WorkoutCreditMixin
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -101,7 +101,9 @@ class ScreenLocker(
     EarlyBirdMixin,
     HeatSkipMixin,
     LogMixin,
+    ManualWorkoutDialogMixin,
     WindowSetupMixin,
+    WorkoutCreditMixin,
     ShutdownMixin,
     PhoneVerificationMixin,
     RunnerUpVerificationMixin,
@@ -185,17 +187,7 @@ class ScreenLocker(
         # Auto-fill any RunnerUp workouts from earlier in the current ISO week
         # before any early-exit check, so gaps are closed regardless of today's
         # logged state (early_bird, sick_day, etc.).
-        prev_count = count_weekly_workouts(self.log_file)
-        n_filled = self._scan_and_fill_week_runnerup(self.log_file)
-        if n_filled:
-            new_count = count_weekly_workouts(self.log_file)
-            _logger.info(
-                "Auto-filled %d RunnerUp workout(s) from TCX exports.", n_filled
-            )
-            # Award +1h for each newly auto-filled workout above the minimum.
-            bonus = max(0, new_count - max(WEEKLY_WORKOUT_MINIMUM, prev_count))
-            if bonus > 0 and self._adjust_shutdown_time_by(bonus):
-                _logger.info("Auto-fill extra bonus: +%dh shutdown time.", bonus)
+        self._auto_fill_week_runnerup_bonus()
         if self._check_today_state_exits():
             return
         # Day-of-week routing: Tue/Wed/Thu relaxed (optional), Fri-Mon enforced.
@@ -216,17 +208,34 @@ class ScreenLocker(
         # "skip a workout" credit — that mechanic works against the goal of
         # maximizing weekly workouts, so it was removed in favor of a
         # shutdown-time-only reward (see _apply_weekly_shutdown_bonus).
+        self._check_heat_skip_exit()
+
+    def _auto_fill_week_runnerup_bonus(self) -> None:
+        """Auto-fill missed RunnerUp workouts and award any earned bonus."""
+        prev_count = count_weekly_workouts(self.log_file)
+        n_filled = self._scan_and_fill_week_runnerup(self.log_file)
+        if not n_filled:
+            return
+        new_count = count_weekly_workouts(self.log_file)
+        _logger.info("Auto-filled %d RunnerUp workout(s) from TCX exports.", n_filled)
+        # Award +1h for each newly auto-filled workout above the minimum.
+        bonus = max(0, new_count - max(WEEKLY_WORKOUT_MINIMUM, prev_count))
+        if bonus > 0 and self._adjust_shutdown_time_by(bonus):
+            _logger.info("Auto-fill extra bonus: +%dh shutdown time.", bonus)
+
+    def _check_heat_skip_exit(self) -> None:
+        """Exit early if today qualifies for the extreme-heat skip dialog."""
         hot_temp = is_too_hot(HEAT_SKIP_CITY, HEAT_SKIP_TEMP_THRESHOLD)
-        if hot_temp is not None:
-            _logger.info(
-                "Temperature %.0f°C exceeds threshold — showing heat-skip dialog.",
-                hot_temp,
-            )
-            if self._show_heat_skip_dialog(hot_temp):
-                self._save_heat_skip_log(hot_temp)
-                _logger.info("User skipped workout due to heat (%.0f°C).", hot_temp)
-                sys.exit(0)
-                return
+        if hot_temp is None:
+            return
+        _logger.info(
+            "Temperature %.0f°C exceeds threshold — showing heat-skip dialog.",
+            hot_temp,
+        )
+        if self._show_heat_skip_dialog(hot_temp):
+            self._save_heat_skip_log(hot_temp)
+            _logger.info("User skipped workout due to heat (%.0f°C).", hot_temp)
+            sys.exit(0)
 
     def _apply_weekly_shutdown_bonus(self) -> None:
         """Layer this week's earned shutdown bonus back on top of the fresh base."""
@@ -234,70 +243,30 @@ class ScreenLocker(
         if bonus > 0 and self._adjust_shutdown_time_by(bonus):
             _logger.info("Weekly bonus: +%dh shutdown time this week.", bonus)
 
-    def _try_adjust_shutdown_for_workout(self) -> bool:
-        """Try to adjust shutdown time later for actual workouts."""
-        workout_type = self.workout_data.get("type", "")
-        if workout_type not in COUNTED_WORKOUT_TYPES:
-            return False
-        adjusted = self._adjust_shutdown_time_later()
-        if adjusted:
-            _logger.info("Shutdown time moved 2 hours later as workout reward")
-        return adjusted
-
-    def _clear_debt_on_verified_workout(self) -> int | None:
-        """Decrement workout debt by one for a verified workout.
-
-        Returns the new debt count, or ``None`` when this wasn't a
-        phone-verified workout.
-        """
-        if self.workout_data.get("type") not in ("phone_verified", "runnerup_verified"):
-            return None
-        history = _sick_tracker.load_history()
-        if history.debt <= 0:
-            return 0
-        new_debt = _sick_tracker.clear_one_debt(history)
-        _sick_tracker.save_history(history)
-        return new_debt
-
     def unlock_screen(self) -> None:
-        """Save workout log and display success message."""
-        # sick_day is already persisted to sick_history.json by
-        # _finalize_sick_day — workout_log.json is reserved for real outcomes.
-        if self.workout_data.get("type") != "sick_day":
-            self.save_workout_log()
-        shutdown_adjusted = self._try_adjust_shutdown_for_workout()
-        new_debt = self._clear_debt_on_verified_workout()
-
-        # Extra-workout bonus: +1h per workout above the weekly minimum.
-        extra_bonus_delta = 0
-        weekly_count = count_weekly_workouts(self.log_file)
-        if weekly_count > WEEKLY_WORKOUT_MINIMUM:
-            old_cfg = self._read_shutdown_config()
-            if old_cfg and self._adjust_shutdown_time_by(1):
-                new_cfg = self._read_shutdown_config()
-                if new_cfg:
-                    extra_bonus_delta = new_cfg[1] - old_cfg[1]
+        """Apply workout credit and display success message."""
+        credit = self._apply_workout_credit()
 
         self.clear_container()
         self._label("Great job! 💪", font_size=48, color="#00ff00", pady=30)
-        if shutdown_adjusted:
+        if credit.shutdown_adjusted:
             self._text(
                 "Shutdown time +2h later! 🎁",
                 font_size=24,
                 color="#ffaa00",
             )
-        if extra_bonus_delta > 0:
-            extra_n = weekly_count - WEEKLY_WORKOUT_MINIMUM
+        if credit.extra_bonus_delta > 0:
+            extra_n = credit.weekly_count - WEEKLY_WORKOUT_MINIMUM
             self._text(
-                f"Extra workout #{extra_n}! +{extra_bonus_delta}h tonight",
+                f"Extra workout #{extra_n}! +{credit.extra_bonus_delta}h tonight",
                 font_size=20,
                 color="#ffaa00",
             )
-        if new_debt is not None:
+        if credit.new_debt is not None:
             self._text(
-                f"Workout debt: {new_debt}",
+                f"Workout debt: {credit.new_debt}",
                 font_size=20,
-                color="#ffaa00" if new_debt > 0 else "#888888",
+                color="#ffaa00" if credit.new_debt > 0 else "#888888",
             )
         streak = current_streak(EXTRA_BENEFITS_FILE)
         if streak >= 1:
@@ -307,7 +276,11 @@ class ScreenLocker(
                 color="#888888",
             )
         self._text("Screen Unlocked!", font_size=36, pady=20)
-        if self.workout_data.get("type") in ("phone_verified", "runnerup_verified"):
+        if self.workout_data.get("type") in (
+            "phone_verified",
+            "runnerup_verified",
+            "manual_workout",
+        ):
             self.root.after(
                 1500,
                 lambda: self._show_commitment_prompt(on_done=self.close),

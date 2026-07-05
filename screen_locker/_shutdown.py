@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 import json
 import logging
 import subprocess
+from typing import TYPE_CHECKING
 
 from screen_locker._constants import (
     ADJUST_SHUTDOWN_SCRIPT,
@@ -17,7 +18,38 @@ from screen_locker._constants import (
     WAKE_AFTER_HOURS,
 )
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 _logger = logging.getLogger(__name__)
+
+_SHUTDOWN_CONFIG_KEYS = ("MON_WED_HOUR", "THU_SUN_HOUR", "MORNING_END_HOUR")
+
+
+def read_shutdown_config(path: Path) -> tuple[int, int, int] | None:
+    """Read shutdown config from *path*. Returns (mw_hour, ts_hour, me_hour) or None.
+
+    Reading needs no privilege (only writing does, via
+    ``adjust_shutdown_schedule.sh``) — safe to call from a read-only status view.
+    """
+    if not path.exists():
+        _logger.warning("Config not found: %s", path)
+        return None
+    parsed: dict[str, int] = {}
+    with path.open() as f:
+        for line in f:
+            stripped = line.strip()
+            for key in _SHUTDOWN_CONFIG_KEYS:
+                if stripped.startswith(f"{key}="):
+                    parsed[key] = int(stripped.split("=")[1])
+    if len(parsed) < len(_SHUTDOWN_CONFIG_KEYS):
+        _logger.warning("Shutdown config missing required values")
+        return None
+    return (
+        parsed["MON_WED_HOUR"],
+        parsed["THU_SUN_HOUR"],
+        parsed["MORNING_END_HOUR"],
+    )
 
 
 class ShutdownMixin:
@@ -199,25 +231,7 @@ class ShutdownMixin:
 
     def _read_shutdown_config(self) -> tuple[int, int, int] | None:
         """Read shutdown config. Returns (mw_hour, ts_hour, me_hour) or None."""
-        if not SHUTDOWN_CONFIG_FILE.exists():
-            _logger.warning("Config not found: %s", SHUTDOWN_CONFIG_FILE)
-            return None
-        parsed: dict[str, int] = {}
-        keys = ("MON_WED_HOUR", "THU_SUN_HOUR", "MORNING_END_HOUR")
-        with SHUTDOWN_CONFIG_FILE.open() as f:
-            for line in f:
-                stripped = line.strip()
-                for key in keys:
-                    if stripped.startswith(f"{key}="):
-                        parsed[key] = int(stripped.split("=")[1])
-        if len(parsed) < len(keys):
-            _logger.warning("Shutdown config missing required values")
-            return None
-        return (
-            parsed["MON_WED_HOUR"],
-            parsed["THU_SUN_HOUR"],
-            parsed["MORNING_END_HOUR"],
-        )
+        return read_shutdown_config(SHUTDOWN_CONFIG_FILE)
 
     def _build_shutdown_cmd(
         self,

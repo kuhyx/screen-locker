@@ -13,8 +13,9 @@ from datetime import datetime, timezone
 import json
 import logging
 
-from gatelock.log_integrity import compute_entry_hmac, verify_entry_hmac
+from gatelock.log_integrity import compute_entry_hmac
 
+from screen_locker._compliance_state import is_early_bird_pending
 from screen_locker._constants import (
     EARLY_BIRD_END_HOUR,
     EARLY_BIRD_END_MINUTE,
@@ -57,22 +58,7 @@ class EarlyBirdMixin:
 
     def _is_early_bird_pending(self) -> bool:
         """Check if today has an unresolved early-bird pending marker."""
-        if not EARLY_BIRD_PENDING_FILE.exists():
-            return False
-        try:
-            with EARLY_BIRD_PENDING_FILE.open() as f:
-                state = json.load(f)
-        except (OSError, json.JSONDecodeError):
-            return False
-        if not isinstance(state, dict) or state.get("date") != _today_str():
-            return False
-        if verify_entry_hmac(state):
-            return True
-        if compute_entry_hmac({"_probe": True}) is None and "hmac" not in state:
-            _logger.info("HMAC key unavailable — accepting unsigned pending marker")
-            return True
-        _logger.warning("HMAC verification failed for early-bird pending marker")
-        return False
+        return is_early_bird_pending(EARLY_BIRD_PENDING_FILE)
 
     def _save_early_bird_pending(self) -> None:
         """Save today's early-bird pending marker (self-expires tomorrow)."""

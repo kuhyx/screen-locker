@@ -25,6 +25,9 @@ repos:
       - id: debug-statements
       - id: name-tests-test
         args: [--pytest-test-first]
+        # Shared, non-test fixture helpers used by test_status_view*.py —
+        # deliberately not collected as tests (no test_/*_test naming).
+        exclude: ^screen_locker/tests/_status_view_helpers\.py$
       - id: check-ast
       - id: mixed-line-ending
         args: [--fix=lf]

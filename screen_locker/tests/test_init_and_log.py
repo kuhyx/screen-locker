@@ -128,7 +128,7 @@ class TestHasLoggedToday:
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         with patch(
-            "screen_locker._log_mixin.verify_entry_hmac",
+            "screen_locker._compliance_state.verify_entry_hmac",
             return_value=True,
         ):
             assert locker.has_logged_today() is True
@@ -149,7 +149,7 @@ class TestHasLoggedToday:
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         with patch(
-            "screen_locker._log_mixin.verify_entry_hmac",
+            "screen_locker._compliance_state.verify_entry_hmac",
             return_value=False,
         ):
             assert locker.has_logged_today() is False
@@ -171,11 +171,11 @@ class TestHasLoggedToday:
         locker.log_file = log_file
         with (
             patch(
-                "screen_locker._log_mixin.verify_entry_hmac",
+                "screen_locker._compliance_state.verify_entry_hmac",
                 return_value=False,
             ),
             patch(
-                "screen_locker._log_mixin.compute_entry_hmac",
+                "screen_locker._compliance_state.compute_entry_hmac",
                 return_value=None,
             ),
         ):
@@ -198,11 +198,11 @@ class TestHasLoggedToday:
         locker.log_file = log_file
         with (
             patch(
-                "screen_locker._log_mixin.verify_entry_hmac",
+                "screen_locker._compliance_state.verify_entry_hmac",
                 return_value=False,
             ),
             patch(
-                "screen_locker._log_mixin.compute_entry_hmac",
+                "screen_locker._compliance_state.compute_entry_hmac",
                 return_value="some-signature",
             ),
         ):

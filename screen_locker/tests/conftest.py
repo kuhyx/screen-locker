@@ -1,12 +1,11 @@
 """Shared fixtures and helpers for screen_locker tests.
 
 Safety:
-  ``_block_real_tk_and_exit`` (autouse) replaces the **entire** ``tk``
-  module reference inside ``screen_lock`` with a MagicMock, replaces
-  ``GateRoot`` with a callable returning that same mock root, and stubs
-  ``sys.exit``.  This makes it physically impossible for any test to
-  create a real Tk root window, go fullscreen, or grab input — even if
-  the test forgets to request the explicit ``mock_tk`` fixture.
+  ``_block_real_tk_and_exit`` (autouse) replaces the **entire** ``tk`` module
+  reference inside ``screen_lock`` with a MagicMock, replaces ``GateRoot``
+  with a callable returning that same mock root, and stubs ``sys.exit`` — no
+  test can create a real Tk root, go fullscreen, or grab input, even one
+  that forgets to request the explicit ``mock_tk`` fixture.
 """
 
 from __future__ import annotations
@@ -36,8 +35,11 @@ if TYPE_CHECKING:
 _TK_MODULES = (
     "screen_locker.screen_lock",
     "screen_locker._sick_dialog",
+    "screen_locker._manual_workout_dialog",
     "screen_locker._ui_widgets",
     "screen_locker._window_setup",
+    "screen_locker.status_view",
+    "screen_locker._heat_skip",
 )
 _VT_SHUTIL = "gatelock._vt.shutil"
 _VT_SUBPROCESS = "gatelock._vt.subprocess"

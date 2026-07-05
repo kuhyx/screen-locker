@@ -11,7 +11,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-
 class TestUnlockScreenExtras:
     """Tests for unlock_screen extra-workout bonus and streak display (360-389)."""
 
@@ -59,7 +58,7 @@ class TestUnlockScreenExtras:
 
         with (
             patch(
-                "screen_locker.screen_lock.count_weekly_workouts",
+                "screen_locker._workout_credit.count_weekly_workouts",
                 return_value=5,
             ),
             patch(
@@ -95,7 +94,7 @@ class TestUnlockScreenExtras:
 
         with (
             patch(
-                "screen_locker.screen_lock.count_weekly_workouts",
+                "screen_locker._workout_credit.count_weekly_workouts",
                 return_value=5,
             ),
             patch(
@@ -126,7 +125,7 @@ class TestUnlockScreenExtras:
 
         with (
             patch(
-                "screen_locker.screen_lock.count_weekly_workouts",
+                "screen_locker._workout_credit.count_weekly_workouts",
                 return_value=3,
             ),
             patch(
@@ -152,7 +151,7 @@ class TestUnlockScreenExtras:
 
         with (
             patch(
-                "screen_locker.screen_lock.count_weekly_workouts",
+                "screen_locker._workout_credit.count_weekly_workouts",
                 return_value=5,
             ),
             patch("screen_locker.screen_lock.current_streak", return_value=0),
@@ -174,7 +173,7 @@ class TestUnlockScreenExtras:
 
         with (
             patch(
-                "screen_locker.screen_lock.count_weekly_workouts",
+                "screen_locker._workout_credit.count_weekly_workouts",
                 return_value=5,
             ),
             patch("screen_locker.screen_lock.current_streak", return_value=0),
