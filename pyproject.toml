@@ -5,7 +5,7 @@ description = "Tkinter/systemd screen locker with workout tracking, sick-day man
 requires-python = ">=3.10"
 # gatelock: shared lock-window/HMAC backend, also used by diet_guard and wake_alarm
 dependencies = [
-    "gatelock @ git+https://github.com/kuhyx/gatelock@v0.1.0",
+    "gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.1.0#subdirectory=gatelock",
 ]
 
 [project.scripts]

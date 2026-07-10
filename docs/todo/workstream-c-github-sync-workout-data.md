@@ -92,9 +92,10 @@ sync code first.
    pull-all → merge → push) is still the reference *shape* to follow for
    how screen-locker exposes/consumes the synced data — Workstream D should
    implement that shape under the hood.
-2. **Repo name (decided): `screen-locker-sync`** — new private repo, not a
-   reuse of an existing one, following the `diet-guard-sync` naming
-   convention.
+2. **Repo name (decided): `syncs`, under the `screen-locker-sync/`
+   subdirectory** — `diet-guard-sync`, `todo-sync`, and `screen-locker-sync`
+   were consolidated into one shared private `syncs` monorepo (2026-07-10),
+   each keeping its own subdirectory as the Contents-API path prefix.
 3. `PhoneVerificationMixin._verify_phone_workout` (or a new sibling method)
    tries GitHub-sync first, falls back to the existing
    ADB-pull → HTTP-scan chain unchanged.
