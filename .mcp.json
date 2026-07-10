@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "screen-locker": {
+      "type": "stdio",
+      "command": "${HOME}/.venvs/screen-locker-mcp/bin/python",
+      "args": ["-m", "screen_locker._mcp"],
+      "env": {}
+    }
+  }
+}

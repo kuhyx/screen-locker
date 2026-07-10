@@ -11,6 +11,14 @@ dependencies = [
 [project.scripts]
 screen-locker-status = "screen_locker.status_view:main"
 
+# Optional extras. The `mcp` group is ONLY needed by the read-only MCP server
+# (screen_locker._mcp), which Claude Code spawns via a dedicated venv (see
+# scripts/setup_mcp.sh / .mcp.json). It is deliberately NOT a core dependency
+# so the systemd/CLI system-python path stays dependency-light and never has
+# to import the MCP SDK.
+[project.optional-dependencies]
+mcp = ["mcp>=1.9"]
+
 [tool.setuptools.packages.find]
 # This repo also holds stronglift_replacement/ (an unrelated Flutter app, not
 # a Python package); without this, setuptools' automatic flat-layout
