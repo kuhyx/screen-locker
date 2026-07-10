@@ -23,6 +23,7 @@ from screen_locker._status_data import (
     StatusSnapshot,
     WeeklySummary,
 )
+from screen_locker._temperature import TemperatureCheck
 from screen_locker.status_view import StatusWindow
 
 _WEEKDAY_LABELS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
@@ -152,10 +153,21 @@ def _button_texts(mock_tk: MagicMock) -> set[str]:
     return {c.kwargs.get("text") for c in mock_tk.Button.call_args_list}
 
 
+def _temp_check(
+    *, temp_celsius: float | None = 20.0, timed_out: bool = False
+) -> TemperatureCheck:
+    return TemperatureCheck(temp_celsius=temp_celsius, timed_out=timed_out)
+
+
 def _make_window(
     mock_tk: MagicMock, snapshot: StatusSnapshot, **kwargs: object
 ) -> StatusWindow:
+    """Build a StatusWindow with an instant, non-hot, non-network temperature
+    fetcher by default, so unrelated tests never trigger real network I/O —
+    tests exercising temperature behavior pass their own ``temperature_fetcher``.
+    """
     root = MagicMock()
+    kwargs.setdefault("temperature_fetcher", lambda _city: _temp_check())
     return StatusWindow(
         root, snapshot, on_refresh=kwargs.pop("on_refresh", MagicMock()), **kwargs
     )

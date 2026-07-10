@@ -5,6 +5,10 @@ import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/screens/workout_screen.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/widgets/exercise_tile.dart';
+import 'package:workout_app/widgets/rep_circle.dart';
+
+import '../fake_audio_platform.dart';
+import '../fake_secure_storage.dart';
 
 const _exercises = [
   Exercise(name: 'Squat', sets: 3, reps: 5, weight: 20.0),
@@ -33,6 +37,14 @@ void main() {
   setUp(() async {
     StorageService.resetForTesting();
     await StorageService.init();
+    // WorkoutScreen fires an unawaited WorkoutSyncService().push() on
+    // completion, which reads the sync token via FlutterSecureStorage --
+    // without this, the unmocked platform channel throws
+    // MissingPluginException as an unhandled Future error.
+    installFakeSecureStorage();
+    // The break-end sound creates a real AudioPlayer; fake its platform
+    // channels too, for the same reason as above.
+    installFakeAudioPlatform();
   });
 
   Future<void> _pump(WidgetTester tester, Widget w) async {
@@ -75,6 +87,7 @@ void main() {
     expect(find.text('Reset workout?'), findsOneWidget);
     await tester.tap(find.text('Cancel'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     expect(find.text('Reset workout?'), findsNothing);
   });
 

@@ -1,4 +1,4 @@
-"""Phone workout verification: ADB pull first, HTTP scan as fallback."""
+"""Phone workout verification: GitHub sync first, ADB/HTTP as fallback."""
 
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ from screen_locker._constants import (
     WORKOUT_HTTP_PORT,
 )
 from screen_locker._time_check import check_clock_skew
+from screen_locker._workout_sync import pull_synced_workout
 
 _HTTPConnection = _http_client.HTTPConnection
 _HTTPException = _http_client.HTTPException
@@ -243,15 +244,38 @@ class PhoneVerificationMixin:
     # ── Main verification entry point ─────────────────────────────────────────
 
     def _verify_phone_workout(self) -> tuple[str, str]:
-        """Verify today's workout: ADB pull if available, HTTP scan as fallback.
+        """Verify today's workout: GitHub sync first, ADB/HTTP as fallback.
 
         Returns (status, message). Status values:
-        verified / too_short / not_verified / no_phone /
+        verified / too_short / not_verified / no_phone / sync_failed /
         stale / no_exercises / clock_tampered.
         """
         clock_ok, clock_msg = check_clock_skew()
         if not clock_ok:
             return "clock_tampered", clock_msg
+
+        # GitHub sync is the primary channel — it works without the phone
+        # being on the same network as the PC. Only a *verified* sync result
+        # short-circuits ADB/HTTP: a stale/incomplete cloud entry (e.g. the
+        # phone's last push predates today, or a later push failed offline)
+        # must not preempt a fresher ADB pull, so anything less than
+        # "verified" is kept as a fallback-of-last-resort candidate instead
+        # of being returned immediately. A sync error never blocks unlocking
+        # either; `sync_failed` only surfaces if ADB/HTTP also come up empty.
+        synced_data, sync_error = pull_synced_workout()
+        sync_result: tuple[str, str] | None = None
+        if synced_data is not None:
+            sync_result = self._validate_json_data(synced_data)
+            if sync_result[0] == "verified":
+                return sync_result
+            _logger.info(
+                "Synced data not fully verified (%s) — trying ADB/HTTP...",
+                sync_result[0],
+            )
+        elif sync_error is not None:
+            _logger.info(
+                "GitHub sync unavailable (%s) — trying ADB/HTTP...", sync_error
+            )
 
         # Prefer ADB when a device is visible, but if the pull yields no usable
         # JSON, fall through to the HTTP/WiFi scan — the app's in-memory HTTP
@@ -268,6 +292,10 @@ class PhoneVerificationMixin:
         data = self._fetch_http_workout()
         if data is not None:
             return self._validate_json_data(data)
+        if sync_result is not None:
+            return sync_result
+        if sync_error is not None:
+            return "sync_failed", sync_error
         if adb_connected:
             return (
                 "not_verified",

@@ -46,7 +46,7 @@ from screen_locker._runnerup_verification import RunnerUpVerificationMixin
 from screen_locker._shutdown import ShutdownMixin
 from screen_locker._shutdown_base import reset_to_base_if_new_day
 from screen_locker._sick_dialog import SickDialogMixin
-from screen_locker._temperature import is_too_hot
+from screen_locker._temperature import fetch_current_temp_with_status
 from screen_locker._ui_flows import UIFlowsMixin
 from screen_locker._ui_flows_relaxed import UIFlowsRelaxedMixin
 from screen_locker._ui_widgets import UIWidgetsMixin
@@ -224,17 +224,36 @@ class ScreenLocker(
             _logger.info("Auto-fill extra bonus: +%dh shutdown time.", bonus)
 
     def _check_heat_skip_exit(self) -> None:
-        """Exit early if today qualifies for the extreme-heat skip dialog."""
-        hot_temp = is_too_hot(HEAT_SKIP_CITY, HEAT_SKIP_TEMP_THRESHOLD)
-        if hot_temp is None:
+        """Exit early if today qualifies for the extreme-heat skip dialog.
+
+        Fail-closed by construction: a failed or timed-out temperature fetch
+        falls straight through to the lock, same as "not hot enough" — the
+        only difference is this logs *why* explicitly, so a fetch failure
+        is never silently indistinguishable from a normal day in the logs.
+        """
+        check = fetch_current_temp_with_status(HEAT_SKIP_CITY)
+        if check.timed_out:
+            _logger.warning(
+                "Heat-skip temperature check timed out — defaulting to lock."
+            )
+            return
+        if check.temp_celsius is None:
+            _logger.warning(
+                "Heat-skip temperature check failed (network/API error) — "
+                "defaulting to lock."
+            )
+            return
+        if check.temp_celsius < HEAT_SKIP_TEMP_THRESHOLD:
             return
         _logger.info(
             "Temperature %.0f°C exceeds threshold — showing heat-skip dialog.",
-            hot_temp,
+            check.temp_celsius,
         )
-        if self._show_heat_skip_dialog(hot_temp):
-            self._save_heat_skip_log(hot_temp)
-            _logger.info("User skipped workout due to heat (%.0f°C).", hot_temp)
+        if self._show_heat_skip_dialog(check.temp_celsius):
+            self._save_heat_skip_log(check.temp_celsius)
+            _logger.info(
+                "User skipped workout due to heat (%.0f°C).", check.temp_celsius
+            )
             sys.exit(0)
 
     def _apply_weekly_shutdown_bonus(self) -> None:

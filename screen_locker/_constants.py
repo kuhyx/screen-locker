@@ -108,3 +108,20 @@ RUNNERUP_EXPORT_DIRS: tuple[str, ...] = (
     "/sdcard/Documents/RunnerUp",
     "/storage/emulated/0/Documents/RunnerUp",
 )
+
+# ---------------------------------------------------------------------------
+# Sync (phone workout data) — Workstream C, built on the shared crdt-sync
+# library. GitHub is used purely as dumb file storage via the REST Contents
+# API (not a git clone), same pattern as diet_guard's cross-device sync. The
+# phone app pushes to devices/<SYNC_PHONE_DEVICE_ID>/log.json; the PC only
+# ever reads that one path, it never pushes here itself.
+# ---------------------------------------------------------------------------
+SYNC_REPO_OWNER: str = "kuhyx"
+SYNC_REPO_NAME: str = "syncs"
+SYNC_PHONE_DEVICE_ID: str = "phone"
+# A fine-grained GitHub PAT, scoped to just SYNC_REPO_NAME's contents. The
+# user creates this once via github.com and saves it here, mode 600. Never
+# committed — this path is outside the repo entirely. Unlike diet_guard,
+# this file being absent is a normal, expected state (sync is optional here).
+SYNC_TOKEN_FILE: Path = Path.home() / ".config" / "screen_locker" / "sync_token"
+SYNC_TIMEOUT_SECONDS: float = 10.0

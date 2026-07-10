@@ -12,6 +12,7 @@ import 'package:workout_app/models/set_result.dart';
 import 'package:workout_app/models/workout_session.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_service.dart';
+import 'package:workout_app/services/workout_sync_service.dart';
 import 'package:workout_app/widgets/break_banner.dart';
 import 'package:workout_app/widgets/exercise_tile.dart';
 import 'package:workout_app/widgets/workout_summary_dialog.dart';
@@ -462,6 +463,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     await storage.clearActiveSession();
 
     final syncResult = await _sync.writeWorkoutResult(session);
+    unawaited(WorkoutSyncService().push(session));
 
     if (!mounted) return;
     unawaited(

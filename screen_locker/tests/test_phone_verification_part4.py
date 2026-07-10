@@ -137,6 +137,69 @@ class TestScanForHttpServer:
             assert locker._scan_for_http_server() is None
 
 
+class TestVerifyPhoneWorkoutSyncStaleness:
+    """A stale/non-verified sync result must not preempt a fresher fallback."""
+
+    def test_stale_synced_data_falls_through_to_a_fresh_adb_pull(
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
+    ) -> None:
+        """A stale cloud entry must not preempt a fresher ADB result."""
+        locker = create_locker(mock_tk, tmp_path)
+        stale_synced = {
+            "date": "2000-01-01",
+            "exercises": ["old"],
+            "duration_seconds": 4000,
+            "succeeded": True,
+        }
+        fresh_adb = {
+            "date": _today(),
+            "exercises": ["new"],
+            "duration_seconds": 4000,
+            "succeeded": True,
+        }
+        with (
+            patch(
+                "screen_locker._phone_verification.check_clock_skew",
+                return_value=(True, ""),
+            ),
+            patch(
+                "screen_locker._phone_verification.pull_synced_workout",
+                return_value=(stale_synced, None),
+            ),
+            patch.object(locker, "_is_phone_connected", return_value=True),
+            patch.object(locker, "_pull_workout_app_json", return_value=fresh_adb),
+        ):
+            status, _ = locker._verify_phone_workout()
+        assert status == "verified"
+
+    def test_stale_synced_data_used_as_last_resort_when_fallback_is_empty(
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
+    ) -> None:
+        """A non-verified sync result still beats no_phone/not_verified."""
+        locker = create_locker(mock_tk, tmp_path)
+        stale_synced = {
+            "date": "2000-01-01",
+            "exercises": ["old"],
+            "duration_seconds": 4000,
+            "succeeded": True,
+        }
+        with (
+            patch(
+                "screen_locker._phone_verification.check_clock_skew",
+                return_value=(True, ""),
+            ),
+            patch(
+                "screen_locker._phone_verification.pull_synced_workout",
+                return_value=(stale_synced, None),
+            ),
+            patch.object(locker, "_is_phone_connected", return_value=False),
+            patch.object(locker, "_fetch_http_workout", return_value=None),
+        ):
+            status, message = locker._verify_phone_workout()
+        assert status == "stale"
+        assert "2000-01-01" in message
+
+
 class TestFetchHttpWorkout:
     """Tests for _fetch_http_workout over the local HTTP server."""
 

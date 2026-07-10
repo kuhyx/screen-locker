@@ -84,7 +84,6 @@ def _write_tcx(tmp_path: Path, content: str, name: str = "activity.tcx") -> str:
 # ---------------------------------------------------------------------------
 
 
-
 class TestVerifyRunnerupViaDb:
     """Tests for _verify_runnerup_via_db (lines 364-376)."""
 

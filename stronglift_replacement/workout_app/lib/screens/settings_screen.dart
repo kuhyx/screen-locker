@@ -3,15 +3,28 @@
 library;
 
 import 'dart:async';
+import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/workout_plan.dart';
+import 'package:workout_app/services/github_device_auth.dart';
 import 'package:workout_app/services/storage_service.dart';
+import 'package:workout_app/services/sync_settings.dart';
+
+/// How to style a [_SyncStatusBadge].
+enum _SyncStatusKind { success, pending, error }
 
 /// Screen for editing per-exercise thresholds and manual weight overrides.
 class SettingsScreen extends StatefulWidget {
   /// Creates a [SettingsScreen].
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.httpClient});
+
+  /// Injectable HTTP client; tests pass a `MockClient` so the device-flow
+  /// requests never hit the real network.
+  final http.Client? httpClient;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -27,6 +40,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // Debounce weight saves to avoid resetting streaks on every tap.
   final Map<String, Timer> _weightTimers = {};
 
+  final _tokenController = TextEditingController();
+
+  // Persistent (not a transient SnackBar) so the result of Connect GitHub /
+  // Save is still visible if the user looks back at the screen later --
+  // mirrors diet-guard/todo's `_status` field in their settings screens.
+  String? _syncStatus;
+  _SyncStatusKind _syncStatusKind = _SyncStatusKind.pending;
+
+  void _setSyncStatus(String message, _SyncStatusKind kind) {
+    setState(() {
+      _syncStatus = message;
+      _syncStatusKind = kind;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -38,11 +66,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     for (final t in _weightTimers.values) {
       t.cancel();
     }
+    _tokenController.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
     final states = await StorageService.instance.getAllExerciseStates();
+    final syncSettings = await SyncSettings.load();
     if (mounted) {
       setState(() {
         for (final s in states) {
@@ -50,8 +80,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _failThresholds[s.name] = s.failThreshold;
           _weights[s.name] = s.weight;
         }
+        _tokenController.text = syncSettings.token;
         _loading = false;
       });
+      // Reflect an already-configured token immediately on open, not only
+      // after Connect GitHub / Save is tapped this session.
+      if (syncSettings.isConfigured) {
+        _setSyncStatus('Connected.', _SyncStatusKind.success);
+      }
+    }
+  }
+
+  Future<void> _saveToken() async {
+    final saved = await SyncSettings(
+      token: _tokenController.text.trim(),
+    ).save();
+    if (!mounted) return;
+    _setSyncStatus(
+      saved ? 'Sync token saved.' : 'Could not save token on this device.',
+      saved ? _SyncStatusKind.success : _SyncStatusKind.error,
+    );
+  }
+
+  /// Runs the OAuth device flow and, on success, saves the resulting token
+  /// and verifies it actually works against the sync repo -- a saved token
+  /// that can't reach `$syncRepoOwner/$syncRepoName` (wrong scope, revoked,
+  /// etc.) must be surfaced immediately, not discovered on the next workout.
+  Future<void> _connectGitHub() async {
+    final auth = GitHubDeviceAuth(
+      clientId: SyncSettings.defaultClientId,
+      httpClient: widget.httpClient,
+    );
+    try {
+      final device = await auth.requestDeviceCode();
+      if (!mounted) return;
+      final token = await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => _DeviceCodeDialog(device: device, auth: auth),
+      );
+      if (token != null && token.isNotEmpty) {
+        setState(() => _tokenController.text = token);
+        _setSyncStatus('Connected — verifying…', _SyncStatusKind.pending);
+        final saved = await SyncSettings(token: token).save();
+        if (!saved) {
+          if (!mounted) return;
+          _setSyncStatus(
+            'Connected, but could not save the token on this device.',
+            _SyncStatusKind.error,
+          );
+          return;
+        }
+        await _verifyConnection(token);
+      }
+    } on Exception catch (e) {
+      if (!mounted) return;
+      _setSyncStatus('Could not start device flow: $e', _SyncStatusKind.error);
+    } finally {
+      auth.close();
+    }
+  }
+
+  /// Confirms [token] can actually read `$syncRepoOwner/$syncRepoName`.
+  Future<void> _verifyConnection(String token) async {
+    final client = GitHubClient(
+      owner: syncRepoOwner,
+      repo: syncRepoName,
+      token: token,
+      httpClient: widget.httpClient,
+    );
+    try {
+      await client.getFileText('devices/phone/log.json');
+      if (!mounted) return;
+      _setSyncStatus(
+        'Connected and verified via GitHub.',
+        _SyncStatusKind.success,
+      );
+    } on GitHubSyncError catch (e) {
+      if (!mounted) return;
+      _setSyncStatus(
+        'Connected, but could not verify: $e',
+        _SyncStatusKind.error,
+      );
+    } finally {
+      client.close();
     }
   }
 
@@ -185,6 +297,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         _onThresholdChanged(name, _successThresholds[name]!, v),
                   );
                 }),
+                const SizedBox(height: 20),
+                const _SectionHeader('GITHUB SYNC'),
+                const SizedBox(height: 4),
+                const Text(
+                  'Authorize in your browser -- no token to paste. Syncs to '
+                  '$syncRepoOwner/$syncRepoName. Workouts push automatically '
+                  'on completion.',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                if (_syncStatus != null) ...[
+                  _SyncStatusBadge(text: _syncStatus!, kind: _syncStatusKind),
+                  const SizedBox(height: 12),
+                ],
+                ElevatedButton.icon(
+                  onPressed: _connectGitHub,
+                  icon: const Icon(Icons.login),
+                  label: const Text('Connect GitHub'),
+                ),
+                const SizedBox(height: 8),
+                ExpansionTile(
+                  title: const Text(
+                    'Advanced: paste a token instead',
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                  collapsedIconColor: Colors.white54,
+                  iconColor: Colors.white54,
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: const EdgeInsets.only(top: 8, bottom: 8),
+                  children: [
+                    _SyncTokenField(
+                      controller: _tokenController,
+                      onSave: _saveToken,
+                    ),
+                  ],
+                ),
               ],
             ),
     );
@@ -281,6 +429,101 @@ class _StepperButton extends StatelessWidget {
         alignment: Alignment.center,
         child: Icon(icon, color: Colors.white, size: 18),
       ),
+    );
+  }
+}
+
+/// A visible, colored status pill for the GitHub sync connection state --
+/// placed directly under the section description (not buried below the
+/// collapsed Advanced field) so "am I connected?" has an immediate answer.
+class _SyncStatusBadge extends StatelessWidget {
+  const _SyncStatusBadge({required this.text, required this.kind});
+
+  final String text;
+  final _SyncStatusKind kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (kind) {
+      _SyncStatusKind.success => Colors.greenAccent,
+      _SyncStatusKind.error => Colors.redAccent,
+      _SyncStatusKind.pending => Colors.white70,
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          if (kind == _SyncStatusKind.pending)
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            Icon(
+              kind == _SyncStatusKind.success
+                  ? Icons.check_circle
+                  : Icons.error,
+              color: color,
+              size: 16,
+            ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: color,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SyncTokenField extends StatelessWidget {
+  const _SyncTokenField({required this.controller, required this.onSave});
+
+  final TextEditingController controller;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: TextField(
+            controller: controller,
+            obscureText: true,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'GitHub PAT',
+              hintStyle: TextStyle(color: Colors.grey.shade600),
+              filled: true,
+              fillColor: Colors.grey.shade800,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        ElevatedButton(onPressed: onSave, child: const Text('Save')),
+      ],
     );
   }
 }
@@ -388,6 +631,110 @@ class _ThresholdRow extends StatelessWidget {
               ),
             ),
           ),
+      ],
+    );
+  }
+}
+
+/// Dialog shown during the device flow: displays the user code, opens the
+/// verification page, and polls until authorized -- popping the token (or
+/// null if cancelled / failed).
+class _DeviceCodeDialog extends StatefulWidget {
+  const _DeviceCodeDialog({required this.device, required this.auth});
+
+  final DeviceCodeResponse device;
+  final GitHubDeviceAuth auth;
+
+  @override
+  State<_DeviceCodeDialog> createState() => _DeviceCodeDialogState();
+}
+
+class _DeviceCodeDialogState extends State<_DeviceCodeDialog> {
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_poll());
+  }
+
+  Future<void> _poll() async {
+    try {
+      final token = await widget.auth.pollForToken(widget.device);
+      if (mounted) Navigator.of(context).pop(token);
+    } on Exception catch (e) {
+      if (mounted) setState(() => _error = '$e');
+    }
+  }
+
+  Future<void> _openPage() async {
+    await Clipboard.setData(ClipboardData(text: widget.device.userCode));
+    await launchUrl(
+      Uri.parse(widget.device.verificationUri),
+      mode: LaunchMode.externalApplication,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Colors.grey.shade900,
+      title: const Text(
+        'Authorize on GitHub',
+        style: TextStyle(color: Colors.white),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Enter this code on GitHub:',
+            style: TextStyle(color: Colors.white70),
+          ),
+          const SizedBox(height: 8),
+          SelectableText(
+            widget.device.userCode,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (_error == null)
+            const Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Waiting for authorization…',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ),
+              ],
+            )
+          else
+            Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text(
+            'Cancel',
+            style: TextStyle(color: Colors.white70),
+          ),
+        ),
+        FilledButton.icon(
+          onPressed: _openPage,
+          icon: const Icon(Icons.open_in_new),
+          label: const Text('Open GitHub & copy code'),
+        ),
       ],
     );
   }

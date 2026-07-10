@@ -252,3 +252,89 @@ class TestVerifyPhoneWorkoutFallthrough:
         ):
             status, _ = locker._verify_phone_workout()
         assert status == "no_phone"
+
+    def test_synced_data_is_validated_directly_without_adb_or_http(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """A successful sync pull short-circuits ADB/HTTP entirely."""
+        locker = create_locker(mock_tk, tmp_path)
+        synced_data = {
+            "date": _today(),
+            "exercises": ["a"],
+            "duration_seconds": 4000,
+            "succeeded": True,
+        }
+        adb = MagicMock()
+        http = MagicMock()
+        with (
+            patch(
+                "screen_locker._phone_verification.check_clock_skew",
+                return_value=(True, ""),
+            ),
+            patch(
+                "screen_locker._phone_verification.pull_synced_workout",
+                return_value=(synced_data, None),
+            ),
+            patch.object(locker, "_is_phone_connected", adb),
+            patch.object(locker, "_fetch_http_workout", http),
+        ):
+            status, _ = locker._verify_phone_workout()
+        assert status == "verified"
+        adb.assert_not_called()
+        http.assert_not_called()
+
+    def test_sync_error_falls_through_to_a_successful_fallback_silently(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """A sync error must never block a result the fallback can still find."""
+        locker = create_locker(mock_tk, tmp_path)
+        http_data = {
+            "date": _today(),
+            "exercises": ["a"],
+            "duration_seconds": 4000,
+            "succeeded": True,
+        }
+        with (
+            patch(
+                "screen_locker._phone_verification.check_clock_skew",
+                return_value=(True, ""),
+            ),
+            patch(
+                "screen_locker._phone_verification.pull_synced_workout",
+                return_value=(None, "network unreachable"),
+            ),
+            patch.object(locker, "_is_phone_connected", return_value=False),
+            patch.object(locker, "_fetch_http_workout", return_value=http_data),
+        ):
+            status, _ = locker._verify_phone_workout()
+        assert status == "verified"
+
+    def test_sync_error_and_empty_fallback_returns_sync_failed(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Nothing found anywhere AND sync errored → sync_failed, not no_phone."""
+        locker = create_locker(mock_tk, tmp_path)
+        with (
+            patch(
+                "screen_locker._phone_verification.check_clock_skew",
+                return_value=(True, ""),
+            ),
+            patch(
+                "screen_locker._phone_verification.pull_synced_workout",
+                return_value=(None, "bad token"),
+            ),
+            patch.object(locker, "_is_phone_connected", return_value=False),
+            patch.object(locker, "_fetch_http_workout", return_value=None),
+        ):
+            status, message = locker._verify_phone_workout()
+        assert status == "sync_failed"
+        assert message == "bad token"

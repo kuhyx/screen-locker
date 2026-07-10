@@ -16,6 +16,7 @@ from screen_locker.tests._status_view_helpers import (
     _lock_explanation,
     _make_window,
     _snapshot,
+    _temp_check,
     _texts,
     _week,
 )
@@ -220,3 +221,96 @@ class TestMain:
             captured["on_refresh"]()
 
         assert mock_gather.call_count == calls_before + 1
+
+
+class TestTemperatureSectionRendering:
+    def test_shows_checking_message_before_result(self, mock_tk: MagicMock) -> None:
+        window = _make_window(mock_tk, _snapshot())
+        window._temp_result = None
+        window.render(_snapshot())
+        assert any("Checking Warsaw temperature" in t for t in _texts(mock_tk))
+
+    def test_shows_resolved_temperature(self, mock_tk: MagicMock) -> None:
+        window = _make_window(mock_tk, _snapshot())
+        window._temp_result = _temp_check(temp_celsius=22.0)
+        window.render(_snapshot())
+        assert any("Warsaw: 22" in t for t in _texts(mock_tk))
+
+    def test_flags_would_trigger_heat_skip_when_hot(self, mock_tk: MagicMock) -> None:
+        window = _make_window(mock_tk, _snapshot())
+        window._temp_result = _temp_check(temp_celsius=35.0)
+        window.render(_snapshot())
+        assert any("Would trigger heat-skip today." in t for t in _texts(mock_tk))
+
+    def test_does_not_flag_heat_skip_when_below_threshold(
+        self, mock_tk: MagicMock
+    ) -> None:
+        window = _make_window(mock_tk, _snapshot())
+        window._temp_result = _temp_check(temp_celsius=22.0)
+        window.render(_snapshot())
+        assert not any("Would trigger heat-skip today." in t for t in _texts(mock_tk))
+
+    def test_shows_timeout_message(self, mock_tk: MagicMock) -> None:
+        window = _make_window(mock_tk, _snapshot())
+        window._temp_result = _temp_check(temp_celsius=None, timed_out=True)
+        window.render(_snapshot())
+        assert any("timed out" in t for t in _texts(mock_tk))
+
+    def test_shows_failure_message_when_not_timed_out(self, mock_tk: MagicMock) -> None:
+        window = _make_window(mock_tk, _snapshot())
+        window._temp_result = _temp_check(temp_celsius=None, timed_out=False)
+        window.render(_snapshot())
+        assert any("failed (network/API error)" in t for t in _texts(mock_tk))
+
+
+class TestTemperatureCheckFlow:
+    def test_init_starts_temperature_future(self, mock_tk: MagicMock) -> None:
+        window = _make_window(mock_tk, _snapshot())
+        assert window._temp_future is not None
+
+    def test_poll_routes_to_result_when_future_done(self, mock_tk: MagicMock) -> None:
+        window = _make_window(mock_tk, _snapshot())
+        mock_future = MagicMock()
+        mock_future.done.return_value = True
+        mock_future.result.return_value = _temp_check(temp_celsius=25.0)
+        window._temp_future = mock_future
+        with patch.object(window, "_on_temperature_check_result") as mock_handle:
+            window._poll_temperature_check()
+        mock_handle.assert_called_once_with(mock_future.result.return_value)
+
+    def test_poll_waits_when_future_not_done(self, mock_tk: MagicMock) -> None:
+        window = _make_window(mock_tk, _snapshot())
+        mock_future = MagicMock()
+        mock_future.done.return_value = False
+        window._temp_future = mock_future
+        with patch.object(window, "_on_temperature_check_result") as mock_handle:
+            window._poll_temperature_check()
+        mock_handle.assert_not_called()
+        window.root.after.assert_called_with(500, window._poll_temperature_check)
+
+    def test_poll_waits_when_future_is_none(self, mock_tk: MagicMock) -> None:
+        window = _make_window(mock_tk, _snapshot())
+        window._temp_future = None
+        with patch.object(window, "_on_temperature_check_result") as mock_handle:
+            window._poll_temperature_check()
+        mock_handle.assert_not_called()
+
+    def test_result_rerenders_last_snapshot_without_gathering_from_disk(
+        self, mock_tk: MagicMock
+    ) -> None:
+        """The temperature reading is independent of on-disk workout state —
+        must not trigger a real ``gather_status()`` disk read."""
+        window = _make_window(mock_tk, _snapshot())
+        result = _temp_check(temp_celsius=19.0)
+        with patch("screen_locker.status_view.gather_status") as mock_gather:
+            window._on_temperature_check_result(result)
+        assert window._temp_result == result
+        mock_gather.assert_not_called()
+
+    def test_refresh_clears_result_and_restarts_check(self, mock_tk: MagicMock) -> None:
+        window = _make_window(mock_tk, _snapshot(), on_refresh=MagicMock())
+        window._temp_result = _temp_check(temp_celsius=30.0)
+        with patch.object(window, "_start_temperature_check") as mock_start:
+            window._on_refresh_clicked()
+        assert window._temp_result is None
+        mock_start.assert_called_once()

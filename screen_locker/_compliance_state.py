@@ -243,6 +243,7 @@ def explain_lock_decision(
     )
     expired = pending and not window_open
     early_bird_open_and_pending = pending and window_open
+    window_end_label = "09:00" if extended_early_bird else "08:30"
     sick_today = is_sick_day_today(sick_history, today=today_str)
     logged = has_logged_today(log_file, today=today_str)
 
@@ -342,10 +343,12 @@ def explain_lock_decision(
     result = _check(
         "early_bird_time_fresh",
         fired=window_open,
-        reason_true="Currently inside the early-bird window (05:00-08:30/09:00).",
+        reason_true=(
+            f"Currently inside the early-bird window (05:00-{window_end_label})."
+        ),
         reason_false="Not currently inside the early-bird window.",
         terminal_reason="Inside the early-bird window — lock skipped, pending marker "
-        "would be saved for the 08:30/09:00 re-check.",
+        f"would be saved for the {window_end_label} re-check.",
     )
     if result is not None:
         return result

@@ -81,7 +81,6 @@ def _write_tcx(tmp_path: Path, content: str, name: str = "activity.tcx") -> str:
 # ---------------------------------------------------------------------------
 
 
-
 class TestScanAndFillWeekRunnerup:
     """Tests for _scan_and_fill_week_runnerup (lines 186-248)."""
 
@@ -350,5 +349,3 @@ class TestScanAndFillWeekRunnerup:
 # ---------------------------------------------------------------------------
 # _find_runnerup_package
 # ---------------------------------------------------------------------------
-
-

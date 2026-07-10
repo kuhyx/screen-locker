@@ -9,10 +9,10 @@ void main() {
     testWidgets('displays label and formatted time', (tester) async {
       await tester.pumpWidget(
         _wrap(
-          const BreakBanner(
+          BreakBanner(
             breakRemaining: 90,
             breakLabel: 'Rest',
-            onSkip: null,
+            onSkip: () {},
           ),
         ),
       );
@@ -23,10 +23,10 @@ void main() {
     testWidgets('formats time below one minute correctly', (tester) async {
       await tester.pumpWidget(
         _wrap(
-          const BreakBanner(
+          BreakBanner(
             breakRemaining: 5,
             breakLabel: 'Warmup rest',
-            onSkip: null,
+            onSkip: () {},
           ),
         ),
       );
@@ -51,10 +51,10 @@ void main() {
     testWidgets('zero seconds formats as 00:00', (tester) async {
       await tester.pumpWidget(
         _wrap(
-          const BreakBanner(
+          BreakBanner(
             breakRemaining: 0,
             breakLabel: 'Rest',
-            onSkip: null,
+            onSkip: () {},
           ),
         ),
       );

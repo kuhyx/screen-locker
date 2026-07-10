@@ -1,12 +1,20 @@
 """Read-only Tkinter status window plus a lightweight i3blocks summary CLI.
 
 Opening or refreshing this window only ever reads files already on disk
-(via ``_status_data.gather_status``). The "Check Phone" button submits
-``PhoneVerificationMixin._verify_phone_workout`` to a background thread —
-mirroring the existing submit/poll/``Future`` idiom used by
-``_ui_flows_relaxed.py`` — and only ever *displays* the result; it never
-calls ``save_workout_log()``. The one deliberate exception is "Log Manual
-Workout": a user-initiated, explicit evidence-form submission (see
+(via ``_status_data.gather_status``), with two deliberate exceptions that
+only ever *display* a result and never write to ``workout_log.json``:
+
+* "Check Phone" submits ``PhoneVerificationMixin._verify_phone_workout`` to a
+  background thread — mirroring the existing submit/poll/``Future`` idiom
+  used by ``_ui_flows_relaxed.py``.
+* The live Warsaw temperature (see ``_section_temperature``) is fetched via
+  ``_temperature.fetch_current_temp_with_status`` on open and on every
+  refresh, in its own background thread, bounded to
+  ``_temperature.HARD_TIMEOUT_SECONDS`` — the same call the real locker's
+  heat-skip check makes, so the window shows what the lock actually sees.
+
+The one exception that *does* write is "Log Manual Workout": a
+user-initiated, explicit evidence-form submission (see
 ``_manual_workout_dialog.ManualWorkoutDialogMixin``) — never a silent log.
 """
 
@@ -30,6 +38,10 @@ from screen_locker._status_data import (
     format_summary_line,
     gather_status,
 )
+from screen_locker._temperature import (
+    fetch_current_temp_with_status,
+)
+from screen_locker._temperature_status_mixin import TemperatureStatusMixin
 from screen_locker._ui_widgets import UIWidgetsMixin
 from screen_locker._weekly_check import (
     WEEKLY_WORKOUT_MINIMUM as _WEEKLY_WORKOUT_MINIMUM,
@@ -40,6 +52,7 @@ if TYPE_CHECKING:
     from concurrent.futures import Future
 
     from screen_locker._compliance_state import LockExplanation
+    from screen_locker._temperature import TemperatureCheck
     from screen_locker.screen_lock import ScreenLocker
 
 _DEFAULT_LOG_FILE = Path(__file__).resolve().parent / "workout_log.json"
@@ -60,7 +73,7 @@ def _make_bare_verifier(log_file: Path) -> ScreenLocker:
     return verifier
 
 
-class StatusWindow(UIWidgetsMixin, ManualWorkoutDialogMixin):
+class StatusWindow(UIWidgetsMixin, ManualWorkoutDialogMixin, TemperatureStatusMixin):
     """Thin Tk view over a :class:`StatusSnapshot`.
 
     Formatting logic lives in ``_status_data``, not here.
@@ -74,27 +87,37 @@ class StatusWindow(UIWidgetsMixin, ManualWorkoutDialogMixin):
         on_refresh: Callable[[], None],
         log_file: Path = _DEFAULT_LOG_FILE,
         verifier_factory: Callable[[Path], ScreenLocker] = _make_bare_verifier,
+        temperature_fetcher: Callable[
+            [str], TemperatureCheck
+        ] = fetch_current_temp_with_status,
     ) -> None:
         """Build the window's container and render *snapshot* immediately."""
         self.root = root
         self.on_refresh = on_refresh
         self.log_file = log_file
         self.verifier_factory = verifier_factory
+        self.temperature_fetcher = temperature_fetcher
         self.demo_mode = True  # only affects UIWidgetsMixin._button's cursor
         self._phone_future: Future[tuple[str, str]] | None = None
         self._phone_check_result: tuple[str, str] | None = None
         self._manual_workout_saved_message: str | None = None
+        self._temp_future: Future[TemperatureCheck] | None = None
+        self._temp_result: TemperatureCheck | None = None
+        self._last_snapshot = snapshot
         self.container = tk.Frame(root, bg="#1a1a1a")
         self.container.pack(fill="both", expand=True)
+        self._start_temperature_check()
         self.render(snapshot)
 
     def render(self, snapshot: StatusSnapshot) -> None:
         """Redraw the whole window from *snapshot*."""
+        self._last_snapshot = snapshot
         self.clear_container()
         self._label("Workout Status", font_size=28, pady=15)
         self._section_today(self.container, snapshot.today)
         self._section_week(self.container, snapshot.week)
         self._section_lock_explanation(self.container, snapshot.lock_explanation)
+        self._section_temperature(self.container)
         self._section_sick_budget(self.container, snapshot.sick_budget)
         self._section_manual_workout_budget(
             self.container, snapshot.manual_workout_budget
@@ -187,13 +210,6 @@ class StatusWindow(UIWidgetsMixin, ManualWorkoutDialogMixin):
                 font_size=11,
                 color="#ffaa00",
             )
-        if expl.fired and not expl.heat_skip_evaluated:
-            self._text(
-                "Live Warsaw temperature is not checked here — the real "
-                "locker may still offer a heat-skip.",
-                font_size=11,
-                color="#888888",
-            )
 
     def _section_sick_budget(self, parent: tk.Widget, sick: SickBudgetStatus) -> None:
         """Render rolling sick-day budget usage."""
@@ -249,8 +265,10 @@ class StatusWindow(UIWidgetsMixin, ManualWorkoutDialogMixin):
         self._text(shutdown.explanation, font_size=10, color="#666666")
 
     def _on_refresh_clicked(self) -> None:
-        """Clear any stale phone-check result and re-gather the snapshot."""
+        """Clear any stale phone-check/temperature results, re-check both."""
         self._phone_check_result = None
+        self._temp_result = None
+        self._start_temperature_check()
         self.on_refresh()
 
     def _on_check_phone_clicked(self) -> None:

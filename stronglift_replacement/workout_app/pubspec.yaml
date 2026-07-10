@@ -5,20 +5,29 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.12.0
+  sdk: ^3.12.2
 
 dependencies:
   audioplayers: ^6.4.0
+  crdt_sync:
+    git:
+      url: https://github.com/kuhyx/utils
+      ref: crdt_sync_dart-v0.1.0
+      path: crdt_sync_dart
   flutter:
     sdk: flutter
+  flutter_secure_storage: ^10.3.1
+  http: ^1.6.0
   path: ^1.9.1
   path_provider: ^2.1.5
   permission_handler: ^12.0.0
   shared_preferences: ^2.5.3
   sqflite: ^2.4.2
+  url_launcher: ^6.3.2
   vibration: ^3.1.0
 
 dev_dependencies:
+  audioplayers_platform_interface: ^7.1.1
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter

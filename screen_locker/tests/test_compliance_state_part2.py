@@ -148,6 +148,27 @@ class TestExplainLockDecision:
         )
         assert result.fired is False
         assert result.stage == "early_bird_time_fresh"
+        assert "08:30" in result.reason
+        assert "09:00" not in result.reason
+
+    def test_fresh_early_bird_time_names_09_00_when_extended(
+        self, tmp_path: Path
+    ) -> None:
+        """The re-check time isn't ambiguous — it's whichever one actually applies."""
+        files = self._files(tmp_path)
+        now = datetime.now(tz=timezone.utc).astimezone().replace(hour=6, minute=0)
+        result = explain_lock_decision(
+            **files,
+            sick_history=SickHistory(),
+            extended_early_bird=True,
+            weekly_minimum_met=False,
+            relaxed_day=False,
+            now=now,
+        )
+        assert result.fired is False
+        assert result.stage == "early_bird_time_fresh"
+        assert "09:00" in result.reason
+        assert "08:30" not in result.reason
 
     def test_relaxed_day_skips(self, tmp_path: Path) -> None:
         files = self._files(tmp_path)

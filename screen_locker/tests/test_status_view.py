@@ -107,9 +107,8 @@ class TestSectionLockExplanation:
         texts = _texts(mock_tk)
         assert any(t == "Full lock." for t in texts)
         assert any("Pending auto-upgrade: will try phone" in t for t in texts)
-        assert any("Live Warsaw temperature" in t for t in texts)
 
-    def test_not_fired_no_auto_upgrade_no_heat_line(self, mock_tk: MagicMock) -> None:
+    def test_not_fired_no_auto_upgrade(self, mock_tk: MagicMock) -> None:
         snap = _snapshot(
             lock_explanation=_lock_explanation(fired=False, reason="Skipped.")
         )
@@ -117,16 +116,17 @@ class TestSectionLockExplanation:
         texts = _texts(mock_tk)
         assert any(t == "Skipped." for t in texts)
         assert not any("Pending auto-upgrade" in t for t in texts)
-        assert not any("Live Warsaw temperature" in t for t in texts)
 
-    def test_fired_but_heat_skip_already_evaluated_no_heat_line(
+    def test_temperature_section_renders_regardless_of_heat_skip_evaluated(
         self, mock_tk: MagicMock
     ) -> None:
+        """The live temperature section is unconditional — see
+        ``TestTemperatureSectionRendering`` for its actual content states."""
         snap = _snapshot(
             lock_explanation=_lock_explanation(fired=True, heat_skip_evaluated=True)
         )
         _make_window(mock_tk, snap)
-        assert not any("Live Warsaw temperature" in t for t in _texts(mock_tk))
+        assert any("Warsaw Temperature" in t for t in _texts(mock_tk))
 
 
 class TestSectionSickBudget:

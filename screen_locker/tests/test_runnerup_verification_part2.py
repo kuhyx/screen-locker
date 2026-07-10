@@ -80,7 +80,6 @@ def _write_tcx(tmp_path: Path, content: str, name: str = "activity.tcx") -> str:
 # ---------------------------------------------------------------------------
 
 
-
 class TestVerifyRunnerupViaFiles:
     """Tests for _verify_runnerup_via_files (lines 147-165)."""
 
@@ -168,5 +167,3 @@ class TestVerifyRunnerupViaFiles:
 # ---------------------------------------------------------------------------
 # _scan_and_fill_week_runnerup
 # ---------------------------------------------------------------------------
-
-

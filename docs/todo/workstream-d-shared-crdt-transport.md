@@ -3,14 +3,36 @@
 ## Status
 
 Scoping pass complete — see `workstream-d-scoping-findings.md` (2026-07-04)
-for the answers to the four questions below and two sub-decisions that fell
-out of it. Still not implemented; those sub-decisions need a user call
-before any code is written. Split out from the original status-view plan
+for the answers to the four questions below and the two sub-decisions that
+fell out of it (both resolved by explicit user call, 2026-07-04).
+
+**The two shared libraries are now implemented and locally verified
+(2026-07-05):**
+- `~/crdt-sync` (Python) — 60 tests, 100% branch coverage, clean
+  ruff/mypy/pylint/bandit/pre-commit. Local git repo, one commit.
+- `~/crdt_sync_dart` (pure Dart, no Flutter dep) — 59 tests, clean
+  `dart analyze`. Local git repo, one commit.
+
+Both implement the unified LWW-map-with-sticky-remove scheme (`Hlc`,
+`Record`/`merge_record`, `Log`/`merge_logs`) plus a GitHub Contents-API
+transport client and a domain-agnostic `sync_log`/`syncLog` orchestrator.
+
+Both were originally pushed as standalone public repos (2026-07-05, matching
+`gatelock`'s convention), then consolidated (2026-07-10) into the shared
+`github.com/kuhyx/utils` monorepo alongside `gatelock` and `guard-lib`, each
+as its own subdirectory. Consume via
+`crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.1.0#subdirectory=crdt-sync`
+(Python) or a pubspec `git:`/`path:` dependency pointing at
+`crdt_sync_dart-v0.1.0`/`crdt_sync_dart` (Dart).
+
+**Not yet done — none of the four apps have been migrated onto it yet**:
+todo (off `sqlite_crdt`), diet-guard (Python + Dart merge code), wake-alarm
+(`shutdown-wrapper.sh` rewrite), and screen-locker's own Workstream C
+adoption. Each is its own separate, production-code-touching task per the
+scoping doc's per-app cost estimates.
+
+Split out from the original status-view plan
 (`~/.claude/plans/screen-locker-status-streamed-feigenbaum.md`, Workstream A).
-The plan is explicit: **"Scope and spec this as its own dedicated task
-before writing any code — do not start it opportunistically inside
-Workstream A/B/C work."** This document is orientation for that future
-scoping pass, not a spec to start coding from.
 
 ## The decision this workstream implements
 

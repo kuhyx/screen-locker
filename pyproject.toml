@@ -4,8 +4,11 @@ version = "1.0.0"
 description = "Tkinter/systemd screen locker with workout tracking, sick-day management, and wake-alarm integration"
 requires-python = ">=3.10"
 # gatelock: shared lock-window/HMAC backend, also used by diet_guard and wake_alarm
+# crdt-sync: shared CRDT merge scheme + GitHub-Contents-API sync transport,
+# also used by diet_guard; here for phone-workout GitHub sync (Workstream C)
 dependencies = [
     "gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.1.0#subdirectory=gatelock",
+    "crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.1.0#subdirectory=crdt-sync",
 ]
 
 [project.scripts]
@@ -53,9 +56,19 @@ unfixable = []
     "PLC0415", "PLR0913", "PLR2004", "PTH", "RUF003", "S101", "SLF001",
 ]
 "screen_locker/_runnerup_verification.py" = ["S314"]
+# URL is always built from the hardcoded https:// _WTTR_URL constant with
+# only the (quoted) city interpolated — never user/attacker controlled.
+# ruff's S310 can't verify that via static analysis of a variable URL, so
+# it always flags urlopen() here regardless; a runtime scheme check was
+# considered and rejected (it can't ever trigger, so it's just an untested
+# branch and a crash risk in the lock's startup path for zero real benefit).
+"screen_locker/_temperature.py" = ["S310"]
 "screen_locker/_shutdown_base.py" = ["SLF001"]
 "screen_locker/_status.py" = ["PLR0915", "SLF001", "T201"]
-"screen_locker/status_view.py" = ["PLC0415", "SLF001", "T201"]
+# StatusWindow.__init__ takes one arg per independently-mocked dependency
+# (verifier_factory, temperature_fetcher, log_file, ...) — same
+# dependency-injection rationale as _status_data.py's gather_status below.
+"screen_locker/status_view.py" = ["PLC0415", "PLR0913", "SLF001", "T201"]
 # explain_lock_decision takes one arg per real file path + sick history, and
 # returns early per lock-decision-chain stage (see module docstring) — both
 # are the deliberate design, not something to collapse into a config object.
@@ -67,6 +80,10 @@ unfixable = []
 # validation-chain shape as _compliance_state.py's explain_lock_decision) —
 # deliberate design, not something to collapse into a config object.
 "screen_locker/_manual_workout.py" = ["C901", "PLR0911"]
+# _verify_phone_workout returns early per verification-chain stage (clock
+# check, sync, ADB, HTTP, then terminal statuses) — same shape as the two
+# ignores above, not something to collapse into a config object.
+"screen_locker/_phone_verification.py" = ["C901", "PLR0911"]
 "scripts/check_file_length.py" = ["PTH123"]
 
 [tool.ruff.lint.pydocstyle]
@@ -162,6 +179,10 @@ addopts = [
     "--cov-branch",
     "--cov-report=term-missing",
     "--cov-report=lcov",
+    # A fixture-only plugin module, not conftest.py (already at the
+    # repo's 400-line-per-file cap) -- see its own docstring.
+    "-p",
+    "screen_locker.tests.test_sync_fixtures",
 ]
 filterwarnings = [
     "error",

@@ -83,7 +83,6 @@ def _write_tcx(tmp_path: Path, content: str, name: str = "activity.tcx") -> str:
 # ---------------------------------------------------------------------------
 
 
-
 class TestFindRunnerupPackage:
     """Tests for _find_runnerup_package (lines 256-260)."""
 
@@ -319,5 +318,3 @@ class TestQueryTodaysRun:
 # ---------------------------------------------------------------------------
 # _verify_runnerup_via_db
 # ---------------------------------------------------------------------------
-
-

@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import time
 from unittest.mock import MagicMock, patch
 import urllib.error
 
-from screen_locker._temperature import fetch_current_temp_celsius, is_too_hot
+from screen_locker._temperature import TemperatureCheck, fetch_current_temp_with_status
 
 
 def _mock_urlopen_returning(body: bytes) -> MagicMock:
@@ -16,35 +17,39 @@ def _mock_urlopen_returning(body: bytes) -> MagicMock:
     return mock_urlopen
 
 
-class TestFetchCurrentTempCelsius:
+class TestFetchCurrentTempWithStatus:
     def test_returns_parsed_temperature_on_success(self) -> None:
         body = b'{"current_condition": [{"temp_C": "27"}]}'
         with patch(
             "screen_locker._temperature.urllib.request.urlopen",
             _mock_urlopen_returning(body),
         ):
-            assert fetch_current_temp_celsius("Warsaw") == 27.0
+            result = fetch_current_temp_with_status("Warsaw")
+        assert result == TemperatureCheck(temp_celsius=27.0, timed_out=False)
 
     def test_returns_none_on_url_error(self) -> None:
         with patch(
             "screen_locker._temperature.urllib.request.urlopen",
             side_effect=urllib.error.URLError("unreachable"),
         ):
-            assert fetch_current_temp_celsius("Warsaw") is None
+            result = fetch_current_temp_with_status("Warsaw")
+        assert result == TemperatureCheck(temp_celsius=None, timed_out=False)
 
-    def test_returns_none_on_timeout(self) -> None:
+    def test_returns_none_on_timeout_error(self) -> None:
         with patch(
             "screen_locker._temperature.urllib.request.urlopen",
             side_effect=TimeoutError("timed out"),
         ):
-            assert fetch_current_temp_celsius("Warsaw") is None
+            result = fetch_current_temp_with_status("Warsaw")
+        assert result == TemperatureCheck(temp_celsius=None, timed_out=False)
 
     def test_returns_none_on_os_error(self) -> None:
         with patch(
             "screen_locker._temperature.urllib.request.urlopen",
             side_effect=OSError("network unreachable"),
         ):
-            assert fetch_current_temp_celsius("Warsaw") is None
+            result = fetch_current_temp_with_status("Warsaw")
+        assert result == TemperatureCheck(temp_celsius=None, timed_out=False)
 
     def test_returns_none_on_missing_key(self) -> None:
         body = b'{"unexpected": "shape"}'
@@ -52,7 +57,8 @@ class TestFetchCurrentTempCelsius:
             "screen_locker._temperature.urllib.request.urlopen",
             _mock_urlopen_returning(body),
         ):
-            assert fetch_current_temp_celsius("Warsaw") is None
+            result = fetch_current_temp_with_status("Warsaw")
+        assert result == TemperatureCheck(temp_celsius=None, timed_out=False)
 
     def test_returns_none_on_empty_current_condition(self) -> None:
         body = b'{"current_condition": []}'
@@ -60,7 +66,8 @@ class TestFetchCurrentTempCelsius:
             "screen_locker._temperature.urllib.request.urlopen",
             _mock_urlopen_returning(body),
         ):
-            assert fetch_current_temp_celsius("Warsaw") is None
+            result = fetch_current_temp_with_status("Warsaw")
+        assert result == TemperatureCheck(temp_celsius=None, timed_out=False)
 
     def test_returns_none_on_non_numeric_temp(self) -> None:
         body = b'{"current_condition": [{"temp_C": "not-a-number"}]}'
@@ -68,31 +75,25 @@ class TestFetchCurrentTempCelsius:
             "screen_locker._temperature.urllib.request.urlopen",
             _mock_urlopen_returning(body),
         ):
-            assert fetch_current_temp_celsius("Warsaw") is None
+            result = fetch_current_temp_with_status("Warsaw")
+        assert result == TemperatureCheck(temp_celsius=None, timed_out=False)
 
     def test_returns_none_on_invalid_json(self) -> None:
         with patch(
             "screen_locker._temperature.urllib.request.urlopen",
             _mock_urlopen_returning(b"not json{{{"),
         ):
-            assert fetch_current_temp_celsius("Warsaw") is None
+            result = fetch_current_temp_with_status("Warsaw")
+        assert result == TemperatureCheck(temp_celsius=None, timed_out=False)
 
+    def test_reports_timed_out_when_fetch_exceeds_hard_timeout(self) -> None:
+        def _slow_fetch(_city: str) -> float | None:
+            time.sleep(0.3)
+            return 27.0
 
-class TestIsTooHot:
-    def test_returns_none_when_fetch_fails(self) -> None:
         with patch(
-            "screen_locker._temperature.fetch_current_temp_celsius", return_value=None
+            "screen_locker._temperature._fetch_current_temp_celsius_unbounded",
+            side_effect=_slow_fetch,
         ):
-            assert is_too_hot("Warsaw", 33) is None
-
-    def test_returns_none_when_below_threshold(self) -> None:
-        with patch(
-            "screen_locker._temperature.fetch_current_temp_celsius", return_value=20.0
-        ):
-            assert is_too_hot("Warsaw", 33) is None
-
-    def test_returns_temp_when_at_or_above_threshold(self) -> None:
-        with patch(
-            "screen_locker._temperature.fetch_current_temp_celsius", return_value=33.0
-        ):
-            assert is_too_hot("Warsaw", 33) == 33.0
+            result = fetch_current_temp_with_status("Warsaw", hard_timeout=0.05)
+        assert result == TemperatureCheck(temp_celsius=None, timed_out=True)

@@ -103,18 +103,18 @@ def mock_subprocess_run() -> Generator[MagicMock]:
 
 @pytest.fixture(autouse=True)
 def _block_real_network() -> Iterator[None]:
-    """Block real subnet probes for every test.
+    """Block real subnet probes and wttr.in calls for every test.
 
-    ``_scan_for_http_server`` / ``_try_wireless_reconnect`` open real TCP
-    sockets to scan the LAN; without this an unmocked ``_verify_phone_workout``
-    would actually reach the phone over the network (flaky, environment-coupled).
-    Defaults ``create_connection`` to refuse — tests needing a successful probe
-    patch it locally, which takes precedence inside the test body.
+    Otherwise phone verification / StatusWindow's temperature fetch would
+    reach the real network. Tests needing a real probe patch it locally.
     """
-    with patch(
+    targets = (
         "screen_locker._phone_verification.socket.create_connection",
-        side_effect=OSError("network blocked in tests"),
-    ):
+        "screen_locker._temperature.urllib.request.urlopen",
+    )
+    with ExitStack() as stack:
+        for target in targets:
+            stack.enter_context(patch(target, side_effect=OSError("blocked")))
         yield
 
 
