@@ -14,6 +14,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # The flutter-analyze pre-commit hook shells out to `flutter analyze` in
+      # stronglift_replacement/workout_app. Pin to the version the app is
+      # developed against (Dart SDK ^3.12.2) so CI's analyzer matches local.
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.6"
+          channel: stable
+          cache: true
       - name: Install dependencies
         run: pip install -r requirements.txt
+      # analyze needs resolved packages (.dart_tool); the hook runs analyze
+      # only, so fetch deps here first.
+      - name: Resolve Flutter packages
+        run: flutter pub get
+        working-directory: stronglift_replacement/workout_app
       - uses: pre-commit/action@v3.0.1
