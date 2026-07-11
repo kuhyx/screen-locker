@@ -305,7 +305,7 @@ def create_locker(
 ) -> ScreenLocker:
     """Create a ScreenLocker instance with early bird paths disabled."""
     with (
-        patch.object(Path, "resolve", return_value=tmp_path),
+        patch.object(Path, "resolve", return_value=tmp_path / "screen_locker"),
         patch.object(ScreenLocker, "has_logged_today", return_value=has_logged),
         patch.object(
             ScreenLocker,
@@ -344,7 +344,7 @@ def create_locker_relaxed_day(
     The autouse ``_mock_weekly_logic`` fixture is overridden here.
     """
     with (
-        patch.object(Path, "resolve", return_value=tmp_path),
+        patch.object(Path, "resolve", return_value=tmp_path / "screen_locker"),
         patch.object(ScreenLocker, "has_logged_today", return_value=has_logged),
         patch.object(ScreenLocker, "_is_sick_day_today", return_value=False),
         patch.object(ScreenLocker, "_is_early_bird_pending", return_value=False),
@@ -383,7 +383,7 @@ def create_locker_early_bird(
     is_early_bird_log = state in ("log_active", "log_expired")
     is_early_bird_time = state == "log_active"
     with (
-        patch.object(Path, "resolve", return_value=tmp_path),
+        patch.object(Path, "resolve", return_value=tmp_path / "screen_locker"),
         patch.object(ScreenLocker, "has_logged_today", return_value=has_logged),
         patch.object(ScreenLocker, "_is_sick_day_today", return_value=False),
         patch.object(
