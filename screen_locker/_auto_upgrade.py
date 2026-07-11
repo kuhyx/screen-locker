@@ -35,32 +35,29 @@ class AutoUpgradeMixin:
                 _logger.info("No sick day logged today. Nothing to verify.")
                 sys.exit(0)
             return
-        self._check_non_verify_exits()  # type: ignore[attr-defined]
+        self._check_non_verify_exits()
 
     def _check_today_state_exits(self) -> bool:
         """Handle early-bird and today's log states. Return True to stop startup."""
-        if (
-            self._is_early_bird_pending()  # type: ignore[attr-defined]
-            and not self._is_early_bird_time()  # type: ignore[attr-defined]
-        ):
+        if self._is_early_bird_pending() and not self._is_early_bird_time():
             if self._try_auto_upgrade_early_bird():
                 _logger.info("Auto-upgraded early_bird entry to phone_verified.")
                 sys.exit(0)
                 return True
             return False  # Expired early bird, upgrade unavailable — full lock.
-        if self._is_early_bird_pending():  # type: ignore[attr-defined]
+        if self._is_early_bird_pending():
             _logger.info("Early bird window still active — skipping lock.")
         elif self._is_sick_day_today():
             if self._try_auto_upgrade_sick_day():
                 _logger.info("Auto-upgraded today's sick_day entry to phone_verified.")
             else:
                 _logger.info("Sick day already logged today.")
-        elif self.has_logged_today():  # type: ignore[attr-defined]
+        elif self.has_logged_today():
             _logger.info("Workout already logged today. Skipping screen lock.")
         elif has_workout_skip_today():
             _logger.info("Wake alarm earned workout skip. Skipping screen lock.")
-        elif self._is_early_bird_time():  # type: ignore[attr-defined]
-            self._save_early_bird_pending()  # type: ignore[attr-defined]
+        elif self._is_early_bird_time():
+            self._save_early_bird_pending()
             _logger.info("Early bird time — skipping lock, will re-check at 08:30.")
         else:
             return False
@@ -70,20 +67,20 @@ class AutoUpgradeMixin:
     def _try_auto_upgrade_sick_day(self) -> bool:
         """Upgrade sick_day entry when phone or RunnerUp detects a valid workout."""
         try:
-            status, message = self._verify_phone_workout()  # type: ignore[attr-defined]
+            status, message = self._verify_phone_workout()
         except (OSError, RuntimeError) as exc:
             _logger.info("Auto-upgrade phone check failed: %s", exc)
             status, message = "error", str(exc)
         if status == "verified":
-            self.workout_data["type"] = "phone_verified"  # type: ignore[attr-defined]
-            self.workout_data["source"] = message  # type: ignore[attr-defined]
-            self.workout_data["after_sick_day"] = "true"  # type: ignore[attr-defined]
-            self._adjust_shutdown_time_later()  # type: ignore[attr-defined]
-            self.save_workout_log()  # type: ignore[attr-defined]
+            self.workout_data["type"] = "phone_verified"
+            self.workout_data["source"] = message
+            self.workout_data["after_sick_day"] = "true"
+            self._adjust_shutdown_time_later()
+            self.save_workout_log()
             return True
         _logger.info("Auto-upgrade phone skipped (%s), trying RunnerUp...", status)
         try:
-            runnerup_status, runnerup_msg = self._verify_runnerup_workout()  # type: ignore[attr-defined]
+            runnerup_status, runnerup_msg = self._verify_runnerup_workout()
         except (OSError, RuntimeError) as exc:
             _logger.info("Auto-upgrade RunnerUp check failed: %s", exc)
             return False
@@ -92,30 +89,30 @@ class AutoUpgradeMixin:
                 "Auto-upgrade RunnerUp skipped (%s): %s", runnerup_status, runnerup_msg
             )
             return False
-        self.workout_data["type"] = "runnerup_verified"  # type: ignore[attr-defined]
-        self.workout_data["source"] = runnerup_msg  # type: ignore[attr-defined]
-        self.workout_data["after_sick_day"] = "true"  # type: ignore[attr-defined]
-        self._adjust_shutdown_time_later()  # type: ignore[attr-defined]
-        self.save_workout_log()  # type: ignore[attr-defined]
+        self.workout_data["type"] = "runnerup_verified"
+        self.workout_data["source"] = runnerup_msg
+        self.workout_data["after_sick_day"] = "true"
+        self._adjust_shutdown_time_later()
+        self.save_workout_log()
         return True
 
     def _try_auto_upgrade_early_bird(self) -> bool:
         """Try phone then RunnerUp to upgrade an early_bird log entry."""
         try:
-            status, message = self._verify_phone_workout()  # type: ignore[attr-defined]
+            status, message = self._verify_phone_workout()
         except (OSError, RuntimeError) as exc:
             _logger.info("Early bird upgrade phone check failed: %s", exc)
             status, message = "error", str(exc)
         if status == "verified":
-            self.workout_data["type"] = "phone_verified"  # type: ignore[attr-defined]
-            self.workout_data["source"] = message  # type: ignore[attr-defined]
-            self.workout_data["after_early_bird"] = "true"  # type: ignore[attr-defined]
-            self._adjust_shutdown_time_later()  # type: ignore[attr-defined]
-            self.save_workout_log()  # type: ignore[attr-defined]
+            self.workout_data["type"] = "phone_verified"
+            self.workout_data["source"] = message
+            self.workout_data["after_early_bird"] = "true"
+            self._adjust_shutdown_time_later()
+            self.save_workout_log()
             return True
         _logger.info("Early bird phone skipped (%s), trying RunnerUp...", status)
         try:
-            runnerup_status, runnerup_msg = self._verify_runnerup_workout()  # type: ignore[attr-defined]
+            runnerup_status, runnerup_msg = self._verify_runnerup_workout()
         except (OSError, RuntimeError) as exc:
             _logger.info("Early bird RunnerUp check failed: %s", exc)
             return False
@@ -124,9 +121,9 @@ class AutoUpgradeMixin:
                 "Early bird RunnerUp skipped (%s): %s", runnerup_status, runnerup_msg
             )
             return False
-        self.workout_data["type"] = "runnerup_verified"  # type: ignore[attr-defined]
-        self.workout_data["source"] = runnerup_msg  # type: ignore[attr-defined]
-        self.workout_data["after_early_bird"] = "true"  # type: ignore[attr-defined]
-        self._adjust_shutdown_time_later()  # type: ignore[attr-defined]
-        self.save_workout_log()  # type: ignore[attr-defined]
+        self.workout_data["type"] = "runnerup_verified"
+        self.workout_data["source"] = runnerup_msg
+        self.workout_data["after_early_bird"] = "true"
+        self._adjust_shutdown_time_later()
+        self.save_workout_log()
         return True

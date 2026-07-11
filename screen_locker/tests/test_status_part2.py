@@ -143,7 +143,7 @@ class TestRunStatusMinimumStatus:
 
         class _FakeDatetime(datetime):
             @classmethod
-            def now(cls, tz=None):  # type: ignore[override]
+            def now(cls, tz=None):
                 return fake_now.astimezone(tz) if tz else fake_now
 
         with (

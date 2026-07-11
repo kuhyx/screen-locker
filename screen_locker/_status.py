@@ -69,7 +69,7 @@ def run_status(locker: ScreenLocker) -> None:
     """Print weekly workout status, run RunnerUp scan, apply bonus, then exit."""
     today = datetime.now(tz=timezone.utc).astimezone().date()
     monday = today - timedelta(days=today.weekday())
-    log_file: Path = locker.log_file  # type: ignore[attr-defined]
+    log_file: Path = locker.log_file
     log_data = _load_log(log_file)
     sick_days = set(load_history().sick_days)
 
@@ -87,13 +87,13 @@ def run_status(locker: ScreenLocker) -> None:
     print()
 
     # RunnerUp scan
-    n_filled = locker._scan_and_fill_week_runnerup(log_file)  # type: ignore[attr-defined]
+    n_filled = locker._scan_and_fill_week_runnerup(log_file)
     if n_filled > 0:
         print(f"  Auto-filled {n_filled} workout(s) from RunnerUp exports.")
         after_count = count_weekly_workouts(log_file)
         bonus = max(0, after_count - max(WEEKLY_WORKOUT_MINIMUM, before_count))
         if bonus > 0:
-            ok = locker._adjust_shutdown_time_by(bonus)  # type: ignore[attr-defined]
+            ok = locker._adjust_shutdown_time_by(bonus)
             if ok:
                 print(f"  +{bonus}h shutdown bonus applied.")
             else:
@@ -147,7 +147,7 @@ def run_status(locker: ScreenLocker) -> None:
         )
 
     # Shutdown config
-    cfg = locker._read_shutdown_config()  # type: ignore[attr-defined]
+    cfg = locker._read_shutdown_config()
     if cfg:
         _mw, _ts, _morning = cfg
         print(f"  Shutdown tonight    : {_mw:02d}:00")

@@ -113,9 +113,9 @@ class HeatSkipMixin:
 
     def _save_heat_skip_log(self, temp: float) -> None:
         """Append a heat_skip entry to workout_log.json."""
-        self.workout_data = {  # type: ignore[attr-defined]
+        self.workout_data = {
             "type": "heat_skip",
             "temperature_celsius": str(round(temp)),
             "city": HEAT_SKIP_CITY,
         }
-        self.save_workout_log()  # type: ignore[attr-defined]
+        self.save_workout_log()

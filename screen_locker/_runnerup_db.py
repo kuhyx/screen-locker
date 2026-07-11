@@ -28,7 +28,7 @@ class RunnerUpDbMixin:
     def _find_runnerup_package(self) -> str | None:
         """Return the first installed RunnerUp package name, or None."""
         for pkg in RUNNERUP_PACKAGES:
-            ok, out = self._adb_shell(f"pm list packages {pkg}")  # type: ignore[attr-defined]
+            ok, out = self._adb_shell(f"pm list packages {pkg}")
             if ok and pkg in out:
                 return pkg
         return None
@@ -52,7 +52,7 @@ class RunnerUpDbMixin:
         tmp_dir = tempfile.mkdtemp(prefix="runnerup_verify_")
         local_db = str(Path(tmp_dir) / "runnerup.db")
 
-        ok, err = self._adb_shell(  # type: ignore[attr-defined]
+        ok, err = self._adb_shell(
             f"cp {db_device} {RUNNERUP_DB_SDCARD_TMP}",
             root=True,
         )
@@ -62,14 +62,14 @@ class RunnerUpDbMixin:
             return None
 
         for suffix in ("-wal", "-shm"):
-            self._adb_shell(  # type: ignore[attr-defined]
+            self._adb_shell(
                 f"test -f {db_device}{suffix} "
                 f"&& cp {db_device}{suffix} {RUNNERUP_DB_SDCARD_TMP}{suffix} "
                 f"|| true",
                 root=True,
             )
 
-        ok, _ = self._run_adb(["pull", RUNNERUP_DB_SDCARD_TMP, local_db])  # type: ignore[attr-defined]
+        ok, _ = self._run_adb(["pull", RUNNERUP_DB_SDCARD_TMP, local_db])
         if not ok:
             _logger.info("adb pull of RunnerUp DB failed")
             self._cleanup_runnerup_sdcard()
@@ -77,7 +77,7 @@ class RunnerUpDbMixin:
             return None
 
         for suffix in ("-wal", "-shm"):
-            self._run_adb(  # type: ignore[attr-defined]
+            self._run_adb(
                 ["pull", f"{RUNNERUP_DB_SDCARD_TMP}{suffix}", f"{local_db}{suffix}"]
             )
 
@@ -87,7 +87,7 @@ class RunnerUpDbMixin:
     def _cleanup_runnerup_sdcard(self) -> None:
         """Remove temporary RunnerUp DB files from the sdcard."""
         for suffix in ("", "-wal", "-shm"):
-            self._adb_shell(  # type: ignore[attr-defined]
+            self._adb_shell(
                 f"test -f {RUNNERUP_DB_SDCARD_TMP}{suffix} "
                 f"&& rm {RUNNERUP_DB_SDCARD_TMP}{suffix} || true",
                 root=True,
@@ -147,4 +147,4 @@ class RunnerUpDbMixin:
         if run_data is None:
             return "not_verified", "No RunnerUp activity found for today"
 
-        return self._validate_runnerup_data(run_data)  # type: ignore[attr-defined]
+        return self._validate_runnerup_data(run_data)

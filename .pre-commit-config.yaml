@@ -93,6 +93,9 @@ repos:
         additional_dependencies:
           - pytest
           - gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.1.0#subdirectory=gatelock
+          - crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.1.0#subdirectory=crdt-sync
+          - mcp
+          - pydantic
 
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.10

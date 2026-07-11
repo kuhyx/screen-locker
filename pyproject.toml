@@ -64,7 +64,13 @@ unfixable = []
 # branch and a crash risk in the lock's startup path for zero real benefit).
 "screen_locker/_temperature.py" = ["S310"]
 "screen_locker/_shutdown_base.py" = ["SLF001"]
-"screen_locker/_status.py" = ["PLR0915", "SLF001", "T201"]
+# run_status walks the weekly-status pipeline (weekly logic, RunnerUp scan,
+# bonus, heat-skip) as a sequence of stages — genuinely branchy by design, same
+# rationale as the validation-chain functions below; not a config-object case.
+"screen_locker/_status.py" = ["C901", "PLR0912", "PLR0915", "SLF001", "T201"]
+# _heat_skip.py opens a tkinter fullscreen window; tk's .attributes()/other
+# calls take positional booleans (its API), which FBT003 always flags.
+"screen_locker/_heat_skip.py" = ["FBT003"]
 # StatusWindow.__init__ takes one arg per independently-mocked dependency
 # (verifier_factory, temperature_fetcher, log_file, ...) — same
 # dependency-injection rationale as _status_data.py's gather_status below.
