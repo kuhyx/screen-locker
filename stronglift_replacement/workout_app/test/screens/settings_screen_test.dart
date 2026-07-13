@@ -377,4 +377,212 @@ void main() {
       await tester.pump();
     });
   });
+
+  testWidgets('changing a success threshold persists it', (tester) async {
+    await _pump(tester, _wrap());
+    final label = find.text('↑ Increase after N successes').first;
+    await tester.scrollUntilVisible(
+      label,
+      300,
+      scrollable: find.byType(Scrollable),
+    );
+    // The circles (1-5) live in the same Row as the label; tap the "5" circle.
+    final row = find.ancestor(of: label, matching: find.byType(Row)).first;
+    final five = find.descendant(of: row, matching: find.text('5')).first;
+    // The row can sit below the 800x600 test fold — bring the circle fully in.
+    await tester.ensureVisible(five);
+    await tester.pumpAndSettle();
+    // _onThresholdChanged awaits a DB write, so drive it on the real loop.
+    await tester.runAsync(() async {
+      await tester.tap(five);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await tester.pump();
+
+    final states = await tester.runAsync(
+      () => StorageService.instance.getAllExerciseStates(),
+    );
+    expect(states!.any((s) => s.successThreshold == 5), isTrue);
+
+    // Also exercise the fail-threshold path (onFailChanged closure).
+    final failLabel = find.text('↓ Decrease after N failures').first;
+    await tester.ensureVisible(failLabel);
+    await tester.pumpAndSettle();
+    final failRow =
+        find.ancestor(of: failLabel, matching: find.byType(Row)).first;
+    final failFour = find.descendant(of: failRow, matching: find.text('4')).first;
+    await tester.ensureVisible(failFour);
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      await tester.tap(failFour);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await tester.pump();
+
+    final states2 = await tester.runAsync(
+      () => StorageService.instance.getAllExerciseStates(),
+    );
+    expect(states2!.any((s) => s.failThreshold == 4), isTrue);
+  });
+
+  testWidgets('weight change is debounced then written to storage', (
+    tester,
+  ) async {
+    await _pump(tester, _wrap());
+    final name = workoutA.first.name;
+    final before = (await tester.runAsync(
+      () => StorageService.instance.getExerciseState(name),
+    ))!.weight;
+
+    // Tapping "+" schedules a 600ms debounce Timer; running the tap and the
+    // wait on the real loop lets the timer fire and setExerciseWeight complete.
+    await tester.runAsync(() async {
+      await tester.tap(find.byIcon(Icons.add).first);
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+    });
+    await tester.pump();
+
+    final after = (await tester.runAsync(
+      () => StorageService.instance.getExerciseState(name),
+    ))!.weight;
+    expect(after, before + kWeightIncrement);
+  });
+
+  testWidgets('device flow: shows a message when the token cannot be saved', (
+    tester,
+  ) async {
+    // Throwing secure storage makes SyncSettings.save() fail.
+    installFakeSecureStorage(throwing: true);
+    final mock = MockClient((req) async {
+      if (req.url.path.contains('device/code')) {
+        return http.Response(
+          jsonEncode({
+            'device_code': 'dev123',
+            'user_code': 'WXYZ-1234',
+            'verification_uri': 'https://github.com/login/device',
+            'interval': 0,
+            'expires_in': 900,
+          }),
+          200,
+        );
+      }
+      if (req.url.path.contains('oauth/access_token')) {
+        return http.Response(jsonEncode({'access_token': 'gho_test'}), 200);
+      }
+      return http.Response(
+        jsonEncode({'content': base64Encode(utf8.encode('{}'))}),
+        200,
+      );
+    });
+
+    await tester.runAsync(() async {
+      await tester.pumpWidget(_wrap(httpClient: mock));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      await tester.pump();
+      await _scrollToGitHubSync(tester);
+
+      await tester.tap(find.text('Connect GitHub'));
+      await _pumpUntil(
+        tester,
+        () =>
+            find.textContaining('could not save the token').evaluate().isNotEmpty,
+      );
+      expect(
+        find.textContaining('could not save the token'),
+        findsOneWidget,
+      );
+    });
+  });
+
+  testWidgets('device flow: shows a message when verification fails', (
+    tester,
+  ) async {
+    final mock = MockClient((req) async {
+      if (req.url.path.contains('device/code')) {
+        return http.Response(
+          jsonEncode({
+            'device_code': 'dev123',
+            'user_code': 'WXYZ-1234',
+            'verification_uri': 'https://github.com/login/device',
+            'interval': 0,
+            'expires_in': 900,
+          }),
+          200,
+        );
+      }
+      if (req.url.path.contains('oauth/access_token')) {
+        return http.Response(jsonEncode({'access_token': 'gho_test'}), 200);
+      }
+      // The post-connect verification GET fails → GitHubSyncError.
+      return http.Response('boom', 500);
+    });
+
+    await tester.runAsync(() async {
+      await tester.pumpWidget(_wrap(httpClient: mock));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      await tester.pump();
+      await _scrollToGitHubSync(tester);
+
+      await tester.tap(find.text('Connect GitHub'));
+      await _pumpUntil(
+        tester,
+        () => find.textContaining('could not verify').evaluate().isNotEmpty,
+      );
+      expect(find.textContaining('could not verify'), findsOneWidget);
+    });
+  });
+
+  testWidgets('device flow: renders the pending "verifying" status', (
+    tester,
+  ) async {
+    final mock = MockClient((req) async {
+      if (req.url.path.contains('device/code')) {
+        return http.Response(
+          jsonEncode({
+            'device_code': 'dev123',
+            'user_code': 'WXYZ-1234',
+            'verification_uri': 'https://github.com/login/device',
+            'interval': 0,
+            'expires_in': 900,
+          }),
+          200,
+        );
+      }
+      if (req.url.path.contains('oauth/access_token')) {
+        return http.Response(jsonEncode({'access_token': 'gho_test'}), 200);
+      }
+      // Hold the verification in-flight so the pending status tile is
+      // observable before it resolves to success.
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      return http.Response(
+        jsonEncode({'content': base64Encode(utf8.encode('{}'))}),
+        200,
+      );
+    });
+
+    await tester.runAsync(() async {
+      await tester.pumpWidget(_wrap(httpClient: mock));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      await tester.pump();
+      await _scrollToGitHubSync(tester);
+
+      await tester.tap(find.text('Connect GitHub'));
+      await _pumpUntil(
+        tester,
+        () => find.textContaining('verifying').evaluate().isNotEmpty,
+      );
+      // Pending tile (spinner + white70 status colour) is now on screen.
+      expect(find.textContaining('verifying'), findsOneWidget);
+
+      await _pumpUntil(
+        tester,
+        () =>
+            find
+                .textContaining('Connected and verified')
+                .evaluate()
+                .isNotEmpty,
+      );
+      expect(find.textContaining('Connected and verified'), findsOneWidget);
+    });
+  });
 }
