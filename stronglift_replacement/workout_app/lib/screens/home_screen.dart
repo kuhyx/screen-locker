@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/screens/history_screen.dart';
+import 'package:workout_app/screens/manual_workout_screen.dart';
 import 'package:workout_app/screens/settings_screen.dart';
 import 'package:workout_app/screens/workout_screen.dart';
 import 'package:workout_app/services/http_server_service.dart';
@@ -108,6 +109,15 @@ class _HomeScreenState extends State<HomeScreen> {
           style: TextStyle(color: Colors.white),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_note, color: Colors.white),
+            tooltip: 'Log manual workout',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ManualWorkoutScreen(),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.history, color: Colors.white),
             onPressed: () => Navigator.of(context).push(

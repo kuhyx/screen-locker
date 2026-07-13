@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:workout_app/models/manual_workout.dart';
 import 'package:workout_app/models/workout_session.dart';
 import 'package:workout_app/services/sync_settings.dart';
 
@@ -83,6 +84,89 @@ class WorkoutSyncService {
       debugPrint('WorkoutSyncService.push failed: $error');
     } finally {
       client.close();
+    }
+  }
+
+  /// Pushes a pre-built manual-workout [record] to `devices/phone/log.json`,
+  /// merging with whatever this device has already pushed. Same swallow-on-
+  /// failure contract as [push].
+  Future<void> pushManual(Record record) async {
+    final settings = await SyncSettings.load();
+    if (!settings.isConfigured) return;
+
+    final client = GitHubClient(
+      owner: owner,
+      repo: repo,
+      token: settings.token,
+      httpClient: _httpClient,
+    );
+    try {
+      const path = '$_pathPrefix/$_deviceId/$_logFilename';
+      final existingText = await client.getFileText(path);
+      final existingLog = existingText == null
+          ? <String, Record>{}
+          : _decode(existingText);
+      final localLog = mergeLogs(existingLog, {record.id: record});
+      await syncLog(
+        client: client,
+        deviceId: _deviceId,
+        pathPrefix: _pathPrefix,
+        localLog: localLog,
+        encode: _encode,
+        decode: _decode,
+      );
+    } on GitHubSyncError catch (error) {
+      debugPrint('WorkoutSyncService.pushManual failed: $error');
+    } finally {
+      client.close();
+    }
+  }
+
+  /// Returns every device's manual-workout payloads, merged and deduped by id
+  /// (highest HLC wins), for computing the shared budget. Pull-only — unlike
+  /// [pushManual] it never writes, so showing the budget can't mutate the repo.
+  /// Returns an empty list if sync isn't configured or the repo is unreachable.
+  Future<List<Map<String, dynamic>>> readMergedManualPayloads() async {
+    final settings = await SyncSettings.load();
+    if (!settings.isConfigured) return const [];
+
+    final client = GitHubClient(
+      owner: owner,
+      repo: repo,
+      token: settings.token,
+      httpClient: _httpClient,
+    );
+    try {
+      final merged = <String, Record>{};
+      for (final device in await client.listDirectory(_pathPrefix)) {
+        final text = await client.getFileText('$_pathPrefix/$device/$_logFilename');
+        if (text == null) continue;
+        _mergeManualRecords(_decode(text), merged);
+      }
+      return merged.values
+          .map((r) => (r.fields['payload']!.$1! as Map).cast<String, dynamic>())
+          .toList();
+    } on GitHubSyncError catch (error) {
+      debugPrint('WorkoutSyncService.readMergedManualPayloads failed: $error');
+      return const [];
+    } finally {
+      client.close();
+    }
+  }
+
+  static void _mergeManualRecords(Log log, Map<String, Record> into) {
+    for (final entry in log.entries) {
+      final field = entry.value.fields['payload'];
+      if (field == null) continue;
+      final payload = field.$1;
+      if (payload is! Map ||
+          payload['kind'] != kManualWorkoutSyncKind) {
+        continue;
+      }
+      final existing = into[entry.key];
+      if (existing == null || existing.fields['payload']!.$2 < field.$2) {
+        into[entry.key] = entry.value;
+      }
     }
   }
 }

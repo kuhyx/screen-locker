@@ -333,3 +333,46 @@ Record buildManualRecord(
     fields: {'payload': (buildSyncPayload(draft, date), hlc)},
   );
 }
+
+/// Manual-workout counts in the rolling 7-/30-day windows (the shared budget).
+class ManualBudget {
+  /// Creates a budget snapshot.
+  const ManualBudget({required this.week, required this.month});
+
+  /// Manual workouts in the last 7 days.
+  final int week;
+
+  /// Manual workouts in the last 30 days.
+  final int month;
+
+  /// Whether either window has reached its limit.
+  bool get exhausted =>
+      week >= kManualWorkoutBudgetPer7Days ||
+      month >= kManualWorkoutBudgetPer30Days;
+}
+
+/// Counts manual-workout [payloads] falling in the rolling 7-/30-day windows.
+///
+/// Each payload's own `date` (YYYY-MM-DD) is the window key, so both devices
+/// compute the same shared budget over the merged record set.
+ManualBudget countManualBudget(
+  Iterable<Map<String, dynamic>> payloads,
+  DateTime now,
+) {
+  final today = DateTime(now.year, now.month, now.day);
+  var week = 0;
+  var month = 0;
+  for (final payload in payloads) {
+    final dateStr = payload['date'];
+    if (dateStr is! String) continue;
+    final date = DateTime.tryParse(dateStr);
+    if (date == null) continue;
+    final days = today
+        .difference(DateTime(date.year, date.month, date.day))
+        .inDays;
+    if (days < 0) continue;
+    if (days < 7) week++;
+    if (days < 30) month++;
+  }
+  return ManualBudget(week: week, month: month);
+}

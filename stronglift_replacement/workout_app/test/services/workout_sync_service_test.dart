@@ -145,4 +145,137 @@ void main() {
       completes,
     );
   });
+
+  Record _manual(String id, String cost, int wallMs) => Record(
+    id: id,
+    fields: {
+      'payload': (
+        {'kind': 'manual_workout', 'date': '2026-07-13', 'cost': cost},
+        Hlc(wallTimeMs: wallMs, counter: 0, nodeId: 'phone'),
+      ),
+    },
+  );
+
+  test('pushManual does nothing without a token', () async {
+    installFakeSecureStorage();
+    final (:httpClient, :putCalls) = _mockGitHub();
+    await WorkoutSyncService(
+      httpClient: httpClient,
+    ).pushManual(_manual('manual:x', '40', 1000));
+    expect(putCalls, isEmpty);
+  });
+
+  test('pushManual pushes when nothing has been synced yet', () async {
+    installFakeSecureStorage(initial: {'sync.token': 'tok'});
+    final (:httpClient, :putCalls) = _mockGitHub(
+      contentResponses: {'screen-locker-sync/devices': _response(200, [])},
+    );
+    await WorkoutSyncService(
+      httpClient: httpClient,
+    ).pushManual(_manual('manual:2026-07-13T18:00', '40', 1000));
+    expect(putCalls.single.path, 'screen-locker-sync/devices/phone/log.json');
+  });
+
+  test('pushManual merges onto an existing log', () async {
+    installFakeSecureStorage(initial: {'sync.token': 'tok'});
+    final existing = jsonEncode({
+      'manual:old': _manual('manual:old', '20', 1000).toJson(),
+    });
+    final (:httpClient, :putCalls) = _mockGitHub(
+      contentResponses: {
+        'screen-locker-sync/devices': _response(200, []),
+        'screen-locker-sync/devices/phone/log.json': _fileContaining(existing),
+      },
+    );
+    await WorkoutSyncService(
+      httpClient: httpClient,
+    ).pushManual(_manual('manual:2026-07-13T18:00', '40', 2000));
+    final pushedLog =
+        jsonDecode(
+              utf8.decode(
+                base64.decode(putCalls.single.body['content'] as String),
+              ),
+            )
+            as Map<String, dynamic>;
+    expect(
+      pushedLog.keys,
+      containsAll(['manual:old', 'manual:2026-07-13T18:00']),
+    );
+  });
+
+  test('pushManual swallows a sync error', () async {
+    installFakeSecureStorage(initial: {'sync.token': 'tok'});
+    final httpClient = http_testing.MockClient(
+      (request) async => http.Response('', 500),
+    );
+    await expectLater(
+      WorkoutSyncService(
+        httpClient: httpClient,
+      ).pushManual(_manual('manual:x', '40', 1000)),
+      completes,
+    );
+  });
+
+  test('readMergedManualPayloads is empty without a token', () async {
+    installFakeSecureStorage();
+    final (:httpClient, putCalls: _) = _mockGitHub();
+    expect(
+      await WorkoutSyncService(
+        httpClient: httpClient,
+      ).readMergedManualPayloads(),
+      isEmpty,
+    );
+  });
+
+  test('readMergedManualPayloads merges manuals and skips the rest', () async {
+    installFakeSecureStorage(initial: {'sync.token': 'tok'});
+    final session = Record(
+      id: 's',
+      fields: {
+        'payload': ({'workout_type': 'A'}, Hlc(wallTimeMs: 1000, counter: 0, nodeId: 'phone')),
+      },
+    );
+    final noPayload = Record(
+      id: 'np',
+      fields: {'other': (1, Hlc(wallTimeMs: 1000, counter: 0, nodeId: 'phone'))},
+    );
+    final phoneLog = jsonEncode({
+      'manual:a': _manual('manual:a', 'NEW', 2000).toJson(),
+      's': session.toJson(),
+      'np': noPayload.toJson(),
+    });
+    final pcLog = jsonEncode({
+      // Same id, older clock -> must lose to phone's newer copy.
+      'manual:a': _manual('manual:a', 'OLD', 1000).toJson(),
+    });
+    final (:httpClient, putCalls: _) = _mockGitHub(
+      contentResponses: {
+        'screen-locker-sync/devices': _response(200, [
+          {'name': 'phone'},
+          {'name': 'pc'},
+          {'name': 'empty'}, // its log.json 404s -> skipped
+        ]),
+        'screen-locker-sync/devices/phone/log.json': _fileContaining(phoneLog),
+        'screen-locker-sync/devices/pc/log.json': _fileContaining(pcLog),
+      },
+    );
+    final payloads = await WorkoutSyncService(
+      httpClient: httpClient,
+    ).readMergedManualPayloads();
+    expect(payloads, hasLength(1));
+    expect(payloads.single['cost'], 'NEW');
+  });
+
+  test('readMergedManualPayloads swallows a sync error', () async {
+    installFakeSecureStorage(initial: {'sync.token': 'tok'});
+    final httpClient = http_testing.MockClient(
+      (request) async => http.Response('', 500),
+    );
+    expect(
+      await WorkoutSyncService(
+        httpClient: httpClient,
+      ).readMergedManualPayloads(),
+      isEmpty,
+    );
+  });
 }
