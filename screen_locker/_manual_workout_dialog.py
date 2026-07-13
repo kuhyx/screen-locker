@@ -24,6 +24,7 @@ from screen_locker._constants import (
     MANUAL_WORKOUT_DESCRIPTION_MIN_CHARS,
     MANUAL_WORKOUT_REFLECTION_MIN_CHARS,
 )
+from screen_locker._manual_push import record_pc_manual
 from screen_locker._manual_workout_widgets import ManualWorkoutFormWidgetsMixin
 
 _logger = logging.getLogger(__name__)
@@ -296,4 +297,7 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
             self._mw_error_label.config(text=error)
             return
         entry = _manual_workout.build_entry(draft)
+        # Record the manual for cross-device sync (published on the next lock
+        # startup). Local + best-effort — never blocks saving/unlocking.
+        record_pc_manual(self.log_file, entry)
         self._on_manual_workout_saved(entry)

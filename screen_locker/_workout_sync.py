@@ -1,11 +1,11 @@
-"""Pulls the phone's last-synced workout via crdt-sync's GitHub transport.
+"""Pulls phone/other-device workouts via crdt-sync's GitHub transport.
 
 GitHub is used purely as dumb file storage (see ``crdt_sync``'s own docs) --
-the phone app pushes its completed-workout log to a private repo; this
-module only ever reads it, it never pushes here itself (the PC has no
-workout data of its own to contribute). Sync is optional: an unconfigured
-token is a normal, expected state, not an error -- unlike diet_guard, where
-sync is core to the app.
+the phone app pushes its completed-workout log to a private repo; this module
+reads the session log and every device's manual-workout records. (The PC does
+push its OWN manual workouts, but via :mod:`screen_locker._manual_push`, not
+here.) Sync is optional: an unconfigured token is a normal, expected state,
+not an error -- unlike diet_guard, where sync is core to the app.
 """
 
 from __future__ import annotations

@@ -40,6 +40,7 @@ from screen_locker._extra_benefits import (
 )
 from screen_locker._heat_skip import HeatSkipMixin
 from screen_locker._log_mixin import LogMixin
+from screen_locker._manual_push import push_pc_manuals
 from screen_locker._manual_sync import ingest_manual_records
 from screen_locker._manual_workout_dialog import ManualWorkoutDialogMixin
 from screen_locker._phone_verification import PhoneVerificationMixin
@@ -217,7 +218,8 @@ class ScreenLocker(
         self._check_heat_skip_exit()
 
     def _ingest_synced_manual_workouts(self) -> None:
-        """Log any manual workouts synced from the phone or another device."""
+        """Sync manual workouts: publish this PC's, ingest everyone else's."""
+        push_pc_manuals(self.log_file)
         ingested = ingest_manual_records(self.log_file, pull_all_manual_records())
         for record_id in ingested:
             _logger.info("Ingested synced manual workout: %s", record_id)
