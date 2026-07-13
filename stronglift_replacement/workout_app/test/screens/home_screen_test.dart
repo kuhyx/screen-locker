@@ -4,6 +4,8 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/screens/home_screen.dart';
 import 'package:workout_app/services/storage_service.dart';
 
+import '../fake_secure_storage.dart';
+
 void main() {
   setUpAll(() {
     sqfliteFfiInit();
@@ -82,5 +84,38 @@ void main() {
   testWidgets('HTTP sync tile renders', (tester) async {
     await _pump(tester, _wrap());
     expect(find.text('HTTP sync (no ADB needed)'), findsOneWidget);
+  });
+
+  testWidgets('manual-workout icon navigates to the manual form', (tester) async {
+    installFakeSecureStorage(); // ManualWorkoutScreen loads its sync budget
+    await _pump(tester, _wrap());
+    await tester.tap(find.byIcon(Icons.edit_note));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Log Manual Workout'), findsOneWidget);
+  });
+
+  testWidgets('starting a workout navigates to the workout screen',
+      (tester) async {
+    await _pump(tester, _wrap());
+    await tester.tap(find.text('Start Workout A'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.textContaining('Workout A'), findsWidgets);
+  });
+
+  testWidgets('an active session auto-resumes into the workout screen',
+      (tester) async {
+    await tester.runAsync(
+      () => StorageService.instance.saveActiveSession({
+        'workoutType': 'A',
+        'startTime': DateTime.now().toIso8601String(),
+        'exercises': <dynamic>[],
+      }),
+    );
+    await _pump(tester, _wrap());
+    await tester.pump(const Duration(milliseconds: 300));
+    // The post-frame auto-resume pushed the workout screen.
+    expect(find.textContaining('Workout A'), findsWidgets);
   });
 }
