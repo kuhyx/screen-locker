@@ -51,7 +51,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
     ExerciseState? state;
     if (_selected != _kTotal) {
+      // Unreachable in practice: _load only runs from initState, where
+      // _selected is still _kTotal; exercise selection goes through
+      // _pickExercise, which loads its own state.
+      // coverage:ignore-start
       state = await StorageService.instance.getExerciseState(_selected);
+      // coverage:ignore-end
     }
     if (mounted) {
       setState(() {
