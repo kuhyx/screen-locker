@@ -301,7 +301,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Future<void> _onBreakFinished() async {
     await _audio.play(AssetSource('sounds/break_end.mp3')).catchError((_) {});
     if (await Vibration.hasVibrator()) {
+      // Android/iOS-only: hasVibrator() returns false on the Linux test host
+      // (no Platform.isAndroid/isIOS), so this body never runs there.
+      // coverage:ignore-start
       unawaited(Vibration.vibrate(duration: 800));
+      // coverage:ignore-end
     }
     setState(() {
       _breakForExIdx = -1;
