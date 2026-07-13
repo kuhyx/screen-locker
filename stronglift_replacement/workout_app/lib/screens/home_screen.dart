@@ -285,6 +285,7 @@ class ServerAddressTile extends StatelessWidget {
   /// Creates a tile listing [addresses] (may be empty).
   const ServerAddressTile({required this.addresses, super.key});
 
+  /// LAN addresses the server is reachable at; empty when not started.
   final List<String> addresses;
 
   @override

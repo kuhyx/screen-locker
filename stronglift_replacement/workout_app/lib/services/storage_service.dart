@@ -86,7 +86,9 @@ class StorageService {
   Future<void> _open() async {
     final dbPath =
         _testDbPath ??
-        p.join(await getDatabasesPath(), 'workout_app.db'); // coverage:ignore-line
+        // coverage:ignore-start
+        p.join(await getDatabasesPath(), 'workout_app.db');
+    // coverage:ignore-end
     _db = await openDatabase(
       dbPath,
       version: 3,
