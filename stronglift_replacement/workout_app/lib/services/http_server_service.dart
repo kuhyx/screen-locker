@@ -10,6 +10,7 @@ library;
 
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:workout_app/services/sync_service.dart';
 
@@ -84,6 +85,9 @@ class HttpServerService {
     }
     for (final path in candidates) {
       final file = File(path);
+      // coverage:ignore-start
+      // Only reachable when a candidate file exists — i.e. on a real device
+      // with /sdcard (or Android external storage). Not present on the host.
       if (file.existsSync()) {
         try {
           _latestJson = await file.readAsString();
@@ -92,8 +96,14 @@ class HttpServerService {
           // Try next path.
         }
       }
+      // coverage:ignore-end
     }
   }
+
+  /// Clears the cached workout JSON (test seam so the "no data yet" HTTP
+  /// response can be exercised after other tests have set it).
+  @visibleForTesting
+  void resetForTesting() => _latestJson = null;
 
   Future<void> _serve() async {
     final server = _server;

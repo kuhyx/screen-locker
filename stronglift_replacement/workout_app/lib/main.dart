@@ -6,6 +6,10 @@ import 'package:workout_app/services/backup_service.dart';
 import 'package:workout_app/services/http_server_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 
+// coverage:ignore-start
+// App bootstrap: permission request, DB init, and a real listening socket —
+// platform-channel work that can't run on the CI test host. The pieces it wires
+// up are unit-tested individually; the entry point itself is not.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await BackupService.instance.requestStoragePermission();
@@ -14,6 +18,7 @@ void main() async {
   await HttpServerService.instance.start();
   runApp(const WorkoutApp());
 }
+// coverage:ignore-end
 
 /// Root widget that bootstraps the app with Material 3 dark theming.
 ///

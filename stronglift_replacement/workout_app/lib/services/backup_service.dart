@@ -55,6 +55,10 @@ class BackupService {
 
   // ── Permission ─────────────────────────────────────────────────────────────
 
+  // coverage:ignore-start
+  // Thin wrappers over the permission_handler platform channel — Android
+  // runtime permissions that can't be meaningfully exercised on the test host.
+
   /// Returns true if the app has MANAGE_EXTERNAL_STORAGE.
   Future<bool> hasStoragePermission() async {
     return Permission.manageExternalStorage.isGranted;
@@ -64,10 +68,10 @@ class BackupService {
   ///
   /// Returns true once granted.
   Future<bool> requestStoragePermission() async {
-    final status =
-        await Permission.manageExternalStorage.request();
+    final status = await Permission.manageExternalStorage.request();
     return status.isGranted;
   }
+  // coverage:ignore-end
 
   // ── Export ─────────────────────────────────────────────────────────────────
 
@@ -133,8 +137,12 @@ class BackupService {
       if (!f.existsSync()) return null;
       final token = await f.readAsString();
       return token.isEmpty ? null : token;
+      // coverage:ignore-start
+      // Defensive: a present, readable token file is the norm; a portable way
+      // to make readAsString throw here (unreadable file) isn't available.
     } on Exception {
       return null;
     }
+    // coverage:ignore-end
   }
 }
