@@ -291,10 +291,6 @@ class TestBuildEntry:
         assert entry["location_name"] == "Solec"
         assert entry["racket"] == "spin"
 
-    def test_optional_location_maps_link_defaults_empty(self) -> None:
-        entry = build_entry(_tt_draft())
-        assert entry["location_maps_link"] == ""
-
     def test_pain_or_injury_defaults_to_none(self) -> None:
         entry = build_entry(_tt_draft())
         assert entry["pain_or_injury"] == "none"

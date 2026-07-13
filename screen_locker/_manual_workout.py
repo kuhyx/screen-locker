@@ -142,9 +142,7 @@ class ManualWorkoutDraft:
     went_well: str
     to_improve: str
     overall_feeling: str
-    location_maps_link: str = ""  # optional — awkward to fill from a locked PC
     reservation_phone: str = ""
-    proof_screenshot_path: str = ""  # optional — phone-oriented field
     techniques_practiced: str = ""
     warm_up_minutes: str = ""
     pain_or_injury: str = "none"
@@ -278,11 +276,9 @@ def build_entry(draft: ManualWorkoutDraft) -> dict[str, object]:
         "end_time": draft.end_time.strip(),
         "duration_minutes": f"{duration:.1f}" if duration is not None else "",
         "location_name": draft.location_name.strip(),
-        "location_maps_link": draft.location_maps_link.strip(),
         "transport_method": draft.transport_method.strip(),
         "cost": draft.cost.strip(),
         "reservation_phone": draft.reservation_phone.strip(),
-        "proof_screenshot_path": draft.proof_screenshot_path.strip(),
         "rpe": int(draft.rpe),
         "techniques_practiced": draft.techniques_practiced.strip(),
         "warm_up_minutes": draft.warm_up_minutes.strip(),

@@ -28,14 +28,14 @@ if TYPE_CHECKING:
     from typing import Literal
 
 
-# Every module that imports ``tkinter as tk`` and calls it directly. The UI was
-# split across these modules, so each ``tk`` reference must be patched — both to
-# guarantee no test can touch a real display and so a test holding ``mock_tk``
-# sees widgets created on that same mock (not a divergent autouse mock).
+# Every module that imports ``tkinter as tk`` and calls it directly. The UI is
+# split across these, so each ``tk`` must be patched — so no test touches a real
+# display and a ``mock_tk`` holder sees widgets made on that same mock.
 _TK_MODULES = (
     "screen_locker.screen_lock",
     "screen_locker._sick_dialog",
     "screen_locker._manual_workout_dialog",
+    "screen_locker._manual_workout_widgets",
     "screen_locker._ui_widgets",
     "screen_locker._window_setup",
     "screen_locker.status_view",

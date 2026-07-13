@@ -23,10 +23,8 @@ from screen_locker import _manual_workout
 from screen_locker._constants import (
     MANUAL_WORKOUT_DESCRIPTION_MIN_CHARS,
     MANUAL_WORKOUT_REFLECTION_MIN_CHARS,
-    MANUAL_WORKOUT_RPE_MAX,
-    MANUAL_WORKOUT_RPE_MIN,
 )
-from screen_locker._ui_widgets import disable_paste
+from screen_locker._manual_workout_widgets import ManualWorkoutFormWidgetsMixin
 
 _logger = logging.getLogger(__name__)
 
@@ -35,7 +33,7 @@ _SPORT_LABEL_TO_CODE = {
 }
 
 
-class ManualWorkoutDialogMixin:
+class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
     """Renders the manual-workout evidence form and handles submission."""
 
     def _show_manual_workout_form(self) -> None:
@@ -60,22 +58,53 @@ class ManualWorkoutDialogMixin:
         self._text(_manual_workout.budget_summary(self.log_file), color="#88ccff")
         self._build_manual_workout_form()
 
-    def _build_manual_workout_form(self) -> None:
-        """Build the scrollable evidence form and submit/back buttons."""
+    def _mw_scrollable_form(self) -> tk.Frame:
+        """Create the scrollable canvas + inner two-column form frame.
+
+        The canvas is given a concrete size from the toplevel so the fullscreen
+        lock screen's centered container can't shrink-wrap to a narrow column
+        (leaving huge empty margins); the ``<Configure>`` binding then stretches
+        the inner form to the viewport so its two columns split the full width.
+        Harmless on StatusWindow, whose container already fills its window.
+        """
         outer = tk.Frame(self.container, bg="#1a1a1a")
         outer.pack(fill="both", expand=True, pady=10)
         canvas = tk.Canvas(outer, bg="#1a1a1a", highlightthickness=0)
         scrollbar = tk.Scrollbar(outer, orient="vertical", command=canvas.yview)
         form = tk.Frame(canvas, bg="#1a1a1a")
+        form.grid_columnconfigure(0, weight=1, uniform="mw")
+        form.grid_columnconfigure(1, weight=1, uniform="mw")
         form.bind(
             "<Configure>",
             lambda _e: canvas.configure(scrollregion=canvas.bbox("all")),
         )
-        canvas.create_window((0, 0), window=form, anchor="nw")
+        self._mw_form_window = canvas.create_window((0, 0), window=form, anchor="nw")
+        canvas.bind(
+            "<Configure>",
+            lambda e: canvas.itemconfig(self._mw_form_window, width=e.width),
+        )
         canvas.configure(yscrollcommand=scrollbar.set)
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+        top = self.container.winfo_toplevel()
+        top.update_idletasks()
+        canvas.configure(
+            width=int(top.winfo_width() * 0.9),
+            height=int(top.winfo_height() * 0.7),
+        )
+        return form
 
+    def _build_manual_workout_form(self) -> None:
+        """Build the two-column evidence form and submit/back buttons.
+
+        Large labels/inputs and a screen-filling grid (see
+        ``_mw_scrollable_form``) so the form is usable with a keyboard while
+        locked out, rather than a cramped narrow column.
+        """
+        form = self._mw_scrollable_form()
+
+        # Independent 2-column grid cursor per master (form + sport sub-frames).
+        self._mw_grid_counters: dict[int, int] = {}
         self._mw_vars: dict[str, tk.StringVar] = {}
         self._mw_int_vars: dict[str, tk.IntVar] = {}
         self._mw_rpe_var = tk.IntVar(value=5)
@@ -88,10 +117,6 @@ class ManualWorkoutDialogMixin:
 
         self._mw_section(form, "Location & logistics")
         self._mw_vars["location_name"] = self._mw_entry(form, "Location name:")
-        self._mw_vars["location_maps_link"] = self._mw_entry(
-            form,
-            "Google Maps link (optional — easier to fill from your phone):",
-        )
         self._mw_vars["transport_method"] = self._mw_entry(
             form, "How did you get there?"
         )
@@ -100,16 +125,18 @@ class ManualWorkoutDialogMixin:
             form, "Reservation phone number (if booked by phone, optional):"
         )
 
-        self._mw_section(form, "Evidence")
-        self._mw_vars["proof_screenshot_path"] = self._mw_entry(
-            form,
-            "Screenshot path as proof of arrangement "
-            "(optional — phone-oriented field):",
-        )
-
         self._mw_section(form, "Activity details")
+        # Both sport sub-frames occupy the same full-width grid slot; only the
+        # selected one is shown (see _on_mw_sport_changed).
+        act_row = self._mw_next_full_row(form)
         self._mw_tt_frame = tk.Frame(form, bg="#1a1a1a")
         self._mw_other_frame = tk.Frame(form, bg="#1a1a1a")
+        for sport_frame in (self._mw_tt_frame, self._mw_other_frame):
+            sport_frame.grid_columnconfigure(0, weight=1, uniform="mwact")
+            sport_frame.grid_columnconfigure(1, weight=1, uniform="mwact")
+            sport_frame.grid(
+                row=act_row, column=0, columnspan=2, sticky="ew", padx=12, pady=6
+            )
         self._build_table_tennis_fields(self._mw_tt_frame)
         self._build_other_sport_fields(self._mw_other_frame)
         self._mw_rpe_row(form)
@@ -158,28 +185,16 @@ class ManualWorkoutDialogMixin:
             width=12,
         ).pack(side="left", padx=10)
 
-    def _mw_section(self, parent: tk.Widget, title: str) -> None:
-        """Add a section heading inside the form."""
-        tk.Label(
-            parent,
-            text=title,
-            font=("Arial", 16, "bold"),
-            fg="#88ccff",
-            bg="#1a1a1a",
-            anchor="w",
-        ).pack(fill="x", pady=(15, 2))
-
     def _mw_sport_row(self, parent: tk.Widget) -> None:
         """Add the sport-selector dropdown; swaps the activity-details section."""
         self._mw_sport_var = tk.StringVar(
             value=_manual_workout.SPORT_LABELS[_manual_workout.SPORT_TABLE_TENNIS]
         )
         row = tk.Frame(parent, bg="#1a1a1a")
-        row.pack(pady=5, fill="x")
         tk.Label(
             row,
             text="Sport:",
-            font=("Arial", 14),
+            font=("Arial", 16),
             fg="white",
             bg="#1a1a1a",
         ).pack(side="left", padx=5)
@@ -189,18 +204,23 @@ class ManualWorkoutDialogMixin:
             *_manual_workout.SPORT_LABELS.values(),
             command=self._on_mw_sport_changed,
         ).pack(side="left", padx=5)
+        self._mw_grid(parent, row, full=True)
 
     def _on_mw_sport_changed(self, selected_label: str) -> None:
-        """Show the fields for the newly-selected sport, hide the other's."""
+        """Show the fields for the newly-selected sport, hide the other's.
+
+        Both frames share one grid slot; ``grid_remove`` hides a frame while
+        remembering its cell options so ``grid`` restores it in place.
+        """
         sport = _SPORT_LABEL_TO_CODE.get(
             selected_label, _manual_workout.SPORT_TABLE_TENNIS
         )
         if sport == _manual_workout.SPORT_TABLE_TENNIS:
-            self._mw_other_frame.pack_forget()
-            self._mw_tt_frame.pack(fill="x")
+            self._mw_other_frame.grid_remove()
+            self._mw_tt_frame.grid()
         else:
-            self._mw_tt_frame.pack_forget()
-            self._mw_other_frame.pack(fill="x")
+            self._mw_tt_frame.grid_remove()
+            self._mw_other_frame.grid()
 
     def _build_table_tennis_fields(self, parent: tk.Widget) -> None:
         """Build the table-tennis-specific score/equipment fields."""
@@ -223,82 +243,6 @@ class ManualWorkoutDialogMixin:
         self._mw_vars["equipment"] = self._mw_entry(
             parent, "Equipment used (optional):"
         )
-
-    def _mw_entry(self, parent: tk.Widget, label: str) -> tk.StringVar:
-        """Add a label+entry field and return its backing StringVar."""
-        var = tk.StringVar()
-        self._add_label_entry(parent, label=label, variable=var)
-        return var
-
-    def _mw_int_field(
-        self, parent: tk.Widget, label: str, *, frm: int = 0, to: int = 99
-    ) -> tk.IntVar:
-        """Add a label + numeric Spinbox field and return its backing IntVar."""
-        var = tk.IntVar(value=0)
-        row = tk.Frame(parent, bg="#1a1a1a")
-        row.pack(pady=5, fill="x")
-        tk.Label(
-            row,
-            text=label,
-            font=("Arial", 14),
-            fg="white",
-            bg="#1a1a1a",
-        ).pack(side="left", padx=5)
-        tk.Spinbox(
-            row,
-            from_=frm,
-            to=to,
-            textvariable=var,
-            width=4,
-            font=("Arial", 14),
-        ).pack(side="left", padx=5)
-        return var
-
-    def _mw_textbox(self, parent: tk.Widget, label: str) -> tk.Text:
-        """Add a label + multi-line Text field and return the widget."""
-        tk.Label(
-            parent,
-            text=label,
-            font=("Arial", 14),
-            fg="white",
-            bg="#1a1a1a",
-            anchor="w",
-        ).pack(fill="x", pady=(5, 0))
-        text_widget = tk.Text(
-            parent,
-            width=60,
-            height=4,
-            font=("Arial", 12),
-            bg="#2a2a2a",
-            fg="white",
-            insertbackground="white",
-        )
-        text_widget.pack(pady=2, fill="x")
-        disable_paste(text_widget)
-        return text_widget
-
-    def _mw_rpe_row(self, parent: tk.Widget) -> None:
-        """Add the RPE (rate of perceived exertion) spinbox row."""
-        row = tk.Frame(parent, bg="#1a1a1a")
-        row.pack(pady=5, fill="x")
-        tk.Label(
-            row,
-            text=(
-                f"RPE — perceived exertion "
-                f"({MANUAL_WORKOUT_RPE_MIN}-{MANUAL_WORKOUT_RPE_MAX}):"
-            ),
-            font=("Arial", 14),
-            fg="white",
-            bg="#1a1a1a",
-        ).pack(side="left", padx=5)
-        tk.Spinbox(
-            row,
-            from_=MANUAL_WORKOUT_RPE_MIN,
-            to=MANUAL_WORKOUT_RPE_MAX,
-            textvariable=self._mw_rpe_var,
-            width=4,
-            font=("Arial", 14),
-        ).pack(side="left", padx=5)
 
     def _current_mw_sport(self) -> str:
         """Return the internal sport code for the currently-selected label."""
@@ -331,9 +275,7 @@ class ManualWorkoutDialogMixin:
             went_well=self._mw_text_widgets["went_well"].get("1.0", "end"),
             to_improve=self._mw_text_widgets["to_improve"].get("1.0", "end"),
             overall_feeling=self._mw_text_widgets["overall_feeling"].get("1.0", "end"),
-            location_maps_link=self._mw_vars["location_maps_link"].get(),
             reservation_phone=self._mw_vars["reservation_phone"].get(),
-            proof_screenshot_path=self._mw_vars["proof_screenshot_path"].get(),
             techniques_practiced=self._mw_vars["techniques_practiced"].get(),
             warm_up_minutes=self._mw_vars["warm_up_minutes"].get(),
             pain_or_injury=self._mw_vars["pain_or_injury"].get() or "none",

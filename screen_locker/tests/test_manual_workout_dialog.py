@@ -50,8 +50,8 @@ class TestSportToggle:
         locker._mw_other_frame = MagicMock()
         locker._mw_sport_var = MagicMock()
         locker._on_mw_sport_changed("Other")
-        locker._mw_tt_frame.pack_forget.assert_called_once()
-        locker._mw_other_frame.pack.assert_called_once_with(fill="x")
+        locker._mw_tt_frame.grid_remove.assert_called_once()
+        locker._mw_other_frame.grid.assert_called_once_with()
 
     def test_selecting_table_tennis_shows_tt_frame(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -61,8 +61,8 @@ class TestSportToggle:
         locker._mw_other_frame = MagicMock()
         locker._mw_sport_var = MagicMock()
         locker._on_mw_sport_changed("Table tennis")
-        locker._mw_other_frame.pack_forget.assert_called_once()
-        locker._mw_tt_frame.pack.assert_called_once_with(fill="x")
+        locker._mw_other_frame.grid_remove.assert_called_once()
+        locker._mw_tt_frame.grid.assert_called_once_with()
 
     def test_unknown_label_defaults_to_table_tennis(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -73,6 +73,30 @@ class TestSportToggle:
         locker._mw_sport_var = MagicMock()
         locker._mw_sport_var.get.return_value = "not a real label"
         assert locker._current_mw_sport() == _manual_workout.SPORT_TABLE_TENNIS
+
+
+class TestGridCursor:
+    """Tests for the two-column grid cursor helper _mw_next_full_row."""
+
+    def test_full_row_from_even_cursor_advances_by_a_row(
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
+    ) -> None:
+        locker = create_locker(mock_tk, tmp_path)
+        locker._mw_grid_counters = {}
+        parent = object()
+        # Fresh (even) cursor: reserves row 0, then row 1 on the next call.
+        assert locker._mw_next_full_row(parent) == 0
+        assert locker._mw_next_full_row(parent) == 1
+
+    def test_full_row_from_odd_cursor_bumps_to_next_row(
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
+    ) -> None:
+        locker = create_locker(mock_tk, tmp_path)
+        parent = object()
+        # An odd cursor (a half-width cell already placed on the left) must be
+        # bumped to a fresh row before a full-width item is placed.
+        locker._mw_grid_counters = {id(parent): 1}
+        assert locker._mw_next_full_row(parent) == 1
 
 
 class TestSubmitManualWorkoutForm:
@@ -90,11 +114,9 @@ class TestSubmitManualWorkoutForm:
             "start_time": "12:00",
             "end_time": "14:00",
             "location_name": "Osrodek Solec",
-            "location_maps_link": "",
             "transport_method": "bike",
             "cost": "60 PLN",
             "reservation_phone": "",
-            "proof_screenshot_path": "",
             "techniques_practiced": "",
             "warm_up_minutes": "",
             "pain_or_injury": "none",
@@ -120,11 +142,9 @@ class TestSubmitManualWorkoutForm:
             "start_time",
             "end_time",
             "location_name",
-            "location_maps_link",
             "transport_method",
             "cost",
             "reservation_phone",
-            "proof_screenshot_path",
             "techniques_practiced",
             "warm_up_minutes",
             "pain_or_injury",
