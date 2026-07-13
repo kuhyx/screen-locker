@@ -22,8 +22,10 @@ from screen_locker._manual_workout import (
     ManualWorkoutDraft,
     budget_summary,
     build_entry,
+    build_sync_payload,
     count_in_window,
     is_budget_exhausted,
+    manual_sync_record_id,
     validate_manual_workout,
 )
 
@@ -294,3 +296,83 @@ class TestBuildEntry:
     def test_pain_or_injury_defaults_to_none(self) -> None:
         entry = build_entry(_tt_draft())
         assert entry["pain_or_injury"] == "none"
+
+
+# The canonical manual-workout sync payload. This literal is the cross-language
+# wire contract shared with the Flutter workout_app: an IDENTICAL literal lives
+# in the Dart test suite (manual_workout model test). Neither side's own
+# round-trip test can catch a key-name/format drift from the other (e.g.
+# went_well vs wentWell, duration_minutes formatting) — only this shared literal
+# on both sides does. If you change a field here, change it there too.
+_WIRE_DATE = "2026-07-13"
+_WIRE_DRAFT = ManualWorkoutDraft(
+    sport=SPORT_TABLE_TENNIS,
+    start_time="18:00",
+    end_time="19:30",
+    location_name="Solec",
+    transport_method="bike",
+    cost="40 PLN",
+    rpe=6,
+    went_well="Served consistently and moved feet well",
+    to_improve="Backhand topspin needs more consistency",
+    overall_feeling="Felt strong focused and in good rhythm",
+    reservation_phone="600100200",
+    techniques_practiced="topspin serve",
+    warm_up_minutes="10",
+    pain_or_injury="none",
+    matches_won=3,
+    matches_lost=1,
+    sets_won=7,
+    sets_lost=4,
+    racket="Butterfly",
+    balls="Nittaku 3-star",
+)
+_WIRE_PAYLOAD: dict[str, object] = {
+    "type": "manual_workout",
+    "source": "table tennis at Solec",
+    "sport": "table_tennis",
+    "activity_type": "table tennis",
+    "start_time": "18:00",
+    "end_time": "19:30",
+    "duration_minutes": "90.0",
+    "location_name": "Solec",
+    "transport_method": "bike",
+    "cost": "40 PLN",
+    "reservation_phone": "600100200",
+    "rpe": 6,
+    "techniques_practiced": "topspin serve",
+    "warm_up_minutes": "10",
+    "pain_or_injury": "none",
+    "went_well": "Served consistently and moved feet well",
+    "to_improve": "Backhand topspin needs more consistency",
+    "overall_feeling": "Felt strong focused and in good rhythm",
+    "matches_won": 3,
+    "matches_lost": 1,
+    "sets_won": 7,
+    "sets_lost": 4,
+    "racket": "Butterfly",
+    "balls": "Nittaku 3-star",
+    "kind": "manual_workout",
+    "date": "2026-07-13",
+}
+
+
+class TestSyncWireFormat:
+    """Cross-language wire-format contract for the manual-workout sync payload."""
+
+    def test_build_sync_payload_matches_fixture(self) -> None:
+        assert build_sync_payload(_WIRE_DRAFT, _WIRE_DATE) == _WIRE_PAYLOAD
+
+    def test_sync_payload_is_json_serializable(self) -> None:
+        # The Dart side round-trips the same literal through JSON; guard that our
+        # payload contains only JSON-native types (no stray dataclass/objects).
+        restored = json.loads(json.dumps(build_sync_payload(_WIRE_DRAFT, _WIRE_DATE)))
+        assert restored == _WIRE_PAYLOAD
+
+    def test_record_id_is_stable_and_prefixed(self) -> None:
+        assert manual_sync_record_id(_WIRE_DATE, "18:00") == "manual:2026-07-13T18:00"
+
+    def test_kind_discriminator_present_and_typed(self) -> None:
+        payload = build_sync_payload(_WIRE_DRAFT, _WIRE_DATE)
+        # Absent-kind means a StrongLifts session; a manual must be tagged.
+        assert payload["kind"] == "manual_workout"

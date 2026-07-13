@@ -306,3 +306,39 @@ def build_entry(draft: ManualWorkoutDraft) -> dict[str, object]:
             }
         )
     return entry
+
+
+# ── Cross-device sync wire format ─────────────────────────────────────────────
+# The value of the record ``kind`` discriminator equals ``MANUAL_WORKOUT_TYPE``
+# by design: on the wire a manual record is tagged ``kind="manual_workout"`` and
+# its payload also carries ``type="manual_workout"``. A StrongLifts session
+# payload has no ``kind`` field, so an ingesting PC routes on ``kind`` first and
+# a manual record can never be mistaken for (or stamped as) a verified session.
+MANUAL_WORKOUT_SYNC_KIND = MANUAL_WORKOUT_TYPE
+
+
+def manual_sync_record_id(date: str, start_time: str) -> str:
+    """Return the stable crdt_sync record id for a manual workout.
+
+    Prefixed ``manual:`` so it never collides with the bare-ISO session ids the
+    phone app writes into the same device log. Derived only from
+    ``(date, start_time)`` so re-syncing the same workout is idempotent — this
+    id must never be re-minted for a given workout.
+    """
+    return f"manual:{date}T{start_time.strip()}"
+
+
+def build_sync_payload(draft: ManualWorkoutDraft, date: str) -> dict[str, object]:
+    """Build the cross-device sync payload for a manual workout.
+
+    This is the wire contract shared with the phone app: the same fields as
+    :func:`build_entry` (what lands in ``workout_log.json``), plus a ``kind``
+    discriminator and the workout's own ``date``. ``workout_log.json`` is
+    day-keyed on the PC, but the synced payload must carry its date so the
+    shared budget can be windowed and the entry filed in the right ISO week on
+    ingest.
+    """
+    payload = build_entry(draft)
+    payload["kind"] = MANUAL_WORKOUT_SYNC_KIND
+    payload["date"] = date
+    return payload
