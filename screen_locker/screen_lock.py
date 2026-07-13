@@ -40,6 +40,7 @@ from screen_locker._extra_benefits import (
 )
 from screen_locker._heat_skip import HeatSkipMixin
 from screen_locker._log_mixin import LogMixin
+from screen_locker._manual_sync import ingest_manual_records
 from screen_locker._manual_workout_dialog import ManualWorkoutDialogMixin
 from screen_locker._phone_verification import PhoneVerificationMixin
 from screen_locker._runnerup_verification import RunnerUpVerificationMixin
@@ -58,6 +59,7 @@ from screen_locker._weekly_check import (
 )
 from screen_locker._window_setup import WindowSetupMixin
 from screen_locker._workout_credit import WorkoutCreditMixin
+from screen_locker._workout_sync import pull_all_manual_records
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -184,6 +186,10 @@ class ScreenLocker(
             SHUTDOWN_BASE_FILE, self, sick_day_state_file=SICK_DAY_STATE_FILE
         ):
             self._apply_weekly_shutdown_bonus()
+        # Ingest any manual workouts synced from the phone (or another device)
+        # before the early-exit checks, so a manual logged off-app still counts
+        # toward today's/this week's minimum.
+        self._ingest_synced_manual_workouts()
         # Auto-fill any RunnerUp workouts from earlier in the current ISO week
         # before any early-exit check, so gaps are closed regardless of today's
         # logged state (early_bird, sick_day, etc.).
@@ -209,6 +215,12 @@ class ScreenLocker(
         # maximizing weekly workouts, so it was removed in favor of a
         # shutdown-time-only reward (see _apply_weekly_shutdown_bonus).
         self._check_heat_skip_exit()
+
+    def _ingest_synced_manual_workouts(self) -> None:
+        """Log any manual workouts synced from the phone or another device."""
+        ingested = ingest_manual_records(self.log_file, pull_all_manual_records())
+        for record_id in ingested:
+            _logger.info("Ingested synced manual workout: %s", record_id)
 
     def _auto_fill_week_runnerup_bonus(self) -> None:
         """Auto-fill missed RunnerUp workouts and award any earned bonus."""

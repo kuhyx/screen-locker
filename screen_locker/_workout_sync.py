@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import logging
 
-from crdt_sync import GitHubSyncClient, GitHubSyncError, Record
+from crdt_sync import GitHubSyncClient, GitHubSyncError, Hlc, Record
 
 from screen_locker._constants import (
     SYNC_PHONE_DEVICE_ID,
@@ -22,11 +22,18 @@ from screen_locker._constants import (
     SYNC_TIMEOUT_SECONDS,
     SYNC_TOKEN_FILE,
 )
+from screen_locker._manual_workout import MANUAL_WORKOUT_SYNC_KIND
 
 _logger = logging.getLogger(__name__)
 
-_LOG_PATH = f"screen-locker-sync/devices/{SYNC_PHONE_DEVICE_ID}/log.json"
+_DEVICES_PREFIX = "screen-locker-sync/devices"
+_LOG_PATH = f"{_DEVICES_PREFIX}/{SYNC_PHONE_DEVICE_ID}/log.json"
 _PAYLOAD_FIELD = "payload"
+
+
+def _is_manual_payload(payload: object) -> bool:
+    """True if a decoded sync payload is a manual-workout record."""
+    return isinstance(payload, dict) and payload.get("kind") == MANUAL_WORKOUT_SYNC_KIND
 
 
 def read_sync_token() -> str | None:
@@ -59,7 +66,12 @@ def _latest_payload(log_json: str) -> dict | None:
         raise TypeError(msg)
 
     records = [Record.from_dict(data) for data in raw.values()]
-    candidates = [record for record in records if _PAYLOAD_FIELD in record.fields]
+    candidates = [
+        record
+        for record in records
+        if _PAYLOAD_FIELD in record.fields
+        and not _is_manual_payload(record.fields[_PAYLOAD_FIELD][0])
+    ]
     if not candidates:
         return None
     latest = max(candidates, key=lambda record: record.fields[_PAYLOAD_FIELD][1])
@@ -106,3 +118,74 @@ def pull_synced_workout() -> tuple[dict | None, str | None]:
         return None, f"corrupt sync data: {exc}"
 
     return payload, None
+
+
+def _manual_records(log_json: str) -> dict[str, tuple[dict, Hlc]]:
+    """Return ``{record_id: (payload, hlc)}`` for manual records in a log blob.
+
+    Raises the same decode errors as :func:`_latest_payload`; callers treat a
+    corrupt device log as "no manual records from that device".
+    """
+    raw = json.loads(log_json)
+    if not isinstance(raw, dict):
+        msg = f"top-level sync payload is not a JSON object: {raw!r}"
+        raise TypeError(msg)
+    result: dict[str, tuple[dict, Hlc]] = {}
+    for data in raw.values():
+        record = Record.from_dict(data)
+        field = record.fields.get(_PAYLOAD_FIELD)
+        if field is None:
+            continue
+        payload, hlc = field
+        if _is_manual_payload(payload):
+            result[record.id] = (payload, hlc)
+    return result
+
+
+def pull_all_manual_records() -> list[tuple[str, dict]]:
+    """Return all synced manual-workout records across every device log.
+
+    Merges every ``devices/<device>/log.json`` under the sync prefix (phone,
+    pc, …), keeping the highest-HLC copy of each record id — records are
+    id-stable, so the same workout mirrored into two device logs dedups to one.
+    Best-effort: an unconfigured token, an unreachable repo, or a corrupt device
+    log yields fewer/no records rather than raising — manual sync, like session
+    sync, is optional.
+    """
+    token = read_sync_token()
+    if token is None:
+        return []
+
+    client = GitHubSyncClient(
+        SYNC_REPO_OWNER,
+        SYNC_REPO_NAME,
+        token,
+        timeout_seconds=SYNC_TIMEOUT_SECONDS,
+    )
+    try:
+        devices = client.list_directory(_DEVICES_PREFIX)
+    except GitHubSyncError as exc:
+        _logger.info("Manual sync unavailable (%s)", exc)
+        return []
+
+    merged: dict[str, tuple[dict, Hlc]] = {}
+    for device in devices:
+        path = f"{_DEVICES_PREFIX}/{device}/log.json"
+        try:
+            text = client.get_file_text(path)
+        except GitHubSyncError as exc:
+            _logger.info("Skipping device log %s (%s)", path, exc)
+            continue
+        if text is None:
+            continue
+        try:
+            records = _manual_records(text)
+        except (ValueError, KeyError, TypeError) as exc:
+            _logger.warning("Corrupt sync data at %s: %s", path, exc)
+            continue
+        for rid, (payload, hlc) in records.items():
+            existing = merged.get(rid)
+            if existing is None or existing[1] < hlc:
+                merged[rid] = (payload, hlc)
+
+    return [(rid, payload) for rid, (payload, _hlc) in merged.items()]

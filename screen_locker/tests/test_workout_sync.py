@@ -118,3 +118,177 @@ class TestPullSyncedWorkout:
         assert data is None
         assert error is not None
         assert "corrupt sync data" in error
+
+
+def _manual_payload(**extra: object) -> dict:
+    payload = {"kind": "manual_workout", "date": "2026-07-13"}
+    payload.update(extra)
+    return payload
+
+
+def _manual_record_dict(
+    record_id: str, payload: dict, *, wall_time_ms: int = 1000
+) -> dict:
+    hlc = Hlc(wall_time_ms=wall_time_ms, counter=0, node_id="phone")
+    return Record(id=record_id, fields={"payload": (payload, hlc)}).to_dict()
+
+
+class TestLatestPayloadSkipsManual:
+    def test_manual_only_log_yields_no_session(self) -> None:
+        log = {"m": _manual_record_dict("manual:1", _manual_payload())}
+        assert _workout_sync._latest_payload(json.dumps(log)) is None
+
+    def test_returns_session_even_when_a_later_manual_exists(self) -> None:
+        log = {
+            "s": _record_json({"succeeded": True}, wall_time_ms=100),
+            "m": _manual_record_dict("manual:1", _manual_payload(), wall_time_ms=999),
+        }
+        assert _workout_sync._latest_payload(json.dumps(log)) == {"succeeded": True}
+
+
+class TestIsManualPayload:
+    def test_true_for_manual_kind(self) -> None:
+        assert _workout_sync._is_manual_payload({"kind": "manual_workout"}) is True
+
+    def test_false_for_session_or_non_dict(self) -> None:
+        assert _workout_sync._is_manual_payload({"succeeded": True}) is False
+        assert _workout_sync._is_manual_payload("not-a-dict") is False
+
+
+class TestManualRecords:
+    def test_returns_only_manual_records(self) -> None:
+        log = {
+            "s": _record_json({"succeeded": True}),
+            "m": _manual_record_dict("manual:1", _manual_payload()),
+        }
+        result = _workout_sync._manual_records(json.dumps(log))
+        assert list(result) == ["manual:1"]
+
+    def test_skips_records_without_a_payload_field(self) -> None:
+        no_payload = Record(
+            id="a",
+            fields={"other": (1, Hlc(wall_time_ms=1, counter=0, node_id="phone"))},
+        )
+        log = {"a": no_payload.to_dict()}
+        assert _workout_sync._manual_records(json.dumps(log)) == {}
+
+    def test_raises_type_error_when_top_level_is_not_an_object(self) -> None:
+        with pytest.raises(TypeError, match="not a JSON object"):
+            _workout_sync._manual_records(json.dumps([1, 2, 3]))
+
+
+def _multi_device_client(device_logs: dict[str, object]) -> MagicMock:
+    client = MagicMock()
+    client.list_directory.return_value = list(device_logs)
+
+    def _get(path: str) -> object:
+        device = path.split("/")[-2]
+        value = device_logs[device]
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+    client.get_file_text.side_effect = _get
+    return client
+
+
+class TestPullAllManualRecords:
+    def test_returns_empty_when_no_token(self) -> None:
+        assert _workout_sync.pull_all_manual_records() == []
+
+    def test_returns_empty_when_listing_fails(self) -> None:
+        _workout_sync.SYNC_TOKEN_FILE.write_text("tok")
+        client = MagicMock()
+        client.list_directory.side_effect = GitHubSyncError("offline")
+        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+            assert _workout_sync.pull_all_manual_records() == []
+
+    def test_merges_manual_records_across_devices(self) -> None:
+        _workout_sync.SYNC_TOKEN_FILE.write_text("tok")
+        client = _multi_device_client(
+            {
+                "phone": json.dumps(
+                    {"a": _manual_record_dict("manual:a", _manual_payload())}
+                ),
+                "pc": json.dumps(
+                    {"b": _manual_record_dict("manual:b", _manual_payload())}
+                ),
+            }
+        )
+        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+            result = _workout_sync.pull_all_manual_records()
+        assert sorted(rid for rid, _ in result) == ["manual:a", "manual:b"]
+
+    def test_skips_missing_and_corrupt_device_logs(self) -> None:
+        _workout_sync.SYNC_TOKEN_FILE.write_text("tok")
+        client = _multi_device_client(
+            {
+                "phone": json.dumps(
+                    {"a": _manual_record_dict("manual:a", _manual_payload())}
+                ),
+                "gone": GitHubSyncError("404"),
+                "empty": None,
+                "corrupt": "{not json",
+            }
+        )
+        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+            result = _workout_sync.pull_all_manual_records()
+        assert [rid for rid, _ in result] == ["manual:a"]
+
+    def test_dedups_same_id_keeping_highest_clock(self) -> None:
+        _workout_sync.SYNC_TOKEN_FILE.write_text("tok")
+        client = _multi_device_client(
+            {
+                "phone": json.dumps(
+                    {
+                        "a": _manual_record_dict(
+                            "manual:a",
+                            _manual_payload(cost="OLD"),
+                            wall_time_ms=100,
+                        )
+                    }
+                ),
+                "pc": json.dumps(
+                    {
+                        "a": _manual_record_dict(
+                            "manual:a",
+                            _manual_payload(cost="NEW"),
+                            wall_time_ms=200,
+                        )
+                    }
+                ),
+            }
+        )
+        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+            result = _workout_sync.pull_all_manual_records()
+        assert len(result) == 1
+        assert result[0][1]["cost"] == "NEW"
+
+    def test_ignores_a_lower_clock_duplicate_seen_later(self) -> None:
+        _workout_sync.SYNC_TOKEN_FILE.write_text("tok")
+        client = _multi_device_client(
+            {
+                "phone": json.dumps(
+                    {
+                        "a": _manual_record_dict(
+                            "manual:a",
+                            _manual_payload(cost="NEW"),
+                            wall_time_ms=200,
+                        )
+                    }
+                ),
+                "pc": json.dumps(
+                    {
+                        "a": _manual_record_dict(
+                            "manual:a",
+                            _manual_payload(cost="OLD"),
+                            wall_time_ms=100,
+                        )
+                    }
+                ),
+            }
+        )
+        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+            result = _workout_sync.pull_all_manual_records()
+        assert len(result) == 1
+        assert result[0][1]["cost"] == "NEW"

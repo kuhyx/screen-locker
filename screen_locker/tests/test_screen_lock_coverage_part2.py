@@ -180,3 +180,40 @@ class TestUnlockScreenExtras:
             patch("screen_locker._log_mixin.compute_entry_hmac", return_value=None),
         ):
             locker.unlock_screen()
+
+
+class TestIngestSyncedManualWorkouts:
+    """Tests for _ingest_synced_manual_workouts (manual-sync wiring)."""
+
+    def test_logs_each_ingested_record(
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
+    ) -> None:
+        locker = create_locker(mock_tk, tmp_path)
+        with (
+            patch(
+                "screen_locker.screen_lock.pull_all_manual_records",
+                return_value=[("manual:x", {})],
+            ),
+            patch(
+                "screen_locker.screen_lock.ingest_manual_records",
+                return_value=["manual:x"],
+            ) as ingest,
+        ):
+            locker._ingest_synced_manual_workouts()
+        ingest.assert_called_once()
+
+    def test_no_records_ingests_nothing(
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
+    ) -> None:
+        locker = create_locker(mock_tk, tmp_path)
+        with (
+            patch(
+                "screen_locker.screen_lock.pull_all_manual_records",
+                return_value=[],
+            ),
+            patch(
+                "screen_locker.screen_lock.ingest_manual_records",
+                return_value=[],
+            ),
+        ):
+            locker._ingest_synced_manual_workouts()
