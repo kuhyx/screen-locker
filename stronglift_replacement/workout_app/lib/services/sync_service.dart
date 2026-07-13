@@ -31,6 +31,9 @@ class SyncService {
 
     // External storage is Android-only; getExternalStorageDirectory() throws an
     // UnsupportedError (not an Exception) on other platforms, so guard the call.
+    // coverage:ignore-start
+    // Android-only: getExternalStorageDirectory is unavailable on the Linux
+    // test host, so this block can't be exercised in CI.
     if (Platform.isAndroid) {
       try {
         final dir = await getExternalStorageDirectory();
@@ -43,6 +46,7 @@ class SyncService {
         // Fallback failed.
       }
     }
+    // coverage:ignore-end
 
     return const SyncResult(
       success: false,

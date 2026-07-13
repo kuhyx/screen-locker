@@ -70,6 +70,9 @@ class HttpServerService {
     // External storage is Android-only; getExternalStorageDirectory() throws an
     // UnsupportedError (not an Exception) on other platforms (desktop / test
     // host), so guard the call rather than trying to catch it.
+    // coverage:ignore-start
+    // Android-only: getExternalStorageDirectory is unavailable on the Linux
+    // test host, so this block can't be exercised in CI.
     if (Platform.isAndroid) {
       try {
         final dir = await getExternalStorageDirectory();
@@ -77,6 +80,7 @@ class HttpServerService {
       } on Exception {
         // Ignore; the /sdcard path is tried first.
       }
+      // coverage:ignore-end
     }
     for (final path in candidates) {
       final file = File(path);
