@@ -64,12 +64,16 @@ void main() {
     final dateStr =
         '${today.year}-${today.month.toString().padLeft(2, '0')}'
         '-${today.day.toString().padLeft(2, '0')}';
-    await StorageService.instance.saveSession(
-      date: dateStr,
-      workoutType: 'A',
-      durationSeconds: 1800,
-      succeeded: true,
-      json: '{"exercises":[]}',
+    // DB writes need the real event loop (the widget-test zone fakes async and
+    // would hang sqflite-ffi); run the seed inside runAsync.
+    await tester.runAsync(
+      () => StorageService.instance.saveSession(
+        date: dateStr,
+        workoutType: 'A',
+        durationSeconds: 1800,
+        succeeded: true,
+        json: '{"exercises":[]}',
+      ),
     );
     await _pump(tester, _wrap());
     expect(find.text('Done for today!'), findsOneWidget);

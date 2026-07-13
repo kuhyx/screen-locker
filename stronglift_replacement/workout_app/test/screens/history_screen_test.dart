@@ -27,6 +27,28 @@ void main() {
 
   Widget _wrap() => const MaterialApp(home: HistoryScreen());
 
+  // Seed a workout. DB writes must run on the real event loop: the widget-test
+  // zone fakes async, so a sqflite-ffi write in the test body hangs (then the
+  // isolate crashes on shutdown). runAsync gives the write the real loop.
+  Future<void> _seed(
+    WidgetTester tester,
+    String json, {
+    String date = '2024-06-01',
+    String type = 'A',
+    int duration = 1800,
+    bool succeeded = true,
+  }) async {
+    await tester.runAsync(
+      () => StorageService.instance.saveSession(
+        date: date,
+        workoutType: type,
+        durationSeconds: duration,
+        succeeded: succeeded,
+        json: json,
+      ),
+    );
+  }
+
   testWidgets('shows Progress app bar', (tester) async {
     await _pump(tester, _wrap());
     expect(find.text('Progress'), findsOneWidget);
@@ -53,13 +75,7 @@ void main() {
         },
       ],
     });
-    await StorageService.instance.saveSession(
-      date: '2024-06-01',
-      workoutType: 'A',
-      durationSeconds: 1800,
-      succeeded: true,
-      json: json,
-    );
+    await _seed(tester, json);
     await _pump(tester, _wrap());
     expect(find.textContaining('Workout A'), findsWidgets);
   });
@@ -79,26 +95,14 @@ void main() {
         },
       ],
     });
-    await StorageService.instance.saveSession(
-      date: '2024-06-01',
-      workoutType: 'A',
-      durationSeconds: 1800,
-      succeeded: true,
-      json: json,
-    );
+    await _seed(tester, json);
     await _pump(tester, _wrap());
     expect(find.textContaining('Total'), findsOneWidget);
   });
 
   testWidgets('calendar prev/next month navigation works', (tester) async {
     final json = jsonEncode({'exercises': []});
-    await StorageService.instance.saveSession(
-      date: '2024-06-01',
-      workoutType: 'A',
-      durationSeconds: 1800,
-      succeeded: true,
-      json: json,
-    );
+    await _seed(tester, json);
     await _pump(tester, _wrap());
     await tester.tap(find.byIcon(Icons.chevron_right).first);
     await tester.pump();
@@ -109,26 +113,14 @@ void main() {
 
   testWidgets('session tile shows succeeded checkmark', (tester) async {
     final json = jsonEncode({'exercises': []});
-    await StorageService.instance.saveSession(
-      date: '2024-06-01',
-      workoutType: 'A',
-      durationSeconds: 1800,
-      succeeded: true,
-      json: json,
-    );
+    await _seed(tester, json);
     await _pump(tester, _wrap());
     expect(find.byIcon(Icons.check_circle), findsWidgets);
   });
 
   testWidgets('session tile shows cancel icon on failure', (tester) async {
     final json = jsonEncode({'exercises': []});
-    await StorageService.instance.saveSession(
-      date: '2024-06-01',
-      workoutType: 'A',
-      durationSeconds: 900,
-      succeeded: false,
-      json: json,
-    );
+    await _seed(tester, json, duration: 900, succeeded: false);
     await _pump(tester, _wrap());
     expect(find.byIcon(Icons.cancel), findsWidgets);
   });
@@ -136,13 +128,7 @@ void main() {
   testWidgets('session duration over 1 hour formats with h prefix',
       (tester) async {
     final json = jsonEncode({'exercises': []});
-    await StorageService.instance.saveSession(
-      date: '2024-06-01',
-      workoutType: 'A',
-      durationSeconds: 3700,
-      succeeded: true,
-      json: json,
-    );
+    await _seed(tester, json, duration: 3700);
     await _pump(tester, _wrap());
     expect(find.textContaining('1h'), findsOneWidget);
   });
@@ -162,13 +148,7 @@ void main() {
       ],
     });
     for (var i = 1; i <= 3; i++) {
-      await StorageService.instance.saveSession(
-        date: '2024-06-0$i',
-        workoutType: 'A',
-        durationSeconds: 1800,
-        succeeded: true,
-        json: json,
-      );
+      await _seed(tester, json, date: '2024-06-0$i');
     }
     await _pump(tester, _wrap());
     expect(find.byType(HistoryScreen), findsOneWidget);

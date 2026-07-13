@@ -114,7 +114,10 @@ void main() {
     await _pump(tester, _wrap());
 
     final firstName = workoutA.first.name;
-    final state = await StorageService.instance.getExerciseState(firstName);
+    // DB reads need the real event loop (the widget-test zone fakes async).
+    final state = await tester.runAsync(
+      () => StorageService.instance.getExerciseState(firstName),
+    );
     final before = state!.weight;
 
     await tester.tap(find.byIcon(Icons.add).first);
@@ -127,7 +130,10 @@ void main() {
     await _pump(tester, _wrap());
 
     final firstName = workoutA.first.name;
-    final state = await StorageService.instance.getExerciseState(firstName);
+    // DB reads need the real event loop (the widget-test zone fakes async).
+    final state = await tester.runAsync(
+      () => StorageService.instance.getExerciseState(firstName),
+    );
     final before = state!.weight;
 
     await tester.tap(find.byIcon(Icons.remove).first);
@@ -159,8 +165,10 @@ void main() {
   });
 
   testWidgets('Reset dialog confirms and resets data', (tester) async {
-    await StorageService.instance
-        .setExerciseWeight(workoutA.first.name, 99.0);
+    await tester.runAsync(
+      () => StorageService.instance
+          .setExerciseWeight(workoutA.first.name, 99.0),
+    );
 
     await _pump(tester, _wrap());
     await tester.tap(find.text('Reset defaults'));
@@ -172,8 +180,9 @@ void main() {
     });
     await tester.pump();
 
-    final state =
-        await StorageService.instance.getExerciseState(workoutA.first.name);
+    final state = await tester.runAsync(
+      () => StorageService.instance.getExerciseState(workoutA.first.name),
+    );
     expect(state!.weight, workoutA.first.weight);
   });
 

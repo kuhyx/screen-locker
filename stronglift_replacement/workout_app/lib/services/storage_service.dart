@@ -89,6 +89,11 @@ class StorageService {
       version: 3,
       onCreate: _createSchema,
       onUpgrade: _migrateSchema,
+      // In tests resetForTesting() reopens a ':memory:' DB per test; sqflite's
+      // default singleInstance would hand back the same cached in-memory DB, so
+      // data would pile up across tests. Disable it so each test gets a fresh
+      // empty DB. Production keeps the default single shared instance.
+      singleInstance: _testDbPath == null,
     );
     await _seedDefaultsIfNeeded();
   }
