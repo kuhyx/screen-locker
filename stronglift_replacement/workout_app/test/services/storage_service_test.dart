@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/models/workout_plan.dart';
+import 'package:workout_app/services/backup_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 
 StorageService get _svc => StorageService.instance;
@@ -315,5 +319,160 @@ void main() {
     final a = await StorageService.init();
     final b = await StorageService.init();
     expect(identical(a, b), isTrue);
+  });
+
+  // ── Schema migration (v1 → v3) ──────────────────────────────────────────────
+
+  test('migrates a v1 database up to v3 on open', () async {
+    // A v1 DB predates the threshold columns and the settings/active_session
+    // tables — build one on disk, then open it through StorageService (v3) so
+    // _migrateSchema runs both the <2 and <3 upgrade blocks.
+    final dir = await Directory.systemTemp.createTemp('mw_migrate');
+    final dbFile = p.join(dir.path, 'old.db');
+    final oldDb = await databaseFactory.openDatabase(
+      dbFile,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, _) async {
+          await db.execute(
+            'CREATE TABLE exercise_state ('
+            'name TEXT PRIMARY KEY, weight REAL NOT NULL, reps INTEGER NOT NULL, '
+            'success_streak INTEGER NOT NULL DEFAULT 0, '
+            'fail_streak INTEGER NOT NULL DEFAULT 0, max_weight REAL NOT NULL)',
+          );
+        },
+      ),
+    );
+    await oldDb.close();
+
+    StorageService.resetForTesting(dbPath: dbFile);
+    await StorageService.init();
+
+    // <3 block created the settings table (getNextWorkoutType reads it) …
+    expect(await _svc.getNextWorkoutType(), 'A');
+    // … and the <2 block added the threshold columns (defaulted to 3/2).
+    final st = await _svc.getExerciseState(workoutA.first.name);
+    expect(st, isNotNull);
+    expect(st!.successThreshold, 3);
+    expect(st.failThreshold, 2);
+
+    await dir.delete(recursive: true);
+  });
+
+  // ── Progression at the weight cap ───────────────────────────────────────────
+
+  test('applyProgression bumps reps (not weight) once at max weight', () async {
+    final name = workoutA.first.name;
+    final maxW = (await _svc.getExerciseState(name))!.maxWeight;
+    // Pin the working weight at the cap; streaks reset to 0.
+    await _svc.setExerciseWeight(name, maxW);
+    final startReps = (await _svc.getExerciseState(name))!.reps;
+
+    // Default success threshold is 3 — three straight successes trigger a
+    // progression, which at the cap increments reps instead of weight.
+    final today = DateTime.now();
+    for (var i = 0; i < 3; i++) {
+      await _svc.applyProgression(
+        succeededExercises: {name: true},
+        lastWorkoutDate: today,
+      );
+    }
+
+    final st = (await _svc.getExerciseState(name))!;
+    expect(st.weight, maxW); // weight stayed capped
+    expect(st.reps, startReps + 1); // reps incremented instead
+  });
+
+  // ── Restore from backup ─────────────────────────────────────────────────────
+
+  group('restoreFromBackupIfNeeded', () {
+    late Directory tmp;
+
+    setUp(() {
+      tmp = Directory.systemTemp.createTempSync('mw_restore');
+      BackupService.baseDirForTesting = tmp.path;
+    });
+
+    tearDown(() {
+      BackupService.baseDirForTesting = kBackupDir;
+      tmp.deleteSync(recursive: true);
+    });
+
+    test('returns early and does not restore when the DB has data', () async {
+      await _svc.saveSession(
+        date: '2026-07-10',
+        workoutType: 'A',
+        durationSeconds: 60,
+        succeeded: true,
+        json: '{}',
+      );
+      // A backup that would add a second history row if (wrongly) applied.
+      await BackupService.instance.export({
+        'workout_history': [
+          {
+            'date': '2000-01-01',
+            'workout_type': 'B',
+            'duration_seconds': 1,
+            'succeeded': 0,
+            'json': '{}',
+          },
+        ],
+      });
+
+      await _svc.restoreFromBackupIfNeeded();
+
+      // Early-return path: existing history is untouched, backup ignored.
+      final hist = await _svc.getWorkoutHistory();
+      expect(hist.length, 1);
+      expect(hist.first['date'], '2026-07-10');
+    });
+
+    test('restores exercise_state, history and settings when empty', () async {
+      await BackupService.instance.export({
+        'exercise_state': [
+          {
+            'name': 'Dumbbell Lunge',
+            'weight': 42.5,
+            'reps': 9,
+            'success_streak': 0,
+            'fail_streak': 0,
+            'max_weight': 100.0,
+            'success_threshold': 3,
+            'fail_threshold': 2,
+          },
+        ],
+        'workout_history': [
+          {
+            'date': '2026-07-01',
+            'workout_type': 'A',
+            'duration_seconds': 120,
+            'succeeded': 1,
+            'json': '{}',
+          },
+        ],
+        'settings': [
+          {'key': 'last_workout_type', 'value': 'A'},
+        ],
+      });
+
+      await _svc.restoreFromBackupIfNeeded();
+
+      // Settings restored: last was A → next is B.
+      expect(await _svc.getNextWorkoutType(), 'B');
+      // History restored.
+      final hist = await _svc.getWorkoutHistory();
+      expect(hist.length, 1);
+      expect(hist.first['date'], '2026-07-01');
+      // Exercise state overwritten from the backup.
+      final st = await _svc.getExerciseState('Dumbbell Lunge');
+      expect(st!.weight, 42.5);
+    });
+
+    test('does nothing when the DB is empty and no backup exists', () async {
+      // No export() call → readBackup returns null → early return after the
+      // has-data check.
+      await _svc.restoreFromBackupIfNeeded();
+      expect(await _svc.getWorkoutHistory(), isEmpty);
+    });
   });
 }

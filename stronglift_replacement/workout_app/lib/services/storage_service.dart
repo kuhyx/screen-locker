@@ -73,17 +73,20 @@ class StorageService {
 
   /// Resets the singleton so [init] can be called again in tests.
   ///
-  /// Also switches to an in-memory database so each test starts with a clean
-  /// slate and file-based data from other tests does not leak in.
+  /// Defaults to an in-memory database so each test starts with a clean
+  /// slate and file-based data from other tests does not leak in. Pass a
+  /// file [dbPath] to exercise on-disk paths (e.g. schema migrations, which
+  /// need a persisted DB opened twice at different versions).
   @visibleForTesting
-  static void resetForTesting() {
+  static void resetForTesting({String dbPath = ':memory:'}) {
     _instance = null;
-    _testDbPath = ':memory:';
+    _testDbPath = dbPath;
   }
 
   Future<void> _open() async {
     final dbPath =
-        _testDbPath ?? p.join(await getDatabasesPath(), 'workout_app.db');
+        _testDbPath ??
+        p.join(await getDatabasesPath(), 'workout_app.db'); // coverage:ignore-line
     _db = await openDatabase(
       dbPath,
       version: 3,
@@ -307,7 +310,11 @@ class StorageService {
     for (final ex in template) {
       final state = await getExerciseState(ex.name);
       if (state == null) {
+        // Defensive: _seedDefaultsIfNeeded guarantees every template exercise
+        // has a state row, so this branch is unreachable in practice.
+        // coverage:ignore-start
         result.add(ex);
+        // coverage:ignore-end
       } else {
         result.add(ex.copyWith(weight: state.weight, reps: state.reps));
       }
