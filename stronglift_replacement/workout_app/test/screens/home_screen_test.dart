@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/screens/home_screen.dart';
+import 'package:workout_app/screens/workout_screen.dart';
 import 'package:workout_app/services/storage_service.dart';
 
 import '../fake_secure_storage.dart';
@@ -117,5 +119,79 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     // The post-frame auto-resume pushed the workout screen.
     expect(find.textContaining('Workout A'), findsWidgets);
+  });
+
+  testWidgets('active session shows Resume, returns (98) and re-enters (153)',
+      (tester) async {
+    // A fully-formed active session so WorkoutScreen restores cleanly (its
+    // _restoreFromSaved expects startTimeMs + per-exercise tapped/doneReps).
+    await tester.runAsync(
+      () => StorageService.instance.saveActiveSession({
+        'workoutType': 'A',
+        'startTimeMs': DateTime.now().millisecondsSinceEpoch,
+        'tapped': [for (final e in workoutA) List<bool>.filled(e.sets, false)],
+        'doneReps': [for (final e in workoutA) List<int>.filled(e.sets, e.reps)],
+        'warmupTapped': List<bool>.filled(workoutA.length, false),
+      }),
+    );
+    // Drive the whole first-load + post-frame auto-resume push on the real loop
+    // (auto-resume awaits getCurrentExercises, which hangs under FakeAsync).
+    await tester.runAsync(() async {
+      await tester.pumpWidget(_wrap());
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      await tester.pump(); // fire the post-frame auto-resume callback
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(WorkoutScreen), findsOneWidget);
+
+    // Return to home; auto-resume is now consumed so the Resume button shows.
+    await tester.runAsync(() async {
+      tester.state<NavigatorState>(find.byType(Navigator).last).pop();
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(WorkoutScreen), findsNothing);
+    expect(find.text('Resume Workout'), findsOneWidget);
+
+    // Tapping Resume invokes onResume -> _openWorkout(resume:true) (line 153).
+    await tester.runAsync(() async {
+      await tester.tap(find.text('Resume Workout'));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(WorkoutScreen), findsOneWidget);
+  });
+
+  testWidgets('returning from settings reloads the home screen',
+      (tester) async {
+    installFakeSecureStorage(); // SettingsScreen reads the sync token on init
+    await _pump(tester, _wrap());
+    await tester.tap(find.byIcon(Icons.settings));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Settings'), findsOneWidget);
+
+    // Pop back; the trailing _load() (line 135) needs the real loop for DB I/O.
+    await tester.runAsync(() async {
+      tester.state<NavigatorState>(find.byType(Navigator).last).pop();
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Workout Tracker'), findsOneWidget);
+  });
+
+  testWidgets('ServerAddressTile shows a placeholder when no addresses',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: ServerAddressTile(addresses: <String>[])),
+      ),
+    );
+    expect(find.text('Server not started'), findsOneWidget);
   });
 }

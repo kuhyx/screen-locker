@@ -153,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     onResume: () => _openWorkout(resume: true),
                   ),
                   const SizedBox(height: 20),
-                  _ServerAddressTile(addresses: _serverAddresses),
+                  ServerAddressTile(addresses: _serverAddresses),
                 ],
               ),
             ),
@@ -278,8 +278,12 @@ class _WorkoutCard extends StatelessWidget {
   }
 }
 
-class _ServerAddressTile extends StatelessWidget {
-  const _ServerAddressTile({required this.addresses});
+/// Displays the LAN addresses the workout HTTP server is reachable at, or a
+/// "Server not started" placeholder when none are available. Public so the
+/// empty-address fallback can be exercised in a widget test.
+class ServerAddressTile extends StatelessWidget {
+  /// Creates a tile listing [addresses] (may be empty).
+  const ServerAddressTile({required this.addresses, super.key});
 
   final List<String> addresses;
 
