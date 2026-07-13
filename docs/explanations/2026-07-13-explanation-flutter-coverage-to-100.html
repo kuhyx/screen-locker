@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Driving the workout app to 100% test coverage</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1a1a1a; --muted: #5a5a5a; --card: #f5f5f7;
+    --border: #e2e2e6; --accent: #4f46e5; --accent-soft: #ede9fe;
+    --good: #15803d; --good-bg: #dcfce7; --bad: #b91c1c; --bad-bg: #fee2e2;
+    --code-bg: #f6f8fa; --add: #e6ffec; --add-fg: #04562a; --del: #ffebe9; --del-fg: #82071e;
+    --pill: #eef2ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14151a; --fg: #e6e6ea; --muted: #9aa0aa; --card: #1c1e26;
+      --border: #2a2d38; --accent: #a5b4fc; --accent-soft: #262347;
+      --good: #4ade80; --good-bg: #16351f; --bad: #f87171; --bad-bg: #3a1a1a;
+      --code-bg: #1a1c23; --add: #12321f; --add-fg: #7ee2a8; --del: #3a1a1d; --del-fg: #f0a8ae;
+      --pill: #23263a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.65; font-size: 17px;
+  }
+  .wrap { max-width: min(48rem, 92vw); margin: 0 auto; padding: 2.5rem 0 5rem; }
+  h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 .3rem; }
+  h2 { font-size: 1.5rem; margin: 3rem 0 1rem; padding-top: .4rem; border-top: 1px solid var(--border); }
+  h3 { font-size: 1.15rem; margin: 1.8rem 0 .6rem; }
+  p, li { color: var(--fg); }
+  .sub { color: var(--muted); font-size: 1.02rem; margin: 0 0 1.5rem; }
+  a { color: var(--accent); }
+  code { background: var(--code-bg); padding: .1em .35em; border-radius: 5px; font-size: .88em;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1rem; overflow-x: auto; white-space: pre-wrap; word-break: break-word; font-size: .82rem; line-height: 1.55; }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .toc { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1rem 1.25rem; margin: 1.5rem 0 0; }
+  .toc strong { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .toc ol { margin: .5rem 0 0; padding-left: 1.2rem; }
+  .toc a { text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; margin: 1.25rem 0; }
+  .pill { display: inline-block; background: var(--pill); color: var(--accent); font-size: .72rem;
+    font-weight: 600; padding: .15em .6em; border-radius: 999px; letter-spacing: .03em; }
+  .add { color: var(--add-fg); background: var(--add); display: block; }
+  .del { color: var(--del-fg); background: var(--del); display: block; }
+  .diagram { display: flex; flex-wrap: wrap; gap: .75rem; align-items: stretch; margin: 1.25rem 0; }
+  .zone { flex: 1 1 220px; border: 2px solid var(--border); border-radius: 12px; padding: 1rem; }
+  .zone.fake { border-color: var(--bad); }
+  .zone.real { border-color: var(--good); }
+  .zone h4 { margin: 0 0 .5rem; font-size: .95rem; }
+  .zone .tag { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+  .zone.fake .tag { color: var(--bad); }
+  .zone.real .tag { color: var(--good); }
+  .box { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); padding: .5rem .7rem; margin: .5rem 0; font-size: .82rem; }
+  .flowrow { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin: .4rem 0; font-size: .85rem; }
+  .arrow { color: var(--muted); font-weight: 700; }
+  .k { font-weight: 600; }
+  table.cov { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: .9rem; }
+  table.cov th, table.cov td { border: 1px solid var(--border); padding: .5rem .6rem; text-align: left; }
+  table.cov th { background: var(--card); }
+  table.cov td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .good { color: var(--good); font-weight: 600; }
+  .bad { color: var(--bad); font-weight: 600; }
+  /* micro-world */
+  .sim { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem; margin: 1.5rem 0; }
+  .sim h4 { margin: 0 0 .25rem; }
+  .sim .controls { display: flex; flex-wrap: wrap; gap: .5rem; margin: .9rem 0; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .seg button { background: var(--bg); color: var(--fg); border: none; padding: .5rem .85rem; font-size: .85rem; cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .runbtn { background: var(--accent); color: #fff; border: none; border-radius: 10px; padding: .6rem 1.1rem; font-size: .9rem; font-weight: 600; cursor: pointer; }
+  .runbtn:active { transform: translateY(1px); }
+  .stage { margin-top: 1rem; border: 1px dashed var(--border); border-radius: 10px; padding: 1rem; background: var(--bg); }
+  .step { font-size: .85rem; margin: .3rem 0; opacity: .35; transition: opacity .25s; }
+  .step.active { opacity: 1; }
+  .verdict { margin-top: .9rem; font-weight: 700; padding: .6rem .8rem; border-radius: 8px; font-size: .95rem; }
+  .verdict.pass { background: var(--good-bg); color: var(--good); }
+  .verdict.fail { background: var(--bad-bg); color: var(--bad); }
+  .verdict.idle { background: var(--code-bg); color: var(--muted); font-weight: 500; }
+  /* quiz */
+  .q { border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem 1.25rem; margin: 1.1rem 0; background: var(--card); }
+  .q .qhead { font-weight: 600; margin-bottom: .75rem; }
+  .opt { display: block; width: 100%; text-align: left; background: var(--bg); color: var(--fg);
+    border: 1px solid var(--border); border-radius: 9px; padding: .6rem .8rem; margin: .4rem 0; font-size: .92rem; cursor: pointer; }
+  .opt:hover { border-color: var(--accent); }
+  .opt.correct { background: var(--good-bg); border-color: var(--good); color: var(--good); }
+  .opt.wrong { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); }
+  .opt:disabled { cursor: default; }
+  .rationale { font-size: .85rem; color: var(--muted); margin-top: .5rem; display: none; }
+  .rationale.show { display: block; }
+  .score { position: sticky; bottom: 0; background: var(--accent); color: #fff; border-radius: 10px;
+    padding: .6rem 1rem; margin-top: 1rem; font-weight: 600; text-align: center; }
+  .mono { font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: .85em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<span class="pill">CHANGE EXPLAINED · 2026-07-13</span>
+<h1>Driving the workout app to 100% test coverage</h1>
+<p class="sub">How a stuck push gate got unblocked — and the Flutter widget-test techniques that made the hard 267 lines of chart, calendar and live-workout UI testable.</p>
+
+<nav class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#background">Background — the gate that never went green</a></li>
+    <li><a href="#intuition">Intuition — two clocks, one test</a></li>
+    <li><a href="#code">Code — what actually changed</a></li>
+    <li><a href="#quiz">Quiz — check your understanding</a></li>
+  </ol>
+</nav>
+
+<h2 id="background">1 · Background</h2>
+
+<p>The repo contains a Flutter phone app, <code>workout_app</code>, that tracks strength workouts and syncs them to a PC. To keep quality high, the project installs a <em>pre-push gate</em>: whenever a commit touches Dart code, pushing runs two checks locally before the push is allowed to leave your machine.</p>
+
+<div class="card">
+  <div class="flowrow"><span class="k">git push</span> <span class="arrow">→</span> <span class="box"><b>flutter analyze</b> — zero issues (even <span class="mono">info</span>-level)</span></div>
+  <div class="flowrow"><span class="k"></span> <span class="arrow">→</span> <span class="box"><b>flutter test --coverage</b> — <b>100%</b> of every <code>lib/</code> line, and every file must appear in the report</span></div>
+</div>
+
+<p>That second check is strict in two ways. First, the bar is <strong>100%</strong> — not 90%, not "the lines you changed". Second, a helper script (<code>check_flutter_coverage.sh</code>) also fails if any <code>lib/**/*.dart</code> file is <em>missing</em> from the coverage report, so you can't quietly earn 100% by never importing a file into a test.</p>
+
+<p>The catch: this gate had <strong>never once passed</strong> for a Dart commit. It was added while the app was only ~83% covered, so ten commits — an entire phone-to-PC sync feature — sat finished but <em>unpushable</em>, stuck behind 316 uncovered lines. This change closes that gap and ships all of it.</p>
+
+<h3>Where the 316 lines lived</h3>
+<table class="cov">
+  <thead><tr><th>File</th><th class="num">Before</th><th class="num">After</th><th>Nature of the gap</th></tr></thead>
+  <tbody>
+    <tr><td>storage_service.dart</td><td class="num">139/165</td><td class="num good">163/163</td><td>migrations, restore, edge branches</td></tr>
+    <tr><td>home_screen.dart</td><td class="num">117/121</td><td class="num good">121/121</td><td>post-navigation reloads</td></tr>
+    <tr><td>settings_screen.dart</td><td class="num">243/262</td><td class="num good">262/262</td><td>device-flow branches, steppers</td></tr>
+    <tr><td>history_screen.dart</td><td class="num">167/308</td><td class="num good">307/307</td><td>whole exercise drill-down + chart</td></tr>
+    <tr><td>workout_screen.dart</td><td class="num">144/270</td><td class="num good">269/269</td><td>live-workout breaks &amp; finish</td></tr>
+  </tbody>
+</table>
+
+<p>The two screens at the bottom — the history charts/calendar and the live-workout timer UI — held 267 of the 316 lines and were the genuinely hard part. Testing them ran head-first into a subtlety about <em>how time works inside a Flutter widget test</em>. That's the idea worth understanding, so it gets its own section.</p>
+
+<h2 id="intuition">2 · Intuition — two clocks, one test</h2>
+
+<p>A normal <code>testWidgets</code> test does <strong>not</strong> run on real time. Flutter wraps it in a <em>fake clock</em> (<span class="mono">FakeAsync</span>): timers only advance when you explicitly say <code>tester.pump(someDuration)</code>. This is usually wonderful — you can "wait" 3 minutes for a rest timer in a microsecond, deterministically.</p>
+
+<p>But the app's real database, <span class="mono">sqflite</span>, schedules work on <em>real</em> timers and background isolates. Under the fake clock, those never get a chance to finish. So the moment a tapped widget kicks off a database write, you get a landmine:</p>
+
+<div class="diagram">
+  <div class="zone fake">
+    <div class="tag">Fake-async zone (default)</div>
+    <h4>tap outside <span class="mono">runAsync</span></h4>
+    <div class="box">tap a set → <span class="mono">_tapCircle</span></div>
+    <div class="flowrow"><span class="arrow">↓</span></div>
+    <div class="box"><span class="mono">unawaited(_saveActiveSession())</span> → sqflite write</div>
+    <div class="flowrow"><span class="arrow">↓</span></div>
+    <div class="box bad">write parks on a real timer the fake clock never ticks</div>
+    <div class="flowrow"><span class="arrow">↓</span></div>
+    <div class="box"><b class="bad">✗ "Pending timers" — test fails</b></div>
+  </div>
+  <div class="zone real">
+    <div class="tag">Real loop via <span class="mono">tester.runAsync</span></div>
+    <h4>tap inside <span class="mono">runAsync</span></h4>
+    <div class="box">tap a set → <span class="mono">_tapCircle</span></div>
+    <div class="flowrow"><span class="arrow">↓</span></div>
+    <div class="box"><span class="mono">unawaited(_saveActiveSession())</span> → sqflite write</div>
+    <div class="flowrow"><span class="arrow">↓</span></div>
+    <div class="box good">real event loop runs the write to completion</div>
+    <div class="flowrow"><span class="arrow">↓</span></div>
+    <div class="box"><b class="good">✓ no leftover timers — test passes</b></div>
+  </div>
+</div>
+
+<p>So the rule that unlocked the live-workout screen is: <strong>any tap that triggers a database write or starts a <span class="mono">Timer.periodic</span> must be dispatched inside <code>tester.runAsync(...)</code></strong>, which runs that code on the genuine event loop where the work can actually finish. The assertion afterward happens on the fake clock again, so you still get deterministic <code>expect</code>s.</p>
+
+<p>Two corollaries fell out of this while writing the tests:</p>
+<ul>
+  <li><b>A dialog that awaits, then does DB work, is one flow.</b> When you tap "Finish", a confirm dialog opens; confirming resumes <code>_confirmFinish</code> in the <em>same zone the first tap fired in</em>, and that continuation does six sqflite writes. So the <em>whole</em> finish flow — open dialog, confirm, save — has to live in a single <code>runAsync</code> block, not just the confirm tap.</li>
+  <li><b><code>tester.longPress</code> fights <code>runAsync</code>.</b> It does its own internal fake-clock pumps to time the press, which don't advance inside <code>runAsync</code>. The fix is a manual gesture: <code>startGesture</code>, hold for a real 700 ms, then release — a real-time long-press.</li>
+</ul>
+
+<div class="sim" id="sim">
+  <h4>▶ Micro-world: run the test yourself</h4>
+  <p style="font-size:.9rem;color:var(--muted);margin:.2rem 0 0">Pick where the tapped code runs and what it does, then dispatch the tap. Watch whether the background work completes or leaks a pending timer.</p>
+
+  <div class="controls">
+    <div>
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:.25rem">Dispatch the tap in…</div>
+      <div class="seg" id="zoneSeg">
+        <button data-zone="fake" class="on">fake-async (default)</button>
+        <button data-zone="real">tester.runAsync</button>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:.25rem">The tapped code…</div>
+      <div class="seg" id="workSeg">
+        <button data-work="db" class="on">writes to sqflite</button>
+        <button data-work="timer">starts a break timer</button>
+        <button data-work="pure">just calls setState</button>
+      </div>
+    </div>
+  </div>
+  <button class="runbtn" id="runBtn">Dispatch tap →</button>
+
+  <div class="stage" id="stage">
+    <div class="step" id="s1">1 · gesture dispatched, <span class="mono">onTap</span> fires</div>
+    <div class="step" id="s2">2 · handler runs…</div>
+    <div class="step" id="s3">3 · background work scheduled…</div>
+    <div class="step" id="s4">4 · test tears down, checks for leftover timers…</div>
+    <div class="verdict idle" id="verdict">Choose options and press “Dispatch tap”.</div>
+  </div>
+</div>
+
+<h3>The other half: reaching the code at all</h3>
+<p>Zone discipline makes taps <em>survive</em>, but many lines were uncovered simply because the widget was never <em>built</em>. Flutter's <code>ListView</code> lazily builds only what's near the viewport, so the history screen's session tiles and the "DUMBBELL LUNGE" section label — which sit below an 800×600 test fold — never existed in the tree, and their lines stayed cold. The fix is to <code>scrollUntilVisible</code> / <code>ensureVisible</code> them first: scrolling builds them, which both renders and covers them.</p>
+
+<h3>Honest 100%: what <code>coverage:ignore</code> is for</h3>
+<p>A few lines genuinely can't run on a Linux CI host, so they're marked <code>coverage:ignore</code> with a stated reason rather than faked. The bar for an ignore is "no reachable test path exists," not "this was annoying to test":</p>
+<div class="diagram">
+  <div class="box" style="flex:1 1 240px"><b>Android/iOS only</b><br><span style="font-size:.85rem;color:var(--muted)"><code>Vibration.vibrate()</code> — <code>hasVibrator()</code> returns <b>false</b> on Linux (no <code>Platform.isAndroid/isIOS</code>), so the body never runs there.</span></div>
+  <div class="box" style="flex:1 1 240px"><b>Production-only path</b><br><span style="font-size:.85rem;color:var(--muted)">The real on-device DB path (<code>getDatabasesPath()</code>) — tests always inject an in-memory or temp-file path instead.</span></div>
+  <div class="box" style="flex:1 1 240px"><b>Truly unreachable</b><br><span style="font-size:.85rem;color:var(--muted)">A defensive <code>null</code>-state branch that seeding makes impossible, and a history <code>_load</code> branch only reachable via a path that never calls <code>_load</code>.</span></div>
+</div>
+
+<h2 id="code">3 · Code — what actually changed</h2>
+
+<p>The diff is <strong>792 insertions</strong> across ten files, but it splits cleanly into two buckets: a lot of <em>test</em> code, and a handful of tiny <em>production</em> edits that make code reachable from tests. Grouped by concern:</p>
+
+<h3>A · Test seams in production code</h3>
+<p>To test the "server not started" placeholder, a private widget had to become public — private widgets can't be constructed from a test file:</p>
+<pre><code><span class="del">-class _ServerAddressTile extends StatelessWidget {
+-  const _ServerAddressTile({required this.addresses});</span>
+<span class="add">+/// ...Public so the empty-address fallback can be exercised in a widget test.
++class ServerAddressTile extends StatelessWidget {
++  const ServerAddressTile({required this.addresses, super.key});</span></code></pre>
+
+<p>And to test the schema migration, <code>resetForTesting</code> gained an optional path so a test can hand it a real <em>file</em> DB (in-memory DBs can't be reopened at a new version, which is exactly what an <code>onUpgrade</code> migration needs):</p>
+<pre><code><span class="del">-  static void resetForTesting() {
+-    _testDbPath = ':memory:';</span>
+<span class="add">+  static void resetForTesting({String dbPath = ':memory:'}) {
++    _testDbPath = dbPath;</span></code></pre>
+
+<h3>B · Justified coverage ignores</h3>
+<p>Four small blocks are marked unreachable-on-CI, each with a comment explaining <em>why</em> — for example the haptics call:</p>
+<pre><code>    if (await Vibration.hasVibrator()) {
+<span class="add">+      // Android/iOS-only: hasVibrator() returns false on the Linux test host
++      // (no Platform.isAndroid/isIOS), so this body never runs there.
++      // coverage:ignore-start</span>
+      unawaited(Vibration.vibrate(duration: 800));
+<span class="add">+      // coverage:ignore-end</span>
+    }</code></pre>
+
+<h3>C · The tests — real behaviour, on the real loop</h3>
+<p>The bulk of the change. A representative live-workout test: a tap starts a rest break, and the tap is dispatched through a helper that keeps it on the real event loop so the sqflite write and periodic timer complete cleanly.</p>
+<pre><code>Future&lt;void&gt; _tapReal(WidgetTester tester, Finder f) async {
+  await tester.runAsync(() async {
+    await tester.tap(f);
+    await Future&lt;void&gt;.delayed(const Duration(milliseconds: 100));
+  });
+  await tester.pump();
+}
+
+testWidgets('tapping a set starts a break which Skip cancels', (tester) async {
+  await _pump(tester, _wrap());
+  await _tapReal(tester, find.byType(RepCircle).first);
+  expect(find.byType(BreakBanner), findsOneWidget);   // break started
+  await _tapReal(tester, find.text('Skip'));
+  expect(find.byType(BreakBanner), findsNothing);      // Skip cancelled it
+});</code></pre>
+
+<p>And the schema-migration unit test that the new <code>dbPath</code> seam unlocked — build a v1 database on disk, open it through <code>StorageService</code> (which runs at v3), and assert the migration ran:</p>
+<pre><code>final oldDb = await databaseFactory.openDatabase(dbFile,
+    options: OpenDatabaseOptions(version: 1, onCreate: /* v1 schema */));
+await oldDb.close();
+
+StorageService.resetForTesting(dbPath: dbFile);   // real file, not :memory:
+await StorageService.init();                       // triggers onUpgrade 1 → 3
+
+expect(await _svc.getNextWorkoutType(), 'A');      // settings table now exists
+expect((await _svc.getExerciseState(name))!.successThreshold, 3); // column added</code></pre>
+
+<h3>D · Making analyze green</h3>
+<p>The gate also requires a spotless <code>flutter analyze</code>, and it exits non-zero on even an <span class="mono">info</span>. The last commit documents the newly-public field, reshapes the ignore comment so it isn't an over-long line, and reflows one pre-existing 81-char comment. Small, but the push doesn't go through without it.</p>
+
+<h2 id="quiz">4 · Quiz</h2>
+<p class="sub">Five questions on the reasoning behind the change. Click an answer to reveal whether it's right and why.</p>
+<div id="quiz"></div>
+<div class="score" id="score">Score: 0 / 0</div>
+
+</div>
+
+<script>
+/* ---------- Micro-world ---------- */
+(function () {
+  var zone = 'fake', work = 'db';
+  var zoneSeg = document.getElementById('zoneSeg');
+  var workSeg = document.getElementById('workSeg');
+  zoneSeg.addEventListener('click', function (e) {
+    if (!e.target.dataset.zone) return;
+    zone = e.target.dataset.zone;
+    [].forEach.call(zoneSeg.children, function (b) { b.classList.toggle('on', b.dataset.zone === zone); });
+  });
+  workSeg.addEventListener('click', function (e) {
+    if (!e.target.dataset.work) return;
+    work = e.target.dataset.work;
+    [].forEach.call(workSeg.children, function (b) { b.classList.toggle('on', b.dataset.work === work); });
+  });
+
+  var steps = ['s1', 's2', 's3', 's4'].map(function (id) { return document.getElementById(id); });
+  var verdict = document.getElementById('verdict');
+  var timers = [];
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+
+  function labelFor() {
+    if (work === 'db') return 'schedules a sqflite write (a real timer)';
+    if (work === 'timer') return 'starts a Timer.periodic rest break';
+    return 'only calls setState — no async work';
+  }
+
+  document.getElementById('runBtn').addEventListener('click', function () {
+    clearTimers();
+    steps.forEach(function (s) { s.classList.remove('active'); });
+    verdict.className = 'verdict idle';
+    verdict.textContent = 'Running…';
+
+    var leaks = (zone === 'fake') && (work === 'db' || work === 'timer');
+    var texts = [
+      '1 · gesture dispatched, onTap fires',
+      '2 · handler runs in the ' + (zone === 'fake' ? 'fake-async zone' : 'real event loop (runAsync)'),
+      '3 · handler ' + labelFor(),
+      '4 · teardown checks for leftover timers…'
+    ];
+    steps.forEach(function (s, i) {
+      timers.push(setTimeout(function () {
+        s.classList.add('active');
+        s.textContent = texts[i];
+      }, 350 * (i + 1)));
+    });
+    timers.push(setTimeout(function () {
+      if (leaks) {
+        verdict.className = 'verdict fail';
+        verdict.textContent = '✗ FAIL — the ' + (work === 'db' ? 'sqflite write' : 'periodic timer') +
+          ' never completed under the fake clock. "Pending timers" at teardown.';
+      } else if (zone === 'real' && work !== 'pure') {
+        verdict.className = 'verdict pass';
+        verdict.textContent = '✓ PASS — on the real loop the ' + (work === 'db' ? 'write' : 'timer') +
+          ' finished (or was cancelled on dispose). No leftover timers.';
+      } else {
+        verdict.className = 'verdict pass';
+        verdict.textContent = '✓ PASS — pure setState schedules no async work, so there is nothing to leak in either zone.';
+      }
+    }, 350 * 5));
+  });
+})();
+
+/* ---------- Quiz ---------- */
+var QUESTIONS = [
+  {
+    q: "A set-tap test run outside runAsync failed with “pending timers.” What caused it?",
+    options: [
+      "Its sqflite write and break timer stayed unfinished in the FakeAsync zone",
+      "The RepCircle sat below the 800×600 test fold so the simulated tap never landed",
+      "The setUp block forgot the fake secure-storage handler the tap path needs",
+      "The BreakBanner threw while building because its remaining value was null"
+    ],
+    correct: 0,
+    why: "Under the fake clock, the real timers that sqflite (and Timer.periodic) schedule never advance, so they linger and fail teardown."
+  },
+  {
+    q: "Why does dispatching that same tap inside tester.runAsync fix the failure?",
+    options: [
+      "runAsync disables the widget's own timers so none of them can leak later",
+      "It runs that code on the real event loop, where the DB write completes",
+      "It auto-mocks the vibration and audio platform channels for the test",
+      "It forces a pumpAndSettle that drains every pending microtask first"
+    ],
+    correct: 1,
+    why: "runAsync escapes the fake clock: the write and timer execute on the genuine event loop and actually finish, leaving nothing pending."
+  },
+  {
+    q: "Why was _ServerAddressTile renamed to the public ServerAddressTile?",
+    options: [
+      "A second screen needed to embed the identical tile without copying it",
+      "The analyzer forbids underscore-prefixed StatelessWidgets in screen files",
+      "A test file can't build a private widget, so its empty case is untested",
+      "So HttpServerService could write new addresses straight into the tile"
+    ],
+    correct: 2,
+    why: "Only its no-address 'Server not started' branch was uncovered, and a test can't construct a library-private widget — so it had to be exposed."
+  },
+  {
+    q: "Why is the Vibration.vibrate call wrapped in coverage:ignore rather than tested?",
+    options: [
+      "Vibration is a side effect that unit tests must never trigger on the build host",
+      "The vibration plugin channel was too slow to mock reliably in the suite",
+      "The team decided haptics fall outside the 100% coverage requirement",
+      "hasVibrator() is false on the Linux CI host, so that body never runs there"
+    ],
+    correct: 3,
+    why: "hasVibrator() checks Platform.isAndroid/isIOS via device_info_plus; both are false on Linux, so the guarded body is genuinely unreachable in CI."
+  },
+  {
+    q: "Why did resetForTesting gain an optional dbPath parameter?",
+    options: [
+      "To speed the suite up by sharing a single database across every test",
+      "To let production override the DB location from an environment variable",
+      "So a test can point at a real file DB and drive the v1→v3 migration",
+      "To stop the in-memory DB from leaking rows between separate test cases"
+    ],
+    correct: 2,
+    why: "onUpgrade only runs when a persisted DB is reopened at a higher version; an in-memory DB can't be reopened, so a real file path was needed."
+  }
+];
+
+(function () {
+  var host = document.getElementById('quiz');
+  var scoreEl = document.getElementById('score');
+  var answered = 0, correct = 0;
+
+  QUESTIONS.forEach(function (item, qi) {
+    var card = document.createElement('div');
+    card.className = 'q';
+    var head = document.createElement('div');
+    head.className = 'qhead';
+    head.textContent = (qi + 1) + '. ' + item.q;
+    card.appendChild(head);
+
+    var done = false;
+    var buttons = [];
+    item.options.forEach(function (opt, oi) {
+      var b = document.createElement('button');
+      b.className = 'opt';
+      b.textContent = opt;
+      b.addEventListener('click', function () {
+        if (done) return;
+        done = true;
+        answered++;
+        buttons.forEach(function (bb, bi) {
+          bb.disabled = true;
+          if (bi === item.correct) bb.classList.add('correct');
+        });
+        if (oi === item.correct) { correct++; }
+        else { b.classList.add('wrong'); }
+        rat.classList.add('show');
+        scoreEl.textContent = 'Score: ' + correct + ' / ' + answered;
+      });
+      buttons.push(b);
+      card.appendChild(b);
+    });
+
+    var rat = document.createElement('div');
+    rat.className = 'rationale';
+    rat.textContent = '→ ' + item.why;
+    card.appendChild(rat);
+    host.appendChild(card);
+  });
+})();
+</script>
+</body>
+</html>
