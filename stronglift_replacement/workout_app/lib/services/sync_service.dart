@@ -29,15 +29,19 @@ class SyncService {
       // Fallback: app-specific external directory (still ADB accessible).
     }
 
-    try {
-      final dir = await getExternalStorageDirectory();
-      if (dir != null) {
-        final file = File('${dir.path}/workout_result.json');
-        await file.writeAsString(json);
-        return SyncResult(success: true, path: file.path);
+    // External storage is Android-only; getExternalStorageDirectory() throws an
+    // UnsupportedError (not an Exception) on other platforms, so guard the call.
+    if (Platform.isAndroid) {
+      try {
+        final dir = await getExternalStorageDirectory();
+        if (dir != null) {
+          final file = File('${dir.path}/workout_result.json');
+          await file.writeAsString(json);
+          return SyncResult(success: true, path: file.path);
+        }
+      } on Exception {
+        // Fallback failed.
       }
-    } on Exception {
-      // Fallback failed.
     }
 
     return const SyncResult(

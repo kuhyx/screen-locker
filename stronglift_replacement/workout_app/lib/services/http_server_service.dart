@@ -67,11 +67,16 @@ class HttpServerService {
   /// HTTP endpoint is populated even before the next workout is completed.
   Future<void> _loadFromDisk() async {
     final candidates = <String>[kSyncFilePath];
-    try {
-      final dir = await getExternalStorageDirectory();
-      if (dir != null) candidates.add('${dir.path}/workout_result.json');
-    } on Exception {
-      // Ignore; the /sdcard path is tried first.
+    // External storage is Android-only; getExternalStorageDirectory() throws an
+    // UnsupportedError (not an Exception) on other platforms (desktop / test
+    // host), so guard the call rather than trying to catch it.
+    if (Platform.isAndroid) {
+      try {
+        final dir = await getExternalStorageDirectory();
+        if (dir != null) candidates.add('${dir.path}/workout_result.json');
+      } on Exception {
+        // Ignore; the /sdcard path is tried first.
+      }
     }
     for (final path in candidates) {
       final file = File(path);

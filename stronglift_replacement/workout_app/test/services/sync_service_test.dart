@@ -63,7 +63,7 @@ void main() {
       // The HTTP server must be updated regardless of file write success.
       expect(
         HttpServerService.instance.latestWorkout,
-        contains('"workout_type":"A"'),
+        contains('"workout_type": "A"'),
       );
     });
 
