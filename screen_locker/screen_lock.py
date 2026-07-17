@@ -40,7 +40,7 @@ from screen_locker._extra_benefits import (
 )
 from screen_locker._heat_skip import HeatSkipMixin
 from screen_locker._log_mixin import LogMixin
-from screen_locker._manual_push import push_pc_manuals
+from screen_locker._manual_push import push_pc_workouts
 from screen_locker._manual_sync import ingest_manual_records
 from screen_locker._manual_workout_dialog import ManualWorkoutDialogMixin
 from screen_locker._phone_verification import PhoneVerificationMixin
@@ -219,7 +219,7 @@ class ScreenLocker(
 
     def _ingest_synced_manual_workouts(self) -> None:
         """Sync manual workouts: publish this PC's, ingest everyone else's."""
-        push_pc_manuals(self.log_file)
+        push_pc_workouts(self.log_file)
         ingested = ingest_manual_records(self.log_file, pull_all_manual_records())
         for record_id in ingested:
             _logger.info("Ingested synced manual workout: %s", record_id)
@@ -289,9 +289,8 @@ class ScreenLocker(
                 color="#ffaa00",
             )
         if credit.extra_bonus_delta > 0:
-            extra_n = credit.weekly_count - WEEKLY_WORKOUT_MINIMUM
             self._text(
-                f"Extra workout #{extra_n}! +{credit.extra_bonus_delta}h tonight",
+                f"Extra workout today! +{credit.extra_bonus_delta}h tonight",
                 font_size=20,
                 color="#ffaa00",
             )

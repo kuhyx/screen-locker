@@ -1,11 +1,16 @@
 import 'dart:convert';
 
+import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/screens/history_screen.dart';
 import 'package:workout_app/services/storage_service.dart';
+
+import '../fake_secure_storage.dart';
 
 void main() {
   setUpAll(() {
@@ -16,6 +21,10 @@ void main() {
   setUp(() async {
     StorageService.resetForTesting();
     await StorageService.init();
+    // HistoryScreen pulls the PC's synced workouts, which reads the sync token
+    // from secure storage — fake it so tests never touch the OS keystore.
+    // No token => not configured => no network, and an empty synced list.
+    installFakeSecureStorage();
   });
 
   Future<void> _pump(WidgetTester tester, Widget w) async {
@@ -26,7 +35,53 @@ void main() {
     await tester.pump();
   }
 
-  Widget _wrap() => const MaterialApp(home: HistoryScreen());
+  Widget _wrap({http.Client? httpClient}) =>
+      MaterialApp(home: HistoryScreen(httpClient: httpClient));
+
+  /// A GitHub mock serving one PC device log holding a run and a manual.
+  http.Client _syncMock() {
+    String file(String body) => jsonEncode({
+      'content': base64Encode(utf8.encode(body)),
+      'sha': 'sha',
+    });
+    Record rec(String id, String kind, int ms) => Record(
+      id: id,
+      fields: {
+        'payload': (
+          {
+            'kind': kind,
+            'date': '2026-07-13',
+            'source': 'Running: 9.8 km in 55 min',
+          },
+          Hlc(wallTimeMs: ms, counter: 0, nodeId: 'pc'),
+        ),
+      },
+    );
+    final log = jsonEncode({
+      'runnerup_verified:2026-07-13': rec(
+        'runnerup_verified:2026-07-13',
+        'runnerup_verified',
+        2000,
+      ).toJson(),
+      'manual:2026-07-13T14:00': rec(
+        'manual:2026-07-13T14:00',
+        'manual_workout',
+        1000,
+      ).toJson(),
+    });
+    return MockClient((req) async {
+      final path = req.url.path;
+      if (path.endsWith('screen-locker-sync/devices')) {
+        return http.Response(jsonEncode([
+          {'name': 'pc', 'type': 'dir'},
+        ]), 200);
+      }
+      if (path.contains('pc/log.json')) {
+        return http.Response(file(log), 200);
+      }
+      return http.Response('not found', 404);
+    });
+  }
 
   // Seed a workout. DB writes must run on the real event loop: the widget-test
   // zone fakes async, so a sqflite-ffi write in the test body hangs (then the
@@ -275,5 +330,40 @@ void main() {
     await _pump(tester, _wrap());
     expect(find.byType(HistoryScreen), findsOneWidget);
     expect(find.text('WEIGHT OVER TIME').evaluate(), isEmpty); // total view
+  });
+
+  testWidgets('shows the PC-synced workouts the phone has no session for', (
+    tester,
+  ) async {
+    // The PC publishes its whole workout_log.json; without this the two
+    // devices show different histories (a RunnerUp run exists only on the PC).
+    installFakeSecureStorage(initial: {'sync.token': 'tok'});
+    await _seed(
+      tester,
+      jsonEncode({
+        'exercises': [
+          {
+            'name': 'Squat',
+            'targetSets': 3,
+            'targetReps': 5,
+            'targetWeight': 40.0,
+            'warmupDone': false,
+            'succeeded': true,
+            'setResults': <Map<String, dynamic>>[],
+          },
+        ],
+      }),
+      date: '2026-07-11',
+    );
+    await _pump(tester, _wrap(httpClient: _syncMock()));
+
+    await tester.scrollUntilVisible(
+      find.text('SYNCED FROM PC'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('SYNCED FROM PC'), findsOneWidget);
+    expect(find.textContaining('2026-07-13  ·  Run'), findsOneWidget);
+    expect(find.textContaining('2026-07-13  ·  Manual'), findsOneWidget);
   });
 }

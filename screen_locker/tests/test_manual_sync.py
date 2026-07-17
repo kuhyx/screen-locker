@@ -99,7 +99,8 @@ class TestIngestManualRecords:
         ingested = ingest_manual_records(log_file, [record], today=_DATE)
         assert ingested == [record[0]]
         stored = json.loads(log_file.read_text())
-        workout = stored[_DATE]["workout_data"]
+        # The log is now a list of entries per day.
+        workout = stored[_DATE][0]["workout_data"]
         assert workout["type"] == "manual_workout"
         assert workout["sync_record_id"] == record[0]
         assert count_weekly_workouts(log_file, today=_dt(_DATE)) == 1
@@ -124,7 +125,10 @@ class TestIngestManualRecords:
         del payload["date"]
         assert ingest_manual_records(log_file, [("m", payload)], today=_DATE) == []
 
-    def test_does_not_clobber_an_existing_counted_day(self, tmp_path: Path) -> None:
+    def test_appends_alongside_an_existing_counted_day(self, tmp_path: Path) -> None:
+        """A day may hold several workouts: a synced manual is appended next to
+        an existing verified entry rather than being skipped (the old
+        one-per-day skip is gone)."""
         log_file = tmp_path / "workout_log.json"
         log_file.write_text(
             json.dumps(
@@ -132,10 +136,12 @@ class TestIngestManualRecords:
             )
         )
         record = _manual_record(_TT_DRAFT)
-        assert ingest_manual_records(log_file, [record], today=_DATE) == []
-        # The original phone_verified entry is untouched.
+        assert ingest_manual_records(log_file, [record], today=_DATE) == [record[0]]
         stored = json.loads(log_file.read_text())
-        assert stored[_DATE]["workout_data"]["type"] == "phone_verified"
+        # The original phone_verified entry is untouched and the manual is added.
+        assert len(stored[_DATE]) == 2
+        assert stored[_DATE][0]["workout_data"]["type"] == "phone_verified"
+        assert stored[_DATE][1]["workout_data"]["type"] == "manual_workout"
 
     def test_skips_a_malformed_payload(self, tmp_path: Path) -> None:
         log_file = tmp_path / "workout_log.json"
@@ -163,39 +169,27 @@ class TestIngestManualRecords:
         with patch("screen_locker._log_mixin.compute_entry_hmac", return_value=None):
             ingest_manual_records(log_file, [record], today=_DATE)
         stored = json.loads(log_file.read_text())
-        assert "hmac" not in stored[_DATE]
+        assert "hmac" not in stored[_DATE][0]
 
 
 class TestIngestHelpers:
-    def test_already_ingested_ignores_non_dict_entries(self) -> None:
-        logs = {"a": "not-a-dict", "b": {"workout_data": {"sync_record_id": "x"}}}
+    def test_already_ingested_finds_id_in_per_day_lists(self) -> None:
+        """_already_ingested takes normalized ``{date: [entry, ...]}`` and
+        scans every entry across all days for a matching sync record id."""
+        logs = {
+            "a": [],
+            "b": [
+                {"workout_data": {"type": "manual_workout"}},
+                {"workout_data": {"sync_record_id": "x"}},
+            ],
+        }
         assert _manual_sync._already_ingested(logs, "x") is True
         assert _manual_sync._already_ingested(logs, "y") is False
 
-    def test_date_has_counted_workout_variants(self) -> None:
-        logs = {
-            "d1": {"workout_data": {"type": "manual_workout"}},
-            "d2": {"workout_data": {"type": "nope"}},
-            "d3": "not-a-dict",
-        }
-        assert _manual_sync._date_has_counted_workout(logs, "d1") is True
-        assert _manual_sync._date_has_counted_workout(logs, "d2") is False
-        assert _manual_sync._date_has_counted_workout(logs, "d3") is False
-        assert _manual_sync._date_has_counted_workout(logs, "missing") is False
-
-
-class TestReadLogs:
-    def test_missing_file_returns_empty(self, tmp_path: Path) -> None:
-        from screen_locker._log_mixin import _read_logs
-
-        assert _read_logs(tmp_path / "nope.json") == {}
-
-    def test_corrupt_file_returns_empty(self, tmp_path: Path) -> None:
-        from screen_locker._log_mixin import _read_logs
-
-        log_file = tmp_path / "workout_log.json"
-        log_file.write_text("{not valid json")
-        assert _read_logs(log_file) == {}
+    def test_already_ingested_ignores_non_dict_workout_data(self) -> None:
+        """An entry whose workout_data isn't a dict is skipped, not matched."""
+        logs = {"b": [{"workout_data": "not-a-dict"}]}
+        assert _manual_sync._already_ingested(logs, "x") is False
 
 
 def _dt(date: str) -> object:

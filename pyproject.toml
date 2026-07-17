@@ -75,6 +75,12 @@ unfixable = []
 # (verifier_factory, temperature_fetcher, log_file, ...) — same
 # dependency-injection rationale as _status_data.py's gather_status below.
 "screen_locker/status_view.py" = ["PLC0415", "PLR0913", "SLF001", "T201"]
+# The verify-and-credit flow split out of status_view.py: it deliberately
+# drives the bare verifier's own mixin methods (_verify_phone_workout,
+# _verify_runnerup_workout, _apply_workout_credit) — the same single-source-of
+# -truth reuse status_view.py above is exempted for — and _make_bare_verifier
+# imports ScreenLocker inside the function to avoid an import cycle.
+"screen_locker/_status_view_verify.py" = ["PLC0415", "SLF001"]
 # explain_lock_decision takes one arg per real file path + sick history, and
 # returns early per lock-decision-chain stage (see module docstring) — both
 # are the deliberate design, not something to collapse into a config object.

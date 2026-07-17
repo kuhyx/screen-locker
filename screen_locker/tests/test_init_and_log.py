@@ -248,8 +248,9 @@ class TestSaveWorkoutLog:
             data: dict[str, Any] = json.load(f)
         today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
         assert today in data
-        assert data[today]["workout_data"]["type"] == "running"
-        assert data[today]["hmac"] == "abc123"
+        # The log now holds a list of entries per day (multiple workouts/day).
+        assert data[today][0]["workout_data"]["type"] == "running"
+        assert data[today][0]["hmac"] == "abc123"
 
     def test_save_to_new_file_no_hmac_key(
         self,
@@ -271,7 +272,7 @@ class TestSaveWorkoutLog:
         with log_file.open() as f:
             data: dict[str, Any] = json.load(f)
         today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-        assert "hmac" not in data[today]
+        assert "hmac" not in data[today][0]
 
     def test_save_to_existing_file(
         self,

@@ -158,7 +158,12 @@ class SickDialogMixin:
         onset = self._sick_onset_var.get()
         try:
             severity = int(self._sick_severity_var.get())
-        except (tk.TclError, ValueError):
+        except (tk.TclError, ValueError) as exc:
+            _logger.warning(
+                "Sick-day severity is not an integer (%s) — submitting it as 0, "
+                "which the justification validator will reject",
+                exc,
+            )
             severity = 0
         text = self._sick_text_widget.get("1.0", "end").strip()
         draft = _sick_tracker.JustificationDraft(

@@ -95,6 +95,15 @@ def pull_synced_workout() -> tuple[dict | None, str | None]:
     """
     token = read_sync_token()
     if token is None:
+        _logger.warning(
+            "Cannot pull the synced StrongLifts session: no sync token at %s — "
+            "GitHub sync is OFF, so only ADB/HTTP can verify a phone workout. "
+            "Create a fine-grained PAT with contents:write on %s/%s and save it "
+            "there (chmod 600)",
+            SYNC_TOKEN_FILE,
+            SYNC_REPO_OWNER,
+            SYNC_REPO_NAME,
+        )
         return None, None
 
     client = GitHubSyncClient(
@@ -106,6 +115,14 @@ def pull_synced_workout() -> tuple[dict | None, str | None]:
     try:
         text = client.get_file_text(_LOG_PATH)
     except GitHubSyncError as exc:
+        _logger.warning(
+            "Could not fetch the phone's workout log %s from %s/%s: %s — "
+            "falling back to ADB/HTTP verification",
+            _LOG_PATH,
+            SYNC_REPO_OWNER,
+            SYNC_REPO_NAME,
+            exc,
+        )
         return None, str(exc)
 
     if text is None:
@@ -154,6 +171,15 @@ def pull_all_manual_records() -> list[tuple[str, dict]]:
     """
     token = read_sync_token()
     if token is None:
+        _logger.warning(
+            "Pulling NO synced manual workouts: no sync token at %s — GitHub "
+            "sync is OFF, so workouts logged on the phone will NOT count here. "
+            "Create a fine-grained PAT with contents:write on %s/%s and save it "
+            "there (chmod 600)",
+            SYNC_TOKEN_FILE,
+            SYNC_REPO_OWNER,
+            SYNC_REPO_NAME,
+        )
         return []
 
     client = GitHubSyncClient(
@@ -165,7 +191,14 @@ def pull_all_manual_records() -> list[tuple[str, dict]]:
     try:
         devices = client.list_directory(_DEVICES_PREFIX)
     except GitHubSyncError as exc:
-        _logger.info("Manual sync unavailable (%s)", exc)
+        _logger.warning(
+            "Could not list device logs under %s in %s/%s: %s — pulling NO "
+            "synced manual workouts, so phone-logged workouts will not count",
+            _DEVICES_PREFIX,
+            SYNC_REPO_OWNER,
+            SYNC_REPO_NAME,
+            exc,
+        )
         return []
 
     merged: dict[str, tuple[dict, Hlc]] = {}
@@ -174,7 +207,12 @@ def pull_all_manual_records() -> list[tuple[str, dict]]:
         try:
             text = client.get_file_text(path)
         except GitHubSyncError as exc:
-            _logger.info("Skipping device log %s (%s)", path, exc)
+            _logger.warning(
+                "Could not fetch device log %s: %s — SKIPPING that device, so "
+                "any manual workouts it holds will not count",
+                path,
+                exc,
+            )
             continue
         if text is None:
             continue

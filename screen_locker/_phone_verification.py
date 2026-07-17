@@ -161,7 +161,13 @@ class PhoneVerificationMixin:
                 continue
             try:
                 data = json.loads(tmp.read_text())
-            except (json.JSONDecodeError, OSError):
+            except (json.JSONDecodeError, OSError) as exc:
+                _logger.warning(
+                    "Workout JSON pulled from %s is unreadable (%s) — skipping "
+                    "that candidate and trying the remaining phone paths",
+                    remote,
+                    exc,
+                )
                 continue
             if data.get("date") == today:
                 return data
@@ -238,7 +244,13 @@ class PhoneVerificationMixin:
             if resp.status != _HTTP_OK:
                 return None
             return json.loads(resp.read().decode())
-        except (_HTTPException, OSError, ValueError, json.JSONDecodeError):
+        except (_HTTPException, OSError, ValueError, json.JSONDecodeError) as exc:
+            _logger.warning(
+                "HTTP fetch of today's workout from %s failed (%s) — no data "
+                "from the phone's HTTP server, so verification falls through",
+                url,
+                exc,
+            )
             return None
 
     # ── Main verification entry point ─────────────────────────────────────────

@@ -6,6 +6,7 @@ import json
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
+from screen_locker._log_io import load_workout_log
 from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
@@ -158,18 +159,18 @@ class TestScanAndFillWeekRunnerup:
         )
 
         with patch(
-            "screen_locker._runnerup_verification.compute_entry_hmac",
+            "screen_locker._log_mixin.compute_entry_hmac",
             return_value="sig",
         ):
             result = locker._scan_and_fill_week_runnerup(log_file)
 
         assert result > 0
         logs = json.loads(log_file.read_text())
-        # At least one date should have been filled.
+        # At least one date should have been filled; each day holds a list.
         types = [
-            v.get("workout_data", {}).get("type")
-            for v in logs.values()
-            if isinstance(v, dict)
+            entry.get("workout_data", {}).get("type")
+            for entries in logs.values()
+            for entry in entries
         ]
         assert "runnerup_verified" in types
 
@@ -235,28 +236,60 @@ class TestScanAndFillWeekRunnerup:
         )
         assert locker._scan_and_fill_week_runnerup(log_file) == 0
 
-    def test_returns_zero_on_write_error(
+    def test_rescanning_an_already_filled_day_is_a_no_op(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """OSError writing log after fill → returns 0 (lines 241-246)."""
+        """A day whose run is already logged isn't appended twice (dedup)."""
         locker = create_locker(mock_tk, tmp_path)
+        log_file = tmp_path / "log.json"
+        log_file.write_text("{}")
 
-        # Can't patch PosixPath.open (read-only slot), so wrap it in a
-        # tiny class that delegates reads but raises on writes.
-        real_log = tmp_path / "log.json"
-        real_log.write_text("{}")
+        object.__setattr__(
+            locker,
+            "_find_runnerup_exports_for_date",
+            MagicMock(return_value=["/sdcard/run.tcx"]),
+        )
+        object.__setattr__(
+            locker,
+            "_pull_and_parse_tcx",
+            MagicMock(
+                return_value={"sport": 0, "duration_seconds": 2400, "distance_m": 6000}
+            ),
+        )
+        object.__setattr__(
+            locker,
+            "_validate_runnerup_data",
+            MagicMock(return_value=("verified", "ok")),
+        )
 
-        class _FailWrite:
-            def open(self, mode: str = "r", **kw):
-                if mode == "w":
-                    msg = "disk full"
-                    raise OSError(msg)
-                return real_log.open(mode, **kw)
+        with patch(
+            "screen_locker._log_mixin.compute_entry_hmac",
+            return_value="sig",
+        ):
+            first = locker._try_fill_runnerup_for_date("2026-07-13", log_file)
+            second = locker._try_fill_runnerup_for_date("2026-07-13", log_file)
 
-        fail_log = _FailWrite()
+        assert first is True
+        assert second is False
+        assert len(load_workout_log(log_file)["2026-07-13"]) == 1
+
+    def test_save_error_is_swallowed_not_raised(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """An OSError saving the log only warns — the scan still completes.
+
+        Persistence now lives in the write chokepoint (``write_signed_entry``),
+        which logs and swallows save errors rather than propagating them.
+        """
+        locker = create_locker(mock_tk, tmp_path)
+        fail_log = tmp_path / "log.json"
+        fail_log.write_text("{}")
 
         object.__setattr__(locker, "_has_adb_device", MagicMock(return_value=True))
         object.__setattr__(
@@ -277,13 +310,20 @@ class TestScanAndFillWeekRunnerup:
             MagicMock(return_value=("verified", "ok")),
         )
 
-        with patch(
-            "screen_locker._runnerup_verification.compute_entry_hmac",
-            return_value="sig",
+        with (
+            patch(
+                "screen_locker._log_mixin.compute_entry_hmac",
+                return_value="sig",
+            ),
+            patch(
+                "screen_locker._log_mixin.json.dump",
+                side_effect=OSError("disk full"),
+            ),
         ):
             result = locker._scan_and_fill_week_runnerup(fail_log)
 
-        assert result == 0
+        # The append still reports success; only the save failure is warned.
+        assert result >= 1
 
     def test_handles_corrupt_log_file(
         self,
@@ -334,16 +374,17 @@ class TestScanAndFillWeekRunnerup:
         )
 
         with patch(
-            "screen_locker._runnerup_verification.compute_entry_hmac",
+            "screen_locker._log_mixin.compute_entry_hmac",
             return_value=None,
         ):
             result = locker._scan_and_fill_week_runnerup(log_file)
 
         assert result > 0
-        # No "hmac" key when signature is None.
+        # No "hmac" key when signature is None; each day holds a list of entries.
         logs = json.loads(log_file.read_text())
-        for entry in logs.values():
-            assert "hmac" not in entry
+        for entries in logs.values():
+            for entry in entries:
+                assert "hmac" not in entry
 
 
 # ---------------------------------------------------------------------------

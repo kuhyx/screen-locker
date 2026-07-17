@@ -266,6 +266,78 @@ void main() {
     expect(payloads.single['cost'], 'NEW');
   });
 
+  test('readMergedWorkoutPayloads returns the PC runs too', () async {
+    // The PC publishes its whole workout_log.json, so the phone must be able
+    // to see verified runs — not just manual self-reports — or the two
+    // devices never show the same history.
+    installFakeSecureStorage(initial: {'sync.token': 'tok'});
+    final run = Record(
+      id: 'runnerup_verified:2026-07-13',
+      fields: {
+        'payload': (
+          {
+            'kind': 'runnerup_verified',
+            'date': '2026-07-13',
+            'source': 'Running: 9.8 km in 55 min',
+          },
+          Hlc(wallTimeMs: 3000, counter: 0, nodeId: 'pc'),
+        ),
+      },
+    );
+    final pcLog = jsonEncode({
+      'manual:a': _manual('manual:a', 'NEW', 2000).toJson(),
+      'runnerup_verified:2026-07-13': run.toJson(),
+    });
+    final (:httpClient, putCalls: _) = _mockGitHub(
+      contentResponses: {
+        'screen-locker-sync/devices': _response(200, [
+          {'name': 'pc'},
+        ]),
+        'screen-locker-sync/devices/pc/log.json': _fileContaining(pcLog),
+      },
+    );
+    final service = WorkoutSyncService(httpClient: httpClient);
+
+    final all = await service.readMergedWorkoutPayloads();
+    expect(all, hasLength(2));
+    expect(
+      all.map((p) => p['kind']),
+      containsAll(<String>['manual_workout', 'runnerup_verified']),
+    );
+  });
+
+  test('readMergedManualPayloads still excludes runs (budget stays manual)',
+      () async {
+    // A verified run must never consume the manual self-report budget.
+    installFakeSecureStorage(initial: {'sync.token': 'tok'});
+    final run = Record(
+      id: 'runnerup_verified:2026-07-13',
+      fields: {
+        'payload': (
+          {'kind': 'runnerup_verified', 'date': '2026-07-13'},
+          Hlc(wallTimeMs: 3000, counter: 0, nodeId: 'pc'),
+        ),
+      },
+    );
+    final pcLog = jsonEncode({
+      'manual:a': _manual('manual:a', 'NEW', 2000).toJson(),
+      'runnerup_verified:2026-07-13': run.toJson(),
+    });
+    final (:httpClient, putCalls: _) = _mockGitHub(
+      contentResponses: {
+        'screen-locker-sync/devices': _response(200, [
+          {'name': 'pc'},
+        ]),
+        'screen-locker-sync/devices/pc/log.json': _fileContaining(pcLog),
+      },
+    );
+    final manuals = await WorkoutSyncService(
+      httpClient: httpClient,
+    ).readMergedManualPayloads();
+    expect(manuals, hasLength(1));
+    expect(manuals.single['kind'], 'manual_workout');
+  });
+
   test('readMergedManualPayloads swallows a sync error', () async {
     installFakeSecureStorage(initial: {'sync.token': 'tok'});
     final httpClient = http_testing.MockClient(

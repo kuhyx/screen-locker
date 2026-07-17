@@ -37,7 +37,14 @@ def get_base_hours(state_file: Path) -> tuple[int, int]:
             int(state.get("base_mon_wed_hour", _DEFAULT_BASE_HOUR)),
             int(state.get("base_thu_sun_hour", _DEFAULT_BASE_HOUR)),
         )
-    except (OSError, json.JSONDecodeError, ValueError):
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        _logger.warning(
+            "Could not read shutdown base hours from %s: %s — defaulting both "
+            "to %02d:00",
+            state_file,
+            exc,
+            _DEFAULT_BASE_HOUR,
+        )
         return (_DEFAULT_BASE_HOUR, _DEFAULT_BASE_HOUR)
 
 
@@ -63,8 +70,13 @@ def reset_to_base_if_new_day(
                 state: dict[str, Any] = json.load(f)
             if state.get("last_reset_date") == today:
                 return False
-        except (OSError, json.JSONDecodeError):
-            pass
+        except (OSError, json.JSONDecodeError) as exc:
+            _logger.warning(
+                "Could not read last_reset_date from %s: %s — cannot tell if "
+                "today was already reset, so resetting to base hours again",
+                state_file,
+                exc,
+            )
 
     base_mw, base_ts = get_base_hours(state_file)
 

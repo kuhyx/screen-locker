@@ -95,7 +95,7 @@ class TestOnManualWorkoutSaved:
 
         assert fake_verifier.workout_data == entry
         fake_verifier._apply_workout_credit.assert_called_once()
-        message = window._manual_workout_saved_message
+        message = window._credit_message
         assert message is not None
         assert "table tennis at Solec" in message
         assert "Shutdown time +2h later!" in message
@@ -120,9 +120,9 @@ class TestOnManualWorkoutSaved:
         with patch("screen_locker.status_view.gather_status", return_value=_snapshot()):
             window._on_manual_workout_saved({"type": "manual_workout", "source": "x"})
 
-        message = window._manual_workout_saved_message
+        message = window._credit_message
         assert message is not None
-        assert "Extra workout #1! +1h tonight" in message
+        assert "Extra workout today! +1h tonight" in message
         assert "Workout debt: 1" in message
 
     def test_already_counted_today_shows_no_extra_credit_note(
@@ -145,9 +145,9 @@ class TestOnManualWorkoutSaved:
         with patch("screen_locker.status_view.gather_status", return_value=_snapshot()):
             window._on_manual_workout_saved({"type": "manual_workout", "source": "x"})
 
-        message = window._manual_workout_saved_message
+        message = window._credit_message
         assert message is not None
-        assert "no extra credit applied" in message
+        assert "no additional credit" in message
         assert "Shutdown time" not in message
 
 
@@ -170,7 +170,7 @@ class TestManualWorkoutSavedMessageDisplay:
 
     def test_shown_when_present(self, mock_tk: MagicMock, temp_log_file: Path) -> None:
         window = _make_window(mock_tk, _snapshot(), log_file=temp_log_file)
-        window._manual_workout_saved_message = "Manual workout logged: test"
+        window._credit_message = "Manual workout logged: test"
         window.render(_snapshot())
         texts = [c.kwargs.get("text", "") for c in mock_tk.Label.call_args_list]
         assert any("Manual workout logged: test" in t for t in texts)

@@ -147,6 +147,11 @@ repos:
         entry: python3 scripts/check_file_length.py
         language: system
         types_or: [python, shell]
+      - id: no-silent-failures
+        name: Block silent failures (swallowed exceptions must log why)
+        entry: python3 scripts/check_silent_failures.py
+        language: system
+        types: [python]
       - id: flutter-analyze
         name: flutter analyze (workout app)
         entry: bash -c 'cd stronglift_replacement/workout_app && flutter analyze'

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from unittest.mock import MagicMock
 
 from screen_locker._compliance_state import AutoUpgradeOpportunity
+from screen_locker._status_view_verify import _verify_phone_then_runnerup
 from screen_locker.tests._status_view_helpers import (
     _day,
     _lock_explanation,
@@ -16,14 +17,16 @@ from screen_locker.tests._status_view_helpers import (
     _week,
 )
 
-if TYPE_CHECKING:
-    from unittest.mock import MagicMock
-
 
 class TestSectionToday:
     def test_counted_shows_checkmark_and_entry(self, mock_tk: MagicMock) -> None:
         snap = _snapshot(
-            today=_day(entry_type="phone_verified", counted=True, source="gym")
+            today=_day(
+                entry_types=("phone_verified",),
+                counted=True,
+                day_count=1,
+                source="gym",
+            )
         )
         _make_window(mock_tk, snap)
         texts = _texts(mock_tk)
@@ -31,18 +34,23 @@ class TestSectionToday:
         assert any(t == "gym" for t in texts)
 
     def test_sick_day_shows_sick_mark(self, mock_tk: MagicMock) -> None:
-        snap = _snapshot(today=_day(entry_type=None, is_sick_day=True))
+        snap = _snapshot(today=_day(entry_types=(), is_sick_day=True))
         _make_window(mock_tk, snap)
         assert any("😷" in t and "sick day" in t for t in _texts(mock_tk))
 
     def test_no_entry_shows_dash(self, mock_tk: MagicMock) -> None:
-        snap = _snapshot(today=_day(entry_type=None, is_sick_day=False))
+        snap = _snapshot(today=_day(entry_types=(), is_sick_day=False))
         _make_window(mock_tk, snap)
         assert any("no entry yet" in t for t in _texts(mock_tk))
 
     def test_empty_source_adds_no_extra_line(self, mock_tk: MagicMock) -> None:
         snap = _snapshot(
-            today=_day(entry_type="phone_verified", counted=True, source="")
+            today=_day(
+                entry_types=("phone_verified",),
+                counted=True,
+                day_count=1,
+                source="",
+            )
         )
         _make_window(mock_tk, snap)
         # Only the main "Today (...)" line, no second call for an empty source.
@@ -76,7 +84,8 @@ class TestSectionWeek:
                 date="2024-01-01",
                 label="Mon Jan 01",
                 counted=True,
-                entry_type="phone_verified",
+                day_count=1,
+                entry_types=("phone_verified",),
             ),
             _day(date="2024-01-02", label="Tue Jan 02", is_sick_day=True),
             _day(date="2024-01-03", label="Wed Jan 03"),
@@ -168,3 +177,37 @@ class TestSectionShutdown:
         texts = _texts(mock_tk)
         assert any("Rest of week:" in t for t in texts)
         assert any("Next week (speculative):" in t for t in texts)
+
+
+class TestVerifyPhoneThenRunnerup:
+    """The "Check Phone" worker: StrongLifts first, then RunnerUp as fallback."""
+
+    def test_stronglifts_verified_short_circuits(self) -> None:
+        """A verified phone workout wins and RunnerUp is never consulted."""
+        verifier = MagicMock()
+        verifier._verify_phone_workout.return_value = ("verified", "5x5 done")
+
+        result = _verify_phone_then_runnerup(verifier)
+
+        assert result == ("phone_verified", "verified", "5x5 done", None)
+        verifier._verify_runnerup_workout.assert_not_called()
+
+    def test_falls_back_to_runnerup_when_phone_not_verified(self) -> None:
+        """StrongLifts miss → a verified run credits as runnerup_verified."""
+        verifier = MagicMock()
+        verifier._verify_phone_workout.return_value = ("not_verified", "stale")
+        verifier._verify_runnerup_workout.return_value = ("verified", "9.8 km")
+
+        result = _verify_phone_then_runnerup(verifier)
+
+        assert result == ("runnerup_verified", "verified", "stale", "9.8 km")
+
+    def test_neither_source_verified(self) -> None:
+        """Neither verified → no credited type, both messages carried back."""
+        verifier = MagicMock()
+        verifier._verify_phone_workout.return_value = ("not_verified", "stale")
+        verifier._verify_runnerup_workout.return_value = ("too_short", "3 km")
+
+        result = _verify_phone_then_runnerup(verifier)
+
+        assert result == (None, "too_short", "stale", "3 km")

@@ -8,7 +8,6 @@ Root DB fallback lives in ``_runnerup_db.py``.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-import json
 import logging
 from pathlib import Path
 import shutil
@@ -16,17 +15,15 @@ import tempfile
 from typing import Any
 import xml.etree.ElementTree as ET
 
-from gatelock.log_integrity import compute_entry_hmac
-
 from screen_locker._constants import (
     MIN_RUN_DISTANCE_KM,
     MIN_RUN_DURATION_MINUTES,
     RUNNERUP_ACCEPTED_SPORTS,
     RUNNERUP_EXPORT_DIRS,
 )
+from screen_locker._log_mixin import write_signed_entry
 from screen_locker._runnerup_db import RunnerUpDbMixin
 from screen_locker._time_check import check_clock_skew
-from screen_locker._weekly_check import COUNTED_WORKOUT_TYPES
 
 _logger = logging.getLogger(__name__)
 
@@ -97,7 +94,12 @@ class RunnerUpVerificationMixin(RunnerUpDbMixin):
         try:
             tree = ET.parse(tcx_path)
         except ET.ParseError as exc:
-            _logger.info("TCX parse error in %s: %s", tcx_path, exc)
+            _logger.warning(
+                "TCX file %s is not valid XML (%s) — the run it describes CANNOT "
+                "be verified and will not count",
+                tcx_path,
+                exc,
+            )
             return None
 
         root = tree.getroot()
@@ -155,16 +157,16 @@ class RunnerUpVerificationMixin(RunnerUpDbMixin):
             "RunnerUp TCX export found but could not be read",
         )
 
-    def _try_fill_runnerup_for_date(self, date_str: str, logs: dict[str, Any]) -> bool:
-        """Try to fill one date gap from RunnerUp TCX exports, mutating logs in-place.
+    def _try_fill_runnerup_for_date(self, date_str: str, log_file: Path) -> bool:
+        """Append a verified RunnerUp entry for ``date_str`` if not already logged.
 
-        Returns True if a verified entry was written for ``date_str``.
+        Appends via the write chokepoint, which dedups by ``workout_id``
+        (``runnerup_verified:{date}``): re-scanning a day whose run is already
+        recorded is a no-op, but a day that only holds, say, a manual workout
+        still gets the run appended alongside it (multiple workouts per day).
+
+        Returns True if a new verified entry was appended for ``date_str``.
         """
-        existing = logs.get(date_str, {})
-        if isinstance(existing, dict):
-            wtype = existing.get("workout_data", {}).get("type", "")
-            if wtype in COUNTED_WORKOUT_TYPES:
-                return False
         for remote in self._find_runnerup_exports_for_date(date_str):
             data = self._pull_and_parse_tcx(remote)
             if data is None:
@@ -172,27 +174,22 @@ class RunnerUpVerificationMixin(RunnerUpDbMixin):
             status, msg = self._validate_runnerup_data(data)
             if status != "verified":
                 continue
-            entry: dict[str, Any] = {
-                "timestamp": datetime.now(tz=timezone.utc).isoformat(),
-                "workout_data": {
-                    "type": "runnerup_verified",
-                    "source": f"Auto-scanned: {msg}",
-                    "distance_km": round(data["distance_m"] / 1000, 2),
-                    "duration_minutes": round(data["duration_seconds"] / 60, 1),
-                },
+            workout_data = {
+                "type": "runnerup_verified",
+                "source": f"Auto-scanned: {msg}",
+                "distance_km": round(data["distance_m"] / 1000, 2),
+                "duration_minutes": round(data["duration_seconds"] / 60, 1),
             }
-            signature = compute_entry_hmac(entry)
-            if signature is not None:
-                entry["hmac"] = signature
-            logs[date_str] = entry
-            _logger.info("Auto-filled RunnerUp entry for %s: %s", date_str, msg)
-            return True
+            if write_signed_entry(log_file, date_str, workout_data).appended:
+                _logger.info("Auto-filled RunnerUp entry for %s: %s", date_str, msg)
+                return True
+            return False
         return False
 
     def _scan_and_fill_week_runnerup(self, log_file: Path) -> int:
-        """Scan the current ISO week for RunnerUp TCX gaps and fill them.
+        """Scan the current ISO week for RunnerUp runs and append any not logged.
 
-        Returns the count of newly filled entries (0 if phone not connected).
+        Returns the count of newly appended entries (0 if phone not connected).
         """
         if not self._has_adb_device():
             _logger.info(
@@ -204,26 +201,12 @@ class RunnerUpVerificationMixin(RunnerUpDbMixin):
         today = now.date()
         week_start = today - timedelta(days=today.weekday())
 
-        try:
-            with log_file.open() as f:
-                logs: dict[str, Any] = json.load(f)
-        except (OSError, json.JSONDecodeError):
-            logs = {}
-
         filled = 0
         current = week_start
         while current <= today:
-            if self._try_fill_runnerup_for_date(current.strftime("%Y-%m-%d"), logs):
+            if self._try_fill_runnerup_for_date(current.strftime("%Y-%m-%d"), log_file):
                 filled += 1
             current += timedelta(days=1)
-
-        if filled > 0:
-            try:
-                with log_file.open("w") as f:
-                    json.dump(logs, f, indent=2)
-            except OSError as exc:
-                _logger.warning("Failed to write workout log after scan: %s", exc)
-                return 0
 
         return filled
 

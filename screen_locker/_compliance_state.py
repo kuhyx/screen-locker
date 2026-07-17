@@ -31,6 +31,7 @@ from screen_locker._constants import (
     EARLY_BIRD_END_MINUTE,
     EARLY_BIRD_START_HOUR,
 )
+from screen_locker._log_io import load_workout_log
 from screen_locker._sick_tracker import is_sick_day as _is_sick_day
 
 if TYPE_CHECKING:
@@ -92,29 +93,34 @@ def is_scheduled_skip_today(
     try:
         with scheduled_skips_file.open() as f:
             skips = json.load(f)
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError) as exc:
+        _logger.warning(
+            "Could not read scheduled skips from %s: %s — treating today as NOT "
+            "a scheduled skip (the lock chain continues)",
+            scheduled_skips_file,
+            exc,
+        )
         return False
     return (today or _today_str()) in skips
 
 
 def has_logged_today(log_file: Path, *, today: str | None = None) -> bool:
-    """Return True if a validly-signed workout is logged for *today*."""
-    if not log_file.exists():
+    """Return True if a validly-signed workout is logged for *today*.
+
+    The day may hold multiple workouts; return True if ANY of today's entries
+    verifies (or is acceptably unsigned when no HMAC key is configured).
+    """
+    entries = load_workout_log(log_file).get(today or _today_str(), [])
+    if not entries:
         return False
-    try:
-        with log_file.open() as f:
-            logs = json.load(f)
-    except (OSError, json.JSONDecodeError):
-        return False
-    entry = logs.get(today or _today_str())
-    if entry is None:
-        return False
-    if verify_entry_hmac(entry):
-        return True
-    if compute_entry_hmac({"_probe": True}) is None and "hmac" not in entry:
-        _logger.info("HMAC key unavailable — accepting unsigned entry")
-        return True
-    _logger.warning("HMAC verification failed for today's log entry")
+    key_unavailable = compute_entry_hmac({"_probe": True}) is None
+    for entry in entries:
+        if verify_entry_hmac(entry):
+            return True
+        if key_unavailable and "hmac" not in entry:
+            _logger.info("HMAC key unavailable — accepting unsigned entry")
+            return True
+    _logger.warning("HMAC verification failed for today's log entries")
     return False
 
 
@@ -125,7 +131,14 @@ def is_early_bird_pending(pending_file: Path, *, today: str | None = None) -> bo
     try:
         with pending_file.open() as f:
             state = json.load(f)
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError) as exc:
+        _logger.warning(
+            "Could not read the early-bird pending marker at %s: %s — treating "
+            "it as not pending, so the lock chain proceeds as if no early bird "
+            "was claimed today",
+            pending_file,
+            exc,
+        )
         return False
     if not isinstance(state, dict) or state.get("date") != (today or _today_str()):
         return False

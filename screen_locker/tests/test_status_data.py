@@ -41,7 +41,8 @@ class TestGatherStatus:
             snap = gather_status(**_files(tmp_path), now=_FRIDAY_NOON_UTC)
 
         assert snap.today.date == "2024-01-05"
-        assert snap.today.entry_type is None
+        assert snap.today.entry_types == ()
+        assert snap.today.day_count == 0
         assert snap.today.counted is False
         assert snap.today.is_sick_day is False
         assert snap.week.counted_count == 0
@@ -88,7 +89,8 @@ class TestGatherStatus:
             snap = gather_status(**files, now=_FRIDAY_NOON_UTC)
 
         assert snap.week.counted_count == 2
-        assert snap.today.entry_type == "phone_verified"
+        assert snap.today.entry_types == ("phone_verified",)
+        assert snap.today.day_count == 1
         assert snap.today.source == "gym"
         assert snap.today.counted is True
         assert snap.lock_explanation.fired is False
@@ -255,7 +257,7 @@ class TestGatherStatus:
             snap = gather_status(**files, now=_FRIDAY_NOON_UTC)
 
         assert snap.week.counted_count == 0
-        assert snap.today.entry_type is None
+        assert snap.today.entry_types == ()
 
     def test_now_defaults_to_current_time_when_omitted(self, tmp_path: Path) -> None:
         """Covers the ``now is None`` branch — just needs to not raise."""
@@ -270,24 +272,49 @@ class TestGatherStatus:
 
 
 class TestDayStatus:
-    """Direct tests for the _day_status helper's branch on non-dict entries."""
+    """Direct tests for the _day_status helper on a day's entry list."""
 
-    def test_entry_none_not_sick(self) -> None:
-        day = _day_status(date(2024, 1, 5), None, set())
-        assert day.entry_type is None
+    def test_no_entries_not_sick(self) -> None:
+        day = _day_status(date(2024, 1, 5), [], set())
+        assert day.entry_types == ()
         assert day.counted is False
+        assert day.day_count == 0
         assert day.is_sick_day is False
 
-    def test_entry_none_but_sick(self) -> None:
-        day = _day_status(date(2024, 1, 5), None, {"2024-01-05"})
+    def test_no_entries_but_sick(self) -> None:
+        day = _day_status(date(2024, 1, 5), [], {"2024-01-05"})
         assert day.is_sick_day is True
 
-    def test_entry_not_a_dict(self) -> None:
-        """Corrupt log data (non-dict entry) falls back to empty workout_data."""
-        day = _day_status(date(2024, 1, 5), "corrupt-string-entry", set())
-        assert day.entry_type is None
+    def test_non_dict_entries_dropped(self) -> None:
+        """Corrupt log data (non-dict entries in the list) are skipped."""
+        day = _day_status(date(2024, 1, 5), ["corrupt-string-entry"], set())
+        assert day.entry_types == ()
         assert day.counted is False
+        assert day.day_count == 0
         assert day.source == ""
+
+    def test_multiple_entries_count_verified_individually_manual_once(self) -> None:
+        """Two verified + two manual on one day → day_count 3, all types listed."""
+        day = _day_status(
+            date(2024, 1, 5),
+            [
+                {"workout_data": {"type": "runnerup_verified", "source": "run"}},
+                {"workout_data": {"type": "phone_verified", "source": "gym"}},
+                {"workout_data": {"type": "manual_workout", "source": "tt"}},
+                {"workout_data": {"type": "manual_workout", "source": "squash"}},
+            ],
+            set(),
+        )
+        assert day.entry_types == (
+            "runnerup_verified",
+            "phone_verified",
+            "manual_workout",
+            "manual_workout",
+        )
+        assert day.counted is True
+        # 2 verified counted individually + all manual entries count once = 3.
+        assert day.day_count == 3
+        assert day.source == "run · gym · tt · squash"
 
 
 class TestFormatSummaryLine:

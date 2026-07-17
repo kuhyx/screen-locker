@@ -24,7 +24,6 @@ from screen_locker._constants import (
     MANUAL_WORKOUT_DESCRIPTION_MIN_CHARS,
     MANUAL_WORKOUT_REFLECTION_MIN_CHARS,
 )
-from screen_locker._manual_push import record_pc_manual
 from screen_locker._manual_workout_widgets import ManualWorkoutFormWidgetsMixin
 
 _logger = logging.getLogger(__name__)
@@ -255,14 +254,25 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
         """Read an int Spinbox var, defaulting to 0 on an invalid value."""
         try:
             return int(self._mw_int_vars[key].get())
-        except (tk.TclError, ValueError):
+        except (tk.TclError, ValueError) as exc:
+            _logger.warning(
+                "Manual workout field %r holds a non-integer value (%s) — "
+                "recording it as 0",
+                key,
+                exc,
+            )
             return 0
 
     def _submit_manual_workout_form(self) -> None:
         """Validate the form and either show an error or save + notify host."""
         try:
             rpe = int(self._mw_rpe_var.get())
-        except (tk.TclError, ValueError):
+        except (tk.TclError, ValueError) as exc:
+            _logger.warning(
+                "Manual workout RPE is not an integer (%s) — submitting it as "
+                "0, which the form validator will reject",
+                exc,
+            )
             rpe = 0
         sport = self._current_mw_sport()
         draft = _manual_workout.ManualWorkoutDraft(
@@ -299,5 +309,4 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
         entry = _manual_workout.build_entry(draft)
         # Record the manual for cross-device sync (published on the next lock
         # startup). Local + best-effort — never blocks saving/unlocking.
-        record_pc_manual(self.log_file, entry)
         self._on_manual_workout_saved(entry)

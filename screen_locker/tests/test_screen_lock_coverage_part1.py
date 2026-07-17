@@ -243,8 +243,8 @@ class TestTryAutoUpgradeSickDayRunnerUp:
         assert result is True
         today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
         data = json.loads(log_file.read_text())
-        assert data[today]["workout_data"]["type"] == "runnerup_verified"
-        assert data[today]["workout_data"]["after_sick_day"] == "true"
+        assert data[today][0]["workout_data"]["type"] == "runnerup_verified"
+        assert data[today][0]["workout_data"]["after_sick_day"] == "true"
 
     def test_runnerup_not_verified_returns_false(
         self,
@@ -320,8 +320,8 @@ class TestTryAutoUpgradeEarlyBirdRunnerUp:
         assert result is True
         today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
         data = json.loads(log_file.read_text())
-        assert data[today]["workout_data"]["type"] == "runnerup_verified"
-        assert data[today]["workout_data"]["after_early_bird"] == "true"
+        assert data[today][0]["workout_data"]["type"] == "runnerup_verified"
+        assert data[today][0]["workout_data"]["after_early_bird"] == "true"
 
     def test_runnerup_not_verified_returns_false(
         self,

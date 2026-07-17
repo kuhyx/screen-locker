@@ -83,10 +83,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _tokenController.text = syncSettings.token;
         _loading = false;
       });
-      // Reflect an already-configured token immediately on open, not only
-      // after Connect GitHub / Save is tapped this session.
+      // Never claim "Connected" just because a token STRING exists — check it
+      // against the API. A revoked/expired token otherwise shows a reassuring
+      // green badge while every sync 401s and the history silently stays empty.
       if (syncSettings.isConfigured) {
-        _setSyncStatus('Connected.', _SyncStatusKind.success);
+        _setSyncStatus('Verifying…', _SyncStatusKind.pending);
+        await _verifyConnection(syncSettings.token);
       }
     }
   }
@@ -158,8 +160,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     } on GitHubSyncError catch (e) {
       if (!mounted) return;
+      // Say plainly that sync is broken. "Connected, but…" reads as success
+      // and is how a dead token hid behind a green badge.
+      final rejected = e.toString().contains('401');
       _setSyncStatus(
-        'Connected, but could not verify: $e',
+        rejected
+            ? 'NOT connected: GitHub rejected this token (401). Tap Connect '
+                  'GitHub to re-authorize — until then nothing syncs.'
+            : 'NOT syncing: could not reach GitHub ($e)',
         _SyncStatusKind.error,
       );
     } finally {

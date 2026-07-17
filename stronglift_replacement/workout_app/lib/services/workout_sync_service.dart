@@ -126,9 +126,27 @@ class WorkoutSyncService {
   /// (highest HLC wins), for computing the shared budget. Pull-only — unlike
   /// [pushManual] it never writes, so showing the budget can't mutate the repo.
   /// Returns an empty list if sync isn't configured or the repo is unreachable.
-  Future<List<Map<String, dynamic>>> readMergedManualPayloads() async {
+  Future<List<Map<String, dynamic>>> readMergedManualPayloads() =>
+      _readMergedPayloads(kind: kManualWorkoutSyncKind);
+
+  /// Every synced workout, whatever kind — manual, StrongLifts or RunnerUp.
+  ///
+  /// The PC publishes its whole `workout_log.json` (including verified runs),
+  /// so this is what the history view needs to show the SAME workouts both
+  /// devices know about. Deliberately unfiltered: the manual-workout budget
+  /// uses [readMergedManualPayloads] instead.
+  Future<List<Map<String, dynamic>>> readMergedWorkoutPayloads() =>
+      _readMergedPayloads();
+
+  Future<List<Map<String, dynamic>>> _readMergedPayloads({String? kind}) async {
     final settings = await SyncSettings.load();
-    if (!settings.isConfigured) return const [];
+    if (!settings.isConfigured) {
+      debugPrint(
+        'WorkoutSyncService: NOT reading synced workouts — no sync token/repo '
+        'configured in Settings, so this phone cannot see the PC history.',
+      );
+      return const [];
+    }
 
     final client = GitHubClient(
       owner: owner,
@@ -141,28 +159,36 @@ class WorkoutSyncService {
       for (final device in await client.listDirectory(_pathPrefix)) {
         final text = await client.getFileText('$_pathPrefix/$device/$_logFilename');
         if (text == null) continue;
-        _mergeManualRecords(_decode(text), merged);
+        _mergeRecords(_decode(text), merged, kind: kind);
       }
       return merged.values
           .map((r) => (r.fields['payload']!.$1! as Map).cast<String, dynamic>())
           .toList();
     } on GitHubSyncError catch (error) {
-      debugPrint('WorkoutSyncService.readMergedManualPayloads failed: $error');
+      final which = kind ?? 'any';
+      debugPrint(
+        'WorkoutSyncService: FAILED reading synced workouts '
+        '(kind=$which) from $owner/$repo: $error — history may be incomplete.',
+      );
       return const [];
     } finally {
       client.close();
     }
   }
 
-  static void _mergeManualRecords(Log log, Map<String, Record> into) {
+  /// Merges records into [into], keeping the highest-HLC copy of each id.
+  ///
+  /// [kind] filters on the payload's `kind` discriminator; pass null to keep
+  /// every workout kind. The manual-workout budget must only ever see manual
+  /// self-reports (a verified run must not consume that budget), while the
+  /// history view wants everything — hence the filter rather than two merges.
+  static void _mergeRecords(Log log, Map<String, Record> into, {String? kind}) {
     for (final entry in log.entries) {
       final field = entry.value.fields['payload'];
       if (field == null) continue;
       final payload = field.$1;
-      if (payload is! Map ||
-          payload['kind'] != kManualWorkoutSyncKind) {
-        continue;
-      }
+      if (payload is! Map) continue;
+      if (kind != null && payload['kind'] != kind) continue;
       final existing = into[entry.key];
       if (existing == null || existing.fields['payload']!.$2 < field.$2) {
         into[entry.key] = entry.value;

@@ -10,14 +10,13 @@ miss (see ``project-lock-disabled-pending-manual-log`` memory).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 import logging
 from typing import TYPE_CHECKING
 
 from screen_locker import _sick_tracker
 from screen_locker._weekly_check import (
     COUNTED_WORKOUT_TYPES,
-    WEEKLY_WORKOUT_MINIMUM,
+    VERIFIED_WORKOUT_TYPES,
     count_weekly_workouts,
 )
 
@@ -77,37 +76,41 @@ class WorkoutCreditMixin:
         _sick_tracker.save_history(history)
         return new_debt
 
-    def _was_already_counted_today(self) -> bool:
-        """Check whether today's log entry, before this save, already counted.
-
-        Used to guard :meth:`_apply_workout_credit` against double-crediting:
-        unlike the locked flow (which only ever unlocks once), the voluntary
-        ``StatusWindow`` entry point can save more than one workout on the
-        same day (the manual-workout budget allows up to 2/week), and
-        ``_adjust_shutdown_time_later`` is additive, not idempotent.
-        """
-        logs = self._load_existing_logs()
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-        entry = logs.get(today)
-        if not isinstance(entry, dict):
-            return False
-        workout_data = entry.get("workout_data", {})
-        return workout_data.get("type") in COUNTED_WORKOUT_TYPES
-
     def _apply_workout_credit(self) -> WorkoutCreditResult:
-        """Persist ``workout_data`` and apply reward credit, once per day.
+        """Append ``workout_data`` and apply its reward, scaled to the day.
 
-        Shared by the locked-screen flow (:meth:`ScreenLocker.unlock_screen`)
-        and the voluntary ``StatusWindow`` "Log Manual Workout" path.
+        Shared by the locked-screen flow (:meth:`ScreenLocker.unlock_screen`),
+        the voluntary ``StatusWindow`` "Log Manual Workout" path, and the
+        Check-Phone verify path. Rewards, from the day's entries *before* this
+        one (via the write chokepoint's :class:`RecordResult`):
+
+        * duplicate (same ``workout_id`` already logged) → no new credit;
+        * first counted workout of the day → base **+2h** (cap 23:00);
+        * an additional same-day VERIFIED workout → **+1h** (cap midnight);
+        * an additional same-day manual workout → no shutdown credit
+          (self-reports can't stack intra-day credit — anti-gaming).
+
+        This method always files under *today*, so its credit is the intra-day
+        reward; back-dated writes (manual-sync, RunnerUp backfill) go straight
+        through the write chokepoint and earn only the weekly count, never a
+        push to tonight's shutdown.
         """
-        already_counted = self._was_already_counted_today()
         # sick_day is already persisted to sick_history.json by
         # _finalize_sick_day — workout_log.json is reserved for real outcomes.
-        if self.workout_data.get("type") != "sick_day":
-            self.save_workout_log()
+        if self.workout_data.get("type") == "sick_day":
+            return WorkoutCreditResult(
+                shutdown_adjusted=False,
+                new_debt=None,
+                extra_bonus_delta=0,
+                weekly_count=count_weekly_workouts(self.log_file),
+                already_counted_today=False,
+            )
 
+        result = self.save_workout_log()
         weekly_count = count_weekly_workouts(self.log_file)
-        if already_counted:
+
+        if not result.appended:
+            # A workout with this id was already recorded today — idempotent.
             return WorkoutCreditResult(
                 shutdown_adjusted=False,
                 new_debt=None,
@@ -116,17 +119,23 @@ class WorkoutCreditMixin:
                 already_counted_today=True,
             )
 
-        shutdown_adjusted = self._try_adjust_shutdown_for_workout()
-        new_debt = self._clear_debt_on_verified_workout()
+        first_counted_today = not any(
+            entry.get("workout_data", {}).get("type") in COUNTED_WORKOUT_TYPES
+            for entry in result.prior_entries
+        )
 
-        # Extra-workout bonus: +1h per workout above the weekly minimum.
+        shutdown_adjusted = False
         extra_bonus_delta = 0
-        if weekly_count > WEEKLY_WORKOUT_MINIMUM:
+        if first_counted_today:
+            shutdown_adjusted = self._try_adjust_shutdown_for_workout()
+        elif self.workout_data.get("type") in VERIFIED_WORKOUT_TYPES:
             old_cfg = self._read_shutdown_config()
             if old_cfg and self._adjust_shutdown_time_by(1):
                 new_cfg = self._read_shutdown_config()
                 if new_cfg:
                     extra_bonus_delta = new_cfg[1] - old_cfg[1]
+
+        new_debt = self._clear_debt_on_verified_workout()
 
         return WorkoutCreditResult(
             shutdown_adjusted=shutdown_adjusted,

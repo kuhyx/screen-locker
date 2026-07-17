@@ -351,17 +351,20 @@ class ManualBudget {
       month >= kManualWorkoutBudgetPer30Days;
 }
 
-/// Counts manual-workout [payloads] falling in the rolling 7-/30-day windows.
+/// Counts DAYS with a manual workout in the rolling 7-/30-day windows.
 ///
-/// Each payload's own `date` (YYYY-MM-DD) is the window key, so both devices
-/// compute the same shared budget over the merged record set.
+/// The budget is counted per DAY, not per workout: several self-reports on one
+/// day consume a single slot (and only one counts toward the weekly total
+/// anyway). Each payload's own `date` (YYYY-MM-DD) is the window key, so both
+/// devices compute the same shared budget over the merged record set — this
+/// mirrors the PC's `count_in_window` (screen_locker/_manual_workout.py).
 ManualBudget countManualBudget(
   Iterable<Map<String, dynamic>> payloads,
   DateTime now,
 ) {
   final today = DateTime(now.year, now.month, now.day);
-  var week = 0;
-  var month = 0;
+  final weekDays = <String>{};
+  final monthDays = <String>{};
   for (final payload in payloads) {
     final dateStr = payload['date'];
     if (dateStr is! String) continue;
@@ -371,8 +374,8 @@ ManualBudget countManualBudget(
         .difference(DateTime(date.year, date.month, date.day))
         .inDays;
     if (days < 0) continue;
-    if (days < 7) week++;
-    if (days < 30) month++;
+    if (days < 7) weekDays.add(dateStr);
+    if (days < 30) monthDays.add(dateStr);
   }
-  return ManualBudget(week: week, month: month);
+  return ManualBudget(week: weekDays.length, month: monthDays.length);
 }

@@ -119,7 +119,12 @@ class RunnerUpDbMixin:
                 )
                 row = cursor.fetchone()
         except sqlite3.Error as exc:
-            _logger.info("RunnerUp DB query failed: %s", exc)
+            _logger.warning(
+                "RunnerUp activity query against %s failed: %s — treating it as "
+                "no run recorded today",
+                db_path,
+                exc,
+            )
             return None
 
         if row is None:

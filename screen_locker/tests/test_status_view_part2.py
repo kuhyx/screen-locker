@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+from screen_locker._workout_credit import WorkoutCreditResult
 from screen_locker.status_view import (
     StatusWindow,
     _compliance_state_word,
@@ -127,15 +128,92 @@ class TestRefreshAndCheckPhoneFlow:
             window._poll_phone_check()
         mock_handle.assert_not_called()
 
-    def test_result_never_calls_save_workout_log(self, mock_tk: MagicMock) -> None:
-        """A manual peek must never silently log a workout (see module docstring)."""
+    def test_failed_check_shows_combined_message_and_rerenders(
+        self, mock_tk: MagicMock
+    ) -> None:
+        """Neither source verified → show both messages, apply no credit."""
         window = _make_window(mock_tk, _snapshot())
         with patch(
-            "screen_locker.status_view.gather_status", return_value=_snapshot()
+            "screen_locker._status_view_verify.gather_status", return_value=_snapshot()
         ) as mock_gather:
-            window._on_phone_check_result("verified", "Workout verified!")
-        assert window._phone_check_result == ("verified", "Workout verified!")
+            window._on_phone_check_result(None, "no_phone", "no lifts", "no run")
+        assert window._phone_check_result == (
+            "no_phone",
+            "StrongLifts: no lifts · RunnerUp: no run",
+        )
+        assert window._credit_message is None
         mock_gather.assert_called_once()
+
+    def test_phone_verified_applies_credit_with_phone_message(
+        self, mock_tk: MagicMock, temp_log_file: Path
+    ) -> None:
+        """A verified StrongLifts result writes and credits using the phone message."""
+        fake_verifier = MagicMock()
+        fake_verifier._apply_workout_credit = MagicMock(
+            return_value=WorkoutCreditResult(
+                shutdown_adjusted=True,
+                new_debt=None,
+                extra_bonus_delta=0,
+                weekly_count=1,
+                already_counted_today=False,
+            )
+        )
+        window = _make_window(
+            mock_tk,
+            _snapshot(),
+            log_file=temp_log_file,
+            verifier_factory=lambda _log_file: fake_verifier,
+        )
+        with patch(
+            "screen_locker._status_view_verify.gather_status", return_value=_snapshot()
+        ):
+            window._on_phone_check_result(
+                "phone_verified", "verified", "StrongLifts ok", None
+            )
+        assert fake_verifier.workout_data == {
+            "type": "phone_verified",
+            "source": "StrongLifts ok",
+        }
+        fake_verifier._apply_workout_credit.assert_called_once()
+        assert window._phone_check_result is None
+        message = window._credit_message
+        assert message is not None
+        assert "StrongLifts verified: StrongLifts ok" in message
+        assert "Shutdown time +2h later!" in message
+
+    def test_runnerup_verified_credits_using_runnerup_message(
+        self, mock_tk: MagicMock, temp_log_file: Path
+    ) -> None:
+        """A verified RunnerUp fallback credits using the RunnerUp message."""
+        fake_verifier = MagicMock()
+        fake_verifier._apply_workout_credit = MagicMock(
+            return_value=WorkoutCreditResult(
+                shutdown_adjusted=False,
+                new_debt=None,
+                extra_bonus_delta=0,
+                weekly_count=1,
+                already_counted_today=False,
+            )
+        )
+        window = _make_window(
+            mock_tk,
+            _snapshot(),
+            log_file=temp_log_file,
+            verifier_factory=lambda _log_file: fake_verifier,
+        )
+        with patch(
+            "screen_locker._status_view_verify.gather_status", return_value=_snapshot()
+        ):
+            window._on_phone_check_result(
+                "runnerup_verified", "verified", "no lifts", "RunnerUp 5.0 km"
+            )
+        assert fake_verifier.workout_data == {
+            "type": "runnerup_verified",
+            "source": "RunnerUp 5.0 km",
+        }
+        message = window._credit_message
+        assert message is not None
+        assert "RunnerUp verified: RunnerUp 5.0 km" in message
 
 
 class TestMakeBareVerifier:

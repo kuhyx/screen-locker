@@ -9,8 +9,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/services/storage_service.dart';
+import 'package:workout_app/services/workout_sync_service.dart';
 import 'package:workout_app/widgets/calendar_widget.dart';
 
 const _kTotal = 'Total (all workouts)';
@@ -18,14 +20,29 @@ const _kTotal = 'Total (all workouts)';
 /// Screen showing workout history with per-exercise drill-down and charts.
 class HistoryScreen extends StatefulWidget {
   /// Creates a [HistoryScreen].
-  const HistoryScreen({super.key});
+  ///
+  /// [httpClient] is injected only by tests, so the synced-workout fetch can
+  /// be driven without real network — same pattern as `SettingsScreen`.
+  const HistoryScreen({super.key, this.httpClient});
+
+  /// Overrides the HTTP client used to read synced workouts (tests only).
+  final http.Client? httpClient;
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
 }
 
+/// Synced kinds this phone has no local record of, so showing them can't
+/// double up an existing session.
+///
+/// A `phone_verified` record is the PC's mirror of a StrongLifts session this
+/// phone already stores in full (and renders from `_rows`), so it is
+/// deliberately excluded — otherwise the same workout would appear twice.
+const _kSyncedOnlyKinds = {'runnerup_verified', 'manual_workout'};
+
 class _HistoryScreenState extends State<HistoryScreen> {
   List<Map<String, dynamic>> _rows = [];
+  List<Map<String, dynamic>> _syncedRows = [];
   bool _loading = true;
   String _selected = _kTotal;
   List<String> _exerciseNames = [];
@@ -58,14 +75,32 @@ class _HistoryScreenState extends State<HistoryScreen> {
       state = await StorageService.instance.getExerciseState(_selected);
       // coverage:ignore-end
     }
+    final synced = await _loadSyncedWorkouts();
     if (mounted) {
       setState(() {
         _rows = rows;
+        _syncedRows = synced;
         _exerciseNames = names;
         _selectedState = state;
         _loading = false;
       });
     }
+  }
+
+  /// Workouts the PC published that this phone has no local record of.
+  ///
+  /// The PC pushes its whole `workout_log.json` (RunnerUp runs and manual
+  /// entries included), so pulling them here is what makes both devices show
+  /// the SAME history. Sorted newest-first to match the local session list.
+  Future<List<Map<String, dynamic>>> _loadSyncedWorkouts() async {
+    final payloads = await WorkoutSyncService(
+      httpClient: widget.httpClient,
+    ).readMergedWorkoutPayloads();
+    final synced = payloads
+        .where((p) => _kSyncedOnlyKinds.contains(p['kind']))
+        .toList()
+      ..sort((a, b) => '${b['date']}'.compareTo('${a['date']}'));
+    return synced;
   }
 
   Future<void> _pickExercise(String name) async {
@@ -83,9 +118,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   // ── Data helpers ──────────────────────────────────────────────────────────
 
-  /// All workout dates (YYYY-MM-DD) across all sessions.
-  Set<String> get _allWorkoutDates =>
-      _rows.map((r) => r['date'] as String).toSet();
+  /// All workout dates (YYYY-MM-DD): local sessions plus synced ones.
+  ///
+  /// Synced dates are included so a day you only worked out on the PC (a
+  /// RunnerUp run) still marks the calendar here.
+  Set<String> get _allWorkoutDates => {
+    ..._rows.map((r) => r['date'] as String),
+    ..._syncedRows.map((r) => '${r['date']}'),
+  };
 
   /// Dates when the selected exercise appeared.
   Set<String> _exerciseDates(String name) {
@@ -234,6 +274,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
     const _SectionLabel('ALL SESSIONS'),
     const SizedBox(height: 8),
     ..._rows.map((row) => _AllSessionTile(row: row)),
+    if (_syncedRows.isNotEmpty) ...[
+      const SizedBox(height: 16),
+      const _SectionLabel('SYNCED FROM PC'),
+      const SizedBox(height: 8),
+      ..._syncedRows.map((row) => _SyncedWorkoutTile(payload: row)),
+    ],
   ];
 
   List<Widget> _buildExerciseView(String name) => [
@@ -574,6 +620,62 @@ class _ChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_ChartPainter old) => old.points != points;
+}
+
+/// One workout the PC published that this phone has no local session for.
+class _SyncedWorkoutTile extends StatelessWidget {
+  const _SyncedWorkoutTile({required this.payload});
+
+  final Map<String, dynamic> payload;
+
+  @override
+  Widget build(BuildContext context) {
+    final kind = '${payload['kind']}';
+    final isRun = kind == 'runnerup_verified';
+    final label = isRun ? 'Run' : 'Manual';
+    final detail = '${payload['source'] ?? ''}';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade800,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isRun ? Colors.blue.shade800 : Colors.orange.shade900,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isRun ? Icons.directions_run : Icons.edit_note,
+            color: isRun ? Colors.blue.shade300 : Colors.orange.shade300,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${payload['date']}  ·  $label',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (detail.isNotEmpty)
+                  Text(
+                    detail,
+                    style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _AllSessionTile extends StatelessWidget {

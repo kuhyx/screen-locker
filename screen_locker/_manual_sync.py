@@ -19,7 +19,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from screen_locker._log_mixin import _read_logs, write_signed_entry
+from screen_locker._log_io import load_workout_log
+from screen_locker._log_mixin import write_signed_entry
 from screen_locker._manual_workout import (
     MANUAL_WORKOUT_SYNC_KIND,
     SPORT_OTHER,
@@ -28,7 +29,6 @@ from screen_locker._manual_workout import (
     is_budget_exhausted,
     validate_manual_workout,
 )
-from screen_locker._weekly_check import COUNTED_WORKOUT_TYPES
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
@@ -86,34 +86,32 @@ def reconstruct_draft(payload: Mapping[str, object]) -> ManualWorkoutDraft | Non
             activity_details=str(payload.get("activity_details", "")),
             equipment=str(payload.get("equipment", "")),
         )
-    except (KeyError, TypeError, ValueError):
+    except (KeyError, TypeError, ValueError) as exc:
+        _logger.warning(
+            "Synced manual workout payload is malformed (%s: %s) — SKIPPING "
+            "this record, so it will not be logged or counted on the PC",
+            type(exc).__name__,
+            exc,
+        )
         return None
 
 
-def _already_ingested(logs: dict, record_id: str) -> bool:
-    """True if a log entry already carries this sync record id."""
-    for entry in logs.values():
-        if not isinstance(entry, dict):
-            continue
-        workout_data = entry.get("workout_data", {})
-        if (
-            isinstance(workout_data, dict)
-            and workout_data.get(_SYNC_ID_FIELD) == record_id
-        ):
-            return True
+def _already_ingested(logs: dict[str, list[dict]], record_id: str) -> bool:
+    """True if any logged entry already carries this sync record id.
+
+    Iterates the per-day lists (a day may hold several workouts); a cheap
+    early-out before reconstructing the draft. The write chokepoint also dedups
+    by ``workout_id``, so this and that are two guards on the same idempotency.
+    """
+    for entries in logs.values():
+        for entry in entries:
+            workout_data = entry.get("workout_data", {})
+            if (
+                isinstance(workout_data, dict)
+                and workout_data.get(_SYNC_ID_FIELD) == record_id
+            ):
+                return True
     return False
-
-
-def _date_has_counted_workout(logs: dict, date: str) -> bool:
-    """True if ``date`` already holds a workout that counts (day-keyed log)."""
-    entry = logs.get(date)
-    if not isinstance(entry, dict):
-        return False
-    workout_data = entry.get("workout_data", {})
-    return (
-        isinstance(workout_data, dict)
-        and workout_data.get("type") in COUNTED_WORKOUT_TYPES
-    )
 
 
 def ingest_manual_records(
@@ -126,9 +124,10 @@ def ingest_manual_records(
 
     For each ``(record_id, payload)`` tagged ``kind="manual_workout"``:
     reconstruct + re-validate the draft on the PC, enforce the rate budget, then
-    HMAC-sign and write it under its own ``date``. Idempotent (dedup by
-    ``record_id``) and non-destructive: it never overwrites an existing counted
-    entry for a day (the log is day-keyed — a real workout already credits it).
+    HMAC-sign and APPEND it under its own ``date`` (a day may hold several
+    workouts). Idempotent: dedup by ``record_id`` here and by ``workout_id`` in
+    the write chokepoint, so re-syncing the same record is a no-op. A back-dated
+    ingest raises the weekly count but never pushes tonight's shutdown.
     Returns the record ids actually ingested.
     """
     ingested: list[str] = []
@@ -139,10 +138,7 @@ def ingest_manual_records(
         if not isinstance(date, str):
             _logger.warning("Manual record %s has no date — skipped", record_id)
             continue
-        logs = _read_logs(log_file)
-        if _already_ingested(logs, record_id):
-            continue
-        if _date_has_counted_workout(logs, date):
+        if _already_ingested(load_workout_log(log_file), record_id):
             continue
         draft = reconstruct_draft(payload)
         if draft is None:

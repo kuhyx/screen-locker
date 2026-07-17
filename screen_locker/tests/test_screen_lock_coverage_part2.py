@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+import json
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
@@ -21,10 +23,32 @@ class TestUnlockScreenExtras:
         weekly_count: int = 5,
         streak: int = 0,
         adjust_ok: bool = True,
+        seed_today_type: str | None = None,
     ):
-        """Create a locker ready to call unlock_screen."""
+        """Create a locker ready to call unlock_screen.
+
+        ``seed_today_type`` pre-logs a counted workout for today under a
+        different ``workout_id``, so the unlock's own verified workout is an
+        ADDITIONAL same-day one — the case that now earns the +1h bonus.
+        """
         log_file = tmp_path / "workout_log.json"
-        log_file.write_text("{}")
+        if seed_today_type is None:
+            log_file.write_text("{}")
+        else:
+            today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+            log_file.write_text(
+                json.dumps(
+                    {
+                        today: [
+                            {
+                                "timestamp": f"{today}T06:00:00+00:00",
+                                "workout_data": {"type": seed_today_type},
+                                "workout_id": f"{seed_today_type}:{today}",
+                            }
+                        ]
+                    }
+                )
+            )
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         locker.workout_data = {"type": "phone_verified"}
@@ -53,8 +77,10 @@ class TestUnlockScreenExtras:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """weekly_count > 4 + adjust succeeds → extra_bonus_delta calculated (360-364)."""
-        locker = self._setup_unlock(mock_tk, tmp_path, weekly_count=5)
+        """An additional same-day verified workout earns the +1h bonus."""
+        locker = self._setup_unlock(
+            mock_tk, tmp_path, weekly_count=5, seed_today_type="manual_workout"
+        )
 
         with (
             patch(
@@ -77,8 +103,8 @@ class TestUnlockScreenExtras:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """extra_bonus_delta > 0 → _text called with 'Extra workout' (lines 375-376)."""
-        locker = self._setup_unlock(mock_tk, tmp_path)
+        """extra_bonus_delta > 0 → _text called with 'Extra workout'."""
+        locker = self._setup_unlock(mock_tk, tmp_path, seed_today_type="manual_workout")
 
         # Simulate before=22, after=23 → delta=1
         old_cfg = (22, 22, 5)
@@ -106,6 +132,61 @@ class TestUnlockScreenExtras:
             locker.unlock_screen()
 
         assert any("Extra workout" in c for c in text_calls)
+
+    def test_no_extra_bonus_when_adjust_fails(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Additional verified workout but the +1h adjust fails → delta stays 0."""
+        locker = self._setup_unlock(
+            mock_tk,
+            tmp_path,
+            seed_today_type="manual_workout",
+            adjust_ok=False,
+        )
+
+        text_calls: list[str] = []
+        object.__setattr__(locker, "_text", lambda msg, **kw: text_calls.append(msg))
+
+        with (
+            patch(
+                "screen_locker._workout_credit.count_weekly_workouts",
+                return_value=5,
+            ),
+            patch("screen_locker.screen_lock.current_streak", return_value=0),
+            patch("screen_locker._log_mixin.compute_entry_hmac", return_value=None),
+        ):
+            locker.unlock_screen()
+
+        assert not any("Extra workout" in c for c in text_calls)
+
+    def test_no_extra_bonus_when_new_config_unreadable(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Re-reading the shutdown config fails after the +1h → delta stays 0."""
+        locker = self._setup_unlock(mock_tk, tmp_path, seed_today_type="manual_workout")
+        # old_cfg readable, new_cfg unreadable → no delta can be computed.
+        locker._read_shutdown_config.side_effect = [(22, 22, 5), None]
+
+        text_calls: list[str] = []
+        object.__setattr__(locker, "_text", lambda msg, **kw: text_calls.append(msg))
+
+        with (
+            patch(
+                "screen_locker._workout_credit.count_weekly_workouts",
+                return_value=5,
+            ),
+            patch("screen_locker.screen_lock.current_streak", return_value=0),
+            patch("screen_locker._log_mixin.compute_entry_hmac", return_value=None),
+        ):
+            locker.unlock_screen()
+
+        assert not any("Extra workout" in c for c in text_calls)
 
     def test_streak_displayed_when_nonzero(
         self,

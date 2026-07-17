@@ -69,7 +69,11 @@ class AutoUpgradeMixin:
         try:
             status, message = self._verify_phone_workout()
         except (OSError, RuntimeError) as exc:
-            _logger.info("Auto-upgrade phone check failed: %s", exc)
+            _logger.warning(
+                "Sick-day auto-upgrade could not reach the phone (%s) — today's "
+                "sick_day entry stays unverified; trying RunnerUp next",
+                exc,
+            )
             status, message = "error", str(exc)
         if status == "verified":
             self.workout_data["type"] = "phone_verified"
@@ -82,7 +86,11 @@ class AutoUpgradeMixin:
         try:
             runnerup_status, runnerup_msg = self._verify_runnerup_workout()
         except (OSError, RuntimeError) as exc:
-            _logger.info("Auto-upgrade RunnerUp check failed: %s", exc)
+            _logger.warning(
+                "Sick-day auto-upgrade could not read RunnerUp either (%s) — "
+                "today stays a sick_day, NOT upgraded to a verified workout",
+                exc,
+            )
             return False
         if runnerup_status != "verified":
             _logger.info(
@@ -101,7 +109,11 @@ class AutoUpgradeMixin:
         try:
             status, message = self._verify_phone_workout()
         except (OSError, RuntimeError) as exc:
-            _logger.info("Early bird upgrade phone check failed: %s", exc)
+            _logger.warning(
+                "Early-bird auto-upgrade could not reach the phone (%s) — the "
+                "early_bird entry stays unverified; trying RunnerUp next",
+                exc,
+            )
             status, message = "error", str(exc)
         if status == "verified":
             self.workout_data["type"] = "phone_verified"
@@ -114,7 +126,12 @@ class AutoUpgradeMixin:
         try:
             runnerup_status, runnerup_msg = self._verify_runnerup_workout()
         except (OSError, RuntimeError) as exc:
-            _logger.info("Early bird RunnerUp check failed: %s", exc)
+            _logger.warning(
+                "Early-bird auto-upgrade could not read RunnerUp either (%s) — "
+                "the expired early_bird entry is NOT upgraded, so the screen "
+                "will lock",
+                exc,
+            )
             return False
         if runnerup_status != "verified":
             _logger.info(

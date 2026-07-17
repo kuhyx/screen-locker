@@ -69,8 +69,12 @@ class TestAutoUpgradeSickDay:
         today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
         with log_file.open() as f:
             data: dict[str, Any] = json.load(f)
-        assert data[today]["workout_data"]["type"] == "phone_verified"
-        assert data[today]["workout_data"]["after_sick_day"] == "true"
+        # The log is day-keyed with a LIST of workouts; the upgrade appends one.
+        assert len(data[today]) == 1
+        entry = data[today][0]
+        assert entry["workout_data"]["type"] == "phone_verified"
+        assert entry["workout_data"]["after_sick_day"] == "true"
+        assert entry["workout_id"] == f"phone_verified:{today}"
 
     def test_upgrade_skipped_when_not_verified(
         self,

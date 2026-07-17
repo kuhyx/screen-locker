@@ -17,9 +17,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-import json
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from screen_locker._constants import (
     MANUAL_WORKOUT_BUDGET_PER_7_DAYS,
@@ -30,6 +29,7 @@ from screen_locker._constants import (
     MANUAL_WORKOUT_RPE_MAX,
     MANUAL_WORKOUT_RPE_MIN,
 )
+from screen_locker._log_io import load_workout_log
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -56,20 +56,14 @@ def _parse_iso(date_str: str) -> datetime | None:
     """Parse ``YYYY-MM-DD`` into a UTC datetime, or return None."""
     try:
         return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-    except ValueError:
+    except ValueError as exc:
+        _logger.warning(
+            "Workout log has an unparsable date key %r (%s) — that day is "
+            "IGNORED when counting the manual-workout budget",
+            date_str,
+            exc,
+        )
         return None
-
-
-def _load_logs(log_file: Path) -> dict[str, Any]:
-    """Read ``workout_log.json``. Missing or unreadable file yields ``{}``."""
-    if not log_file.exists():
-        return {}
-    try:
-        with log_file.open() as f:
-            return json.load(f)
-    except (OSError, json.JSONDecodeError):
-        _logger.warning("Could not read workout log for manual-workout budget check")
-        return {}
 
 
 def count_in_window(
@@ -78,20 +72,26 @@ def count_in_window(
     *,
     today: str | None = None,
 ) -> int:
-    """Return how many ``manual_workout`` entries fall in the trailing window."""
+    """Return how many DAYS in the trailing window hold a ``manual_workout``.
+
+    The manual-workout budget is counted per DAY: several self-reports on one
+    day consume a single slot (and only one counts toward the weekly total
+    anyway), so a day contributes at most one here.
+    """
     today_str = today or _today_iso()
     today_dt = _parse_iso(today_str)
     if today_dt is None:
         return 0
     cutoff = today_dt - timedelta(days=days)
-    logs = _load_logs(log_file)
     count = 0
-    for date_str, entry in logs.items():
+    for date_str, entries in load_workout_log(log_file).items():
         parsed = _parse_iso(date_str)
         if parsed is None or not (cutoff < parsed <= today_dt):
             continue
-        workout_data = entry.get("workout_data", {}) if isinstance(entry, dict) else {}
-        if workout_data.get("type") == MANUAL_WORKOUT_TYPE:
+        if any(
+            entry.get("workout_data", {}).get("type") == MANUAL_WORKOUT_TYPE
+            for entry in entries
+        ):
             count += 1
     return count
 
@@ -163,7 +163,13 @@ def _parse_hhmm(value: str) -> datetime | None:
     """Parse an ``HH:MM`` string into a datetime on an arbitrary fixed date."""
     try:
         return datetime.strptime(value.strip(), "%H:%M").replace(tzinfo=timezone.utc)
-    except ValueError:
+    except ValueError as exc:
+        _logger.warning(
+            "Manual workout time %r is not HH:MM (%s) — the workout's duration "
+            "cannot be computed, so the draft will fail validation",
+            value,
+            exc,
+        )
         return None
 
 

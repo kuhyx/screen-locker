@@ -47,9 +47,10 @@ def _snapshot() -> StatusSnapshot:
     day = DayStatus(
         date="2026-07-10",
         label="Fri Jul 10",
-        entry_type=None,
+        entry_types=(),
         source="",
         counted=False,
+        day_count=0,
         is_sick_day=False,
     )
     return StatusSnapshot(

@@ -35,7 +35,12 @@ def _query_ntp_offset(server: str = "pool.ntp.org") -> float | None:
             data, _ = sock.recvfrom(1024)
             t4 = time.time()
     except OSError as exc:
-        _logger.info("NTP query to %s failed: %s", server, exc)
+        _logger.warning(
+            "NTP query to %s failed: %s — the local clock CANNOT be checked for "
+            "tampering, so the skew check is skipped",
+            server,
+            exc,
+        )
         return None
 
     if len(data) < _NTP_MIN_PACKET_SIZE:

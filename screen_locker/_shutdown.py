@@ -149,7 +149,13 @@ class ShutdownMixin:
                 state = json.load(f)
             today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
             return state.get("date") == today
-        except (OSError, json.JSONDecodeError):
+        except (OSError, json.JSONDecodeError) as exc:
+            _logger.warning(
+                "Could not read sick-day state from %s: %s — treating sick mode "
+                "as UNUSED today, which may allow a second sick day",
+                SICK_DAY_STATE_FILE,
+                exc,
+            )
             return False
 
     def _save_sick_day_state(

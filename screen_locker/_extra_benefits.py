@@ -36,7 +36,14 @@ def _load_state(state_file: Path) -> dict[str, Any]:
     try:
         with state_file.open() as f:
             return json.load(f)
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError) as exc:
+        _logger.warning(
+            "Could not read extra-benefits state from %s: %s — starting from "
+            "empty state, so the workout streak and any banked bonus hours are "
+            "lost for this run",
+            state_file,
+            exc,
+        )
         return {}
 
 

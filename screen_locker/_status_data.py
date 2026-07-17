@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -36,6 +35,7 @@ from screen_locker._extra_benefits import (
     preview_bonus_if_week_ended_now,
     weekly_shutdown_bonus_hours,
 )
+from screen_locker._log_io import load_workout_log
 from screen_locker._shutdown import read_shutdown_config
 from screen_locker._shutdown_base import get_base_hours
 from screen_locker._sick_tracker import (
@@ -46,6 +46,8 @@ from screen_locker._sick_tracker import (
 from screen_locker._wake_state import has_workout_skip_today
 from screen_locker._weekly_check import (
     COUNTED_WORKOUT_TYPES,
+    MANUAL_WORKOUT_TYPE,
+    VERIFIED_WORKOUT_TYPES,
     WEEKLY_WORKOUT_MINIMUM,
     count_weekly_workouts,
     is_relaxed_day,
@@ -66,13 +68,14 @@ _MON_WED_WEEKDAYS = frozenset({0, 1, 2})
 
 @dataclass(frozen=True)
 class DayStatus:
-    """One day's workout outcome."""
+    """One day's workout outcome (a day may hold several workouts)."""
 
     date: str
     label: str
-    entry_type: str | None
+    entry_types: tuple[str, ...]
     source: str
     counted: bool
+    day_count: int
     is_sick_day: bool
 
 
@@ -147,61 +150,57 @@ class StatusSnapshot:
     generated_at: str
 
 
-def _day_status(day_date: date, entry: dict | None, sick_days: set[str]) -> DayStatus:
-    """Build a :class:`DayStatus` for one calendar day."""
+def _day_status(day_date: date, entries: list[dict], sick_days: set[str]) -> DayStatus:
+    """Build a :class:`DayStatus` for one calendar day from its entry list.
+
+    ``day_count`` mirrors the weekly rule (each verified workout counts, all of
+    a day's manual entries count once) so the week total sums to
+    :func:`~screen_locker._weekly_check.count_weekly_workouts`.
+    """
     iso = day_date.isoformat()
     label = day_date.strftime("%a %b %d")
-    if entry is None:
-        return DayStatus(
-            date=iso,
-            label=label,
-            entry_type=None,
-            source="",
-            counted=False,
-            is_sick_day=iso in sick_days,
-        )
-    workout_data = entry.get("workout_data", {}) if isinstance(entry, dict) else {}
-    entry_type = workout_data.get("type")
+    types = tuple(
+        str(e.get("workout_data", {}).get("type", ""))
+        for e in entries
+        if isinstance(e, dict)
+    )
+    verified = sum(1 for t in types if t in VERIFIED_WORKOUT_TYPES)
+    has_manual = any(t == MANUAL_WORKOUT_TYPE for t in types)
+    sources = [
+        str(e.get("workout_data", {}).get("source", ""))
+        for e in entries
+        if isinstance(e, dict)
+    ]
     return DayStatus(
         date=iso,
         label=label,
-        entry_type=entry_type,
-        source=workout_data.get("source", ""),
-        counted=entry_type in COUNTED_WORKOUT_TYPES,
+        entry_types=tuple(t for t in types if t),
+        source=" · ".join(s for s in sources if s),
+        counted=any(t in COUNTED_WORKOUT_TYPES for t in types),
+        day_count=verified + (1 if has_manual else 0),
         is_sick_day=iso in sick_days,
     )
-
-
-def _load_log(log_file: Path) -> dict:
-    """Load the workout log dict, returning {} on any error."""
-    if not log_file.exists():
-        return {}
-    try:
-        with log_file.open() as f:
-            return json.load(f)
-    except (OSError, json.JSONDecodeError):
-        return {}
 
 
 def _week_days(
     log_file: Path, sick_history: SickHistory, *, today_local: datetime
 ) -> tuple[DayStatus, ...]:
     """Return this ISO week's days from Monday through today."""
-    log_data = _load_log(log_file)
+    log_data = load_workout_log(log_file)
     sick_days = set(sick_history.sick_days)
     today_date = today_local.date()
     monday = today_date - timedelta(days=today_date.weekday())
     days: list[DayStatus] = []
     day = monday
     while day <= today_date:
-        days.append(_day_status(day, log_data.get(day.isoformat()), sick_days))
+        days.append(_day_status(day, log_data.get(day.isoformat(), []), sick_days))
         day += timedelta(days=1)
     return tuple(days)
 
 
 def _weekly_summary(days: tuple[DayStatus, ...]) -> WeeklySummary:
-    """Summarize a week's days against the weekly minimum."""
-    counted = sum(1 for d in days if d.counted)
+    """Summarize a week's workout count against the weekly minimum."""
+    counted = sum(d.day_count for d in days)
     return WeeklySummary(
         days=days,
         counted_count=counted,

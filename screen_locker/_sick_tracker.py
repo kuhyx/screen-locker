@@ -49,7 +49,13 @@ def _parse_iso(date_str: str) -> datetime | None:
     """Parse ``YYYY-MM-DD`` into a UTC datetime, or return None."""
     try:
         return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-    except ValueError:
+    except ValueError as exc:
+        _logger.warning(
+            "Sick history holds an unparsable date %r (%s) — that entry is "
+            "IGNORED when counting sick days",
+            date_str,
+            exc,
+        )
         return None
 
 

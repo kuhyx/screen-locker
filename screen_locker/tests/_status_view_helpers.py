@@ -33,17 +33,19 @@ def _day(
     *,
     date: str = "2024-01-05",
     label: str = "Fri Jan 05",
-    entry_type: str | None = None,
+    entry_types: tuple[str, ...] = (),
     source: str = "",
     counted: bool = False,
+    day_count: int = 0,
     is_sick_day: bool = False,
 ) -> DayStatus:
     return DayStatus(
         date=date,
         label=label,
-        entry_type=entry_type,
+        entry_types=entry_types,
         source=source,
         counted=counted,
+        day_count=day_count,
         is_sick_day=is_sick_day,
     )
 

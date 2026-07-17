@@ -1,26 +1,28 @@
 """Read-only Tkinter status window plus a lightweight i3blocks summary CLI.
 
 Opening or refreshing this window only ever reads files already on disk
-(via ``_status_data.gather_status``), with two deliberate exceptions that
-only ever *display* a result and never write to ``workout_log.json``:
+(via ``_status_data.gather_status``). The live Warsaw temperature (see
+``_section_temperature``) is fetched via
+``_temperature.fetch_current_temp_with_status`` on open and on every refresh,
+in its own background thread, bounded to ``_temperature.HARD_TIMEOUT_SECONDS``
+— the same call the real locker's heat-skip check makes, so the window shows
+what the lock actually sees. That fetch is display-only and never writes.
 
-* "Check Phone" submits ``PhoneVerificationMixin._verify_phone_workout`` to a
-  background thread — mirroring the existing submit/poll/``Future`` idiom
-  used by ``_ui_flows_relaxed.py``.
-* The live Warsaw temperature (see ``_section_temperature``) is fetched via
-  ``_temperature.fetch_current_temp_with_status`` on open and on every
-  refresh, in its own background thread, bounded to
-  ``_temperature.HARD_TIMEOUT_SECONDS`` — the same call the real locker's
-  heat-skip check makes, so the window shows what the lock actually sees.
+Two user-initiated buttons *do* write to ``workout_log.json`` (never a silent
+log):
 
-The one exception that *does* write is "Log Manual Workout": a
-user-initiated, explicit evidence-form submission (see
-``_manual_workout_dialog.ManualWorkoutDialogMixin``) — never a silent log.
+* "Check Phone" runs ``PhoneVerificationMixin._verify_phone_workout`` and, when
+  that finds nothing, ``RunnerUpVerificationMixin._verify_runnerup_workout`` as
+  a fallback — the same StrongLifts→RunnerUp chain the locked screen uses. On a
+  verified workout it writes the entry and applies the shutdown reward via
+  ``_apply_workout_credit`` (guarded against double-crediting on the same day),
+  mirroring the submit/poll/``Future`` idiom of ``_ui_flows.py``.
+* "Log Manual Workout" is a user-initiated, explicit evidence-form submission
+  (see ``_manual_workout_dialog.ManualWorkoutDialogMixin``).
 """
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor  # pylint: disable=no-name-in-module
 from pathlib import Path
 import sys
 import tkinter as tk
@@ -38,14 +40,12 @@ from screen_locker._status_data import (
     format_summary_line,
     gather_status,
 )
+from screen_locker._status_view_verify import PhoneCheckMixin, _make_bare_verifier
 from screen_locker._temperature import (
     fetch_current_temp_with_status,
 )
 from screen_locker._temperature_status_mixin import TemperatureStatusMixin
 from screen_locker._ui_widgets import UIWidgetsMixin
-from screen_locker._weekly_check import (
-    WEEKLY_WORKOUT_MINIMUM as _WEEKLY_WORKOUT_MINIMUM,
-)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -58,22 +58,12 @@ if TYPE_CHECKING:
 _DEFAULT_LOG_FILE = Path(__file__).resolve().parent / "workout_log.json"
 
 
-def _make_bare_verifier(log_file: Path) -> ScreenLocker:
-    """Build a minimal ``ScreenLocker`` for read-only verification calls.
-
-    Same ``object.__new__`` bypass ``screen_lock.py`` already uses for
-    ``--status`` — just enough state for ``PhoneVerificationMixin`` methods
-    to run, no Tk lock UI, no ``__init__`` side effects.
-    """
-    from screen_locker.screen_lock import ScreenLocker
-
-    verifier = object.__new__(ScreenLocker)
-    verifier.log_file = log_file
-    verifier.workout_data = {}
-    return verifier
-
-
-class StatusWindow(UIWidgetsMixin, ManualWorkoutDialogMixin, TemperatureStatusMixin):
+class StatusWindow(
+    UIWidgetsMixin,
+    ManualWorkoutDialogMixin,
+    TemperatureStatusMixin,
+    PhoneCheckMixin,
+):
     """Thin Tk view over a :class:`StatusSnapshot`.
 
     Formatting logic lives in ``_status_data``, not here.
@@ -98,9 +88,11 @@ class StatusWindow(UIWidgetsMixin, ManualWorkoutDialogMixin, TemperatureStatusMi
         self.verifier_factory = verifier_factory
         self.temperature_fetcher = temperature_fetcher
         self.demo_mode = True  # only affects UIWidgetsMixin._button's cursor
-        self._phone_future: Future[tuple[str, str]] | None = None
+        self._phone_future: Future[tuple[str | None, str, str, str | None]] | None = (
+            None
+        )
         self._phone_check_result: tuple[str, str] | None = None
-        self._manual_workout_saved_message: str | None = None
+        self._credit_message: str | None = None
         self._temp_future: Future[TemperatureCheck] | None = None
         self._temp_result: TemperatureCheck | None = None
         self._last_snapshot = snapshot
@@ -127,10 +119,8 @@ class StatusWindow(UIWidgetsMixin, ManualWorkoutDialogMixin, TemperatureStatusMi
             status, message = self._phone_check_result
             color = "#00cc44" if status == "verified" else "#ff8844"
             self._text(f"Phone check ({status}): {message}", font_size=13, color=color)
-        if self._manual_workout_saved_message is not None:
-            self._text(
-                self._manual_workout_saved_message, font_size=13, color="#00cc44"
-            )
+        if self._credit_message is not None:
+            self._text(self._credit_message, font_size=13, color="#00cc44")
         frame = self._button_row()
         self._button(
             frame,
@@ -158,7 +148,7 @@ class StatusWindow(UIWidgetsMixin, ManualWorkoutDialogMixin, TemperatureStatusMi
         """Render today's outcome."""
         del parent
         mark = "✓" if day.counted else ("😷" if day.is_sick_day else "—")
-        entry_str = day.entry_type or (
+        entry_str = ", ".join(day.entry_types) or (
             "sick day" if day.is_sick_day else "no entry yet"
         )
         self._text(
@@ -177,7 +167,7 @@ class StatusWindow(UIWidgetsMixin, ManualWorkoutDialogMixin, TemperatureStatusMi
         )
         for day in week.days:
             mark = "✓" if day.counted else ("😷" if day.is_sick_day else "·")
-            entry_str = day.entry_type or (
+            entry_str = ", ".join(day.entry_types) or (
                 "sick day" if day.is_sick_day else "no entry"
             )
             self._text(
@@ -265,33 +255,12 @@ class StatusWindow(UIWidgetsMixin, ManualWorkoutDialogMixin, TemperatureStatusMi
         self._text(shutdown.explanation, font_size=10, color="#666666")
 
     def _on_refresh_clicked(self) -> None:
-        """Clear any stale phone-check/temperature results, re-check both."""
+        """Clear any stale phone-check/credit/temperature results, re-check both."""
         self._phone_check_result = None
+        self._credit_message = None
         self._temp_result = None
         self._start_temperature_check()
         self.on_refresh()
-
-    def _on_check_phone_clicked(self) -> None:
-        """Submit a background phone-verification check and start polling it."""
-        self._phone_check_result = None
-        verifier = self.verifier_factory(self.log_file)
-        executor = ThreadPoolExecutor(max_workers=1)
-        self._phone_future = executor.submit(verifier._verify_phone_workout)
-        executor.shutdown(wait=False)
-        self._poll_phone_check()
-
-    def _poll_phone_check(self) -> None:
-        """Poll the background phone-check future until it resolves."""
-        if self._phone_future is not None and self._phone_future.done():
-            status, message = self._phone_future.result()
-            self._on_phone_check_result(status, message)
-        else:
-            self.root.after(500, self._poll_phone_check)
-
-    def _on_phone_check_result(self, status: str, message: str) -> None:
-        """Display the phone-check result. Never logs — display only."""
-        self._phone_check_result = (status, message)
-        self.render(gather_status())
 
     def _on_manual_workout_saved(self, entry: dict) -> None:
         """Persist the manual-workout entry via a bare verifier, then refresh.
@@ -307,22 +276,11 @@ class StatusWindow(UIWidgetsMixin, ManualWorkoutDialogMixin, TemperatureStatusMi
         verifier = self.verifier_factory(self.log_file)
         verifier.workout_data = entry
         credit = verifier._apply_workout_credit()
-        lines = [f"Manual workout logged: {entry.get('source', '')}"]
-        if credit.already_counted_today:
-            lines.append(
-                "(Today already had a counted workout — no extra credit applied.)"
+        self._credit_message = "\n".join(
+            self._credit_result_lines(
+                f"Manual workout logged: {entry.get('source', '')}", credit
             )
-        else:
-            if credit.shutdown_adjusted:
-                lines.append("Shutdown time +2h later!")
-            if credit.extra_bonus_delta > 0:
-                extra_n = credit.weekly_count - _WEEKLY_WORKOUT_MINIMUM
-                lines.append(
-                    f"Extra workout #{extra_n}! +{credit.extra_bonus_delta}h tonight"
-                )
-            if credit.new_debt is not None:
-                lines.append(f"Workout debt: {credit.new_debt}")
-        self._manual_workout_saved_message = "\n".join(lines)
+        )
         self.render(gather_status())
 
     def _on_manual_workout_cancelled(self) -> None:

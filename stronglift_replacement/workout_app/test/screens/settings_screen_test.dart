@@ -196,12 +196,38 @@ void main() {
   });
 
   testWidgets(
-    'shows Connected immediately when a token is already saved',
+    'a saved token is VERIFIED on open, not blindly trusted',
     (tester) async {
-      installFakeSecureStorage(initial: {'sync.token': 'already-saved'});
-      await _pump(tester, _wrap());
+      // Regression: the badge used to read "Connected." whenever a token
+      // string existed, so a revoked token showed green while every sync
+      // 401'd and history silently stayed empty.
+      installFakeSecureStorage(initial: {'sync.token': 'revoked-token'});
+      final mock = MockClient(
+        (req) async => http.Response('Bad credentials', 401),
+      );
+      await _pump(tester, _wrap(httpClient: mock));
       await _scrollToGitHubSync(tester);
-      expect(find.text('Connected.'), findsOneWidget);
+      expect(find.text('Connected.'), findsNothing);
+      expect(find.textContaining('NOT connected'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a saved token that GitHub accepts reports verified',
+    (tester) async {
+      installFakeSecureStorage(initial: {'sync.token': 'good-token'});
+      final mock = MockClient(
+        (req) async => http.Response(
+          jsonEncode({'content': base64Encode(utf8.encode('{}')), 'sha': 's'}),
+          200,
+        ),
+      );
+      await _pump(tester, _wrap(httpClient: mock));
+      await _scrollToGitHubSync(tester);
+      expect(
+        find.textContaining('Connected and verified via GitHub'),
+        findsOneWidget,
+      );
     },
   );
 
@@ -526,9 +552,9 @@ void main() {
       await tester.tap(find.text('Connect GitHub'));
       await _pumpUntil(
         tester,
-        () => find.textContaining('could not verify').evaluate().isNotEmpty,
+        () => find.textContaining('NOT syncing').evaluate().isNotEmpty,
       );
-      expect(find.textContaining('could not verify'), findsOneWidget);
+      expect(find.textContaining('NOT syncing'), findsOneWidget);
     });
   });
 

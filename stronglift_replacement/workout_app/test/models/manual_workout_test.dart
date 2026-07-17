@@ -267,4 +267,57 @@ void main() {
       expect(durationMinutes(_tt(startTime: 'noon')), isNull);
     });
   });
+
+  group('countManualBudget (per-day)', () {
+    Map<String, dynamic> payload(String date, String start) => {
+      'date': date,
+      'start_time': start,
+    };
+    final now = DateTime(2026, 7, 16);
+
+    test('multiple workouts on one day count as a single day', () {
+      final budget = countManualBudget([
+        payload('2026-07-13', '14:00'),
+        payload('2026-07-13', '23:07'),
+      ], now);
+      expect(budget.week, 1);
+      expect(budget.month, 1);
+    });
+
+    test('workouts on distinct days each count', () {
+      final budget = countManualBudget([
+        payload('2026-07-13', '14:00'),
+        payload('2026-07-15', '09:00'),
+      ], now);
+      expect(budget.week, 2);
+    });
+
+    test('same-day plus another day counts two days', () {
+      final budget = countManualBudget([
+        payload('2026-07-13', '14:00'),
+        payload('2026-07-13', '23:07'),
+        payload('2026-07-15', '09:00'),
+      ], now);
+      expect(budget.week, 2);
+    });
+
+    test('ignores dates outside the 30-day window and future dates', () {
+      final budget = countManualBudget([
+        payload('2026-05-01', '10:00'),
+        payload('2026-07-20', '10:00'),
+      ], now);
+      expect(budget.week, 0);
+      expect(budget.month, 0);
+    });
+
+    test('skips payloads with missing or unparsable date', () {
+      final budget = countManualBudget([
+        {'start_time': '10:00'},
+        {'date': 42},
+        {'date': 'not-a-date'},
+      ], now);
+      expect(budget.week, 0);
+      expect(budget.month, 0);
+    });
+  });
 }

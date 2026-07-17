@@ -50,8 +50,8 @@ class TestTryAutoUpgradeEarlyBird:
         with log_file.open() as f:
             data: dict[str, Any] = json.load(f)
         today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-        assert data[today]["workout_data"]["type"] == "phone_verified"
-        assert data[today]["workout_data"]["after_early_bird"] == "true"
+        assert data[today][0]["workout_data"]["type"] == "phone_verified"
+        assert data[today][0]["workout_data"]["after_early_bird"] == "true"
 
     def test_upgrade_fails_when_not_verified(
         self,

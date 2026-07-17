@@ -7,43 +7,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-from screen_locker._status import _load_extra_benefits, _load_log, run_status
+from screen_locker._status import _load_extra_benefits, run_status
 from screen_locker.tests.conftest import _make_locker
 
 if TYPE_CHECKING:
     import pytest
-
-# ---------------------------------------------------------------------------
-# _load_log helpers
-# ---------------------------------------------------------------------------
-
-
-class TestLoadLog:
-    """Tests for _load_log."""
-
-    def test_missing_file_returns_empty(self, tmp_path: Path) -> None:
-        """Non-existent file → {}."""
-        assert _load_log(tmp_path / "nope.json") == {}
-
-    def test_valid_json_returned(self, tmp_path: Path) -> None:
-        """Valid JSON file → contents."""
-        f = tmp_path / "log.json"
-        f.write_text(json.dumps({"2026-06-01": {"x": 1}}))
-        assert _load_log(f) == {"2026-06-01": {"x": 1}}
-
-    def test_invalid_json_returns_empty(self, tmp_path: Path) -> None:
-        """Corrupt JSON → {}."""
-        f = tmp_path / "log.json"
-        f.write_text("{not json}")
-        assert _load_log(f) == {}
-
-    def test_oserror_returns_empty(self, tmp_path: Path) -> None:
-        """OSError on open → {}."""
-        f = tmp_path / "log.json"
-        f.write_text("{}")
-        with patch("builtins.open", side_effect=OSError("perm")):
-            assert _load_log(f) == {}
-
 
 # ---------------------------------------------------------------------------
 # _load_extra_benefits helpers
