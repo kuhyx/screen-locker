@@ -144,7 +144,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   /// Confirms [token] can actually read `$syncRepoOwner/$syncRepoName`.
-  Future<void> _verifyConnection(String token) async {
+  /// Returns null when [token] works, else the error GitHub gave.
+  Future<GitHubSyncError?> _tryVerify(String token) async {
     final client = GitHubClient(
       owner: syncRepoOwner,
       repo: syncRepoName,
@@ -153,26 +154,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     try {
       await client.getFileText('devices/phone/log.json');
+      return null;
+    } on GitHubSyncError catch (e) {
+      return e;
+    } finally {
+      client.close();
+    }
+  }
+
+  Future<void> _verifyConnection(String token) async {
+    final error = await _tryVerify(token);
+    if (error == null) {
       if (!mounted) return;
       _setSyncStatus(
         'Connected and verified via GitHub.',
         _SyncStatusKind.success,
       );
-    } on GitHubSyncError catch (e) {
-      if (!mounted) return;
-      // Say plainly that sync is broken. "Connected, but…" reads as success
-      // and is how a dead token hid behind a green badge.
-      final rejected = e.toString().contains('401');
-      _setSyncStatus(
-        rejected
-            ? 'NOT connected: GitHub rejected this token (401). Tap Connect '
-                  'GitHub to re-authorize — until then nothing syncs.'
-            : 'NOT syncing: could not reach GitHub ($e)',
-        _SyncStatusKind.error,
-      );
-    } finally {
-      client.close();
+      return;
     }
+
+    // The keystore's token may be a stale one shadowing a good backup, and
+    // load() only consults the backup when the keystore is EMPTY. Try the
+    // backup once before making the user re-authorize for nothing.
+    final recovered = await SyncSettings.recoverFromBackup(token);
+    if (recovered != null && await _tryVerify(recovered) == null) {
+      if (!mounted) return;
+      _tokenController.text = recovered;
+      _setSyncStatus(
+        'Connected and verified via GitHub (recovered the saved token from '
+        'backup — the stored one had been rejected).',
+        _SyncStatusKind.success,
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    // Say plainly that sync is broken. "Connected, but…" reads as success
+    // and is how a dead token hid behind a green badge.
+    _setSyncStatus(
+      error.toString().contains('401')
+          ? 'NOT connected: GitHub rejected this token (401) and no working '
+                'backup was found. Tap Connect GitHub to re-authorize — '
+                'until then nothing syncs.'
+          : 'NOT syncing: could not reach GitHub ($error)',
+      _SyncStatusKind.error,
+    );
   }
 
   void _onWeightChanged(String name, double value) {

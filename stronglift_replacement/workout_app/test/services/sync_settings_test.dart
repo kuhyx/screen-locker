@@ -116,4 +116,39 @@ void main() {
       expect(s.token, 'gho_recovered2');
     },
   );
+
+  group('recoverFromBackup', () {
+    test('re-seeds the keystore when the backup holds a different token', () async {
+      // A stale keystore entry shadows a good backup forever: load() only
+      // consults the backup when the keystore is EMPTY.
+      installFakeSecureStorage(initial: {'sync.token': 'stale'});
+      await const SyncSettings(token: 'good-from-backup').save();
+      // Put the stale token back in the keystore (save() overwrote it).
+      installFakeSecureStorage(initial: {'sync.token': 'stale'});
+
+      final recovered = await SyncSettings.recoverFromBackup('stale');
+
+      expect(recovered, 'good-from-backup');
+      // The keystore was re-seeded, so the next load() returns the good one.
+      expect((await SyncSettings.load()).token, 'good-from-backup');
+    });
+
+    test('returns null when the backup holds the same rejected token', () async {
+      installFakeSecureStorage(initial: {'sync.token': 'same'});
+      await const SyncSettings(token: 'same').save();
+      expect(await SyncSettings.recoverFromBackup('same'), isNull);
+    });
+
+    test('returns null when there is no backup to recover from', () async {
+      installFakeSecureStorage(initial: {'sync.token': 'rejected'});
+      expect(await SyncSettings.recoverFromBackup('rejected'), isNull);
+    });
+
+    test('still returns the token when the keystore write fails', () async {
+      installFakeSecureStorage();
+      await const SyncSettings(token: 'good-from-backup').save();
+      installFakeSecureStorage(throwing: true);
+      expect(await SyncSettings.recoverFromBackup('stale'), 'good-from-backup');
+    });
+  });
 }

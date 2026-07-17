@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +9,7 @@ import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/exercise_result.dart';
 import 'package:workout_app/models/set_result.dart';
 import 'package:workout_app/models/workout_session.dart';
+import 'package:workout_app/services/backup_service.dart';
 import 'package:workout_app/services/sync_settings.dart';
 import 'package:workout_app/services/workout_sync_service.dart';
 
@@ -347,6 +349,72 @@ void main() {
       await WorkoutSyncService(
         httpClient: httpClient,
       ).readMergedManualPayloads(),
+      isEmpty,
+    );
+  });
+
+  test('recovers from the backup when the stored token is rejected', () async {
+    // A stale keystore token shadows a good backup (load() only falls back
+    // when the keystore is EMPTY), which would leave history silently empty.
+    final tempDir = Directory.systemTemp.createTempSync('sync_recover_');
+    BackupService.baseDirForTesting = tempDir.path;
+    addTearDown(() {
+      BackupService.baseDirForTesting = kBackupDir;
+      tempDir.deleteSync(recursive: true);
+    });
+
+    installFakeSecureStorage(initial: {'sync.token': 'stale'});
+    await const SyncSettings(token: 'good').save();
+    installFakeSecureStorage(initial: {'sync.token': 'stale'});
+
+    final pcLog = jsonEncode({
+      'manual:a': _manual('manual:a', 'NEW', 2000).toJson(),
+    });
+    final httpClient = http_testing.MockClient((req) async {
+      if (req.headers['Authorization']?.contains('good') != true) {
+        return http.Response('Bad credentials', 401);
+      }
+      if (req.url.path.endsWith('screen-locker-sync/devices')) {
+        return http.Response(jsonEncode([
+          {'name': 'pc', 'type': 'dir'},
+        ]), 200);
+      }
+      return http.Response(
+        jsonEncode({
+          'content': base64Encode(utf8.encode(pcLog)),
+          'sha': 'sha',
+        }),
+        200,
+      );
+    });
+
+    final payloads = await WorkoutSyncService(
+      httpClient: httpClient,
+    ).readMergedManualPayloads();
+
+    expect(payloads, hasLength(1));
+    expect((await SyncSettings.load()).token, 'good');
+  });
+
+  test('reports the failure when the backup token is rejected too', () async {
+    final tempDir = Directory.systemTemp.createTempSync('sync_recover_fail_');
+    BackupService.baseDirForTesting = tempDir.path;
+    addTearDown(() {
+      BackupService.baseDirForTesting = kBackupDir;
+      tempDir.deleteSync(recursive: true);
+    });
+
+    installFakeSecureStorage(initial: {'sync.token': 'stale'});
+    await const SyncSettings(token: 'also-bad').save();
+    installFakeSecureStorage(initial: {'sync.token': 'stale'});
+
+    // Every token 401s, so the recovery retry fails too.
+    final httpClient = http_testing.MockClient(
+      (req) async => http.Response('Bad credentials', 401),
+    );
+
+    expect(
+      await WorkoutSyncService(httpClient: httpClient).readMergedManualPayloads(),
       isEmpty,
     );
   });

@@ -148,10 +148,43 @@ class WorkoutSyncService {
       return const [];
     }
 
+    try {
+      return await _fetchPayloads(settings.token, kind);
+    } on GitHubSyncError catch (error) {
+      var failure = error;
+      // A stale keystore token shadows a good backup (SyncSettings.load only
+      // falls back when the keystore is EMPTY), so retry once from the backup
+      // rather than leaving history silently incomplete.
+      final recovered = await SyncSettings.recoverFromBackup(settings.token);
+      if (recovered != null) {
+        try {
+          final payloads = await _fetchPayloads(recovered, kind);
+          debugPrint(
+            'WorkoutSyncService: recovered the sync token from backup after '
+            'the stored one was rejected ($failure).',
+          );
+          return payloads;
+        } on GitHubSyncError catch (retryError) {
+          failure = retryError;
+        }
+      }
+      final which = kind ?? 'any';
+      debugPrint(
+        'WorkoutSyncService: FAILED reading synced workouts '
+        '(kind=$which) from $owner/$repo: $failure — history may be incomplete.',
+      );
+      return const [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchPayloads(
+    String token,
+    String? kind,
+  ) async {
     final client = GitHubClient(
       owner: owner,
       repo: repo,
-      token: settings.token,
+      token: token,
       httpClient: _httpClient,
     );
     try {
@@ -164,13 +197,6 @@ class WorkoutSyncService {
       return merged.values
           .map((r) => (r.fields['payload']!.$1! as Map).cast<String, dynamic>())
           .toList();
-    } on GitHubSyncError catch (error) {
-      final which = kind ?? 'any';
-      debugPrint(
-        'WorkoutSyncService: FAILED reading synced workouts '
-        '(kind=$which) from $owner/$repo: $error — history may be incomplete.',
-      );
-      return const [];
     } finally {
       client.close();
     }

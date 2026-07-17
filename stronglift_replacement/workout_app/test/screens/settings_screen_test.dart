@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +11,8 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:url_launcher_platform_interface/link.dart';
 import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 import 'package:workout_app/models/exercise.dart';
+import 'package:workout_app/services/backup_service.dart';
+import 'package:workout_app/services/sync_settings.dart';
 import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/screens/settings_screen.dart';
 import 'package:workout_app/services/storage_service.dart';
@@ -611,4 +614,43 @@ void main() {
       expect(find.textContaining('Connected and verified'), findsOneWidget);
     });
   });
+
+  testWidgets(
+    'a rejected stored token recovers from the backup instead of nagging',
+    (tester) async {
+      // load() only consults the backup when the keystore is EMPTY, so a
+      // stale keystore entry would otherwise shadow a good backup forever
+      // and demand a pointless re-authorization.
+      final tempDir = Directory.systemTemp.createTempSync('settings_recover_');
+      BackupService.baseDirForTesting = tempDir.path;
+      addTearDown(() {
+        BackupService.baseDirForTesting = kBackupDir;
+        tempDir.deleteSync(recursive: true);
+      });
+
+      installFakeSecureStorage(initial: {'sync.token': 'stale'});
+      // save() writes the external-storage backup: real file I/O, which hangs
+      // in the widget-test fake-async zone (same reason _seed uses runAsync).
+      await tester.runAsync(
+        () async => const SyncSettings(token: 'good').save(),
+      );
+      installFakeSecureStorage(initial: {'sync.token': 'stale'});
+
+      final mock = MockClient((req) async {
+        if (req.headers['Authorization']?.contains('good') != true) {
+          return http.Response('Bad credentials', 401);
+        }
+        return http.Response(
+          jsonEncode({'content': base64Encode(utf8.encode('{}')), 'sha': 's'}),
+          200,
+        );
+      });
+
+      await _pump(tester, _wrap(httpClient: mock));
+      await _scrollToGitHubSync(tester);
+
+      expect(find.textContaining('recovered the saved token'), findsOneWidget);
+      expect(find.textContaining('NOT connected'), findsNothing);
+    },
+  );
 }

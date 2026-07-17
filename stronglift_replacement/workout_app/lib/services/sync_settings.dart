@@ -70,6 +70,30 @@ class SyncSettings {
     return SyncSettings(token: token ?? '');
   }
 
+  /// Re-seeds the keystore from the external backup after its token was
+  /// REJECTED by GitHub, returning the recovered token (or null).
+  ///
+  /// [load] prefers the keystore and only consults the backup when the
+  /// keystore is EMPTY. So a stale keystore entry — say, one left by an
+  /// earlier authorization — shadows a perfectly good backup indefinitely,
+  /// and the user is told to re-authorize for nothing. Callers that see a
+  /// token rejected call this and retry ONCE before demanding re-auth.
+  ///
+  /// Returns null when there is nothing to recover: no backup, an empty one,
+  /// or one holding the very token that was just rejected.
+  static Future<String?> recoverFromBackup(String rejectedToken) async {
+    final backedUp = await BackupService.instance.readSyncToken();
+    if (backedUp == null || backedUp.isEmpty || backedUp == rejectedToken) {
+      return null;
+    }
+    try {
+      await _secure.write(key: _secureToken, value: backedUp);
+    } on PlatformException {
+      // Keystore unavailable — the caller can still use the returned token.
+    }
+    return backedUp;
+  }
+
   /// Persists [token] to the keystore (deleting the entry when empty) and
   /// mirrors it to external storage so it survives an app uninstall.
   /// Returns false if the platform secret service is unavailable.
