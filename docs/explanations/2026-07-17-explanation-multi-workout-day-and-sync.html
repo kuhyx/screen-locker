@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multiple workouts per day, the sync that never ran, and a ban on silence</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1a1a1a; --muted: #5b6470; --line: #e2e6ea;
+    --card: #f6f8fa; --accent: #0b6bcb; --good: #1a7f37; --bad: #b42318;
+    --warn: #9a6700; --code: #f2f4f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a; --fg: #e6e9ec; --muted: #9aa4b0; --line: #2b3138;
+      --card: #1b1f24; --accent: #6cb6ff; --good: #4ac26b; --bad: #ff7b72;
+      --warn: #d4a72c; --code: #1e2329;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0 auto; padding: 2rem 1rem 5rem; max-width: min(48rem, 92vw);
+    background: var(--bg); color: var(--fg); line-height: 1.65;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+  }
+  h1 { font-size: 1.9rem; line-height: 1.25; margin: 0 0 .4rem; }
+  h2 { font-size: 1.4rem; margin: 2.6rem 0 .8rem; padding-top: .6rem;
+       border-top: 1px solid var(--line); }
+  h3 { font-size: 1.08rem; margin: 1.6rem 0 .5rem; }
+  .sub { color: var(--muted); margin: 0 0 1.5rem; }
+  a { color: var(--accent); }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  code { background: var(--code); padding: .12em .35em; border-radius: 4px;
+         font-size: .88em; }
+  .codewrap { overflow-x: auto; background: var(--code); border: 1px solid var(--line);
+              border-radius: 8px; margin: .8rem 0; }
+  pre { margin: 0; padding: .85rem 1rem; white-space: pre-wrap; overflow-x: auto;
+        font-size: .84rem; line-height: 1.5; }
+  .add { color: var(--good); }
+  .del { color: var(--bad); }
+  nav.toc { background: var(--card); border: 1px solid var(--line);
+            border-radius: 10px; padding: .9rem 1.1rem; margin: 1.5rem 0 2rem; }
+  nav.toc ol { margin: .4rem 0 0; padding-left: 1.2rem; }
+  nav.toc li { margin: .25rem 0; }
+  .card { background: var(--card); border: 1px solid var(--line);
+          border-radius: 10px; padding: 1rem 1.1rem; margin: 1.2rem 0; }
+  .note { border-left: 3px solid var(--accent); }
+  .warnbox { border-left: 3px solid var(--warn); }
+  .badbox { border-left: 3px solid var(--bad); }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  .tablewrap { overflow-x: auto; margin: 1rem 0; }
+  th, td { border: 1px solid var(--line); padding: .45rem .6rem; text-align: left; }
+  th { background: var(--card); }
+
+  /* diagram primitives */
+  .diagram { margin: 1.2rem 0; }
+  .row { display: flex; gap: .6rem; align-items: stretch; flex-wrap: wrap; }
+  .box { border: 1px solid var(--line); border-radius: 8px; padding: .55rem .7rem;
+         background: var(--card); font-size: .84rem; flex: 1 1 0; min-width: 8.5rem; }
+  .box .t { font-weight: 600; font-size: .78rem; color: var(--muted);
+            text-transform: uppercase; letter-spacing: .03em; margin-bottom: .3rem; }
+  .arrow { display: flex; align-items: center; justify-content: center;
+           color: var(--muted); font-size: 1.3rem; padding: .2rem 0; }
+  .pill { display: inline-block; border-radius: 999px; padding: .08em .55em;
+          font-size: .76rem; border: 1px solid var(--line); }
+  .pill.v { color: var(--good); border-color: var(--good); }
+  .pill.m { color: var(--warn); border-color: var(--warn); }
+  .pill.x { color: var(--bad); border-color: var(--bad); }
+
+  /* micro-world */
+  .sim { border: 1px solid var(--line); border-radius: 10px; padding: 1rem;
+         background: var(--card); }
+  .sim .days { display: grid; grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+               gap: .5rem; margin: .8rem 0; }
+  .day { border: 1px solid var(--line); border-radius: 8px; padding: .5rem;
+         background: var(--bg); }
+  .day h4 { margin: 0 0 .35rem; font-size: .8rem; color: var(--muted); }
+  .day .slot { font-size: .74rem; margin: .12rem 0; }
+  .btnrow { display: flex; gap: .3rem; margin-top: .35rem; flex-wrap: wrap; }
+  button { font: inherit; font-size: .78rem; padding: .2rem .5rem; cursor: pointer;
+           border: 1px solid var(--line); border-radius: 6px;
+           background: var(--bg); color: var(--fg); }
+  button:hover { border-color: var(--accent); }
+  .verdict { margin-top: .8rem; padding: .7rem .9rem; border-radius: 8px;
+             background: var(--bg); border: 1px solid var(--line); font-size: .9rem; }
+  .big { font-size: 1.5rem; font-weight: 700; }
+
+  /* quiz */
+  .q { margin: 1.4rem 0; }
+  .q .stem { font-weight: 600; margin-bottom: .5rem; }
+  .opt { display: block; width: 100%; text-align: left; margin: .3rem 0;
+         padding: .5rem .7rem; border-radius: 8px; border: 1px solid var(--line);
+         background: var(--bg); color: var(--fg); cursor: pointer; font-size: .9rem; }
+  .opt:disabled { cursor: default; }
+  .opt.correct { border-color: var(--good); background: color-mix(in srgb, var(--good) 12%, var(--bg)); }
+  .opt.wrong { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, var(--bg)); }
+  .rat { font-size: .85rem; color: var(--muted); margin: .4rem 0 0; display: none; }
+  .rat.show { display: block; }
+  #score { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>Multiple workouts per day, the sync that never ran, and a ban on silence</h1>
+<p class="sub">
+  <code>feat/check-phone-runnerup-and-tray</code> · 3 commits · 62 files ·
+  +2719 / −777 · 2026-07-17
+</p>
+
+<nav class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#background">Background — what this thing is</a></li>
+    <li><a href="#intuition">Intuition — one slot per day</a></li>
+    <li><a href="#code">Code — the change, by concern</a></li>
+    <li><a href="#quiz">Quiz</a></li>
+  </ol>
+</nav>
+
+<h2 id="background">1. Background — what this thing is</h2>
+
+<p>
+  <strong>screen-locker</strong> is a discipline tool. A systemd user service runs
+  <code>python -m screen_locker.screen_lock --production</code> at login and again
+  from a timer at 08:30/09:05. If you haven't earned your workout, it throws a
+  fullscreen Tk window over everything until you do. If you have, it calls
+  <code>sys.exit(0)</code> and you never see it. That's why "the locker isn't
+  running" is usually the <em>healthy</em> state, not a fault.
+</p>
+
+<p>
+  It decides using <code>screen_locker/workout_log.json</code> — a gitignored,
+  HMAC-signed file. Each entry is signed with a key shared across screen-locker,
+  diet_guard and wake_alarm, so the log can't be quietly hand-edited to fake a
+  workout. Two things read it constantly: <code>has_weekly_minimum()</code>
+  (fire the lock or not?) and the reward path (how late may the PC stay on
+  tonight?).
+</p>
+
+<p>
+  A workout gets in three ways. <span class="pill v">phone_verified</span> — a
+  StrongLifts session pulled off the phone. <span class="pill v">runnerup_verified</span>
+  — a real run, parsed from the actual TCX file that RunnerUp writes to
+  <code>/sdcard/Documents/RunnerUp/</code> and pulled over ADB. And
+  <span class="pill m">manual_workout</span> — a self-reported evidence form
+  (squash, table tennis), rate-limited by a budget because nothing verifies it.
+  That distinction — machine-checked versus self-reported — is the hinge the
+  whole change turns on.
+</p>
+
+<p>
+  There's also a companion Flutter app on the phone, and a shared GitHub repo
+  (<code>kuhyx/syncs</code>) holding a small CRDT log per device, so the two
+  machines can agree on what happened.
+</p>
+
+<h3>The shape that caused everything</h3>
+
+<p>
+  <code>workout_log.json</code> was <strong>keyed by date, one entry per day</strong>.
+  The writer said so in as many words, and did exactly that:
+</p>
+
+<div class="codewrap"><pre><span class="muted"># _log_mixin.py — before</span>
+"""...The log is day-keyed: one entry per date."""
+logs[date] = entry          <span class="del"># a second workout that day OVERWRITES the first</span></pre></div>
+
+<p>
+  So the file physically could not hold two workouts on one day. Everything
+  downstream inherited that: <code>count_weekly_workouts</code> iterated the date
+  keys, so "4 workouts a week" and "4 <em>days</em> a week" were the same
+  sentence. Nobody had to choose between them, because the data model had
+  already chosen.
+</p>
+
+<h2 id="intuition">2. Intuition — one slot per day</h2>
+
+<p>
+  The trigger was mundane. On Monday 13 July, kuhy played squash <em>and</em> went
+  for a 9.8&nbsp;km run. He logged the squash by hand. The run — a real, verified,
+  TCX-backed run — had nowhere to go. The day already had its slot.
+</p>
+
+<div class="diagram">
+  <div class="row">
+    <div class="box">
+      <div class="t">Before — one slot</div>
+      <div>2026-07-13 →</div>
+      <div style="margin-top:.3rem"><span class="pill m">squash (manual)</span></div>
+      <div style="margin-top:.4rem; color:var(--bad); font-size:.8rem">
+        the 9.8 km run would <strong>overwrite</strong> this
+      </div>
+    </div>
+    <div class="box">
+      <div class="t">After — a list</div>
+      <div>2026-07-13 → [</div>
+      <div style="margin-top:.3rem">
+        <span class="pill m">squash</span> <span class="pill v">run 9.8 km</span>
+      </div>
+      <div>]</div>
+      <div style="margin-top:.4rem; color:var(--good); font-size:.8rem">
+        both kept, both counted
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>The trap: a list alone is a cheat code</h3>
+
+<p>
+  Letting a day hold many workouts sounds harmless until you notice what the
+  lock is <em>for</em>. If every entry counted, you could type four
+  <span class="pill m">manual</span> entries on a Monday morning, satisfy "4
+  workouts this week", and never be locked again until Sunday. The whole tool
+  would be an honour system with extra steps.
+</p>
+
+<p>
+  So the rule isn't "count workouts". It's <strong>count what can't be
+  faked</strong>:
+</p>
+
+<div class="card note">
+  <strong>The weekly rule.</strong> Each <span class="pill v">verified</span>
+  workout counts <em>individually</em> — several in one day all count, because a
+  TCX file and a StrongLifts session are machine-checked.
+  <span class="pill m">manual</span> entries count <strong>at most once per
+  day</strong>, however many you write. Self-reports can't inflate the total.
+</div>
+
+<p>
+  Play with it. Add workouts and watch the count and the lock:
+</p>
+
+<div class="sim diagram" id="sim">
+  <div style="font-size:.85rem; color:var(--muted)">
+    A week (Mon–Thu shown). Weekly minimum is <strong>4</strong>.
+  </div>
+  <div class="days" id="days"></div>
+  <div class="btnrow">
+    <button id="reset">Reset</button>
+    <button id="preset-real">Preset: kuhy's Jul 13</button>
+    <button id="preset-cheat">Preset: the 4-manual cheat</button>
+  </div>
+  <div class="verdict" id="verdict"></div>
+</div>
+
+<h3>The second trap: the same workout, twice</h3>
+
+<p>
+  Once a day can hold many workouts, "is this one already here?" stops being
+  free. Every entry now carries a <code>workout_id</code> — deliberately the
+  <em>same string</em> the sync layer uses as its record id, so a workout logged
+  on the PC and the same workout arriving from the phone collapse to one row
+  instead of two.
+</p>
+
+<div class="diagram">
+  <div class="row">
+    <div class="box">
+      <div class="t">manual</div>
+      <code>manual:2026-07-13T14:00</code>
+      <div style="font-size:.78rem;color:var(--muted);margin-top:.3rem">date + start time</div>
+    </div>
+    <div class="box">
+      <div class="t">runnerup</div>
+      <code>runnerup_verified:2026-07-13</code>
+      <div style="font-size:.78rem;color:var(--muted);margin-top:.3rem">type + date</div>
+    </div>
+    <div class="box">
+      <div class="t">phone session</div>
+      <code>startTime.toIso8601String()</code>
+      <div style="font-size:.78rem;color:var(--muted);margin-top:.3rem">minted by the app</div>
+    </div>
+  </div>
+</div>
+
+<h3>The sync had never worked. Not once.</h3>
+
+<p>
+  While fixing the above, a second thing surfaced. The PC was supposed to
+  publish its workouts so the phone could see them. It never had —
+  <code>screen-locker-sync/</code> in the repo contained a single
+  <code>.gitkeep</code>. Two independent reasons:
+</p>
+
+<ol>
+  <li>
+    <strong>No token.</strong> <code>push_pc_manuals()</code> opened with
+    <code>if token is None: return</code> — a bare return, no log line. The PAT
+    had been saved to the wrong app's config directory. The code knew and said
+    nothing.
+  </li>
+  <li>
+    <strong>A side-store.</strong> It pushed from <code>manual_sync_log.json</code>,
+    written only at log-time. So anything recorded before that feature existed —
+    like the squash — could never publish, no matter how many times it ran.
+  </li>
+</ol>
+
+<p>
+  The fix for (2) also fixes a category error: <em>derive the push from
+  <code>workout_log.json</code> itself</em>. The log is the truth; the sync is a
+  projection of it. Then history publishes automatically, forever, with no
+  second place to fall out of date.
+</p>
+
+<h3>Why silence was the real bug</h3>
+
+<p>
+  Notice the shape of the failure. Not a crash — a <code>return []</code>. During
+  the debugging session, <code>pull_all_manual_records()</code> returned
+  <code>0</code> and it was <strong>impossible to tell</strong> whether the repo
+  was empty or the call had failed, because the token guard was silent and real
+  errors logged at <code>INFO</code>. The answer only came from bypassing the
+  function and hitting the API by hand.
+</p>
+
+<div class="card badbox">
+  <strong>An invisible log is a silent failure with extra steps.</strong> That's
+  now a rule with teeth: <code>scripts/check_silent_failures.py</code>, a
+  pre-commit hook. Every <code>except</code> must re-raise or log at
+  <code>warning</code>+. It found <strong>27 violations across 16 modules</strong>
+  on its first run — and flagged its own source file too.
+</div>
+
+<p>
+  Worth knowing why a custom AST rule was needed at all: ruff already runs with
+  <code>select = ["ALL"]</code>, so <code>S110</code> (<code>except: pass</code>)
+  was <em>already</em> enforced — and the codebase had none. The lethal pattern
+  wasn't <code>pass</code>. It was <code>except: log.info(...); return []</code>,
+  which <em>looks</em> handled and no ruff rule catches.
+</p>
+
+<h2 id="code">3. Code — the change, by concern</h2>
+
+<h3>3.1 One reader, two shapes</h3>
+
+<p>
+  A new dependency-free module is the single place that reads the file. Old and
+  new shapes both load, so a half-migrated file — or a rolled-back writer — is
+  never a crash. Crucially, wrapping a legacy dict in a list leaves the
+  <em>signed bytes untouched</em>, so every existing HMAC still verifies with
+  zero re-signing.
+</p>
+
+<div class="codewrap"><pre><span class="add">+ # screen_locker/_log_io.py  (new)</span>
++ def load_workout_log(log_file) -> dict[str, list[dict]]:
++     normalized = {}
++     for date, value in read_raw_log(log_file).items():
++         if isinstance(value, list):
++             normalized[date] = [e for e in value if isinstance(e, dict)]
++         elif isinstance(value, dict):
++             normalized[date] = [value]      # legacy: wrap, don't rewrite
++     return normalized</pre></div>
+
+<h3>3.2 One writer, which appends and dedups</h3>
+
+<p>
+  The overwrite becomes an append behind a single chokepoint that returns a
+  result instead of <code>None</code> — so the caller can tell a genuinely new
+  workout from a duplicate, and scale the reward accordingly.
+</p>
+
+<div class="codewrap"><pre><span class="del">- logs[date] = entry                       # overwrite</span>
+<span class="add">+ workout_id = _derive_workout_id(date, workout_data)
++ if workout_id is not None and any(
++     _entry_workout_id(date, e) == workout_id for e in entries
++ ):
++     return RecordResult(appended=False, prior_entries=prior)
++ entries.append(entry)
++ return RecordResult(appended=True, prior_entries=prior)</span></pre></div>
+
+<div class="card warnbox">
+  <strong>This bit was written twice.</strong> The first version compared
+  <code>e.get("workout_id")</code> directly. Legacy entries predate that field,
+  so theirs is <code>None</code> — un-matchable. The moment the PC started
+  publishing history, the 08:30 timer ingested the squash back and appended a
+  <em>second</em> copy of it. It had been dismissed in the plan as a "known
+  minor, accepted" risk; it fired within the hour, on real data.
+  <code>_entry_workout_id()</code> now <em>derives</em> an existing entry's id
+  when it has none, so a legacy row matches its own synced twin.
+</div>
+
+<h3>3.3 The counting rule</h3>
+
+<p>
+  The anti-gaming asymmetry from section 2, in the one function that both the
+  lock and the banked bonus consult:
+</p>
+
+<div class="codewrap"><pre>for date_str, entries in load_workout_log(log_file).items():
+    ...
+    has_manual = False
+    for entry in entries:
+        wtype = entry.get("workout_data", {}).get("type", "")
+        if wtype in VERIFIED_WORKOUT_TYPES:
+            count += 1              <span class="add"># each verified workout counts</span>
+        elif wtype == MANUAL_WORKOUT_TYPE:
+            has_manual = True
+    if has_manual:
+        count += 1                  <span class="add"># all of a day's manuals count as one</span></pre></div>
+
+<h3>3.4 The reward, with two guards</h3>
+
+<p>
+  <code>_apply_workout_credit</code> now scales to the day: the first counted
+  workout earns the base <strong>+2h</strong>; an <em>additional same-day
+  verified</em> one earns <strong>+1h</strong>; an additional manual earns
+  nothing. The old "+1h when <code>weekly_count &gt; 4</code>" gate was removed —
+  weekly volume is the banked bonus's job, and paying for it twice was the bug
+  hiding in plain sight. The credit fires only if the write actually appended
+  (<em>id guard</em>) and the entry is dated today (<em>date guard</em>) — so a
+  back-dated backfill raises the count but never pushes tonight's shutdown.
+</p>
+
+<p>
+  The tests caught a real defect here: the unlock screen still labelled the +1h
+  <code>#{weekly_count - 4}</code>, which under the new rule can render
+  <em>negative</em>.
+</p>
+
+<h3>3.5 The sync, derived from the log</h3>
+
+<p>
+  Record id = the workout's own <code>workout_id</code>. HLC = derived from the
+  entry's own timestamp — which makes a re-push <em>byte-identical</em>, so the
+  repo never churns. That determinism is what lets the push run on every startup
+  without turning the sync repo into a commit firehose.
+</p>
+
+<div class="codewrap"><pre><span class="add">+ hlc = Hlc.new_tick(_PC_DEVICE_ID, wall_time_ms=_entry_wall_ms(entry, date))
++ log[record_id] = Record(id=record_id, fields={_PAYLOAD_FIELD: (payload, hlc)})</span></pre></div>
+
+<p>
+  And nothing about it is silent any more:
+</p>
+
+<div class="codewrap"><pre><span class="add">+ @dataclass(frozen=True)
++ class PushResult:
++     pushed: bool
++     record_count: int
++     reason: str        # always a sentence a human can act on</span></pre></div>
+
+<h3>3.6 Two recoveries, one pattern</h3>
+
+<p>
+  The phone kept a Keystore token and mirrored it to
+  <code>/sdcard</code> — but <code>load()</code> only consulted the mirror when
+  the Keystore was <strong>empty</strong>, never when its token was
+  present-but-<em>rejected</em>. A stale entry could shadow a good backup forever
+  while the UI insisted all was well. Now a 401 triggers one retry from the
+  mirror before anyone is asked to re-authorize.
+</p>
+
+<p>
+  The same pattern then closed a sharper hole. <code>active_session</code> — which
+  set you're on, and the reps done — lived only in app-private SQLite. A
+  <code>pm clear</code> wiped it <em>mid-workout</em>, and <code>backup.json</code>
+  didn't help because it mirrors only <em>completed</em> history. The state had to
+  be re-entered by hand. The persistence granularity was already right (it saves
+  on every set tap); only the <em>location</em> was wrong.
+</p>
+
+<div class="diagram">
+  <div class="row">
+    <div class="box">
+      <div class="t">app-private (wiped)</div>
+      SQLite <code>active_session</code><br>
+      Keystore <code>sync.token</code>
+    </div>
+    <div class="arrow">→</div>
+    <div class="box">
+      <div class="t">/sdcard (survives)</div>
+      <code>active_session.json</code><br>
+      <code>sync_token</code><br>
+      <code>backup.json</code>
+    </div>
+  </div>
+  <p style="font-size:.82rem;color:var(--muted);margin:.5rem 0 0">
+    On launch, an empty table re-seeds itself from the mirror. Set 4 of the
+    Romanian Deadlift, reps <code>[8,8,8,8]</code>, survives an uninstall.
+  </p>
+</div>
+
+<h3>3.7 The rule that outlives the fix</h3>
+
+<div class="codewrap"><pre><span class="add">+ # scripts/check_silent_failures.py — pre-commit hook `no-silent-failures`
++ def _handler_is_loud(handler) -> bool:
++     """True if the handler re-raises or logs loudly about the failure."""
++     return any(
++         isinstance(node, ast.Raise) or _is_loud_log_call(node)
++         for node in ast.walk(handler)
++     )</span></pre></div>
+
+<p>
+  There's deliberately no escape hatch, because <code>noqa</code> is banned
+  repo-wide. Two ironies for the record: the checker's own docstring contained
+  the literal string <code>#&nbsp;noqa</code> and tripped the noqa-blocker, and
+  <code>_log_io.py</code> — written for this very change — violated the new rule.
+  Both were invisible while untracked, since <code>git ls-files</code> hides
+  untracked files from the hooks, and only surfaced once committed.
+</p>
+
+<h2 id="quiz">4. Quiz</h2>
+<p style="color:var(--muted);font-size:.9rem">
+  Five questions on the reasoning. Score: <span id="score">0 / 0</span>
+</p>
+<div id="quiz"></div>
+
+<script>
+/* ---------------- micro-world: the weekly counting rule ---------------- */
+(function () {
+  const DAYS = ["Mon 13", "Tue 14", "Wed 15", "Thu 16"];
+  const MIN = 4;
+  let state = DAYS.map(() => ({ verified: 0, manual: 0 }));
+
+  const daysEl = document.getElementById("days");
+  const verdictEl = document.getElementById("verdict");
+
+  function count() {
+    // Mirrors count_weekly_workouts: each verified counts; manuals cap at 1/day.
+    return state.reduce((n, d) => n + d.verified + (d.manual > 0 ? 1 : 0), 0);
+  }
+
+  function render() {
+    daysEl.innerHTML = "";
+    state.forEach((d, i) => {
+      const el = document.createElement("div");
+      el.className = "day";
+      const contrib = d.verified + (d.manual > 0 ? 1 : 0);
+      el.innerHTML =
+        "<h4>" + DAYS[i] + "</h4>" +
+        '<div class="slot"><span class="pill v">verified</span> ' + d.verified + "</div>" +
+        '<div class="slot"><span class="pill m">manual</span> ' + d.manual +
+          (d.manual > 1 ? ' <span style="color:var(--warn)">(capped)</span>' : "") + "</div>" +
+        '<div class="slot" style="margin-top:.3rem;color:var(--muted)">counts: <strong>' +
+          contrib + "</strong></div>";
+      const row = document.createElement("div");
+      row.className = "btnrow";
+      const bv = document.createElement("button");
+      bv.textContent = "+ verified";
+      bv.onclick = () => { state[i].verified++; render(); };
+      const bm = document.createElement("button");
+      bm.textContent = "+ manual";
+      bm.onclick = () => { state[i].manual++; render(); };
+      row.append(bv, bm);
+      el.append(row);
+      daysEl.append(el);
+    });
+
+    const n = count();
+    const locked = n < MIN;
+    verdictEl.innerHTML =
+      '<div>weekly count: <span class="big">' + n + "</span> / " + MIN + "</div>" +
+      '<div style="margin-top:.4rem">lock this week: ' +
+        (locked
+          ? '<span class="pill x">FIRES</span>'
+          : '<span class="pill v">skipped — minimum met</span>') +
+      "</div>" +
+      '<div style="margin-top:.4rem;font-size:.84rem;color:var(--muted)">' +
+        "Each verified workout adds 1. All of a day's manual entries add 1 between them." +
+      "</div>";
+  }
+
+  document.getElementById("reset").onclick = () => {
+    state = DAYS.map(() => ({ verified: 0, manual: 0 })); render();
+  };
+  document.getElementById("preset-real").onclick = () => {
+    // Jul 13: squash (manual) + the 9.8 km run (verified) => that day counts 2.
+    state = DAYS.map(() => ({ verified: 0, manual: 0 }));
+    state[0] = { verified: 1, manual: 1 };
+    render();
+  };
+  document.getElementById("preset-cheat").onclick = () => {
+    // Four self-reports on one morning: the whole point of the cap.
+    state = DAYS.map(() => ({ verified: 0, manual: 0 }));
+    state[0] = { verified: 0, manual: 4 };
+    render();
+  };
+  render();
+})();
+
+/* ---------------- quiz ---------------- */
+(function () {
+  const QS = [
+    {
+      stem: "The log moved from {date: entry} to {date: [entry]}. Why does load_workout_log wrap legacy dict values on read instead of rewriting the file up front?",
+      opts: [
+        "A rewrite needs the HMAC key, which is not always available at read time.",
+        "Wrapping leaves each entry's signed bytes untouched, so old HMACs verify.",
+        "The file is gitignored, so a rewrite would be lost on the next checkout.",
+        "SQLite locks the file during reads, so an in-place rewrite may corrupt it."
+      ],
+      correct: 1,
+      rat: "Wrapping never changes the bytes compute_entry_hmac signed, so zero re-signing is needed."
+    },
+    {
+      stem: "A single day holds 2 verified workouts and 3 manual ones. What does that day contribute to the weekly count?",
+      opts: [
+        "5 — every counted workout counts on its own, as multi/day implies.",
+        "2 — only machine-verified workouts count toward the weekly total.",
+        "3 — each verified counts; the manual entries count once in total.",
+        "1 — the day contributes exactly one, matching the old day-based rule."
+      ],
+      correct: 2,
+      rat: "Verified workouts stack (2); all of a day's manual entries collapse to a single 1."
+    },
+    {
+      stem: "Why is each pushed record's HLC derived from the entry's own timestamp rather than the current clock?",
+      opts: [
+        "It stops the phone's clock from overriding the PC on same-day workouts.",
+        "GitHub rejects records whose clock is newer than the commit timestamp.",
+        "Re-pushing an unchanged log yields identical records, so no churn.",
+        "crdt_sync requires a wall_time_ms whenever a node id is also supplied."
+      ],
+      correct: 2,
+      rat: "Determinism makes the push idempotent, so running it on every startup never spams the repo."
+    },
+    {
+      stem: "The new hook flags silent except handlers. Why did `if token is None: return []` still need fixing by hand?",
+      opts: [
+        "It is a guard clause, not an except handler, so the AST rule never sees it.",
+        "The rule ignores functions whose return type is a list rather than a result.",
+        "The checker skips files that were untracked when the hook last ran on them.",
+        "ruff's S110 already covers it, so the custom checker deliberately skips it."
+      ],
+      correct: 0,
+      rat: "The checker walks ast.ExceptHandler nodes; a bare guard return is invisible to it."
+    },
+    {
+      stem: "After the PC began publishing history, the Jul 13 squash appeared twice. What went wrong?",
+      opts: [
+        "The push minted a fresh workout_id each run, so the dedup never matched.",
+        "The legacy entry stored no workout_id, so the id comparison found no match.",
+        "The 08:30 timer ran ingest twice and the second run raced the first write.",
+        "The manual-sync ingest skipped its record-id check for pre-migration rows."
+      ],
+      correct: 1,
+      rat: "Its stored id was None, so it could not match its own synced copy — the id is now derived."
+    }
+  ];
+
+  const quizEl = document.getElementById("quiz");
+  const scoreEl = document.getElementById("score");
+  let answered = 0, right = 0;
+
+  QS.forEach((q, qi) => {
+    const wrap = document.createElement("div");
+    wrap.className = "q";
+    const stem = document.createElement("div");
+    stem.className = "stem";
+    stem.textContent = (qi + 1) + ". " + q.stem;
+    wrap.append(stem);
+
+    const rat = document.createElement("p");
+    rat.className = "rat";
+
+    q.opts.forEach((text, oi) => {
+      const b = document.createElement("button");
+      b.className = "opt";
+      b.textContent = text;
+      b.onclick = () => {
+        if (wrap.dataset.done) return;
+        wrap.dataset.done = "1";
+        answered++;
+        if (oi === q.correct) right++;
+        wrap.querySelectorAll(".opt").forEach((o, i) => {
+          o.disabled = true;
+          if (i === q.correct) o.classList.add("correct");
+          else if (i === oi) o.classList.add("wrong");
+        });
+        rat.textContent = (oi === q.correct ? "Correct. " : "Not quite. ") + q.rat;
+        rat.classList.add("show");
+        scoreEl.textContent = right + " / " + answered;
+      };
+      wrap.append(b);
+    });
+    wrap.append(rat);
+    quizEl.append(wrap);
+  });
+})();
+</script>
+</body>
+</html>
