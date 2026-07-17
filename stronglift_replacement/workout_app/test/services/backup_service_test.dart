@@ -101,4 +101,37 @@ void main() {
     asDir.createSync();
     expect(await BackupService.instance.readSyncToken(), isNull);
   });
+
+  test('exportActiveSession then readActiveSession round-trips', () async {
+    await BackupService.instance.exportActiveSession({
+      'workoutType': 'B',
+      'doneReps': [
+        [5, 4],
+      ],
+    });
+    final got = await BackupService.instance.readActiveSession();
+    expect(got!['workoutType'], 'B');
+    expect((got['doneReps'] as List).first, [5, 4]);
+  });
+
+  test('readActiveSession returns null when nothing was exported', () async {
+    expect(await BackupService.instance.readActiveSession(), isNull);
+  });
+
+  test('exportActiveSession(null) deletes the mirror', () async {
+    await BackupService.instance.exportActiveSession({'workoutType': 'A'});
+    await BackupService.instance.exportActiveSession(null);
+    expect(await BackupService.instance.readActiveSession(), isNull);
+  });
+
+  test('a corrupt mirror is ignored, not thrown', () async {
+    // A truncated write (battery death mid-set) must not brick the resume.
+    File('${tempDir.path}/active_session.json').writeAsStringSync('{not json');
+    expect(await BackupService.instance.readActiveSession(), isNull);
+  });
+
+  test('a non-object mirror is ignored', () async {
+    File('${tempDir.path}/active_session.json').writeAsStringSync('[1,2]');
+    expect(await BackupService.instance.readActiveSession(), isNull);
+  });
 }

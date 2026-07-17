@@ -53,6 +53,59 @@ void main() {
       expect(loaded!['workoutType'], 'A');
     });
 
+    test('survives a full app-data wipe via the external mirror', () async {
+      // Regression: `pm clear` (or an uninstall) wipes app-private SQLite,
+      // which is where active_session lives — the user lost the exact set and
+      // reps they were standing on mid-workout. The mirror must bring it back.
+      final tmp = Directory.systemTemp.createTempSync('mw_active_wipe');
+      BackupService.baseDirForTesting = tmp.path;
+      addTearDown(() {
+        BackupService.baseDirForTesting = kBackupDir;
+        tmp.deleteSync(recursive: true);
+      });
+
+      await _svc.saveActiveSession({
+        'workoutType': 'B',
+        'tapped': [
+          [true, true, false],
+        ],
+        'doneReps': [
+          [5, 4, 0],
+        ],
+      });
+      // Give the unawaited mirror write a turn to land.
+      await Future<void>.delayed(Duration.zero);
+
+      // Simulate the wipe: app-private DB gone, external mirror untouched.
+      StorageService.resetForTesting();
+      await StorageService.init();
+
+      final recovered = await _svc.loadActiveSession();
+      expect(recovered, isNotNull, reason: 'the in-progress set must survive');
+      expect(recovered!['workoutType'], 'B');
+      expect((recovered['doneReps'] as List).first, [5, 4, 0]);
+      // And it re-seeded the table, so the next read needs no mirror.
+      expect(await _svc.loadActiveSession(), isNotNull);
+    });
+
+    test('clearActiveSession also clears the mirror', () async {
+      // Otherwise a finished workout would be resurrected on next launch.
+      final tmp = Directory.systemTemp.createTempSync('mw_active_clear');
+      BackupService.baseDirForTesting = tmp.path;
+      addTearDown(() {
+        BackupService.baseDirForTesting = kBackupDir;
+        tmp.deleteSync(recursive: true);
+      });
+
+      await _svc.saveActiveSession({'workoutType': 'A'});
+      await Future<void>.delayed(Duration.zero);
+      await _svc.clearActiveSession();
+
+      StorageService.resetForTesting();
+      await StorageService.init();
+      expect(await _svc.loadActiveSession(), isNull);
+    });
+
     test('saveActiveSession replaces previous entry', () async {
       await _svc.saveActiveSession({'v': 1});
       await _svc.saveActiveSession({'v': 2});

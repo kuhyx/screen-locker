@@ -26,6 +26,14 @@ const String kBackupPath = '$kBackupDir/backup.json';
 /// Path where the GitHub sync token is mirrored on external storage.
 const String kSyncTokenBackupPath = '$kBackupDir/sync_token';
 
+/// Path where the IN-PROGRESS session is mirrored on external storage.
+///
+/// The active session (which set you are on, and the reps done so far) lives
+/// in app-private SQLite, which an uninstall or `pm clear` wipes — losing the
+/// workout you are standing in the middle of. Mirroring it here means even a
+/// full app-data wipe resumes on the exact set and rep.
+const String kActiveSessionBackupPath = '$kBackupDir/active_session.json';
+
 /// Handles exporting and importing the workout database (and the GitHub
 /// sync token) as files on external storage, which persist across app
 /// uninstalls.
@@ -52,6 +60,8 @@ class BackupService {
 
   String get _backupPath => '$_baseDir/backup.json';
   String get _syncTokenPath => '$_baseDir/sync_token';
+
+  String get _activeSessionPath => '$_baseDir/active_session.json';
 
   // ── Permission ─────────────────────────────────────────────────────────────
 
@@ -127,6 +137,40 @@ class BackupService {
       await f.writeAsString(token);
     } on Exception {
       // Backup is best-effort; never throw.
+    }
+  }
+
+  /// Mirrors the IN-PROGRESS session (or clears it when [data] is null).
+  ///
+  /// Best-effort like [export]. Called on every set/rep change, so a wipe of
+  /// app-private storage — an uninstall, or `pm clear` — no longer costs the
+  /// user the workout they are standing in the middle of.
+  Future<void> exportActiveSession(Map<String, dynamic>? data) async {
+    try {
+      final f = File(_activeSessionPath);
+      if (data == null) {
+        if (f.existsSync()) await f.delete();
+        return;
+      }
+      final dir = Directory(_baseDir);
+      if (!dir.existsSync()) {
+        dir.createSync(recursive: true);
+      }
+      await f.writeAsString(jsonEncode(data));
+    } on Exception {
+      // Backup is best-effort; never throw mid-workout.
+    }
+  }
+
+  /// Returns the mirrored in-progress session, or null if none / unreadable.
+  Future<Map<String, dynamic>?> readActiveSession() async {
+    try {
+      final f = File(_activeSessionPath);
+      if (!f.existsSync()) return null;
+      final decoded = jsonDecode(await f.readAsString());
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } on Exception {
+      return null;
     }
   }
 

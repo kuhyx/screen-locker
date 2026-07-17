@@ -223,24 +223,46 @@ class StorageService {
   // ── Active session (crash / exit recovery) ─────────────────────────────────
 
   /// Persists [data] as the currently active (in-progress) session.
+  ///
+  /// Also mirrored to external storage: this table is app-private, so an
+  /// uninstall or `pm clear` wipes it and the user loses the set they are
+  /// standing on. The mirror survives both.
   Future<void> saveActiveSession(Map<String, dynamic> data) async {
     await _db.insert(
       'active_session',
       {'id': 1, 'json': jsonEncode(data)},
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    unawaited(BackupService.instance.exportActiveSession(data));
   }
 
   /// Returns the saved active session, or null if none exists.
+  ///
+  /// Falls back to the external mirror (re-seeding the table from it) when the
+  /// table is empty — which is exactly the state right after an app-data wipe,
+  /// so the workout resumes on the same set and rep instead of vanishing.
   Future<Map<String, dynamic>?> loadActiveSession() async {
     final rows = await _db.query('active_session', where: 'id = 1');
-    if (rows.isEmpty) return null;
-    return jsonDecode(rows.first['json']! as String) as Map<String, dynamic>;
+    if (rows.isNotEmpty) {
+      return jsonDecode(rows.first['json']! as String) as Map<String, dynamic>;
+    }
+    final mirrored = await BackupService.instance.readActiveSession();
+    if (mirrored == null) return null;
+    await _db.insert(
+      'active_session',
+      {'id': 1, 'json': jsonEncode(mirrored)},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    return mirrored;
   }
 
   /// Removes the active session record (called after a session is committed).
+  ///
+  /// Clears the external mirror too, so a finished workout cannot be
+  /// resurrected by the next [loadActiveSession].
   Future<void> clearActiveSession() async {
     await _db.delete('active_session', where: 'id = 1');
+    await BackupService.instance.exportActiveSession(null);
   }
 
   // ── Exercise state ─────────────────────────────────────────────────────────
