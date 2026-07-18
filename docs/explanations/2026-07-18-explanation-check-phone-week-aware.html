@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Check Phone learns to look backward, and forgives shaky GPS</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1a1a1a; --muted: #5b6470; --line: #e2e6ea;
+    --card: #f6f8fa; --accent: #0b6bcb; --good: #1a7f37; --bad: #b42318;
+    --warn: #9a6700; --code: #f2f4f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a; --fg: #e6e9ec; --muted: #9aa4b0; --line: #2b3138;
+      --card: #1b1f24; --accent: #6cb6ff; --good: #4ac26b; --bad: #ff7b72;
+      --warn: #d4a72c; --code: #1e2329;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0 auto; padding: 2rem 1rem 5rem; max-width: min(48rem, 92vw);
+    background: var(--bg); color: var(--fg); line-height: 1.65;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+  }
+  h1 { font-size: 1.9rem; line-height: 1.25; margin: 0 0 .4rem; }
+  h2 { font-size: 1.4rem; margin: 2.6rem 0 .8rem; padding-top: .6rem;
+       border-top: 1px solid var(--line); }
+  h3 { font-size: 1.08rem; margin: 1.6rem 0 .5rem; }
+  .sub { color: var(--muted); margin: 0 0 1.5rem; }
+  a { color: var(--accent); }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  code { background: var(--code); padding: .12em .35em; border-radius: 4px;
+         font-size: .88em; }
+  .codewrap { overflow-x: auto; background: var(--code); border: 1px solid var(--line);
+              border-radius: 8px; margin: .8rem 0; }
+  pre { margin: 0; padding: .85rem 1rem; white-space: pre-wrap; overflow-x: auto;
+        font-size: .84rem; line-height: 1.5; }
+  .add { color: var(--good); }
+  .del { color: var(--bad); }
+  nav.toc { background: var(--card); border: 1px solid var(--line);
+            border-radius: 10px; padding: .9rem 1.1rem; margin: 1.5rem 0 2rem; }
+  nav.toc ol { margin: .4rem 0 0; padding-left: 1.2rem; }
+  nav.toc li { margin: .25rem 0; }
+  .card { background: var(--card); border: 1px solid var(--line);
+          border-radius: 10px; padding: 1rem 1.1rem; margin: 1.2rem 0; }
+  .note { border-left: 3px solid var(--accent); }
+  .warnbox { border-left: 3px solid var(--warn); }
+  .badbox { border-left: 3px solid var(--bad); }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  .tablewrap { overflow-x: auto; margin: 1rem 0; }
+  th, td { border: 1px solid var(--line); padding: .45rem .6rem; text-align: left; }
+  th { background: var(--card); }
+
+  /* diagram primitives */
+  .diagram { margin: 1.2rem 0; }
+  .row { display: flex; gap: .6rem; align-items: stretch; flex-wrap: wrap; }
+  .box { border: 1px solid var(--line); border-radius: 8px; padding: .55rem .7rem;
+         background: var(--card); font-size: .84rem; flex: 1 1 0; min-width: 8.5rem; }
+  .box .t { font-weight: 600; font-size: .78rem; color: var(--muted);
+            text-transform: uppercase; letter-spacing: .03em; margin-bottom: .3rem; }
+  .arrow { display: flex; align-items: center; justify-content: center;
+           color: var(--muted); font-size: 1.3rem; padding: .2rem 0; }
+  .down { text-align: center; color: var(--muted); font-size: 1.2rem; margin: .1rem 0; }
+  .pill { display: inline-block; border-radius: 999px; padding: .08em .55em;
+          font-size: .76rem; border: 1px solid var(--line); }
+  .pill.v { color: var(--good); border-color: var(--good); }
+  .pill.m { color: var(--warn); border-color: var(--warn); }
+  .pill.x { color: var(--bad); border-color: var(--bad); }
+
+  /* micro-world */
+  .sim { border: 1px solid var(--line); border-radius: 10px; padding: 1rem;
+         background: var(--card); }
+  .sim label { display: block; font-size: .84rem; margin: .7rem 0 .25rem; }
+  .sim .grp { border: 1px solid var(--line); border-radius: 8px; padding: .6rem .7rem;
+              background: var(--bg); margin: .6rem 0; }
+  .sim select, .sim input[type=range] { width: 100%; }
+  .rangeval { font-size: .8rem; color: var(--muted); }
+  .btnrow { display: flex; gap: .3rem; margin-top: .5rem; flex-wrap: wrap; }
+  button { font: inherit; font-size: .82rem; padding: .3rem .6rem; cursor: pointer;
+           border: 1px solid var(--line); border-radius: 6px;
+           background: var(--bg); color: var(--fg); }
+  button:hover { border-color: var(--accent); }
+  button.primary { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .trace { margin-top: .8rem; padding: .7rem .9rem; border-radius: 8px;
+           background: var(--bg); border: 1px solid var(--line); font-size: .85rem; }
+  .trace .step { padding: .35rem 0; border-bottom: 1px dashed var(--line); }
+  .trace .step:last-child { border-bottom: none; }
+  .trace .step .k { color: var(--muted); font-size: .78rem; }
+  .verdict-line { margin-top: .5rem; font-weight: 600; }
+
+  /* quiz */
+  .q { margin: 1.4rem 0; }
+  .q .stem { font-weight: 600; margin-bottom: .5rem; }
+  .opt { display: block; width: 100%; text-align: left; margin: .3rem 0;
+         padding: .5rem .7rem; border-radius: 8px; border: 1px solid var(--line);
+         background: var(--bg); color: var(--fg); cursor: pointer; font-size: .9rem; }
+  .opt:disabled { cursor: default; }
+  .opt.correct { border-color: var(--good); background: color-mix(in srgb, var(--good) 12%, var(--bg)); }
+  .opt.wrong { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, var(--bg)); }
+  .rat { font-size: .85rem; color: var(--muted); margin: .4rem 0 0; display: none; }
+  .rat.show { display: block; }
+  #score { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>Check Phone learns to look backward, and forgives shaky GPS</h1>
+<p class="sub">
+  <code>c277325</code> · 12 files · +583 / −78 · 2026-07-18
+</p>
+
+<nav class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#background">Background — what Check Phone actually checks</a></li>
+    <li><a href="#intuition">Intuition — a same-day blind spot, and a shaky GPS trace</a></li>
+    <li><a href="#code">Code — the change, by concern</a></li>
+    <li><a href="#quiz">Quiz</a></li>
+  </ol>
+</nav>
+
+<h2 id="background">1. Background — what Check Phone actually checks</h2>
+
+<p>
+  <strong>screen-locker</strong> locks the screen until a weekly workout
+  quota is met. The status window has a voluntary "Check Phone" button
+  (<code>screen_locker/_status_view_verify.py</code>,
+  <code>PhoneCheckMixin</code>) that, on click, pulls real data off your
+  Android phone over ADB and — if it verifies — logs it and applies the
+  reward. It never trusts a typed claim; it always pulls the actual file
+  first. Two sources feed it:
+</p>
+
+<div class="diagram">
+  <div class="row">
+    <div class="box">
+      <div class="t">StrongLifts</div>
+      Pulls <code>workout_result.json</code> off the phone.
+      <code>_verify_phone_workout</code> in
+      <code>_phone_verification.py</code>.
+    </div>
+    <div class="box">
+      <div class="t">RunnerUp</div>
+      Pulls the real <code>.tcx</code> file from
+      <code>/sdcard/Documents/RunnerUp/</code>.
+      <code>_verify_runnerup_workout</code> in
+      <code>_runnerup_verification.py</code>.
+    </div>
+  </div>
+</div>
+
+<p>
+  Both of those functions were written to answer one specific question:
+  <em>did you work out today?</em> They match on today's date only —
+  StrongLifts by comparing the JSON's <code>date</code> field, RunnerUp by
+  grepping filenames for today's date string. That's the right question for
+  the locked screen, which decides whether to unlock <em>right now</em>. But
+  the voluntary "Check Phone" button reused those same today-only functions,
+  even though what it's really trying to answer is broader: <em>is this
+  week's quota met?</em>
+</p>
+
+<p>
+  The quota itself, from <code>_weekly_check.py</code>, follows an
+  anti-gaming rule established in the previous change to this repo: each
+  <span class="pill v">verified</span> workout (StrongLifts or RunnerUp)
+  counts individually, however many happen on one day, because they're
+  machine-checked and can't be faked. A <span class="pill m">manual</span>
+  self-report counts at most once per day. The weekly minimum is 4.
+</p>
+
+<p>
+  A week-aware scanner for RunnerUp already existed —
+  <code>_scan_and_fill_week_runnerup</code> walks every day from Monday to
+  today, and for each one still ADB-pulls and validates the real TCX file
+  before writing anything. It was wired into the automatic login check and
+  the <code>--status</code> CLI, but never into the "Check Phone" button.
+  Nothing equivalent existed for StrongLifts at all.
+</p>
+
+<h2 id="intuition">2. Intuition — a same-day blind spot, and a shaky GPS trace</h2>
+
+<p>
+  Here's what actually happened. Wednesday's status window connected to the
+  phone and clicked Check Phone. The phone had a real RunnerUp run from
+  <strong>yesterday</strong> — a 4.9&nbsp;km run recorded the evening before,
+  after the button's earlier check that day had already failed. The result:
+</p>
+
+<div class="card badbox">
+  <code>Phone check (not_verified): StrongLifts: Workout JSON is from
+  2026-07-17, not today · RunnerUp: No RunnerUp activity found for today</code>
+</div>
+
+<p>
+  Both messages are literally true and both are useless. There <em>is</em> a
+  real, verifiable run — the button just never looked at any date but today.
+</p>
+
+<div class="diagram">
+  <div class="row">
+    <div class="box">
+      <div class="t">Before</div>
+      StrongLifts today? no →<br>
+      RunnerUp today? no →<br>
+      <span style="color:var(--bad)">give up</span>
+    </div>
+    <div class="box">
+      <div class="t">After</div>
+      StrongLifts today? no →<br>
+      RunnerUp today? no →<br>
+      <span style="color:var(--good)">scan Mon…today for anything unlogged</span>
+    </div>
+  </div>
+</div>
+
+<p>
+  The week-scan fallback reuses the existing RunnerUp scanner and a new,
+  symmetric StrongLifts one — both still pull and validate the real file via
+  ADB, they just stop requiring the date to be <em>today</em> and instead
+  accept anything from Monday through today that isn't logged yet.
+</p>
+
+<h3>The second problem the first one uncovered</h3>
+
+<p>
+  Testing this against the real phone surfaced a second issue: that 4.9&nbsp;km
+  run should count, but <code>MIN_RUN_DISTANCE_KM</code> is 5.0. GPS traces
+  measure distance by summing straight-line hops between sampled points, so
+  tight turns, tree cover, and urban canyons make the recorded distance
+  consistently <em>shorter</em> than the run actually was. A real 5&nbsp;km run can
+  legitimately log as 4.9. So a 5% tolerance was added — applied to distance
+  only, since duration comes from the device clock and has no such noise:
+</p>
+
+<div class="diagram">
+  <div class="row">
+    <div class="box">
+      <div class="t">recorded</div>
+      <span style="font-size:1.3rem;font-weight:700">4.90&nbsp;km</span>
+    </div>
+    <div class="arrow">×1.05 →</div>
+    <div class="box">
+      <div class="t">tolerant distance</div>
+      <span style="font-size:1.3rem;font-weight:700">5.145&nbsp;km</span>
+    </div>
+    <div class="arrow">≥ 5.0 →</div>
+    <div class="box" style="border-color:var(--good)">
+      <div class="t">verified</div>
+      <span class="pill v">counts</span>
+    </div>
+  </div>
+</div>
+
+<p>
+  Play with the whole chain below — it mirrors
+  <code>_verify_phone_then_runnerup</code>'s real order: StrongLifts today,
+  then RunnerUp today, then the week-scan fallback, using the same 5%
+  distance rule at every RunnerUp step.
+</p>
+
+<div class="sim diagram" id="sim">
+  <div class="grp">
+    <label><input type="checkbox" id="sl-today"> StrongLifts JSON dated <strong>today</strong></label>
+  </div>
+  <div class="grp">
+    <label><input type="checkbox" id="ru-today"> RunnerUp TCX dated <strong>today</strong></label>
+    <label for="ru-today-km">distance (km) <span class="rangeval" id="ru-today-km-val">4.9</span></label>
+    <input type="range" id="ru-today-km" min="3" max="6" step="0.1" value="4.9">
+  </div>
+  <div class="grp">
+    <label><input type="checkbox" id="week-gap" checked> Unlogged workout earlier this week</label>
+    <label for="week-type">source</label>
+    <select id="week-type">
+      <option value="runnerup">RunnerUp run</option>
+      <option value="stronglifts">StrongLifts session</option>
+    </select>
+    <div id="week-km-wrap">
+      <label for="week-km">distance (km) <span class="rangeval" id="week-km-val">4.9</span></label>
+      <input type="range" id="week-km" min="3" max="6" step="0.1" value="4.9">
+    </div>
+  </div>
+  <div class="btnrow">
+    <button class="primary" id="run-check">Click "Check Phone"</button>
+    <button id="reset-sim">Reset</button>
+  </div>
+  <div class="trace" id="trace"></div>
+</div>
+
+<h2 id="code">3. Code — the change, by concern</h2>
+
+<h3>3.1 Splitting the date-check out of StrongLifts validation</h3>
+
+<p>
+  <code>_validate_json_data</code> used to do two jobs at once: check the
+  date, then check the exercises/duration/succeeded content. The week-scan
+  needs the second job without the first, so it was split:
+</p>
+
+<div class="codewrap"><pre><span class="add">+ def _validate_json_content(self, data: dict) -> tuple[str, str]:
++     """...no date check..."""
++     if not data.get("exercises"):
++         return "no_exercises", "No exercises found in the workout JSON"
++     ...
+
+  def _validate_json_data(self, data: dict) -> tuple[str, str]:
+      <span class="del">- today = time.strftime("%Y-%m-%d")</span>
+      <span class="del">- if data.get("date") != today: return "stale", ...</span>
+      <span class="del">- if not data.get("exercises"): ...</span>
+<span class="add">+     today = time.strftime("%Y-%m-%d")
++     if data.get("date") != today:
++         return "stale", f"Workout JSON is from {data.get('date')}, not today"
++     return self._validate_json_content(data)</span></pre></div>
+
+<p>
+  <code>_validate_json_data</code> — the live, today-only check used by the
+  locked screen's unlock chain — keeps behaving exactly as before. It's now
+  just a thin date gate in front of the shared content check.
+</p>
+
+<h3>3.2 A week-scan backfill for StrongLifts (new — nothing existed before)</h3>
+
+<p>
+  RunnerUp's <code>_scan_and_fill_week_runnerup</code> can find multiple
+  unlogged days because RunnerUp writes one <code>.tcx</code> file per
+  activity. StrongLifts only has <em>one</em> <code>workout_result.json</code>
+  snapshot on the phone at a time, so its equivalent can only ever backfill
+  one day per call — that's not a limitation of the fix, it's what the data
+  actually allows:
+</p>
+
+<div class="codewrap"><pre><span class="add">+ def _try_fill_stronglifts_for_week(self, log_file: Path) -> int:
++     if not self._has_adb_device():
++         return 0
++     data = self._pull_workout_app_json()
++     date_str = data.get("date") if data else None
++     if not date_str:
++         return 0
++     today = datetime.now(tz=timezone.utc).astimezone().date()
++     week_start = today - timedelta(days=today.weekday())
++     entry_date = date.fromisoformat(date_str)   # ValueError -> 0, logged
++     if not week_start <= entry_date <= today:
++         return 0
++     status, msg = self._validate_json_content(data)   # no date gate
++     if status != "verified":
++         return 0
++     ...
++     if write_signed_entry(log_file, date_str, workout_data).appended:
++         return 1
++     return 0</span></pre></div>
+
+<p>
+  <code>write_signed_entry</code> dedups by <code>workout_id</code> (here
+  <code>"phone_verified:{date}"</code>), so re-scanning an already-filled day
+  is a safe no-op — calling this twice in a row correctly returns
+  <code>1</code> then <code>0</code>.
+</p>
+
+<h3>3.3 Wiring both week-scans into the button</h3>
+
+<p>
+  The old return type was a bare 4-tuple, which had no room for "nothing
+  verified today, but something got backfilled." A small frozen dataclass
+  replaces it, and a new helper runs both scanners and applies whatever
+  bonus is earned — reusing the exact prev/new-count math the login
+  auto-check and <code>--status</code> already use, specifically <em>not</em>
+  routing through <code>_apply_workout_credit</code>, which always files
+  under <em>today</em> by design and would mis-date a backfilled entry:
+</p>
+
+<div class="codewrap"><pre><span class="add">+ @dataclass(frozen=True)
++ class PhoneCheckOutcome:
++     credited_type: str | None
++     status: str
++     phone_message: str
++     runnerup_message: str | None
++     week_fill_message: str | None = None
+
++ def _backfill_week_and_apply_bonus(verifier) -> str | None:
++     prev_count = count_weekly_workouts(verifier.log_file)
++     filled = verifier._scan_and_fill_week_runnerup(verifier.log_file)
++     filled += verifier._try_fill_stronglifts_for_week(verifier.log_file)
++     if not filled:
++         return None
++     new_count = count_weekly_workouts(verifier.log_file)
++     bonus = max(0, new_count - max(WEEKLY_WORKOUT_MINIMUM, prev_count))
++     if bonus > 0:
++         verifier._adjust_shutdown_time_by(bonus)
++     return f"Auto-filled {filled} workout(s) from earlier this week." + (
++         f" +{bonus}h shutdown time." if bonus > 0 else ""
++     )</span></pre></div>
+
+<p>
+  <code>_verify_phone_then_runnerup</code> calls this only after both
+  today-checks fail, and <code>_on_phone_check_result</code> branches on it:
+  a verified-today result still goes through <code>_apply_workout_credit</code>
+  as before; a <code>week_fill_message</code> is shown as-is, because the
+  backfill step already wrote the entry and applied its own bonus — running
+  credit again there would double it.
+</p>
+
+<h3>3.4 The RunnerUp GPS tolerance</h3>
+
+<div class="codewrap"><pre>  distance_km = data["distance_m"] / 1000
+<span class="add">+ if distance_km * (1 + RUNNERUP_DISTANCE_TOLERANCE) < MIN_RUN_DISTANCE_KM:</span>
+<span class="del">-     if distance_km < MIN_RUN_DISTANCE_KM:</span>
+      msg = f"Run was {distance_km:.1f} km — need {MIN_RUN_DISTANCE_KM:.0f}+ km"
+      return "too_short", msg
+<span class="add">+ if distance_km < MIN_RUN_DISTANCE_KM:
++     _logger.info("...within %.0f%% GPS tolerance — accepted.", ...)</span></pre></div>
+
+<p>
+  <code>RUNNERUP_DISTANCE_TOLERANCE = 0.05</code> lives in
+  <code>_constants.py</code> next to the minimum it adjusts. The log line on
+  a tolerance-assisted pass exists so a below-threshold-but-accepted run is
+  still visible in the logs, never a silent pass — the entry itself still
+  stores the true, un-inflated distance.
+</p>
+
+<h3>3.5 The CLI bug this surfaced (unrelated file, same root cause)</h3>
+
+<p>
+  Verifying the fix against the real phone produced a week with two
+  workouts on one day for the first time. That's when
+  <code>_status.py</code>'s <code>--status</code> CLI printed
+  <em>"Need 2 more to reach the minimum (4)"</em> for a week that was
+  actually 4/4 — the GUI, which uses <code>count_weekly_workouts</code>
+  directly, showed the correct number.
+</p>
+
+<div class="codewrap"><pre><span class="del">- before_count = 0
+- for i in range(7):
+-     ...
+-     if _print_day_line(d, ...):
+-         before_count += 1          # capped at 1 per day, regardless of
+-                                     # how many workouts that day held</span>
+<span class="add">+ for i in range(7):
++     ...
++     _print_day_line(d, ...)        # display only now
++ before_count = count_weekly_workouts(log_file)   # the real anti-gaming count</span></pre></div>
+
+<p>
+  <code>before_count</code> had been derived from <code>_print_day_line</code>'s
+  boolean return — one checkmark per day, regardless of how many workouts
+  that day held. It happened to agree with the real count for years, because
+  until this change no day ever legitimately held two <em>verified</em>
+  entries. The fix makes the CLI compute the same weekly total the GUI
+  already used, so the two views can no longer disagree.
+</p>
+
+<h2 id="quiz">4. Quiz</h2>
+<p style="color:var(--muted);font-size:.9rem">
+  Five questions on the reasoning. Score: <span id="score">0 / 0</span>
+</p>
+<div id="quiz"></div>
+
+<script>
+/* ---------------- micro-world: the Check Phone chain ---------------- */
+(function () {
+  const TOLERANCE = 0.05;
+  const MIN_KM = 5.0;
+
+  const slToday = document.getElementById("sl-today");
+  const ruToday = document.getElementById("ru-today");
+  const ruTodayKm = document.getElementById("ru-today-km");
+  const ruTodayKmVal = document.getElementById("ru-today-km-val");
+  const weekGap = document.getElementById("week-gap");
+  const weekType = document.getElementById("week-type");
+  const weekKmWrap = document.getElementById("week-km-wrap");
+  const weekKm = document.getElementById("week-km");
+  const weekKmVal = document.getElementById("week-km-val");
+  const traceEl = document.getElementById("trace");
+
+  function passesDistance(km) {
+    return km * (1 + TOLERANCE) >= MIN_KM;
+  }
+
+  function syncLabels() {
+    ruTodayKmVal.textContent = parseFloat(ruTodayKm.value).toFixed(1);
+    weekKmVal.textContent = parseFloat(weekKm.value).toFixed(1);
+    weekKmWrap.style.display = weekType.value === "runnerup" ? "block" : "none";
+  }
+  [ruTodayKm, weekKm, weekType].forEach((el) => el.addEventListener("input", syncLabels));
+  syncLabels();
+
+  function step(label, detail, ok) {
+    return '<div class="step"><span class="k">' + label + "</span> — " + detail +
+      (ok === true ? ' <span class="pill v">pass</span>' :
+       ok === false ? ' <span class="pill x">fail</span>' : "") + "</div>";
+  }
+
+  function run() {
+    let html = "";
+
+    // 1. StrongLifts today
+    if (slToday.checked) {
+      html += step("1. StrongLifts today", "JSON dated today, content valid", true);
+      finish(html, "phone_verified", "Credited today: StrongLifts verified.");
+      return;
+    }
+    html += step("1. StrongLifts today", "no JSON dated today", false);
+
+    // 2. RunnerUp today
+    if (ruToday.checked) {
+      const km = parseFloat(ruTodayKm.value);
+      const tol = (km * (1 + TOLERANCE)).toFixed(2);
+      const ok = passesDistance(km);
+      html += step(
+        "2. RunnerUp today",
+        km.toFixed(1) + " km × 1.05 = " + tol + " km " + (ok ? "≥" : "<") + " 5.0 km",
+        ok
+      );
+      if (ok) {
+        finish(html, "runnerup_verified", "Credited today: RunnerUp verified.");
+        return;
+      }
+    } else {
+      html += step("2. RunnerUp today", "no TCX dated today", false);
+    }
+
+    // 3. Week-scan fallback
+    if (weekGap.checked) {
+      if (weekType.value === "stronglifts") {
+        html += step("3. Week-scan (StrongLifts)", "unlogged day, content valid", true);
+        finish(html, "week_fill", "Auto-filled 1 workout from earlier this week.");
+        return;
+      }
+      const km = parseFloat(weekKm.value);
+      const tol = (km * (1 + TOLERANCE)).toFixed(2);
+      const ok = passesDistance(km);
+      html += step(
+        "3. Week-scan (RunnerUp)",
+        km.toFixed(1) + " km × 1.05 = " + tol + " km " + (ok ? "≥" : "<") + " 5.0 km",
+        ok
+      );
+      if (ok) {
+        finish(html, "week_fill", "Auto-filled 1 workout from earlier this week.");
+        return;
+      }
+    } else {
+      html += step("3. Week-scan", "nothing unlogged this week", false);
+    }
+
+    finish(html, "none",
+      "StrongLifts: Workout JSON is from earlier, not today · " +
+      "RunnerUp: No RunnerUp activity found for today");
+  }
+
+  function finish(html, kind, message) {
+    const cls = kind === "none" ? "x" : "v";
+    html += '<div class="verdict-line">Result: <span class="pill ' + cls + '">' +
+      message + "</span></div>";
+    traceEl.innerHTML = html;
+  }
+
+  document.getElementById("run-check").onclick = run;
+  document.getElementById("reset-sim").onclick = () => {
+    slToday.checked = false;
+    ruToday.checked = false;
+    ruTodayKm.value = 4.9;
+    weekGap.checked = true;
+    weekType.value = "runnerup";
+    weekKm.value = 4.9;
+    syncLabels();
+    traceEl.innerHTML = "";
+  };
+})();
+
+/* ---------------- quiz ---------------- */
+(function () {
+  const QS = [
+    {
+      stem: "A 4.9 km run is logged today, and no StrongLifts JSON exists for today. What does Check Phone report?",
+      opts: [
+        "runnerup_verified — 4.9 km times 1.05 clears the 5.0 km line.",
+        "not_verified — a 4.9 km run stays under the 5.0 km minimum.",
+        "phone_verified — RunnerUp falls back to the StrongLifts checker.",
+        "week_fill — today's date always routes to the week-scan path."
+      ],
+      correct: 0,
+      rat: "The 5% tolerance is applied before comparing to MIN_RUN_DISTANCE_KM, so today's own RunnerUp check already passes it — the week-scan fallback is never reached."
+    },
+    {
+      stem: "Why does _try_fill_stronglifts_for_week return at most 1, while _scan_and_fill_week_runnerup can return more?",
+      opts: [
+        "StrongLifts entries are capped at one credit per week by policy.",
+        "The phone holds one snapshot; RunnerUp writes one file per run.",
+        "Only RunnerUp results carry a date, so StrongLifts can't span days.",
+        "ADB restricts a single pull command to one remote file at a time."
+      ],
+      correct: 1,
+      rat: "RunnerUp writes a dated .tcx per activity, so several unlogged days can each supply one; StrongLifts only ever has the single latest snapshot to pull."
+    },
+    {
+      stem: "Why does the week-scan backfill skip _apply_workout_credit and call _adjust_shutdown_time_by directly instead?",
+      opts: [
+        "_apply_workout_credit needs a live Tk window a worker thread lacks.",
+        "_apply_workout_credit always files the entry under today's own date.",
+        "_adjust_shutdown_time_by is the only method the bare verifier exposes.",
+        "Skipping it avoids clearing the sick-day debt on a backfilled entry."
+      ],
+      correct: 1,
+      rat: "Its own docstring says so: it 'always files under today' as the intra-day reward path, which would mis-date a backfilled entry from an earlier day."
+    },
+    {
+      stem: "Before this change, why did _status.py's CLI summary agree with the GUI for years despite using a different formula?",
+      opts: [
+        "Both formulas give identical totals for any log file's contents.",
+        "The CLI recomputed its total from count_weekly_workouts either way.",
+        "No day had ever held two verified entries until this very change.",
+        "The CLI only ran weekly, before a second same-day workout could occur."
+      ],
+      correct: 2,
+      rat: "A checkmark-per-day count and a per-workout count only diverge once some day holds more than one verified entry — which this very change made possible for the first time."
+    },
+    {
+      stem: "In the Check Phone chain, in what order are the three checks tried?",
+      opts: [
+        "RunnerUp today, then StrongLifts today, then the week-scan fallback.",
+        "The week-scan fallback first, then StrongLifts today, then RunnerUp today.",
+        "StrongLifts today, then RunnerUp today, then the week-scan fallback.",
+        "All three run together, and the first one to finish wins the credit."
+      ],
+      correct: 2,
+      rat: "_verify_phone_then_runnerup checks StrongLifts first, falls back to RunnerUp, and only reaches the week-scan when neither today-check verifies."
+    }
+  ];
+
+  const quizEl = document.getElementById("quiz");
+  const scoreEl = document.getElementById("score");
+  let answered = 0, right = 0;
+
+  QS.forEach((q, qi) => {
+    const wrap = document.createElement("div");
+    wrap.className = "q";
+    const stem = document.createElement("div");
+    stem.className = "stem";
+    stem.textContent = (qi + 1) + ". " + q.stem;
+    wrap.append(stem);
+
+    const rat = document.createElement("p");
+    rat.className = "rat";
+
+    q.opts.forEach((text, oi) => {
+      const b = document.createElement("button");
+      b.className = "opt";
+      b.textContent = text;
+      b.onclick = () => {
+        if (wrap.dataset.done) return;
+        wrap.dataset.done = "1";
+        answered++;
+        if (oi === q.correct) right++;
+        wrap.querySelectorAll(".opt").forEach((o, i) => {
+          o.disabled = true;
+          if (i === q.correct) o.classList.add("correct");
+          else if (i === oi) o.classList.add("wrong");
+        });
+        rat.textContent = (oi === q.correct ? "Correct. " : "Not quite. ") + q.rat;
+        rat.classList.add("show");
+        scoreEl.textContent = right + " / " + answered;
+      };
+      wrap.append(b);
+    });
+    wrap.append(rat);
+    quizEl.append(wrap);
+  });
+})();
+</script>
+</body>
+</html>
