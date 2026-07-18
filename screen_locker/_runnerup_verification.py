@@ -19,6 +19,7 @@ from screen_locker._constants import (
     MIN_RUN_DISTANCE_KM,
     MIN_RUN_DURATION_MINUTES,
     RUNNERUP_ACCEPTED_SPORTS,
+    RUNNERUP_DISTANCE_TOLERANCE,
     RUNNERUP_EXPORT_DIRS,
 )
 from screen_locker._log_mixin import write_signed_entry
@@ -236,9 +237,17 @@ class RunnerUpVerificationMixin(RunnerUpDbMixin):
             return "too_short", msg
 
         distance_km = data["distance_m"] / 1000
-        if distance_km < MIN_RUN_DISTANCE_KM:
+        if distance_km * (1 + RUNNERUP_DISTANCE_TOLERANCE) < MIN_RUN_DISTANCE_KM:
             msg = f"Run was {distance_km:.1f} km — need {MIN_RUN_DISTANCE_KM:.0f}+ km"
             return "too_short", msg
+        if distance_km < MIN_RUN_DISTANCE_KM:
+            _logger.info(
+                "RunnerUp distance %.2f km is under the %.1f km minimum but "
+                "within %.0f%% GPS tolerance — accepted.",
+                distance_km,
+                MIN_RUN_DISTANCE_KM,
+                RUNNERUP_DISTANCE_TOLERANCE * 100,
+            )
 
         sport_name = _SPORT_NAMES.get(sport, str(sport))
         return (

@@ -7,6 +7,7 @@ from concurrent.futures import (  # pylint: disable=no-name-in-module
     as_completed,
 )
 import contextlib
+from datetime import date, datetime, timedelta, timezone
 from http import client as _http_client
 import json
 import logging
@@ -23,6 +24,7 @@ from screen_locker._constants import (
     WORKOUT_APP_JSON_REMOTES,
     WORKOUT_HTTP_PORT,
 )
+from screen_locker._log_mixin import write_signed_entry
 from screen_locker._time_check import check_clock_skew
 from screen_locker._workout_sync import pull_synced_workout
 
@@ -175,13 +177,15 @@ class PhoneVerificationMixin:
                 first_parsed = data
         return first_parsed
 
-    def _validate_json_data(self, data: dict) -> tuple[str, str]:
-        """Validate parsed workout JSON. Returns (status, message)."""
-        today = time.strftime("%Y-%m-%d")
-        if data.get("date") != today:
-            return "stale", f"Workout JSON is from {data.get('date')}, not today"
+    def _validate_json_content(self, data: dict) -> tuple[str, str]:
+        """Validate a workout JSON's exercises/duration, regardless of its date.
+
+        Split out of :meth:`_validate_json_data` so the week-scan backfill
+        (``_try_fill_stronglifts_for_week``) can reuse the same content
+        checks against a past-in-week date without the today-only gate.
+        """
         if not data.get("exercises"):
-            return "no_exercises", "No exercises found in today's workout JSON"
+            return "no_exercises", "No exercises found in the workout JSON"
         duration_min = data.get("duration_seconds", 0) / 60.0
         if duration_min < MIN_WORKOUT_DURATION_MINUTES:
             return (
@@ -191,6 +195,63 @@ class PhoneVerificationMixin:
             )
         flag = "all succeeded" if data.get("succeeded") else "partial"
         return "verified", f"Workout verified! ({duration_min:.0f} min, {flag})"
+
+    def _validate_json_data(self, data: dict) -> tuple[str, str]:
+        """Validate parsed workout JSON. Returns (status, message).
+
+        Requires today's date — this is the live unlock-chain check, which
+        must reflect a workout done *right now*. For crediting a workout
+        found dated earlier in the week, see ``_try_fill_stronglifts_for_week``.
+        """
+        today = time.strftime("%Y-%m-%d")
+        if data.get("date") != today:
+            return "stale", f"Workout JSON is from {data.get('date')}, not today"
+        return self._validate_json_content(data)
+
+    def _try_fill_stronglifts_for_week(self, log_file: Path) -> int:
+        """Backfill a past-this-week StrongLifts workout found on the phone.
+
+        Unlike RunnerUp's per-activity TCX exports, the phone holds only one
+        ``workout_result.json`` snapshot at a time, so this fills at most one
+        day per call — that mirrors :meth:`_scan_and_fill_week_runnerup`'s
+        contract (0 when nothing new to fill) without pretending there could
+        be more than one candidate. Still pulls and validates the real file
+        via ADB before writing anything — never trusts a claim.
+
+        Returns 1 if a new verified entry was appended, else 0 (also 0 when
+        no phone is connected, no JSON is available, or its date falls
+        outside the current ISO week).
+        """
+        if not self._has_adb_device():
+            _logger.info(
+                "Phone not connected; skipping StrongLifts week-scan backfill."
+            )
+            return 0
+        data = self._pull_workout_app_json()
+        date_str = data.get("date") if data else None
+        if not date_str:
+            return 0
+        today = datetime.now(tz=timezone.utc).astimezone().date()
+        week_start = today - timedelta(days=today.weekday())
+        try:
+            entry_date = date.fromisoformat(date_str)
+        except ValueError:
+            _logger.warning("StrongLifts JSON has an unparsable date: %r", date_str)
+            return 0
+        if not week_start <= entry_date <= today:
+            return 0
+        status, msg = self._validate_json_content(data)
+        if status != "verified":
+            return 0
+        workout_data = {
+            "type": "phone_verified",
+            "source": f"Auto-scanned: {msg}",
+            "duration_minutes": round(data.get("duration_seconds", 0) / 60.0, 1),
+        }
+        if write_signed_entry(log_file, date_str, workout_data).appended:
+            _logger.info("Auto-filled StrongLifts entry for %s: %s", date_str, msg)
+            return 1
+        return 0
 
     # ── HTTP fallback (no ADB / developer options required) ───────────────────
 

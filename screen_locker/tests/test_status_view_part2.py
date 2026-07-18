@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+from screen_locker._status_view_verify import PhoneCheckOutcome
 from screen_locker._workout_credit import WorkoutCreditResult
 from screen_locker.status_view import (
     StatusWindow,
@@ -101,16 +102,6 @@ class TestRefreshAndCheckPhoneFlow:
             window._on_check_phone_clicked()
         assert window._phone_future is not None
 
-    def test_poll_routes_to_result_when_future_done(self, mock_tk: MagicMock) -> None:
-        window = _make_window(mock_tk, _snapshot())
-        mock_future = MagicMock()
-        mock_future.done.return_value = True
-        mock_future.result.return_value = ("verified", "ok")
-        window._phone_future = mock_future
-        with patch.object(window, "_on_phone_check_result") as mock_handle:
-            window._poll_phone_check()
-        mock_handle.assert_called_once_with("verified", "ok")
-
     def test_poll_waits_when_future_not_done(self, mock_tk: MagicMock) -> None:
         window = _make_window(mock_tk, _snapshot())
         mock_future = MagicMock()
@@ -136,7 +127,9 @@ class TestRefreshAndCheckPhoneFlow:
         with patch(
             "screen_locker._status_view_verify.gather_status", return_value=_snapshot()
         ) as mock_gather:
-            window._on_phone_check_result(None, "no_phone", "no lifts", "no run")
+            window._on_phone_check_result(
+                PhoneCheckOutcome(None, "no_phone", "no lifts", "no run")
+            )
         assert window._phone_check_result == (
             "no_phone",
             "StrongLifts: no lifts · RunnerUp: no run",
@@ -168,7 +161,7 @@ class TestRefreshAndCheckPhoneFlow:
             "screen_locker._status_view_verify.gather_status", return_value=_snapshot()
         ):
             window._on_phone_check_result(
-                "phone_verified", "verified", "StrongLifts ok", None
+                PhoneCheckOutcome("phone_verified", "verified", "StrongLifts ok", None)
             )
         assert fake_verifier.workout_data == {
             "type": "phone_verified",
@@ -205,7 +198,9 @@ class TestRefreshAndCheckPhoneFlow:
             "screen_locker._status_view_verify.gather_status", return_value=_snapshot()
         ):
             window._on_phone_check_result(
-                "runnerup_verified", "verified", "no lifts", "RunnerUp 5.0 km"
+                PhoneCheckOutcome(
+                    "runnerup_verified", "verified", "no lifts", "RunnerUp 5.0 km"
+                )
             )
         assert fake_verifier.workout_data == {
             "type": "runnerup_verified",

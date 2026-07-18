@@ -76,6 +76,57 @@ def _write_tcx(tmp_path: Path, content: str, name: str = "activity.tcx") -> str:
 
 
 # ---------------------------------------------------------------------------
+# _validate_runnerup_data — GPS distance tolerance
+# ---------------------------------------------------------------------------
+
+
+class TestValidateRunnerupDataDistanceTolerance:
+    """A run just under MIN_RUN_DISTANCE_KM is accepted within 5% GPS tolerance."""
+
+    def test_distance_within_tolerance_is_verified(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """4.9 km * 1.05 = 5.145 >= 5.0 km minimum → verified."""
+        locker = create_locker(mock_tk, tmp_path)
+        status, msg = locker._validate_runnerup_data(
+            {"sport": 0, "duration_seconds": 1947, "distance_m": 4929.05}
+        )
+        assert status == "verified"
+        assert "4.9 km" in msg
+
+    def test_distance_below_tolerance_is_too_short(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """4.0 km * 1.05 = 4.2 km, still short of the 5.0 km minimum → too_short."""
+        locker = create_locker(mock_tk, tmp_path)
+        status, msg = locker._validate_runnerup_data(
+            {"sport": 0, "duration_seconds": 1947, "distance_m": 4000}
+        )
+        assert status == "too_short"
+        assert "km" in msg
+
+    def test_distance_at_full_minimum_is_verified(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """A run already meeting the minimum outright still passes (tolerance is
+        additive leeway, not a stricter requirement)."""
+        locker = create_locker(mock_tk, tmp_path)
+        status, _ = locker._validate_runnerup_data(
+            {"sport": 0, "duration_seconds": 1947, "distance_m": 5000}
+        )
+        assert status == "verified"
+
+
+# ---------------------------------------------------------------------------
 # _validate_runnerup_data
 # ---------------------------------------------------------------------------
 

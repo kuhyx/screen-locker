@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from screen_locker._compliance_state import AutoUpgradeOpportunity
-from screen_locker._status_view_verify import _verify_phone_then_runnerup
+from screen_locker._status_view_verify import (
+    PhoneCheckOutcome,
+    _backfill_week_and_apply_bonus,
+    _verify_phone_then_runnerup,
+)
 from screen_locker.tests._status_view_helpers import (
     _day,
     _lock_explanation,
@@ -189,7 +193,9 @@ class TestVerifyPhoneThenRunnerup:
 
         result = _verify_phone_then_runnerup(verifier)
 
-        assert result == ("phone_verified", "verified", "5x5 done", None)
+        assert result == PhoneCheckOutcome(
+            "phone_verified", "verified", "5x5 done", None
+        )
         verifier._verify_runnerup_workout.assert_not_called()
 
     def test_falls_back_to_runnerup_when_phone_not_verified(self) -> None:
@@ -200,14 +206,89 @@ class TestVerifyPhoneThenRunnerup:
 
         result = _verify_phone_then_runnerup(verifier)
 
-        assert result == ("runnerup_verified", "verified", "stale", "9.8 km")
+        assert result == PhoneCheckOutcome(
+            "runnerup_verified", "verified", "stale", "9.8 km"
+        )
 
-    def test_neither_source_verified(self) -> None:
-        """Neither verified → no credited type, both messages carried back."""
+    def test_neither_source_verified_nor_backfilled(self) -> None:
+        """Neither verified today, nothing to backfill → no credit, no fill message."""
         verifier = MagicMock()
         verifier._verify_phone_workout.return_value = ("not_verified", "stale")
         verifier._verify_runnerup_workout.return_value = ("too_short", "3 km")
+        verifier._scan_and_fill_week_runnerup.return_value = 0
+        verifier._try_fill_stronglifts_for_week.return_value = 0
 
-        result = _verify_phone_then_runnerup(verifier)
+        with patch(
+            "screen_locker._status_view_verify.count_weekly_workouts",
+            return_value=2,
+        ):
+            result = _verify_phone_then_runnerup(verifier)
 
-        assert result == (None, "too_short", "stale", "3 km")
+        assert result == PhoneCheckOutcome(None, "too_short", "stale", "3 km", None)
+
+    def test_falls_back_to_week_scan_backfill(self) -> None:
+        """Neither verified today, but the week-scan finds something → fill message."""
+        verifier = MagicMock()
+        verifier._verify_phone_workout.return_value = ("not_verified", "stale")
+        verifier._verify_runnerup_workout.return_value = ("not_verified", "no run")
+        verifier._scan_and_fill_week_runnerup.return_value = 1
+        verifier._try_fill_stronglifts_for_week.return_value = 0
+
+        with patch(
+            "screen_locker._status_view_verify.count_weekly_workouts",
+            side_effect=[2, 3],
+        ):
+            result = _verify_phone_then_runnerup(verifier)
+
+        assert result.credited_type is None
+        assert (
+            result.week_fill_message == "Auto-filled 1 workout from earlier this week."
+        )
+        verifier._adjust_shutdown_time_by.assert_not_called()
+
+
+class TestBackfillWeekAndApplyBonus:
+    """The week-scan fallback: backfill unlogged days, apply the earned bonus."""
+
+    def test_nothing_filled_returns_none(self) -> None:
+        verifier = MagicMock()
+        verifier._scan_and_fill_week_runnerup.return_value = 0
+        verifier._try_fill_stronglifts_for_week.return_value = 0
+
+        with patch(
+            "screen_locker._status_view_verify.count_weekly_workouts",
+            return_value=2,
+        ):
+            assert _backfill_week_and_apply_bonus(verifier) is None
+        verifier._adjust_shutdown_time_by.assert_not_called()
+
+    def test_fill_at_or_below_minimum_earns_no_bonus(self) -> None:
+        """Filling up to (not past) the weekly minimum earns no shutdown push."""
+        verifier = MagicMock()
+        verifier._scan_and_fill_week_runnerup.return_value = 1
+        verifier._try_fill_stronglifts_for_week.return_value = 0
+
+        with patch(
+            "screen_locker._status_view_verify.count_weekly_workouts",
+            side_effect=[3, 4],
+        ):
+            message = _backfill_week_and_apply_bonus(verifier)
+
+        assert message == "Auto-filled 1 workout from earlier this week."
+        verifier._adjust_shutdown_time_by.assert_not_called()
+
+    def test_fill_past_minimum_applies_bonus(self) -> None:
+        verifier = MagicMock()
+        verifier._scan_and_fill_week_runnerup.return_value = 1
+        verifier._try_fill_stronglifts_for_week.return_value = 1
+
+        with patch(
+            "screen_locker._status_view_verify.count_weekly_workouts",
+            side_effect=[4, 6],
+        ):
+            message = _backfill_week_and_apply_bonus(verifier)
+
+        assert message == (
+            "Auto-filled 2 workouts from earlier this week. +2h shutdown time."
+        )
+        verifier._adjust_shutdown_time_by.assert_called_once_with(2)

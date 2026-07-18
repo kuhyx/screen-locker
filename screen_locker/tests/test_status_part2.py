@@ -23,20 +23,25 @@ class TestRunStatusFill:
     def test_fill_with_bonus_applied(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
-        """n_filled > 0, bonus > 0, adjust succeeds → bonus line shown."""
+        """n_filled > 0, bonus > 0, adjust succeeds → bonus line shown.
+
+        count_weekly_workouts is called twice: before the fill (3) and after
+        (5) — a flat return_value would collapse both calls to the same
+        number and mask the bonus math, so this uses side_effect instead.
+        """
         eb_file = tmp_path / "eb.json"
         locker = _make_locker(tmp_path / "log.json", n_filled=2, bonus_applied=True)
-        # after_count=5 (> WEEKLY_WORKOUT_MINIMUM=4), before_count=3
         with (
             patch("screen_locker._status.EXTRA_BENEFITS_FILE", eb_file),
             patch("screen_locker._status.current_streak", return_value=0),
             patch("screen_locker._status.has_extended_early_bird", return_value=False),
-            patch("screen_locker._status.count_weekly_workouts", return_value=5),
+            patch("screen_locker._status.count_weekly_workouts", side_effect=[3, 5]),
             patch("sys.exit"),
         ):
             run_status(locker)
         out = capsys.readouterr().out
         assert "Auto-filled 2 workout(s)" in out
+        assert "+1h shutdown bonus applied." in out
 
     def test_fill_bonus_pending_when_adjust_fails(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
@@ -48,7 +53,7 @@ class TestRunStatusFill:
             patch("screen_locker._status.EXTRA_BENEFITS_FILE", eb_file),
             patch("screen_locker._status.current_streak", return_value=0),
             patch("screen_locker._status.has_extended_early_bird", return_value=False),
-            patch("screen_locker._status.count_weekly_workouts", return_value=5),
+            patch("screen_locker._status.count_weekly_workouts", side_effect=[0, 5]),
             patch("sys.exit"),
         ):
             run_status(locker)
@@ -58,14 +63,14 @@ class TestRunStatusFill:
     def test_fill_no_bonus_when_still_below_min(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
-        """n_filled=1 but count still < 4 → no bonus line."""
+        """n_filled=1 but count still < 4, before and after the fill → no bonus."""
         eb_file = tmp_path / "eb.json"
         locker = _make_locker(tmp_path / "log.json", n_filled=1, bonus_applied=False)
         with (
             patch("screen_locker._status.EXTRA_BENEFITS_FILE", eb_file),
             patch("screen_locker._status.current_streak", return_value=0),
             patch("screen_locker._status.has_extended_early_bird", return_value=False),
-            patch("screen_locker._status.count_weekly_workouts", return_value=3),
+            patch("screen_locker._status.count_weekly_workouts", side_effect=[2, 3]),
             patch("sys.exit"),
         ):
             run_status(locker)
@@ -82,7 +87,7 @@ class TestRunStatusMinimumStatus:
         """after_count > WEEKLY_WORKOUT_MINIMUM → 'above minimum' line.
 
         n_filled=1 triggers the count_weekly_workouts() branch so after_count
-        is taken from that mock (5), not from the per-day log loop (0).
+        is taken from the second mocked call (5), not the first (before_count).
         """
         eb_file = tmp_path / "eb.json"
         locker = _make_locker(tmp_path / "log.json", n_filled=1, bonus_applied=False)
@@ -90,7 +95,7 @@ class TestRunStatusMinimumStatus:
             patch("screen_locker._status.EXTRA_BENEFITS_FILE", eb_file),
             patch("screen_locker._status.current_streak", return_value=0),
             patch("screen_locker._status.has_extended_early_bird", return_value=False),
-            patch("screen_locker._status.count_weekly_workouts", return_value=5),
+            patch("screen_locker._status.count_weekly_workouts", side_effect=[0, 5]),
             patch("sys.exit"),
         ):
             run_status(locker)
@@ -111,7 +116,7 @@ class TestRunStatusMinimumStatus:
             patch("screen_locker._status.EXTRA_BENEFITS_FILE", eb_file),
             patch("screen_locker._status.current_streak", return_value=0),
             patch("screen_locker._status.has_extended_early_bird", return_value=False),
-            patch("screen_locker._status.count_weekly_workouts", return_value=4),
+            patch("screen_locker._status.count_weekly_workouts", side_effect=[0, 4]),
             patch("sys.exit"),
         ):
             run_status(locker)

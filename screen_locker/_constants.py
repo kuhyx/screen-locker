@@ -60,6 +60,11 @@ RUNNERUP_PACKAGES = ("org.runnerup", "org.runnerup.free")
 RUNNERUP_DB_SDCARD_TMP = "/sdcard/.runnerup_tmp_verification.db"
 MIN_RUN_DURATION_MINUTES = 30
 MIN_RUN_DISTANCE_KM = 5.0
+# GPS distance tracking undershoots on tight turns/tree cover/urban canyons;
+# a run within 5% of the minimum is accepted rather than rejected on
+# measurement noise. Duration comes from the device clock, not GPS, so it
+# gets no such leeway.
+RUNNERUP_DISTANCE_TOLERANCE = 0.05
 RUNNERUP_ACCEPTED_SPORTS: frozenset[int] = frozenset({0, 3, 5})
 # 0=RUNNING, 3=ORIENTEERING, 5=TREADMILL
 MAX_CLOCK_SKEW_SECONDS = 300  # 5 minutes max time skew from NTP

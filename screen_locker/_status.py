@@ -81,15 +81,18 @@ def run_status(locker: ScreenLocker) -> None:
     print("=== Weekly Workout Status ===")
 
     # Per-day breakdown
-    before_count = 0
     for i in range(7):
         d = monday + timedelta(days=i)
         if d > today:
             break
-        if _print_day_line(d, log_data.get(d.isoformat(), []), sick_days):
-            before_count += 1
+        _print_day_line(d, log_data.get(d.isoformat(), []), sick_days)
 
     print()
+
+    # The weekly total, per the anti-gaming rule (each verified workout counts
+    # individually, manual counts once/day) — NOT a per-day checkmark count,
+    # which would undercount a day holding two verified workouts.
+    before_count = count_weekly_workouts(log_file)
 
     # RunnerUp scan
     n_filled = locker._scan_and_fill_week_runnerup(log_file)
