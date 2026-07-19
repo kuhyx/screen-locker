@@ -43,7 +43,7 @@ class TestCheckNonVerifyExitsExtras:
         with (
             patch("screen_locker.screen_lock.reset_to_base_if_new_day"),
             patch(
-                "screen_locker.screen_lock.count_weekly_workouts", side_effect=[0, 5]
+                "screen_locker.screen_lock.count_weekly_workouts", side_effect=[0, 6]
             ),
             patch(
                 "screen_locker.screen_lock.process_week_transition",
@@ -54,7 +54,7 @@ class TestCheckNonVerifyExitsExtras:
             patch("screen_locker.screen_lock.sys.exit"),
         ):
             locker._check_non_verify_exits()
-        locker._adjust_shutdown_time_by.assert_called_once_with(1)  # bonus = 5-max(4,0)
+        locker._adjust_shutdown_time_by.assert_called_once_with(1)  # bonus = 6-max(5,0)
 
     def test_auto_fill_no_bonus_when_min_not_exceeded(
         self,
@@ -76,7 +76,7 @@ class TestCheckNonVerifyExitsExtras:
         )
         with (
             patch("screen_locker.screen_lock.reset_to_base_if_new_day"),
-            # prev=2, new=3 → bonus=max(0,3-max(4,2))=0 → no bonus logger call
+            # prev=2, new=3 → bonus=max(0,3-max(5,2))=0 → no bonus logger call
             patch(
                 "screen_locker.screen_lock.count_weekly_workouts", side_effect=[2, 3]
             ),

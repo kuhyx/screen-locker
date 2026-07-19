@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import dataclasses
+from datetime import datetime, timedelta, timezone
 import json
 from typing import TYPE_CHECKING
 
@@ -102,6 +103,23 @@ class TestCountInWindow:
         log_file = tmp_path / "workout_log.json"
         assert count_in_window(log_file, 7) == 0
 
+    def test_multiple_same_day_entries_each_count(self, tmp_path: Path) -> None:
+        """Per-entry counting: same-day manual workouts no longer collapse to
+        one slot — each consumes its own, matching the new weekly-count
+        parity with verified workouts."""
+        log_file = tmp_path / "workout_log.json"
+        log_file.write_text(
+            json.dumps(
+                {
+                    "2026-07-04": [
+                        {"workout_data": {"type": "manual_workout"}},
+                        {"workout_data": {"type": "manual_workout"}},
+                    ],
+                }
+            )
+        )
+        assert count_in_window(log_file, 7, today=_TODAY) == 2
+
 
 class TestIsBudgetExhausted:
     """Tests for is_budget_exhausted."""
@@ -121,12 +139,15 @@ class TestIsBudgetExhausted:
 
     def test_true_when_monthly_exhausted(self, tmp_path: Path) -> None:
         log_file = tmp_path / "workout_log.json"
-        # All strictly after the 30d cutoff (2026-06-05) but at/before the
-        # 7d cutoff (2026-06-28), so only the 30d window sees them.
-        dates = ["2026-06-08", "2026-06-13", "2026-06-18", "2026-06-23", "2026-06-28"]
-        entries = dict.fromkeys(
-            dates[:MANUAL_WORKOUT_BUDGET_PER_30_DAYS], "manual_workout"
-        )
+        # MANUAL_WORKOUT_BUDGET_PER_30_DAYS distinct dates, all strictly after
+        # the 30d cutoff (2026-06-05) but at/before the 7d cutoff (2026-06-28),
+        # so only the 30d window sees them.
+        today_dt = datetime.strptime(_TODAY, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        dates = [
+            (today_dt - timedelta(days=8 + i)).strftime("%Y-%m-%d")
+            for i in range(MANUAL_WORKOUT_BUDGET_PER_30_DAYS)
+        ]
+        entries = dict.fromkeys(dates, "manual_workout")
         _write_logs(log_file, entries)
         assert count_in_window(log_file, 7, today=_TODAY) == 0
         assert is_budget_exhausted(log_file, today=_TODAY) is True

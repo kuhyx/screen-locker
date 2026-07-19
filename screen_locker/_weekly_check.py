@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
-WEEKLY_WORKOUT_MINIMUM: int = 4
+WEEKLY_WORKOUT_MINIMUM: int = 5
 
 # Python weekday(): Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
 _RELAXED_WEEKDAYS: frozenset[int] = frozenset({1, 2, 3})  # Tue, Wed, Thu
@@ -33,8 +33,10 @@ _RELAXED_WEEKDAYS: frozenset[int] = frozenset({1, 2, 3})  # Tue, Wed, Thu
 VERIFIED_WORKOUT_TYPES: frozenset[str] = frozenset(
     {"phone_verified", "runnerup_verified"},
 )
-# The single self-reported type. It counts at most ONCE per day (see
-# count_weekly_workouts) so it can't be used to inflate the weekly total.
+# The single self-reported type. It counts toward the weekly total
+# INDIVIDUALLY, same as a verified workout — the manual-workout rate budget
+# (see screen_locker._manual_workout) is the anti-gaming limiter, not a
+# once-per-day collapse here.
 MANUAL_WORKOUT_TYPE: str = "manual_workout"
 # Types that count toward the weekly minimum *and* are eligible for the base
 # shutdown-time bonus (see screen_lock._try_adjust_shutdown_for_workout).
@@ -61,21 +63,21 @@ def count_weekly_workouts(
     *,
     today: datetime | None = None,
 ) -> int:
-    """Count counted workouts in the current ISO week under the anti-gaming rule.
+    """Count counted workouts in the current ISO week.
 
-    Each VERIFIED workout (:data:`VERIFIED_WORKOUT_TYPES`) counts individually,
-    so multiple real workouts on one day all count. Self-reported
-    ``manual_workout`` entries count at most ONCE per day, so they can't inflate
-    the total. Feeds both the weekly lock minimum (:func:`has_weekly_minimum`)
-    and the banked bonus.
+    Every entry whose type is in :data:`COUNTED_WORKOUT_TYPES` — verified or
+    manual — counts individually, so multiple workouts on one day all count.
+    Manual workouts are rate-limited separately by the manual-workout budget
+    (:mod:`screen_locker._manual_workout`), not by a once-per-day collapse
+    here. Feeds both the weekly lock minimum (:func:`has_weekly_minimum`) and
+    the banked bonus.
 
     Args:
         log_file: Path to ``workout_log.json``.
         today: Override for the current local datetime (for testing).
 
     Returns:
-        The weekly workout count (Mon-Sun, up to and including today) under the
-        verified-stack / manual-once-per-day rule.
+        The weekly workout count (Mon-Sun, up to and including today).
     """
     dt = today if today is not None else datetime.now(tz=timezone.utc).astimezone()
     week_start = (dt - timedelta(days=dt.weekday())).date()
@@ -99,15 +101,10 @@ def count_weekly_workouts(
             continue
         if not (week_start <= entry_date <= today_date):
             continue
-        has_manual = False
         for entry in entries:
             wtype = entry.get("workout_data", {}).get("type", "")
-            if wtype in VERIFIED_WORKOUT_TYPES:
-                count += 1  # each verified workout counts
-            elif wtype == MANUAL_WORKOUT_TYPE:
-                has_manual = True
-        if has_manual:
-            count += 1  # all of a day's manual entries count as one
+            if wtype in COUNTED_WORKOUT_TYPES:
+                count += 1  # each counted workout — verified or manual — counts
     return count
 
 

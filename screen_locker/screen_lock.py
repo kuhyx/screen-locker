@@ -218,11 +218,41 @@ class ScreenLocker(
         self._check_heat_skip_exit()
 
     def _ingest_synced_manual_workouts(self) -> None:
-        """Sync manual workouts: publish this PC's, ingest everyone else's."""
+        """Sync manual workouts: publish this PC's, ingest everyone else's.
+
+        Each newly-ingested record earns the identical shutdown/debt reward a
+        live-logged workout would (see
+        ``WorkoutCreditMixin._apply_credit_for_written_entry``), regardless of
+        whether it's dated today or back-dated — there's only one current
+        shutdown config, so a back-dated sync still pushes it.
+        """
         push_pc_workouts(self.log_file)
-        ingested = ingest_manual_records(self.log_file, pull_all_manual_records())
+        ingested = ingest_manual_records(
+            self.log_file,
+            pull_all_manual_records(),
+            on_ingested=self._credit_ingested_manual_workout,
+        )
         for record_id in ingested:
             _logger.info("Ingested synced manual workout: %s", record_id)
+        self.workout_data = {}
+
+    def _credit_ingested_manual_workout(
+        self, entry: dict[str, str], prior_entries: list[dict]
+    ) -> None:
+        """Apply the live-workout reward to a manual workout ingested via sync."""
+        self.workout_data = entry
+        credit = self._apply_credit_for_written_entry(prior_entries)
+        if credit.shutdown_adjusted:
+            _logger.info(
+                "Synced manual workout pushed shutdown time +2h: %s",
+                entry.get("source", ""),
+            )
+        elif credit.extra_bonus_delta:
+            _logger.info(
+                "Synced manual workout added +%dh shutdown time: %s",
+                credit.extra_bonus_delta,
+                entry.get("source", ""),
+            )
 
     def _auto_fill_week_runnerup_bonus(self) -> None:
         """Auto-fill missed RunnerUp workouts and award any earned bonus."""

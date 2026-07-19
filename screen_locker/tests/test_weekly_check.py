@@ -189,6 +189,22 @@ class TestCountWeeklyWorkouts:
         )
         assert count_weekly_workouts(log, today=_dt(4)) == 2
 
+    def test_multiple_same_day_manual_workouts_each_count(self, tmp_path: Path) -> None:
+        """Manual workouts count individually now, same as verified — no
+        once-per-day collapse."""
+        log = tmp_path / "workout_log.json"
+        log.write_text(
+            json.dumps(
+                {
+                    "2025-05-19": [
+                        {"workout_data": {"type": "manual_workout"}},
+                        {"workout_data": {"type": "manual_workout"}},
+                    ],
+                }
+            )
+        )
+        assert count_weekly_workouts(log, today=_dt(4)) == 2
+
 
 # ---------------------------------------------------------------------------
 # has_weekly_minimum
@@ -212,7 +228,7 @@ class TestHasWeeklyMinimum:
         )
         assert has_weekly_minimum(log, today=_dt(4)) is False
 
-    def test_four_workouts_is_true(self, tmp_path: Path) -> None:
+    def test_four_workouts_is_false(self, tmp_path: Path) -> None:
         log = tmp_path / "workout_log.json"
         _make_log(
             {
@@ -223,7 +239,7 @@ class TestHasWeeklyMinimum:
             },
             log,
         )
-        assert has_weekly_minimum(log, today=_dt(4)) is True
+        assert has_weekly_minimum(log, today=_dt(4)) is False
 
     def test_five_workouts_is_true(self, tmp_path: Path) -> None:
         log = tmp_path / "workout_log.json"
@@ -240,4 +256,4 @@ class TestHasWeeklyMinimum:
         assert has_weekly_minimum(log, today=_dt(4)) is True
 
     def test_weekly_workout_minimum_constant(self) -> None:
-        assert WEEKLY_WORKOUT_MINIMUM == 4
+        assert WEEKLY_WORKOUT_MINIMUM == 5

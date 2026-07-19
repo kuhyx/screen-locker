@@ -250,12 +250,13 @@ class TestWeeklyTotalUsesPerWorkoutRule:
     def test_multiple_same_day_workouts_all_count(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
-        """One day with 1 manual + 3 verified entries = 4, not capped at 1.
+        """One day with 2 manual + 3 verified entries = 5, not capped at 1.
 
         Regression test: the summary used to derive its total from a
         per-day checkmark count (max 1 per day), undercounting any day
         holding more than one counted workout — exactly what multi-workout
-        days are supposed to support.
+        days are supposed to support. Also covers manual workouts counting
+        individually (no once-per-day collapse), same as verified ones.
         """
         from datetime import datetime, timezone
 
@@ -269,6 +270,7 @@ class TestWeeklyTotalUsesPerWorkoutRule:
                         {"workout_data": {"type": "runnerup_verified", "source": "a"}},
                         {"workout_data": {"type": "phone_verified", "source": "b"}},
                         {"workout_data": {"type": "runnerup_verified", "source": "c"}},
+                        {"workout_data": {"type": "manual_workout", "source": "gym2"}},
                     ]
                 }
             )
@@ -284,4 +286,4 @@ class TestWeeklyTotalUsesPerWorkoutRule:
         ):
             run_status(locker)
         out = capsys.readouterr().out
-        assert "Weekly minimum met exactly (4/4)." in out
+        assert "Weekly minimum met exactly (5/5)." in out

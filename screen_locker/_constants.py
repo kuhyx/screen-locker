@@ -35,7 +35,7 @@ COMMITMENT_PROMPT_TIMEOUT_SECONDS = 15
 # activities like table tennis recur more often than illness. Once either
 # window is exhausted the "Log Manual Workout" option disappears entirely.
 MANUAL_WORKOUT_BUDGET_PER_7_DAYS = 2
-MANUAL_WORKOUT_BUDGET_PER_30_DAYS = 5
+MANUAL_WORKOUT_BUDGET_PER_30_DAYS = 10
 # Minimum start-to-end duration for a manual entry to be accepted.
 MANUAL_WORKOUT_MIN_DURATION_MINUTES = 20
 # Minimum chars for the "what was done" activity-details field.

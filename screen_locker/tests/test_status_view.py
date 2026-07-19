@@ -284,7 +284,7 @@ class TestBackfillWeekAndApplyBonus:
 
         with patch(
             "screen_locker._status_view_verify.count_weekly_workouts",
-            side_effect=[4, 6],
+            side_effect=[4, 7],
         ):
             message = _backfill_week_and_apply_bonus(verifier)
 

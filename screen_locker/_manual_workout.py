@@ -72,11 +72,13 @@ def count_in_window(
     *,
     today: str | None = None,
 ) -> int:
-    """Return how many DAYS in the trailing window hold a ``manual_workout``.
+    """Return how many ``manual_workout`` ENTRIES fall in the trailing window.
 
-    The manual-workout budget is counted per DAY: several self-reports on one
-    day consume a single slot (and only one counts toward the weekly total
-    anyway), so a day contributes at most one here.
+    Counted per entry, not per day: each logged manual workout consumes its
+    own budget slot, matching how each one also earns its own weekly-count
+    and shutdown credit (see ``screen_locker._weekly_check.COUNTED_WORKOUT_TYPES``
+    and ``screen_locker._workout_credit``) — the budget is the sole limiter on
+    how many you can log, not a once-per-day collapse.
     """
     today_str = today or _today_iso()
     today_dt = _parse_iso(today_str)
@@ -88,11 +90,11 @@ def count_in_window(
         parsed = _parse_iso(date_str)
         if parsed is None or not (cutoff < parsed <= today_dt):
             continue
-        if any(
-            entry.get("workout_data", {}).get("type") == MANUAL_WORKOUT_TYPE
+        count += sum(
+            1
             for entry in entries
-        ):
-            count += 1
+            if entry.get("workout_data", {}).get("type") == MANUAL_WORKOUT_TYPE
+        )
     return count
 
 

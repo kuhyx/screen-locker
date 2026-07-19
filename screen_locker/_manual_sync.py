@@ -4,7 +4,9 @@ A manual workout logged on another device (phone form, or the PC form pushed
 from elsewhere) arrives via crdt-sync as a ``kind="manual_workout"`` payload
 (see :func:`screen_locker._manual_workout.build_sync_payload`). This module
 turns those synced payloads into ordinary signed ``manual_workout`` entries in
-``workout_log.json`` so they count toward the weekly minimum.
+``workout_log.json`` so they count toward the weekly minimum and — via the
+optional ``on_ingested`` callback — earn the same shutdown/debt reward a
+live-logged workout would.
 
 Trust model: the PC never trusts the phone's derived fields. Every synced
 manual is re-validated with the same :func:`validate_manual_workout` the local
@@ -31,8 +33,10 @@ from screen_locker._manual_workout import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
+    from collections.abc import Callable, Iterable, Mapping
     from pathlib import Path
+
+    OnIngestedCallback = Callable[[dict, "list[dict]"], None]
 
 _logger = logging.getLogger(__name__)
 
@@ -119,6 +123,7 @@ def ingest_manual_records(
     records: Iterable[tuple[str, Mapping[str, object]]],
     *,
     today: str | None = None,
+    on_ingested: OnIngestedCallback | None = None,
 ) -> list[str]:
     """Ingest synced manual workouts into ``workout_log.json``.
 
@@ -126,8 +131,17 @@ def ingest_manual_records(
     reconstruct + re-validate the draft on the PC, enforce the rate budget, then
     HMAC-sign and APPEND it under its own ``date`` (a day may hold several
     workouts). Idempotent: dedup by ``record_id`` here and by ``workout_id`` in
-    the write chokepoint, so re-syncing the same record is a no-op. A back-dated
-    ingest raises the weekly count but never pushes tonight's shutdown.
+    the write chokepoint, so re-syncing the same record is a no-op.
+
+    When ``on_ingested`` is given, it's called ``on_ingested(entry, prior_entries)``
+    right after each newly-appended record — ``prior_entries`` being that
+    entry's own date's entries written before it — so the caller (see
+    ``screen_lock.ScreenLocker._ingest_synced_manual_workouts``) can apply the
+    identical live-workout shutdown/debt reward. This applies regardless of
+    whether ``date`` is today or back-dated: there's only one current shutdown
+    config, so a back-dated sync still pushes it exactly as a live workout
+    would have that day.
+
     Returns the record ids actually ingested.
     """
     ingested: list[str] = []
@@ -153,6 +167,15 @@ def ingest_manual_records(
             continue
         entry = build_entry(draft)
         entry[_SYNC_ID_FIELD] = record_id
-        write_signed_entry(log_file, date, entry)
+        result = write_signed_entry(log_file, date, entry)
+        if not result.appended:
+            _logger.warning(
+                "Manual record %s collided with an existing workout_id — "
+                "skipped without credit",
+                record_id,
+            )
+            continue
         ingested.append(record_id)
+        if on_ingested is not None:
+            on_ingested(entry, result.prior_entries)
     return ingested

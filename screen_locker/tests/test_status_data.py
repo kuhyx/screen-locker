@@ -46,7 +46,7 @@ class TestGatherStatus:
         assert snap.today.counted is False
         assert snap.today.is_sick_day is False
         assert snap.week.counted_count == 0
-        assert snap.week.remaining == 4
+        assert snap.week.remaining == 5
         assert snap.week.extra == 0
         assert snap.shutdown.tonight is None
         assert snap.shutdown.rest_of_week[0].hour == 21
@@ -161,7 +161,13 @@ class TestGatherStatus:
             json.dumps(
                 {
                     d: {"workout_data": {"type": "phone_verified"}}
-                    for d in ("2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04")
+                    for d in (
+                        "2024-01-01",
+                        "2024-01-02",
+                        "2024-01-03",
+                        "2024-01-04",
+                        "2024-01-05",
+                    )
                 }
             )
         )
@@ -170,24 +176,28 @@ class TestGatherStatus:
         ):
             snap = gather_status(**files, now=_FRIDAY_NOON_UTC)
 
-        assert snap.week.counted_count == 4
+        assert snap.week.counted_count == 5
         assert snap.week.remaining == 0
         assert snap.week.extra == 0
         assert snap.lock_explanation.stage == "weekly_minimum_met"
 
     def test_extra_workouts_beyond_minimum(self, tmp_path: Path) -> None:
         files = _files(tmp_path)
+        # Jan 1-4 one each, Jan 5 (today, Friday — the last day in-week without
+        # going into the future) holds two, for 6 counted total: 1 above the
+        # new minimum of 5. Also exercises multiple same-day entries each
+        # counting individually.
         files["log_file"].write_text(
             json.dumps(
                 {
-                    d: {"workout_data": {"type": "phone_verified"}}
-                    for d in (
-                        "2024-01-01",
-                        "2024-01-02",
-                        "2024-01-03",
-                        "2024-01-04",
-                        "2024-01-05",
-                    )
+                    "2024-01-01": {"workout_data": {"type": "phone_verified"}},
+                    "2024-01-02": {"workout_data": {"type": "phone_verified"}},
+                    "2024-01-03": {"workout_data": {"type": "phone_verified"}},
+                    "2024-01-04": {"workout_data": {"type": "phone_verified"}},
+                    "2024-01-05": [
+                        {"workout_data": {"type": "phone_verified"}},
+                        {"workout_data": {"type": "phone_verified"}},
+                    ],
                 }
             )
         )
@@ -326,7 +336,13 @@ class TestFormatSummaryLine:
             json.dumps(
                 {
                     d: {"workout_data": {"type": "phone_verified"}}
-                    for d in ("2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04")
+                    for d in (
+                        "2024-01-01",
+                        "2024-01-02",
+                        "2024-01-03",
+                        "2024-01-04",
+                        "2024-01-05",
+                    )
                 }
             )
         )

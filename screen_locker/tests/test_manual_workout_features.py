@@ -139,14 +139,15 @@ class TestApplyWorkoutCredit:
         assert result.extra_bonus_delta == 0
         locker._try_adjust_shutdown_for_workout.assert_called_once()
 
-    def test_additional_manual_workout_earns_no_shutdown_credit(
+    def test_additional_manual_workout_earns_plus_one_hour(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
-        """A second manual workout on a day that already counted → no shutdown push.
+        """A second manual workout on a day that already counted → +1h extra.
 
-        Anti-gaming: self-reports can't stack intra-day shutdown credit. The
-        prior day already holds a counted entry, and the new workout is manual
-        (not verified), so neither the base push nor the +1h extra applies.
+        Manual workouts now stack intra-day shutdown credit exactly like
+        verified ones — the rate budget (not this stacking rule) is the sole
+        limiter on manual workouts. Mirrors
+        ``test_additional_verified_workout_earns_plus_one_hour``.
         """
         locker = create_locker(mock_tk, tmp_path)
         locker.workout_data = {"type": "manual_workout"}
@@ -160,18 +161,26 @@ class TestApplyWorkoutCredit:
             locker, "_try_adjust_shutdown_for_workout", MagicMock(return_value=True)
         )
         object.__setattr__(
+            locker,
+            "_read_shutdown_config",
+            MagicMock(side_effect=[(21, 21, 5), (22, 22, 5)]),
+        )
+        object.__setattr__(
             locker, "_adjust_shutdown_time_by", MagicMock(return_value=True)
         )
         object.__setattr__(
             locker, "_clear_debt_on_verified_workout", MagicMock(return_value=None)
         )
+        with patch(
+            "screen_locker._workout_credit.count_weekly_workouts", return_value=5
+        ):
+            result = locker._apply_workout_credit()
 
-        result = locker._apply_workout_credit()
-
+        assert result.weekly_count == 5
         assert result.shutdown_adjusted is False
-        assert result.extra_bonus_delta == 0
+        assert result.extra_bonus_delta == 1
         locker._try_adjust_shutdown_for_workout.assert_not_called()
-        locker._adjust_shutdown_time_by.assert_not_called()
+        locker._adjust_shutdown_time_by.assert_called_once_with(1)
 
     def test_additional_verified_workout_earns_plus_one_hour(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -214,6 +223,71 @@ class TestApplyWorkoutCredit:
         assert result.extra_bonus_delta == 1
         locker._try_adjust_shutdown_for_workout.assert_not_called()
         locker._adjust_shutdown_time_by.assert_called_once_with(1)
+
+    def test_additional_workout_unreadable_shutdown_config_earns_no_bonus(
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
+    ) -> None:
+        """Additional same-day workout, but the shutdown config can't be read
+        (old_cfg is None) → the +1h branch is entered but bails out before
+        ever attempting the adjustment."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker.workout_data = {"type": "phone_verified"}
+        prior = [{"workout_data": {"type": "phone_verified"}}]
+        object.__setattr__(
+            locker,
+            "save_workout_log",
+            MagicMock(return_value=RecordResult(appended=True, prior_entries=prior)),
+        )
+        object.__setattr__(
+            locker, "_try_adjust_shutdown_for_workout", MagicMock(return_value=True)
+        )
+        object.__setattr__(
+            locker, "_read_shutdown_config", MagicMock(return_value=None)
+        )
+        object.__setattr__(
+            locker, "_adjust_shutdown_time_by", MagicMock(return_value=True)
+        )
+        object.__setattr__(
+            locker, "_clear_debt_on_verified_workout", MagicMock(return_value=None)
+        )
+
+        result = locker._apply_workout_credit()
+
+        assert result.shutdown_adjusted is False
+        assert result.extra_bonus_delta == 0
+        locker._try_adjust_shutdown_for_workout.assert_not_called()
+        locker._adjust_shutdown_time_by.assert_not_called()
+
+    def test_additional_workout_of_uncounted_type_earns_nothing(
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
+    ) -> None:
+        """A workout whose type isn't in COUNTED_WORKOUT_TYPES (e.g.
+        ``early_bird``) and isn't the first counted entry of the day →
+        neither the base push nor the +1h branch fires; the shutdown config
+        is never even consulted."""
+        locker = create_locker(mock_tk, tmp_path)
+        locker.workout_data = {"type": "early_bird"}
+        prior = [{"workout_data": {"type": "phone_verified"}}]
+        object.__setattr__(
+            locker, "_try_adjust_shutdown_for_workout", MagicMock(return_value=True)
+        )
+        object.__setattr__(
+            locker, "_read_shutdown_config", MagicMock(return_value=(21, 21, 5))
+        )
+        object.__setattr__(
+            locker, "_adjust_shutdown_time_by", MagicMock(return_value=True)
+        )
+        object.__setattr__(
+            locker, "_clear_debt_on_verified_workout", MagicMock(return_value=None)
+        )
+
+        result = locker._apply_credit_for_written_entry(prior)
+
+        assert result.shutdown_adjusted is False
+        assert result.extra_bonus_delta == 0
+        locker._try_adjust_shutdown_for_workout.assert_not_called()
+        locker._read_shutdown_config.assert_not_called()
+        locker._adjust_shutdown_time_by.assert_not_called()
 
     def test_skips_save_for_sick_day_type(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path

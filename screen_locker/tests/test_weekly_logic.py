@@ -230,7 +230,7 @@ class TestStartRelaxedDayFlow:
 
         all_text = " ".join(str(c) for c in mock_text.call_args_list)
         assert "2" in all_text
-        assert "4" in all_text
+        assert "5" in all_text
 
     def test_skip_button_wires_close(
         self,

@@ -26,7 +26,7 @@ class TestRunStatusFill:
         """n_filled > 0, bonus > 0, adjust succeeds → bonus line shown.
 
         count_weekly_workouts is called twice: before the fill (3) and after
-        (5) — a flat return_value would collapse both calls to the same
+        (6) — a flat return_value would collapse both calls to the same
         number and mask the bonus math, so this uses side_effect instead.
         """
         eb_file = tmp_path / "eb.json"
@@ -35,7 +35,7 @@ class TestRunStatusFill:
             patch("screen_locker._status.EXTRA_BENEFITS_FILE", eb_file),
             patch("screen_locker._status.current_streak", return_value=0),
             patch("screen_locker._status.has_extended_early_bird", return_value=False),
-            patch("screen_locker._status.count_weekly_workouts", side_effect=[3, 5]),
+            patch("screen_locker._status.count_weekly_workouts", side_effect=[3, 6]),
             patch("sys.exit"),
         ):
             run_status(locker)
@@ -53,7 +53,7 @@ class TestRunStatusFill:
             patch("screen_locker._status.EXTRA_BENEFITS_FILE", eb_file),
             patch("screen_locker._status.current_streak", return_value=0),
             patch("screen_locker._status.has_extended_early_bird", return_value=False),
-            patch("screen_locker._status.count_weekly_workouts", side_effect=[0, 5]),
+            patch("screen_locker._status.count_weekly_workouts", side_effect=[0, 6]),
             patch("sys.exit"),
         ):
             run_status(locker)
@@ -63,7 +63,7 @@ class TestRunStatusFill:
     def test_fill_no_bonus_when_still_below_min(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
-        """n_filled=1 but count still < 4, before and after the fill → no bonus."""
+        """n_filled=1 but count still < 5, before and after the fill → no bonus."""
         eb_file = tmp_path / "eb.json"
         locker = _make_locker(tmp_path / "log.json", n_filled=1, bonus_applied=False)
         with (
@@ -87,7 +87,7 @@ class TestRunStatusMinimumStatus:
         """after_count > WEEKLY_WORKOUT_MINIMUM → 'above minimum' line.
 
         n_filled=1 triggers the count_weekly_workouts() branch so after_count
-        is taken from the second mocked call (5), not the first (before_count).
+        is taken from the second mocked call (6), not the first (before_count).
         """
         eb_file = tmp_path / "eb.json"
         locker = _make_locker(tmp_path / "log.json", n_filled=1, bonus_applied=False)
@@ -95,7 +95,7 @@ class TestRunStatusMinimumStatus:
             patch("screen_locker._status.EXTRA_BENEFITS_FILE", eb_file),
             patch("screen_locker._status.current_streak", return_value=0),
             patch("screen_locker._status.has_extended_early_bird", return_value=False),
-            patch("screen_locker._status.count_weekly_workouts", side_effect=[0, 5]),
+            patch("screen_locker._status.count_weekly_workouts", side_effect=[0, 6]),
             patch("sys.exit"),
         ):
             run_status(locker)
@@ -107,8 +107,8 @@ class TestRunStatusMinimumStatus:
     ) -> None:
         """after_count == WEEKLY_WORKOUT_MINIMUM → 'met exactly' line.
 
-        n_filled=1 so after_count = count_weekly_workouts() = 4 = WEEKLY_WORKOUT_MINIMUM.
-        bonus = max(0, 4 - max(4, 0)) = 0, so no bonus line is printed.
+        n_filled=1 so after_count = count_weekly_workouts() = 5 = WEEKLY_WORKOUT_MINIMUM.
+        bonus = max(0, 5 - max(5, 0)) = 0, so no bonus line is printed.
         """
         eb_file = tmp_path / "eb.json"
         locker = _make_locker(tmp_path / "log.json", n_filled=1, bonus_applied=False)
@@ -116,7 +116,7 @@ class TestRunStatusMinimumStatus:
             patch("screen_locker._status.EXTRA_BENEFITS_FILE", eb_file),
             patch("screen_locker._status.current_streak", return_value=0),
             patch("screen_locker._status.has_extended_early_bird", return_value=False),
-            patch("screen_locker._status.count_weekly_workouts", side_effect=[0, 4]),
+            patch("screen_locker._status.count_weekly_workouts", side_effect=[0, 5]),
             patch("sys.exit"),
         ):
             run_status(locker)
