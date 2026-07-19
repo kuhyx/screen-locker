@@ -156,18 +156,20 @@ class TestGatherStatus:
         assert snap.lock_explanation.stage == "relaxed_day"
 
     def test_weekly_minimum_met_stops_lock(self, tmp_path: Path) -> None:
+        # Avoid dating anything "today" (2024-01-05): an unsigned today entry
+        # trips already_logged before weekly_minimum_met, and does so only
+        # when no HMAC key is configured (env-dependent) -- Jan 4 holds two.
         files = _files(tmp_path)
         files["log_file"].write_text(
             json.dumps(
                 {
-                    d: {"workout_data": {"type": "phone_verified"}}
-                    for d in (
-                        "2024-01-01",
-                        "2024-01-02",
-                        "2024-01-03",
-                        "2024-01-04",
-                        "2024-01-05",
-                    )
+                    "2024-01-01": {"workout_data": {"type": "phone_verified"}},
+                    "2024-01-02": {"workout_data": {"type": "phone_verified"}},
+                    "2024-01-03": {"workout_data": {"type": "phone_verified"}},
+                    "2024-01-04": [
+                        {"workout_data": {"type": "phone_verified"}},
+                        {"workout_data": {"type": "phone_verified"}},
+                    ],
                 }
             )
         )
