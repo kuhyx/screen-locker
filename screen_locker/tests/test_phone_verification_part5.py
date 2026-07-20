@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
@@ -11,6 +11,22 @@ from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+# These two tests need a day that is BOTH in the past and inside the current
+# ISO week. On a Monday no such day exists (week_start == today), so using
+# date.today() made them fail every Monday and pass Tue-Sun. Pin "now" to a
+# Wednesday instead: yesterday is then Tuesday, comfortably inside the week.
+_FROZEN_NOW = datetime(2026, 7, 22, 12, 0, tzinfo=timezone.utc)  # a Wednesday
+_FROZEN_YESTERDAY = (_FROZEN_NOW.date() - timedelta(days=1)).isoformat()
+
+
+class _FakeDatetime(datetime):
+    """datetime whose now() is pinned to _FROZEN_NOW."""
+
+    @classmethod
+    def now(cls, tz=None):
+        return _FROZEN_NOW.astimezone(tz) if tz else _FROZEN_NOW
 
 
 class TestTryFillStronglifitsForWeek:
@@ -81,7 +97,7 @@ class TestTryFillStronglifitsForWeek:
         locker = create_locker(mock_tk, tmp_path)
         log_file = tmp_path / "log.json"
         log_file.write_text("{}")
-        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        yesterday = _FROZEN_YESTERDAY
         object.__setattr__(locker, "_has_adb_device", MagicMock(return_value=True))
         object.__setattr__(
             locker,
@@ -97,7 +113,7 @@ class TestTryFillStronglifitsForWeek:
         locker = create_locker(mock_tk, tmp_path)
         log_file = tmp_path / "log.json"
         log_file.write_text("{}")
-        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        yesterday = _FROZEN_YESTERDAY
         object.__setattr__(locker, "_has_adb_device", MagicMock(return_value=True))
         object.__setattr__(
             locker,
@@ -112,7 +128,10 @@ class TestTryFillStronglifitsForWeek:
             ),
         )
 
-        with patch("screen_locker._log_mixin.compute_entry_hmac", return_value="sig"):
+        with (
+            patch("screen_locker._log_mixin.compute_entry_hmac", return_value="sig"),
+            patch("screen_locker._phone_verification.datetime", _FakeDatetime),
+        ):
             result = locker._try_fill_stronglifts_for_week(log_file)
 
         assert result == 1
@@ -127,7 +146,7 @@ class TestTryFillStronglifitsForWeek:
         locker = create_locker(mock_tk, tmp_path)
         log_file = tmp_path / "log.json"
         log_file.write_text("{}")
-        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        yesterday = _FROZEN_YESTERDAY
         data = {
             "date": yesterday,
             "exercises": ["x"],
@@ -139,8 +158,38 @@ class TestTryFillStronglifitsForWeek:
             locker, "_pull_workout_app_json", MagicMock(return_value=data)
         )
 
-        with patch("screen_locker._log_mixin.compute_entry_hmac", return_value="sig"):
+        with (
+            patch("screen_locker._log_mixin.compute_entry_hmac", return_value="sig"),
+            patch("screen_locker._phone_verification.datetime", _FakeDatetime),
+        ):
             first = locker._try_fill_stronglifts_for_week(log_file)
             second = locker._try_fill_stronglifts_for_week(log_file)
 
         assert (first, second) == (1, 0)
+
+    def test_in_week_but_unverified_json_is_not_written(
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
+    ) -> None:
+        """A this-week JSON that fails validation is rejected, not backfilled.
+
+        The date gate and the content gate are separate: being in the current
+        week only earns the JSON a validation attempt, never a log entry.
+        """
+        locker = create_locker(mock_tk, tmp_path)
+        log_file = tmp_path / "log.json"
+        log_file.write_text("{}")
+        object.__setattr__(locker, "_has_adb_device", MagicMock(return_value=True))
+        object.__setattr__(
+            locker,
+            "_pull_workout_app_json",
+            MagicMock(return_value={"date": _FROZEN_YESTERDAY, "exercises": []}),
+        )
+        object.__setattr__(
+            locker,
+            "_validate_json_content",
+            MagicMock(return_value=("rejected", "no exercises")),
+        )
+
+        with patch("screen_locker._phone_verification.datetime", _FakeDatetime):
+            assert locker._try_fill_stronglifts_for_week(log_file) == 0
+        assert json.loads(log_file.read_text()) == {}
