@@ -8,7 +8,7 @@ import json
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-from crdt_sync import GitHubSyncError
+from crdt_sync import GitHubSyncError, RepoNotFoundError
 
 from screen_locker import _manual_push
 from screen_locker._manual_push import (
@@ -22,6 +22,8 @@ from screen_locker._manual_push import (
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    import pytest
 
 _MANUAL = {
     "type": "manual_workout",
@@ -203,6 +205,57 @@ class TestPushPcWorkouts:
         assert result.pushed is False
         assert result.record_count == 1
         assert "403 forbidden" in result.reason
+
+    def test_network_error_is_not_blamed_on_the_token(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A network failure must not be reported as a permissions problem.
+
+        Regression guard for 2026-07-20: the morning routine runs seconds after
+        boot/resume, so its pushes failed with the network still down — and the
+        log asserted "a 403 here means the token lacks contents:write", which
+        sent an investigation chasing a permissions bug that did not exist.
+        """
+        log_file = tmp_path / "workout_log.json"
+        _write_log(
+            log_file, {"2026-07-13": [_entry(_RUN, "2026-07-13T10:00:00+00:00")]}
+        )
+        with (
+            patch.object(_manual_push, "read_sync_token", return_value="t"),
+            patch.object(_manual_push, "GitHubSyncClient", MagicMock()),
+            patch.object(
+                _manual_push,
+                "sync_log",
+                side_effect=GitHubSyncError("network error reading x"),
+            ),
+            caplog.at_level("WARNING"),
+        ):
+            result = push_pc_workouts(log_file)
+        assert result.pushed is False
+        assert "network error reading x" in caplog.text
+        assert "contents:write" not in caplog.text
+
+    def test_repo_not_found_still_points_at_the_token(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """The permission hint survives for the error that actually implies it."""
+        log_file = tmp_path / "workout_log.json"
+        _write_log(
+            log_file, {"2026-07-13": [_entry(_RUN, "2026-07-13T10:00:00+00:00")]}
+        )
+        with (
+            patch.object(_manual_push, "read_sync_token", return_value="t"),
+            patch.object(_manual_push, "GitHubSyncClient", MagicMock()),
+            patch.object(
+                _manual_push,
+                "sync_log",
+                side_effect=RepoNotFoundError("no access"),
+            ),
+            caplog.at_level("WARNING"),
+        ):
+            result = push_pc_workouts(log_file)
+        assert result.pushed is False
+        assert "contents:write" in caplog.text
 
     def test_successful_push_reports_count(self, tmp_path: Path) -> None:
         log_file = tmp_path / "workout_log.json"

@@ -23,6 +23,7 @@ from screen_locker._constants import (
     SYNC_TOKEN_FILE,
 )
 from screen_locker._manual_workout import MANUAL_WORKOUT_SYNC_KIND
+from screen_locker._sync_retry import with_sync_retry
 
 _logger = logging.getLogger(__name__)
 
@@ -113,7 +114,10 @@ def pull_synced_workout() -> tuple[dict | None, str | None]:
         timeout_seconds=SYNC_TIMEOUT_SECONDS,
     )
     try:
-        text = client.get_file_text(_LOG_PATH)
+        text = with_sync_retry(
+            lambda: client.get_file_text(_LOG_PATH),
+            description="fetch the phone's workout log",
+        )
     except GitHubSyncError as exc:
         _logger.warning(
             "Could not fetch the phone's workout log %s from %s/%s: %s — "
@@ -189,7 +193,10 @@ def pull_all_manual_records() -> list[tuple[str, dict]]:
         timeout_seconds=SYNC_TIMEOUT_SECONDS,
     )
     try:
-        devices = client.list_directory(_DEVICES_PREFIX)
+        devices = with_sync_retry(
+            lambda: client.list_directory(_DEVICES_PREFIX),
+            description="list synced device logs",
+        )
     except GitHubSyncError as exc:
         _logger.warning(
             "Could not list device logs under %s in %s/%s: %s — pulling NO "

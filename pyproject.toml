@@ -63,6 +63,12 @@ unfixable = []
 # considered and rejected (it can't ever trigger, so it's just an untested
 # branch and a crash risk in the lock's startup path for zero real benefit).
 "screen_locker/_temperature.py" = ["S310"]
+# PERF203 (try/except inside a loop) describes a retry loop exactly, and lands
+# where its cost is irrelevant: each iteration makes a network call and then
+# sleeps for seconds, so handler setup is noise. Hoisting the handler out of
+# the loop would mean swallowing the error into a return value, which the
+# repo's no-silent-failures rule rightly discourages.
+"screen_locker/_sync_retry.py" = ["PERF203"]
 "screen_locker/_shutdown_base.py" = ["SLF001"]
 # run_status walks the weekly-status pipeline (weekly logic, RunnerUp scan,
 # bonus, heat-skip) as a sequence of stages — genuinely branchy by design, same

@@ -32,6 +32,7 @@ from crdt_sync import (
     GitHubSyncError,
     Hlc,
     Record,
+    RepoNotFoundError,
     sync_log,
 )
 
@@ -43,6 +44,7 @@ from screen_locker._constants import (
 )
 from screen_locker._log_io import load_workout_log
 from screen_locker._log_mixin import _derive_workout_id
+from screen_locker._sync_retry import with_sync_retry
 from screen_locker._weekly_check import COUNTED_WORKOUT_TYPES
 from screen_locker._workout_sync import _DEVICES_PREFIX, read_sync_token
 
@@ -180,24 +182,40 @@ def push_pc_workouts(log_file: Path) -> PushResult:
         timeout_seconds=SYNC_TIMEOUT_SECONDS,
     )
     try:
-        sync_log(
-            client=client,
-            device_id=_PC_DEVICE_ID,
-            path_prefix=_DEVICES_PREFIX,
-            local_log=log,
-            encode=_encode_log,
-            decode=_decode_log,
+        with_sync_retry(
+            lambda: sync_log(
+                client=client,
+                device_id=_PC_DEVICE_ID,
+                path_prefix=_DEVICES_PREFIX,
+                local_log=log,
+                encode=_encode_log,
+                decode=_decode_log,
+            ),
+            description="push PC workouts",
         )
     except GitHubSyncError as exc:
         reason = f"sync error: {exc}"
-        _logger.warning(
-            "Workout sync push FAILED for %d workout(s): %s — a 403 here means "
-            "the token lacks contents:write on %s/%s",
-            len(log),
-            exc,
-            SYNC_REPO_OWNER,
-            SYNC_REPO_NAME,
-        )
+        # Report what actually happened. This used to assert "a 403 here means
+        # the token lacks contents:write" for *every* failure, including a
+        # plain network error — which sent a 2026-07-20 investigation chasing a
+        # permissions bug that did not exist (the token could write fine; the
+        # network was simply not up yet). Only RepoNotFoundError actually
+        # implicates the repo or the token.
+        if isinstance(exc, RepoNotFoundError):
+            _logger.warning(
+                "Workout sync push FAILED for %d workout(s): %s — check the "
+                "token has contents:write on %s/%s",
+                len(log),
+                exc,
+                SYNC_REPO_OWNER,
+                SYNC_REPO_NAME,
+            )
+        else:
+            _logger.warning(
+                "Workout sync push FAILED for %d workout(s): %s",
+                len(log),
+                exc,
+            )
         return PushResult(pushed=False, record_count=len(log), reason=reason)
 
     _logger.info(

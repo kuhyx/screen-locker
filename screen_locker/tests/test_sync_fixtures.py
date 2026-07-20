@@ -33,3 +33,17 @@ def isolate_sync_token(tmp_path: Path) -> Iterator[None]:
         tmp_path / "sync_token",
     ):
         yield
+
+
+@pytest.fixture(autouse=True)
+def no_sync_retry_sleep() -> Iterator[None]:
+    """Make the sync retry's backoff instant for every test.
+
+    ``with_sync_retry`` waits 2s + 4s + 8s before giving up, which is right in
+    production (it covers the network coming up after boot/resume) but would
+    add ~14s to every test that exercises a sync failure. Tests that care about
+    the backoff assert on the patched ``sleep`` calls instead -- see
+    ``test_sync_retry.py``.
+    """
+    with patch("screen_locker._sync_retry.sleep"):
+        yield

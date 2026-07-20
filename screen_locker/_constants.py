@@ -131,3 +131,14 @@ SYNC_PHONE_DEVICE_ID: str = "phone"
 # this file being absent is a normal, expected state (sync is optional here).
 SYNC_TOKEN_FILE: Path = Path.home() / ".config" / "screen_locker" / "sync_token"
 SYNC_TIMEOUT_SECONDS: float = 10.0
+
+# Sync runs from the morning routine, which is started right after boot and
+# right after resume — often seconds before networking is actually up. Such a
+# run used to fail outright, and reported it as a permissions problem
+# (2026-07-20: six workouts "FAILED" at 08:04 with the network still down, then
+# pushed fine by hand minutes later on the same token). So retry before giving
+# up. Exponential backoff from SYNC_RETRY_DELAY_SECONDS gives 2s + 4s + 8s =
+# ~14s of patience — enough for DHCP/DNS to come up, without making a genuinely
+# offline run drag the whole morning routine.
+SYNC_RETRY_ATTEMPTS: int = 4
+SYNC_RETRY_DELAY_SECONDS: float = 2.0
