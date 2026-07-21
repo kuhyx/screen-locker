@@ -40,21 +40,23 @@ class TemperatureStatusMixin:
         self._label("Warsaw Temperature", font_size=16, pady=8)
         result = self._temp_result
         if result is None:
-            self._text("Checking Warsaw temperature…", font_size=12, color="#888888")
+            self._text(
+                "Checking Warsaw temperature…", font_size=12, color=self._colors.muted
+            )
             return
         if result.timed_out:
             self._text(
                 f"Warsaw temperature check timed out after ~"
                 f"{int(HARD_TIMEOUT_SECONDS)}s — network may be down.",
                 font_size=12,
-                color="#ff8844",
+                color=self._colors.warning,
             )
             return
         if result.temp_celsius is None:
             self._text(
                 "Warsaw temperature check failed (network/API error).",
                 font_size=12,
-                color="#ff8844",
+                color=self._colors.warning,
             )
             return
         hot = result.temp_celsius >= HEAT_SKIP_TEMP_THRESHOLD
@@ -62,10 +64,14 @@ class TemperatureStatusMixin:
             f"Warsaw: {result.temp_celsius:.0f}°C (heat-skip threshold "
             f"{HEAT_SKIP_TEMP_THRESHOLD}°C)",
             font_size=12,
-            color="#ff8844" if hot else "#cccccc",
+            color=self._colors.warning if hot else self._colors.muted,
         )
         if hot:
-            self._text("Would trigger heat-skip today.", font_size=11, color="#ff4444")
+            self._text(
+                "Would trigger heat-skip today.",
+                font_size=11,
+                color=self._colors.danger,
+            )
 
     def _start_temperature_check(self) -> None:
         """Submit a background Warsaw-temperature fetch and start polling it.

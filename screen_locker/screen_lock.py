@@ -140,21 +140,25 @@ class ScreenLocker(
         self.demo_mode = demo_mode
         self.lockout_time = 10 if demo_mode else 1800
         self._lock: LockWindow | None = None
+        # One shared token source for every window/widget this app creates,
+        # lock or not -- see the `unified-design-system` skill. `mode`/`grab`/
+        # `disable_vt` only matter for the fullscreen lock window itself; the
+        # color/font fields apply everywhere, so this is built unconditionally.
+        self._colors = LockConfig(
+            mode="hard",
+            grab="local" if demo_mode else "global",
+            disable_vt=not demo_mode,
+        )
         if verify_only:
             self._setup_verify_window()
         elif self._relaxed_day_mode:
             self._setup_relaxed_day_window()
         else:
-            config = LockConfig(
-                mode="hard",
-                grab="local" if demo_mode else "global",
-                disable_vt=not demo_mode,
-            )
-            self._lock = LockWindow(self.root, config, hooks=self)
+            self._lock = LockWindow(self.root, self._colors, hooks=self)
             self._lock.setup()
             if demo_mode:
                 self._setup_demo_close_button()
-        self.container = tk.Frame(self.root, bg="#1a1a1a")
+        self.container = tk.Frame(self.root, bg=self._colors.bg)
         self.container.place(relx=0.5, rely=0.5, anchor="center")
         self._phone_future: Future[tuple[str, str]] | None = None
         self._runnerup_future: Future[tuple[str, str]] | None = None
@@ -311,31 +315,33 @@ class ScreenLocker(
         credit = self._apply_workout_credit()
 
         self.clear_container()
-        self._label("Great job! 💪", font_size=48, color="#00ff00", pady=30)
+        self._label("Great job! 💪", font_size=48, color=self._colors.success, pady=30)
         if credit.shutdown_adjusted:
             self._text(
                 "Shutdown time +2h later! 🎁",
                 font_size=24,
-                color="#ffaa00",
+                color=self._colors.warning,
             )
         if credit.extra_bonus_delta > 0:
             self._text(
                 f"Extra workout today! +{credit.extra_bonus_delta}h tonight",
                 font_size=20,
-                color="#ffaa00",
+                color=self._colors.warning,
             )
         if credit.new_debt is not None:
             self._text(
                 f"Workout debt: {credit.new_debt}",
                 font_size=20,
-                color="#ffaa00" if credit.new_debt > 0 else "#888888",
+                color=self._colors.warning
+                if credit.new_debt > 0
+                else self._colors.muted,
             )
         streak = current_streak(EXTRA_BENEFITS_FILE)
         if streak >= 1:
             self._text(
                 f"🔥 {streak}-week streak (5+ workouts each)",
                 font_size=14,
-                color="#888888",
+                color=self._colors.muted,
             )
         self._text("Screen Unlocked!", font_size=36, pady=20)
         if self.workout_data.get("type") in (

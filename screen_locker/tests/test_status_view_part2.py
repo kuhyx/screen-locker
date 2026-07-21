@@ -46,7 +46,7 @@ class TestPhoneCheckResultRendering:
             if "Phone check" in c.kwargs.get("text", "")
         ]
         assert calls
-        assert calls[-1].kwargs.get("fg") == "#00cc44"
+        assert calls[-1].kwargs.get("fg") == window._colors.success
 
     def test_non_verified_result_shown_in_orange(self, mock_tk: MagicMock) -> None:
         window = _make_window(mock_tk, _snapshot())
@@ -58,7 +58,7 @@ class TestPhoneCheckResultRendering:
             if "Phone check" in c.kwargs.get("text", "")
         ]
         assert calls
-        assert calls[-1].kwargs.get("fg") == "#ff8844"
+        assert calls[-1].kwargs.get("fg") == window._colors.warning
 
 
 class TestButtons:

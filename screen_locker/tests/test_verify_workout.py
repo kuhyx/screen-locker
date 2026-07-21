@@ -151,7 +151,7 @@ class TestSetupVerifyWindow:
         )
         locker.root.geometry.assert_called_with("600x400")
         locker.root.configure.assert_called_with(
-            bg="#1a1a1a",
+            bg=locker._colors.bg,
             cursor="arrow",
         )
         locker.root.protocol.assert_called_with(

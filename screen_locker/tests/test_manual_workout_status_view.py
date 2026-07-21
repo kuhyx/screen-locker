@@ -26,25 +26,25 @@ class TestSectionManualWorkoutBudget:
         snap = _snapshot(
             manual_workout_budget=_manual_workout_budget(used_7d=2, exhausted=True)
         )
-        _make_window(mock_tk, snap)
+        window = _make_window(mock_tk, snap)
         calls = [
             c
             for c in mock_tk.Label.call_args_list
             if "week" in c.kwargs.get("text", "")
         ]
-        assert any(c.kwargs.get("fg") == "#ff4444" for c in calls)
+        assert any(c.kwargs.get("fg") == window._colors.danger for c in calls)
 
     def test_not_exhausted_uses_normal_color(self, mock_tk: MagicMock) -> None:
         snap = _snapshot(
             manual_workout_budget=_manual_workout_budget(used_7d=0, exhausted=False)
         )
-        _make_window(mock_tk, snap)
+        window = _make_window(mock_tk, snap)
         calls = [
             c
             for c in mock_tk.Label.call_args_list
             if "week" in c.kwargs.get("text", "")
         ]
-        assert any(c.kwargs.get("fg") == "#cccccc" for c in calls)
+        assert any(c.kwargs.get("fg") == window._colors.muted for c in calls)
 
 
 class TestManualWorkoutButtonVisibility:

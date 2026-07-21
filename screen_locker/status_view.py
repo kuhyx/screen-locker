@@ -28,6 +28,8 @@ import sys
 import tkinter as tk
 from typing import TYPE_CHECKING
 
+from gatelock import LockConfig
+
 from screen_locker import _manual_workout
 from screen_locker._manual_workout_dialog import ManualWorkoutDialogMixin
 from screen_locker._status_data import (
@@ -56,6 +58,7 @@ if TYPE_CHECKING:
     from screen_locker.screen_lock import ScreenLocker
 
 _DEFAULT_LOG_FILE = Path(__file__).resolve().parent / "workout_log.json"
+_STATUS_COLORS = LockConfig()
 
 
 class StatusWindow(
@@ -96,7 +99,8 @@ class StatusWindow(
         self._temp_future: Future[TemperatureCheck] | None = None
         self._temp_result: TemperatureCheck | None = None
         self._last_snapshot = snapshot
-        self.container = tk.Frame(root, bg="#1a1a1a")
+        self._colors = _STATUS_COLORS
+        self.container = tk.Frame(root, bg=self._colors.bg)
         self.container.pack(fill="both", expand=True)
         self._start_temperature_check()
         self.render(snapshot)
@@ -117,15 +121,20 @@ class StatusWindow(
         self._section_shutdown(self.container, snapshot.shutdown)
         if self._phone_check_result is not None:
             status, message = self._phone_check_result
-            color = "#00cc44" if status == "verified" else "#ff8844"
-            self._text(f"Phone check ({status}): {message}", font_size=13, color=color)
+            color = (
+                self._colors.success if status == "verified" else self._colors.warning
+            )
+            self._text(f"Phone check ({status}): {message}", font_size=16, color=color)
         if self._credit_message is not None:
-            self._text(self._credit_message, font_size=13, color="#00cc44")
+            self._text(self._credit_message, font_size=16, color=self._colors.success)
+        # "Check Phone"/"Log Manual Workout" are the primary write actions
+        # (accent, high contrast per rule 3); "Refresh"/"Close" are secondary
+        # utility actions (muted) -- two tiers instead of four arbitrary hues.
         frame = self._button_row()
         self._button(
             frame,
             "Check Phone",
-            bg="#0066cc",
+            bg=self._colors.accent,
             command=self._on_check_phone_clicked,
             width=14,
         ).pack(side="left", padx=8)
@@ -133,15 +142,23 @@ class StatusWindow(
             self._button(
                 frame,
                 "Log Manual Workout",
-                bg="#0088cc",
+                bg=self._colors.accent,
                 command=self._show_manual_workout_form,
                 width=16,
             ).pack(side="left", padx=8)
         self._button(
-            frame, "Refresh", bg="#006600", command=self._on_refresh_clicked, width=10
+            frame,
+            "Refresh",
+            bg=self._colors.field_bg,
+            command=self._on_refresh_clicked,
+            width=10,
         ).pack(side="left", padx=8)
         self._button(
-            frame, "Close", bg="#aa0000", command=self.root.destroy, width=8
+            frame,
+            "Close",
+            bg=self._colors.field_bg,
+            command=self.root.destroy,
+            width=8,
         ).pack(side="left", padx=8)
 
     def _section_today(self, parent: tk.Widget, day: DayStatus) -> None:
@@ -154,10 +171,12 @@ class StatusWindow(
         self._text(
             f"{mark} Today ({day.label}): {entry_str}",
             font_size=18,
-            color="#aaffaa" if day.counted else "#ffaa00",
+            color=self._colors.success if day.counted else self._colors.warning,
         )
         if day.source:
-            self._text(day.source, font_size=12, color="#888888", pady=2)
+            # Secondary provenance note on an already-shown entry -- a
+            # deliberately caption-sized exception to the 16px floor.
+            self._text(day.source, font_size=12, color=self._colors.muted, pady=4)
 
     def _section_week(self, parent: tk.Widget, week: WeeklySummary) -> None:
         """Render this ISO week's per-day breakdown and totals."""
@@ -172,17 +191,21 @@ class StatusWindow(
             )
             self._text(
                 f"{mark} {day.label}: {entry_str}",
-                font_size=12,
-                color="#cccccc",
-                pady=1,
+                font_size=16,
+                color=self._colors.muted,
+                pady=4,
             )
         if week.remaining > 0:
             self._text(
-                f"Need {week.remaining} more this week.", font_size=13, color="#ffaa00"
+                f"Need {week.remaining} more this week.",
+                font_size=16,
+                color=self._colors.warning,
             )
         elif week.extra > 0:
             self._text(
-                f"{week.extra} above the weekly minimum!", font_size=13, color="#00cc44"
+                f"{week.extra} above the weekly minimum!",
+                font_size=16,
+                color=self._colors.success,
             )
 
     def _section_lock_explanation(
@@ -192,13 +215,15 @@ class StatusWindow(
         del parent
         self._label("Why the lock did/didn't fire", font_size=16, pady=8)
         self._text(
-            expl.reason, font_size=13, color="#ff4444" if expl.fired else "#00cc44"
+            expl.reason,
+            font_size=16,
+            color=self._colors.danger if expl.fired else self._colors.success,
         )
         if expl.auto_upgrade.would_attempt:
             self._text(
                 f"Pending auto-upgrade: {expl.auto_upgrade.reason}",
-                font_size=11,
-                color="#ffaa00",
+                font_size=14,
+                color=self._colors.warning,
             )
 
     def _section_sick_budget(self, parent: tk.Widget, sick: SickBudgetStatus) -> None:
@@ -208,8 +233,8 @@ class StatusWindow(
         self._text(
             f"{sick.used_7d}/{sick.budget_7d} week · {sick.used_30d}/{sick.budget_30d} "
             f"month · {sick.used_90d}/{sick.budget_90d} quarter · debt {sick.debt}",
-            font_size=12,
-            color="#ff4444" if sick.exhausted else "#cccccc",
+            font_size=16,
+            color=self._colors.danger if sick.exhausted else self._colors.muted,
         )
 
     def _section_manual_workout_budget(
@@ -221,8 +246,8 @@ class StatusWindow(
         self._text(
             f"{manual.used_7d}/{manual.budget_7d} week · "
             f"{manual.used_30d}/{manual.budget_30d} month",
-            font_size=12,
-            color="#ff4444" if manual.exhausted else "#cccccc",
+            font_size=16,
+            color=self._colors.danger if manual.exhausted else self._colors.muted,
         )
 
     def _section_shutdown(
@@ -236,23 +261,31 @@ class StatusWindow(
             self._text(
                 f"Live config — Mon-Wed {mon_wed_hour:02d}:00, "
                 f"Thu-Sun {thu_sun_hour:02d}:00",
-                font_size=12,
+                font_size=16,
             )
         else:
             self._text(
-                "Live shutdown config unavailable.", font_size=12, color="#ff8844"
+                "Live shutdown config unavailable.",
+                font_size=16,
+                color=self._colors.warning,
             )
+        # Rest-of-week/next-week/explanation are speculative annotations, not
+        # the section's primary content -- a deliberate caption-sized
+        # exception to the 16px floor, all sharing one muted tone instead of
+        # three unrelated ad hoc grays.
         rest_line = ", ".join(
             f"{d.label} {d.hour:02d}:00" for d in shutdown.rest_of_week
         )
-        self._text(f"Rest of week: {rest_line}", font_size=10, color="#cccccc")
+        self._text(f"Rest of week: {rest_line}", font_size=12, color=self._colors.muted)
         next_line = ", ".join(
             f"{d.label} {d.hour:02d}:00" for d in shutdown.next_week_preview
         )
         self._text(
-            f"Next week (speculative): {next_line}", font_size=10, color="#888888"
+            f"Next week (speculative): {next_line}",
+            font_size=12,
+            color=self._colors.muted,
         )
-        self._text(shutdown.explanation, font_size=10, color="#666666")
+        self._text(shutdown.explanation, font_size=12, color=self._colors.muted)
 
     def _on_refresh_clicked(self) -> None:
         """Clear any stale phone-check/credit/temperature results, re-check both."""
@@ -314,7 +347,7 @@ def main(argv: list[str] | None = None) -> None:
 
     root = tk.Tk()
     root.title("Workout Status")
-    root.configure(bg="#1a1a1a")
+    root.configure(bg=_STATUS_COLORS.bg)
     root.minsize(560, 200)
 
     def refresh() -> None:

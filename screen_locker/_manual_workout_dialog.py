@@ -39,23 +39,28 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
     def _show_manual_workout_form(self) -> None:
         """Render the manual-workout evidence form, or a budget-exhausted note."""
         self.clear_container()
-        self._label("Log Manual Workout", color="#0088cc", pady=10)
+        self._label("Log Manual Workout", color=self._colors.accent, pady=10)
         if _manual_workout.is_budget_exhausted(self.log_file):
             self._text(
                 "Manual-workout budget exhausted for this window.",
-                color="#ff4444",
+                color=self._colors.danger,
             )
-            self._text(_manual_workout.budget_summary(self.log_file), color="#888888")
+            self._text(
+                _manual_workout.budget_summary(self.log_file),
+                color=self._colors.muted,
+            )
             row = self._button_row()
             self._button(
                 row,
                 "BACK",
-                bg="#aa0000",
+                bg=self._colors.field_bg,
                 command=self._on_manual_workout_cancelled,
                 width=12,
             ).pack(side="left", padx=10)
             return
-        self._text(_manual_workout.budget_summary(self.log_file), color="#88ccff")
+        self._text(
+            _manual_workout.budget_summary(self.log_file), color=self._colors.accent
+        )
         self._build_manual_workout_form()
 
     def _mw_scrollable_form(self) -> tk.Frame:
@@ -67,11 +72,11 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
         the inner form to the viewport so its two columns split the full width.
         Harmless on StatusWindow, whose container already fills its window.
         """
-        outer = tk.Frame(self.container, bg="#1a1a1a")
+        outer = tk.Frame(self.container, bg=self._colors.bg)
         outer.pack(fill="both", expand=True, pady=10)
-        canvas = tk.Canvas(outer, bg="#1a1a1a", highlightthickness=0)
+        canvas = tk.Canvas(outer, bg=self._colors.bg, highlightthickness=0)
         scrollbar = tk.Scrollbar(outer, orient="vertical", command=canvas.yview)
-        form = tk.Frame(canvas, bg="#1a1a1a")
+        form = tk.Frame(canvas, bg=self._colors.bg)
         form.grid_columnconfigure(0, weight=1, uniform="mw")
         form.grid_columnconfigure(1, weight=1, uniform="mw")
         form.bind(
@@ -129,8 +134,8 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
         # Both sport sub-frames occupy the same full-width grid slot; only the
         # selected one is shown (see _on_mw_sport_changed).
         act_row = self._mw_next_full_row(form)
-        self._mw_tt_frame = tk.Frame(form, bg="#1a1a1a")
-        self._mw_other_frame = tk.Frame(form, bg="#1a1a1a")
+        self._mw_tt_frame = tk.Frame(form, bg=self._colors.bg)
+        self._mw_other_frame = tk.Frame(form, bg=self._colors.bg)
         for sport_frame in (self._mw_tt_frame, self._mw_other_frame):
             sport_frame.grid_columnconfigure(0, weight=1, uniform="mwact")
             sport_frame.grid_columnconfigure(1, weight=1, uniform="mwact")
@@ -168,19 +173,19 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
             f"(min {MANUAL_WORKOUT_REFLECTION_MIN_CHARS} chars):",
         )
 
-        self._mw_error_label = self._text("", color="#ff4444", pady=5)
+        self._mw_error_label = self._text("", color=self._colors.danger, pady=8)
         button_row = self._button_row()
         self._button(
             button_row,
             "SUBMIT",
-            bg="#0066cc",
+            bg=self._colors.accent,
             command=self._submit_manual_workout_form,
             width=12,
         ).pack(side="left", padx=10)
         self._button(
             button_row,
             "BACK",
-            bg="#aa0000",
+            bg=self._colors.field_bg,
             command=self._on_manual_workout_cancelled,
             width=12,
         ).pack(side="left", padx=10)
@@ -190,13 +195,13 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
         self._mw_sport_var = tk.StringVar(
             value=_manual_workout.SPORT_LABELS[_manual_workout.SPORT_TABLE_TENNIS]
         )
-        row = tk.Frame(parent, bg="#1a1a1a")
+        row = tk.Frame(parent, bg=self._colors.bg)
         tk.Label(
             row,
             text="Sport:",
-            font=("Arial", 16),
-            fg="white",
-            bg="#1a1a1a",
+            font=(self._colors.font_family, 16),
+            fg=self._colors.fg,
+            bg=self._colors.bg,
         ).pack(side="left", padx=5)
         tk.OptionMenu(
             row,

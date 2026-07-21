@@ -144,7 +144,7 @@ class TestGetSickDayStatus:
         )
         text, color = locker._get_sick_day_status()
         assert "already adjusted" in text
-        assert color == "#ffaa00"
+        assert color == locker._colors.warning
 
     def test_adjustment_success(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -159,7 +159,7 @@ class TestGetSickDayStatus:
         )
         text, color = locker._get_sick_day_status()
         assert "earlier" in text
-        assert color == "#00aa00"
+        assert color == locker._colors.success
 
     def test_adjustment_failure(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -174,7 +174,7 @@ class TestGetSickDayStatus:
         )
         text, color = locker._get_sick_day_status()
         assert "Could not adjust" in text
-        assert color == "#ff4444"
+        assert color == locker._colors.danger
 
 
 class TestShowRetryAndSick:

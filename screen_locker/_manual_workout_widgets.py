@@ -44,7 +44,7 @@ class ManualWorkoutFormWidgetsMixin:
             columnspan=2 if full else 1,
             sticky="ew",
             padx=12,
-            pady=6,
+            pady=8,
         )
         counters[id(parent)] = idx + (2 if full else 1)
 
@@ -67,9 +67,9 @@ class ManualWorkoutFormWidgetsMixin:
         label = tk.Label(
             parent,
             text=title,
-            font=("Arial", 20, "bold"),
-            fg="#88ccff",
-            bg="#1a1a1a",
+            font=(self._colors.font_family, 20, "bold"),
+            fg=self._colors.accent,
+            bg=self._colors.bg,
             anchor="w",
         )
         self._mw_grid(parent, label, full=True)
@@ -82,24 +82,24 @@ class ManualWorkoutFormWidgetsMixin:
         the two-column grid. Paste stays disabled via ``disable_paste``.
         """
         var = tk.StringVar()
-        cell = tk.Frame(parent, bg="#1a1a1a")
+        cell = tk.Frame(parent, bg=self._colors.bg)
         tk.Label(
             cell,
             text=label,
-            font=("Arial", 16),
-            fg="white",
-            bg="#1a1a1a",
+            font=(self._colors.font_family, 16),
+            fg=self._colors.fg,
+            bg=self._colors.bg,
             anchor="w",
         ).pack(fill="x")
         entry = tk.Entry(
             cell,
             textvariable=var,
-            font=("Arial", 18),
-            bg="#2a2a2a",
-            fg="white",
-            insertbackground="white",
+            font=(self._colors.font_family, 18),
+            bg=self._colors.field_bg,
+            fg=self._colors.fg,
+            insertbackground=self._colors.fg,
         )
-        entry.pack(fill="x", pady=2)
+        entry.pack(fill="x", pady=4)
         disable_paste(entry)
         self._mw_grid(parent, cell)
         return var
@@ -109,13 +109,13 @@ class ManualWorkoutFormWidgetsMixin:
     ) -> tk.IntVar:
         """Add a half-width label + numeric Spinbox and return its IntVar."""
         var = tk.IntVar(value=0)
-        row = tk.Frame(parent, bg="#1a1a1a")
+        row = tk.Frame(parent, bg=self._colors.bg)
         tk.Label(
             row,
             text=label,
-            font=("Arial", 16),
-            fg="white",
-            bg="#1a1a1a",
+            font=(self._colors.font_family, 16),
+            fg=self._colors.fg,
+            bg=self._colors.bg,
         ).pack(side="left", padx=5)
         tk.Spinbox(
             row,
@@ -123,47 +123,47 @@ class ManualWorkoutFormWidgetsMixin:
             to=to,
             textvariable=var,
             width=4,
-            font=("Arial", 16),
+            font=(self._colors.font_family, 16),
         ).pack(side="left", padx=5)
         self._mw_grid(parent, row)
         return var
 
     def _mw_textbox(self, parent: tk.Widget, label: str) -> tk.Text:
         """Add a full-width label + multi-line Text cell and return the widget."""
-        cell = tk.Frame(parent, bg="#1a1a1a")
+        cell = tk.Frame(parent, bg=self._colors.bg)
         tk.Label(
             cell,
             text=label,
-            font=("Arial", 16),
-            fg="white",
-            bg="#1a1a1a",
+            font=(self._colors.font_family, 16),
+            fg=self._colors.fg,
+            bg=self._colors.bg,
             anchor="w",
-        ).pack(fill="x", pady=(5, 0))
+        ).pack(fill="x", pady=(8, 0))
         text_widget = tk.Text(
             cell,
             height=3,
-            font=("Arial", 14),
-            bg="#2a2a2a",
-            fg="white",
-            insertbackground="white",
+            font=(self._colors.font_family, 14),
+            bg=self._colors.field_bg,
+            fg=self._colors.fg,
+            insertbackground=self._colors.fg,
         )
-        text_widget.pack(pady=2, fill="x")
+        text_widget.pack(pady=4, fill="x")
         disable_paste(text_widget)
         self._mw_grid(parent, cell, full=True)
         return text_widget
 
     def _mw_rpe_row(self, parent: tk.Widget) -> None:
         """Add the RPE (rate of perceived exertion) spinbox row."""
-        row = tk.Frame(parent, bg="#1a1a1a")
+        row = tk.Frame(parent, bg=self._colors.bg)
         tk.Label(
             row,
             text=(
                 f"RPE — perceived exertion "
                 f"({MANUAL_WORKOUT_RPE_MIN}-{MANUAL_WORKOUT_RPE_MAX}):"
             ),
-            font=("Arial", 16),
-            fg="white",
-            bg="#1a1a1a",
+            font=(self._colors.font_family, 16),
+            fg=self._colors.fg,
+            bg=self._colors.bg,
         ).pack(side="left", padx=5)
         tk.Spinbox(
             row,
@@ -171,6 +171,6 @@ class ManualWorkoutFormWidgetsMixin:
             to=MANUAL_WORKOUT_RPE_MAX,
             textvariable=self._mw_rpe_var,
             width=4,
-            font=("Arial", 16),
+            font=(self._colors.font_family, 16),
         ).pack(side="left", padx=5)
         self._mw_grid(parent, row)

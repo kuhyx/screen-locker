@@ -34,32 +34,34 @@ class SickDialogMixin:
         history = _sick_tracker.load_history()
         self._sick_history_cache: SickHistory = history
         self.clear_container()
-        self._label("Sick Day Request", color="#cc6600", pady=10)
-        self._text(_sick_tracker.budget_summary(history), color="#ffaa00")
+        self._label("Sick Day Request", color=self._colors.warning, pady=10)
+        self._text(_sick_tracker.budget_summary(history), color=self._colors.warning)
 
         recent = _sick_tracker.format_recent_justifications(history)
         if recent:
-            self._text("Recent sick days:", font_size=14, color="#888888", pady=5)
-            self._text(recent, font_size=14, color="#cccccc", pady=5)
+            self._text(
+                "Recent sick days:", font_size=14, color=self._colors.muted, pady=8
+            )
+            self._text(recent, font_size=14, color=self._colors.muted, pady=8)
 
         had_commitment = _sick_tracker.had_commitment_for_today(history)
         if had_commitment:
             self._text(
                 "⚠ Yesterday you committed to working out today.",
                 font_size=18,
-                color="#ff6666",
+                color=self._colors.danger,
             )
             self._text(
                 "Breaking the commitment costs 2 sick-budget days.",
                 font_size=14,
-                color="#ff6666",
+                color=self._colors.danger,
             )
 
         self._build_justification_form(had_commitment=had_commitment)
 
     def _build_justification_form(self, *, had_commitment: bool) -> None:
         """Add justification form fields and submit button to the container."""
-        form = tk.Frame(self.container, bg="#1a1a1a")
+        form = tk.Frame(self.container, bg=self._colors.bg)
         form.pack(pady=10)
 
         self._sick_symptom_var = tk.StringVar()
@@ -67,13 +69,16 @@ class SickDialogMixin:
         self._sick_severity_var = tk.IntVar(value=5)
         self._sick_text_widget = self._add_form_widgets(form)
 
-        self._sick_error_label = self._text("", color="#ff4444", pady=5)
+        self._sick_error_label = self._text("", color=self._colors.danger, pady=8)
 
         button_row = self._button_row()
+        # Starts disabled during the forced-read delay -- field_bg (our
+        # neutral/secondary token) signals "not yet actionable" better than
+        # the accent used for an immediately-clickable submit.
         self._sick_submit_button = self._button(
             button_row,
             "SUBMIT",
-            bg="#666666",
+            bg=self._colors.field_bg,
             command=self._submit_sick_justification,
             width=12,
         )
@@ -81,7 +86,7 @@ class SickDialogMixin:
         self._button(
             button_row,
             "BACK",
-            bg="#aa0000",
+            bg=self._colors.field_bg,
             command=self._start_phone_check,
             width=12,
         ).pack(side="left", padx=10)
@@ -103,14 +108,14 @@ class SickDialogMixin:
             label="When did it start? (e.g. last night):",
             variable=self._sick_onset_var,
         )
-        sev_row = tk.Frame(parent, bg="#1a1a1a")
-        sev_row.pack(pady=5)
+        sev_row = tk.Frame(parent, bg=self._colors.bg)
+        sev_row.pack(pady=8)
         tk.Label(
             sev_row,
             text="Severity (1-10):",
-            font=("Arial", 14),
-            fg="white",
-            bg="#1a1a1a",
+            font=(self._colors.font_family, 14),
+            fg=self._colors.fg,
+            bg=self._colors.bg,
         ).pack(side="left", padx=5)
         tk.Spinbox(
             sev_row,
@@ -118,26 +123,26 @@ class SickDialogMixin:
             to=10,
             textvariable=self._sick_severity_var,
             width=4,
-            font=("Arial", 14),
+            font=(self._colors.font_family, 14),
         ).pack(side="left", padx=5)
 
         tk.Label(
             parent,
             text=(f"Describe how you feel (min {SICK_JUSTIFICATION_MIN_CHARS} chars):"),
-            font=("Arial", 14),
-            fg="white",
-            bg="#1a1a1a",
-        ).pack(pady=5)
+            font=(self._colors.font_family, 14),
+            fg=self._colors.fg,
+            bg=self._colors.bg,
+        ).pack(pady=8)
         text_widget = tk.Text(
             parent,
             width=60,
             height=6,
-            font=("Arial", 12),
-            bg="#2a2a2a",
-            fg="white",
-            insertbackground="white",
+            font=(self._colors.font_family, 14),
+            bg=self._colors.field_bg,
+            fg=self._colors.fg,
+            insertbackground=self._colors.fg,
         )
-        text_widget.pack(pady=5)
+        text_widget.pack(pady=8)
         _disable_paste(text_widget)
         return text_widget
 
@@ -199,32 +204,35 @@ class SickDialogMixin:
         self._label(
             "Commit to working out tomorrow?",
             font_size=32,
-            color="#ffaa00",
+            color=self._colors.warning,
             pady=20,
         )
-        self._text(
+        # ~80 chars at font_size 16 would render as one unbroken line past the
+        # ~70-char readable range (rule 21) -- wrap it explicitly.
+        prompt = self._text(
             "If you say YES and skip via 'I'm sick' tomorrow, "
             "the sick day costs 2x normal.",
             font_size=16,
         )
+        prompt.config(wraplength=560, justify="center")
         self._commitment_done_fn = on_done
         self._commitment_remaining = COMMITMENT_PROMPT_TIMEOUT_SECONDS
         self._commitment_timer_label = self._text(
             f"Auto-skipping in {COMMITMENT_PROMPT_TIMEOUT_SECONDS}s",
-            color="#888888",
+            color=self._colors.muted,
         )
         row = self._button_row()
         self._button(
             row,
             "YES",
-            bg="#00aa00",
+            bg=self._colors.success,
             command=lambda: self._answer_commitment(commit=True),
             width=12,
         ).pack(side="left", padx=10)
         self._button(
             row,
             "NO",
-            bg="#aa0000",
+            bg=self._colors.field_bg,
             command=lambda: self._answer_commitment(commit=False),
             width=12,
         ).pack(side="left", padx=10)
