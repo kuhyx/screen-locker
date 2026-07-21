@@ -27,7 +27,7 @@ class WindowSetupMixin:
     def _setup_verify_window(self) -> None:
         """Configure window for post-sick-day workout verification."""
         self.root.geometry("600x400")
-        self.root.configure(bg="#1a1a1a", cursor="arrow")
+        self.root.configure(bg=self._colors.bg, cursor="arrow")
         self.root.protocol("WM_DELETE_WINDOW", self.close)
 
     def _setup_demo_close_button(self) -> None:
@@ -35,9 +35,9 @@ class WindowSetupMixin:
         close_btn = tk.Button(
             self.root,
             text="✕ Close Demo",
-            font=("Arial", 12),
-            bg="#ff4444",
-            fg="white",
+            font=(self._colors.font_family, 12),
+            bg=self._colors.danger,
+            fg=self._colors.on_fill,
             command=self.close,
             cursor="hand2",
         )
@@ -46,5 +46,5 @@ class WindowSetupMixin:
     def _setup_relaxed_day_window(self) -> None:
         """Configure a small non-locking window for the optional Tue-Thu prompt."""
         self.root.geometry("700x450")
-        self.root.configure(bg="#1a1a1a", cursor="arrow")
+        self.root.configure(bg=self._colors.bg, cursor="arrow")
         self.root.protocol("WM_DELETE_WINDOW", self.close)

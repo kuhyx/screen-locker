@@ -5,15 +5,17 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 
+from gatelock import LockConfig
+
 from screen_locker._constants import HEAT_SKIP_CITY, HEAT_SKIP_TEMP_THRESHOLD
 
 _logger = logging.getLogger(__name__)
 
-_BG = "#1a1a1a"
-_FG_MAIN = "#ff9900"
-_FG_SUB = "#cccccc"
-_BTN_SKIP = "#cc4400"
-_BTN_NO = "#333333"
+# Sourced from the shared gatelock LockConfig (unified-design-system) instead
+# of a locally-invented token block -- this was the one file in the package
+# that already knew centralizing tokens was worth doing; now it points at
+# the actual shared source instead of its own unshared copy.
+_COLORS = LockConfig()
 _FONT = "monospace"
 
 
@@ -33,22 +35,22 @@ class HeatSkipMixin:
         # This window is destroyed before the main GateRoot is created.
         root = tk.Tk()
         root.title("Extreme Heat")
-        root.configure(bg=_BG)
+        root.configure(bg=_COLORS.bg)
         root.attributes("-fullscreen", True)
         root.attributes("-topmost", True)
         root.grab_set()
         root.focus_force()
 
         # Content centred on the fullscreen canvas
-        outer = tk.Frame(root, bg=_BG)
+        outer = tk.Frame(root, bg=_COLORS.bg)
         outer.place(relx=0.5, rely=0.5, anchor="center")
 
         tk.Label(
             outer,
             text="☀  Too hot to workout?",
             font=(_FONT, 18, "bold"),
-            bg=_BG,
-            fg=_FG_MAIN,
+            bg=_COLORS.bg,
+            fg=_COLORS.warning,
         ).pack(pady=(0, 10))
 
         tk.Label(
@@ -57,20 +59,20 @@ class HeatSkipMixin:
                 f"{HEAT_SKIP_CITY}: {temp:.0f}°C"
                 f"  (threshold: {HEAT_SKIP_TEMP_THRESHOLD}°C)"
             ),
-            font=(_FONT, 13),
-            bg=_BG,
-            fg=_FG_SUB,
+            font=(_FONT, 16),
+            bg=_COLORS.bg,
+            fg=_COLORS.muted,
         ).pack(pady=6)
 
         tk.Label(
             outer,
             text="Skip today's workout due to extreme heat?",
-            font=(_FONT, 12),
-            bg=_BG,
-            fg=_FG_SUB,
+            font=(_FONT, 16),
+            bg=_COLORS.bg,
+            fg=_COLORS.muted,
         ).pack(pady=(6, 0))
 
-        btn_frame = tk.Frame(outer, bg=_BG)
+        btn_frame = tk.Frame(outer, bg=_COLORS.bg)
         btn_frame.pack(pady=28)
 
         def _on_skip() -> None:
@@ -85,12 +87,12 @@ class HeatSkipMixin:
             btn_frame,
             text="Skip workout",
             command=_on_skip,
-            bg=_BTN_SKIP,
-            fg="white",
-            activebackground="#aa3300",
-            font=(_FONT, 11),
-            padx=14,
-            pady=5,
+            bg=_COLORS.warning,
+            fg=_COLORS.on_fill,
+            activebackground=_COLORS.warning,
+            font=(_FONT, 14),
+            padx=16,
+            pady=8,
             relief="flat",
         ).pack(side="left", padx=12)
 
@@ -98,12 +100,12 @@ class HeatSkipMixin:
             btn_frame,
             text="No, I'll workout",
             command=_on_no,
-            bg=_BTN_NO,
-            fg="white",
-            activebackground="#444444",
-            font=(_FONT, 11),
-            padx=14,
-            pady=5,
+            bg=_COLORS.field_bg,
+            fg=_COLORS.fg,
+            activebackground=_COLORS.field_bg,
+            font=(_FONT, 14),
+            padx=16,
+            pady=8,
             relief="flat",
         ).pack(side="left", padx=12)
 
