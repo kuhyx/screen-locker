@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/break_banner.dart';
 
-Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
+Widget _wrap(Widget child) => MaterialApp(
+  theme: buildAppTheme(),
+  home: Scaffold(body: child),
+);
 
 void main() {
   group('BreakBanner', () {

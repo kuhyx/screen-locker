@@ -13,6 +13,7 @@ import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter/material.dart';
 import 'package:workout_app/models/manual_workout.dart';
 import 'package:workout_app/services/workout_sync_service.dart';
+import 'package:workout_app/ui/theme.dart';
 
 /// A screen that logs an off-app workout and syncs it to the PC.
 class ManualWorkoutScreen extends StatefulWidget {
@@ -148,15 +149,15 @@ class _ManualWorkoutScreenState extends State<ManualWorkoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final budget = _budget;
     final exhausted = budget?.exhausted ?? false;
     return Scaffold(
-      backgroundColor: Colors.grey.shade900,
       appBar: AppBar(
-        backgroundColor: Colors.grey.shade800,
-        title: const Text(
+        backgroundColor: colorScheme.surfaceContainerHigh,
+        title: Text(
           'Log Manual Workout',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: colorScheme.onSurface),
         ),
       ),
       body: !_budgetLoaded
@@ -166,11 +167,11 @@ class _ManualWorkoutScreenState extends State<ManualWorkoutScreen> {
               children: [
                 _budgetBanner(budget!),
                 if (exhausted)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       'Manual-workout budget exhausted for this window.',
-                      style: TextStyle(color: Color(0xFFFF4444)),
+                      style: TextStyle(color: colorScheme.error),
                     ),
                   )
                 else ...[
@@ -198,7 +199,7 @@ class _ManualWorkoutScreenState extends State<ManualWorkoutScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Text(
                         _error!,
-                        style: const TextStyle(color: Color(0xFFFF4444)),
+                        style: TextStyle(color: colorScheme.error),
                       ),
                     ),
                   Padding(
@@ -235,16 +236,19 @@ class _ManualWorkoutScreenState extends State<ManualWorkoutScreen> {
   Widget _budgetBanner(ManualBudget budget) => Text(
     'Manual: ${budget.week}/$kManualWorkoutBudgetPer7Days this week · '
     '${budget.month}/$kManualWorkoutBudgetPer30Days this month',
-    style: const TextStyle(color: Color(0xFF88CCFF), fontSize: 16),
+    style: TextStyle(
+      color: Theme.of(context).colorScheme.primary,
+      fontSize: AppTextSize.body,
+    ),
   );
 
   Widget _section(String title) => Padding(
     padding: const EdgeInsets.only(top: 16, bottom: 4),
     child: Text(
       title,
-      style: const TextStyle(
-        color: Color(0xFF88CCFF),
-        fontSize: 18,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.primary,
+        fontSize: AppTextSize.subtitle,
         fontWeight: FontWeight.bold,
       ),
     ),
@@ -254,8 +258,8 @@ class _ManualWorkoutScreenState extends State<ManualWorkoutScreen> {
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: DropdownButton<String>(
       value: _sport,
-      dropdownColor: Colors.grey.shade800,
-      style: const TextStyle(color: Colors.white),
+      dropdownColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
       isExpanded: true,
       items: [
         for (final entry in kSportLabels.entries)
@@ -273,7 +277,7 @@ class _ManualWorkoutScreenState extends State<ManualWorkoutScreen> {
       children: [
         Text(
           'RPE ${_rpe.round()}',
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
         ),
         Expanded(
           child: Slider(
@@ -295,13 +299,14 @@ class _ManualWorkoutScreenState extends State<ManualWorkoutScreen> {
       key: Key('mw_$key'),
       controller: _fields[key],
       maxLines: lines,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+      // filled/fillColor/border inherit from the shared inputDecorationTheme
+      // (theme.dart) — only the field-specific label needs setting here.
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: Colors.grey.shade400),
-        filled: true,
-        fillColor: Colors.grey.shade800,
-        border: const OutlineInputBorder(),
+        labelStyle: TextStyle(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       ),
     ),
   );

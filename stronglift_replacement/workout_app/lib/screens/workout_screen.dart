@@ -13,6 +13,7 @@ import 'package:workout_app/models/workout_session.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_service.dart';
 import 'package:workout_app/services/workout_sync_service.dart';
+import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/break_banner.dart';
 import 'package:workout_app/widgets/exercise_tile.dart';
 import 'package:workout_app/widgets/workout_summary_dialog.dart';
@@ -156,8 +157,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       'breakDurationSecs': _breakDurationSecs,
       'breakEndMs': _breakStartTime != null
           ? _breakStartTime!
-              .add(Duration(seconds: _breakDurationSecs))
-              .millisecondsSinceEpoch
+                .add(Duration(seconds: _breakDurationSecs))
+                .millisecondsSinceEpoch
           : 0,
     });
   }
@@ -193,8 +194,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       if (wasNotTapped) {
         _tapped[exIdx][setIdx] = true;
       } else {
-        _doneReps[exIdx][setIdx] =
-            (_doneReps[exIdx][setIdx] - 1).clamp(0, 999);
+        _doneReps[exIdx][setIdx] = (_doneReps[exIdx][setIdx] - 1).clamp(0, 999);
         _recomputeBreakIfNeeded(exIdx, setIdx);
       }
     });
@@ -284,8 +284,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     if (_breakForExIdx != exIdx || _breakForSetIdx != setIdx) return;
     if (_breakForSetIdx == -1) return; // warmup break, never recompute
 
-    final succeeded =
-        _doneReps[exIdx][setIdx] >= widget.exercises[exIdx].reps;
+    final succeeded = _doneReps[exIdx][setIdx] >= widget.exercises[exIdx].reps;
     final newDuration = succeeded ? _successBreakSecs : _failBreakSecs;
     if (newDuration == _breakDurationSecs) return;
 
@@ -294,8 +293,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
     _breakDurationSecs = newDuration;
     _breakRemaining = newRemaining;
-    _breakLabel =
-        succeeded ? 'Rest (3 min — well done!)' : 'Rest (5 min — keep going!)';
+    _breakLabel = succeeded
+        ? 'Rest (3 min — well done!)'
+        : 'Rest (5 min — keep going!)';
   }
 
   Future<void> _onBreakFinished() async {
@@ -347,28 +347,27 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   // ── Finish / Reset ─────────────────────────────────────────────────────────
 
   Future<void> _confirmFinish() async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final status = Theme.of(context).extension<AppStatusColors>()!;
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: Colors.grey.shade900,
-        title: const Text(
+        backgroundColor: colorScheme.surfaceContainerHigh,
+        title: Text(
           'Finish workout?',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: colorScheme.onSurface),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text(
+            child: Text(
               'Cancel',
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Finish',
-              style: TextStyle(color: Colors.greenAccent),
-            ),
+            child: Text('Finish', style: TextStyle(color: status.success)),
           ),
         ],
       ),
@@ -377,32 +376,30 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Future<void> _confirmReset() async {
+    final colorScheme = Theme.of(context).colorScheme;
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: Colors.grey.shade900,
-        title: const Text(
+        backgroundColor: colorScheme.surfaceContainerHigh,
+        title: Text(
           'Reset workout?',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: colorScheme.onSurface),
         ),
-        content: const Text(
+        content: Text(
           'All progress will be lost.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text(
+            child: Text(
               'Cancel',
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Reset',
-              style: TextStyle(color: Colors.redAccent),
-            ),
+            child: Text('Reset', style: TextStyle(color: colorScheme.error)),
           ),
         ],
       ),
@@ -486,27 +483,28 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final status = Theme.of(context).extension<AppStatusColors>()!;
     return PopScope(
       // Explicit `canPop: true` makes it clear this scope never blocks the back
       // button — a future reader must not assume the default silently.
       // ignore: avoid_redundant_argument_values
       canPop: true,
       child: Scaffold(
-        backgroundColor: Colors.grey.shade900,
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          backgroundColor: Colors.grey.shade800,
+          backgroundColor: colorScheme.surfaceContainerHigh,
           title: Text(
             'Workout ${widget.workoutType}  ·  ${_formatDuration(_elapsed)}',
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: colorScheme.onSurface),
           ),
           actions: [
             if (!_finished)
               TextButton(
                 onPressed: _confirmReset,
-                child: const Text(
+                child: Text(
                   'Reset',
-                  style: TextStyle(color: Colors.redAccent),
+                  style: TextStyle(color: colorScheme.error),
                 ),
               ),
             if (!_finished)
@@ -515,7 +513,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 child: Text(
                   'Finish',
                   style: TextStyle(
-                    color: _allSetsCompleted ? Colors.greenAccent : Colors.grey,
+                    color: _allSetsCompleted
+                        ? status.success
+                        : colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

@@ -13,6 +13,7 @@ import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/services/github_device_auth.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_settings.dart';
+import 'package:workout_app/ui/theme.dart';
 
 /// How to style a [_SyncStatusBadge].
 enum _SyncStatusKind { success, pending, error }
@@ -222,33 +223,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _resetToDefaults() async {
+    final colorScheme = Theme.of(context).colorScheme;
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: Colors.grey.shade900,
-        title: const Text(
+        backgroundColor: colorScheme.surfaceContainerHigh,
+        title: Text(
           'Reset to defaults?',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: colorScheme.onSurface),
         ),
-        content: const Text(
+        content: Text(
           'All weights and thresholds will be reset. '
           'Streak counters will be cleared.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text(
+            child: Text(
               'Cancel',
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Reset',
-              style: TextStyle(color: Colors.redAccent),
-            ),
+            child: Text('Reset', style: TextStyle(color: colorScheme.error)),
           ),
         ],
       ),
@@ -271,18 +270,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.grey.shade900,
       appBar: AppBar(
-        backgroundColor: Colors.grey.shade800,
-        title: const Text('Settings', style: TextStyle(color: Colors.white)),
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: colorScheme.surfaceContainerHigh,
+        title: Text(
+          'Settings',
+          style: TextStyle(color: colorScheme.onSurface),
+        ),
+        iconTheme: IconThemeData(color: colorScheme.onSurface),
         actions: [
           TextButton(
             onPressed: _loading ? null : _resetToDefaults,
-            child: const Text(
+            child: Text(
               'Reset defaults',
-              style: TextStyle(color: Colors.redAccent),
+              style: TextStyle(color: colorScheme.error),
             ),
           ),
         ],
@@ -294,10 +296,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 const _SectionHeader('WEIGHTS'),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'Override current working weight. '
                   'Resets streak counters. Rounded to 2.5 kg.',
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: AppTextSize.caption,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 ..._orderedNames.map((name) {
@@ -312,10 +317,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 20),
                 const _SectionHeader('PROGRESSION THRESHOLDS'),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'Consecutive successes (↑) or failures (↓) '
                   'before weight changes.',
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: AppTextSize.caption,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 ..._orderedNames.map((name) {
@@ -334,11 +342,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 20),
                 const _SectionHeader('GITHUB SYNC'),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'Authorize in your browser -- no token to paste. Syncs to '
                   '$syncRepoOwner/$syncRepoName. Workouts push automatically '
                   'on completion.',
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: AppTextSize.caption,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 if (_syncStatus != null) ...[
@@ -352,12 +363,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 8),
                 ExpansionTile(
-                  title: const Text(
+                  title: Text(
                     'Advanced: paste a token instead',
-                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                    style: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: AppTextSize.label,
+                    ),
                   ),
-                  collapsedIconColor: Colors.white54,
-                  iconColor: Colors.white54,
+                  collapsedIconColor: colorScheme.onSurfaceVariant,
+                  iconColor: colorScheme.onSurfaceVariant,
                   tilePadding: EdgeInsets.zero,
                   childrenPadding: const EdgeInsets.only(top: 8, bottom: 8),
                   children: [
@@ -382,9 +396,9 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
-        color: Colors.white54,
-        fontSize: 11,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontSize: AppTextSize.caption,
         letterSpacing: 1.4,
       ),
     );
@@ -404,6 +418,7 @@ class _WeightRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -411,7 +426,10 @@ class _WeightRow extends StatelessWidget {
           Expanded(
             child: Text(
               name,
-              style: const TextStyle(color: Colors.white70, fontSize: 13),
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: AppTextSize.label,
+              ),
             ),
           ),
           _StepperButton(
@@ -426,9 +444,9 @@ class _WeightRow extends StatelessWidget {
             child: Text(
               '${weight}kg',
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontSize: AppTextSize.label,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -451,17 +469,18 @@ class _StepperButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: Colors.grey.shade700,
+          color: colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(6),
         ),
         alignment: Alignment.center,
-        child: Icon(icon, color: Colors.white, size: 18),
+        child: Icon(icon, color: colorScheme.onSurface, size: 18),
       ),
     );
   }
@@ -478,10 +497,12 @@ class _SyncStatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final status = Theme.of(context).extension<AppStatusColors>()!;
     final color = switch (kind) {
-      _SyncStatusKind.success => Colors.greenAccent,
-      _SyncStatusKind.error => Colors.redAccent,
-      _SyncStatusKind.pending => Colors.white70,
+      _SyncStatusKind.success => status.success,
+      _SyncStatusKind.error => colorScheme.error,
+      _SyncStatusKind.pending => colorScheme.onSurfaceVariant,
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -512,7 +533,7 @@ class _SyncStatusBadge extends StatelessWidget {
               text,
               style: TextStyle(
                 color: color,
-                fontSize: 13,
+                fontSize: AppTextSize.label,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -531,6 +552,7 @@ class _SyncTokenField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -538,16 +560,13 @@ class _SyncTokenField extends StatelessWidget {
           child: TextField(
             controller: controller,
             obscureText: true,
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: colorScheme.onSurface),
+            // filled/fillColor/border inherit from the shared
+            // inputDecorationTheme (theme.dart) — only the field-specific
+            // hint/padding need setting here.
             decoration: InputDecoration(
               hintText: 'GitHub PAT',
-              hintStyle: TextStyle(color: Colors.grey.shade600),
-              filled: true,
-              fillColor: Colors.grey.shade800,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide.none,
-              ),
+              hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 10,
@@ -579,36 +598,38 @@ class _ExerciseThresholdCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final status = Theme.of(context).extension<AppStatusColors>()!;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.grey.shade800,
-        borderRadius: BorderRadius.circular(8),
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             name,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontWeight: FontWeight.bold,
-              fontSize: 14,
+              fontSize: AppTextSize.label,
             ),
           ),
           const SizedBox(height: 10),
           _ThresholdRow(
             label: '↑ Increase after N successes',
             value: successThreshold,
-            color: Colors.green,
+            color: status.success,
             onChanged: onSuccessChanged,
           ),
           const SizedBox(height: 6),
           _ThresholdRow(
             label: '↓ Decrease after N failures',
             value: failThreshold,
-            color: Colors.red,
+            color: colorScheme.error,
             onChanged: onFailChanged,
           ),
         ],
@@ -632,12 +653,16 @@ class _ThresholdRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Row(
       children: [
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            style: TextStyle(
+              color: colorScheme.onSurfaceVariant,
+              fontSize: AppTextSize.caption,
+            ),
           ),
         ),
         const SizedBox(width: 8),
@@ -651,15 +676,20 @@ class _ThresholdRow extends StatelessWidget {
                 height: 32,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: i == value ? color : Colors.grey.shade700,
+                  color: i == value
+                      ? color
+                      : colorScheme.surfaceContainerHighest,
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   '$i',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    // on-fill on the selected (filled) circle.
+                    color: i == value
+                        ? colorScheme.onPrimary
+                        : colorScheme.onSurface,
                     fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                    fontSize: AppTextSize.label,
                   ),
                 ),
               ),
@@ -711,57 +741,58 @@ class _DeviceCodeDialogState extends State<_DeviceCodeDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return AlertDialog(
-      backgroundColor: Colors.grey.shade900,
-      title: const Text(
+      backgroundColor: colorScheme.surfaceContainerHigh,
+      title: Text(
         'Authorize on GitHub',
-        style: TextStyle(color: Colors.white),
+        style: TextStyle(color: colorScheme.onSurface),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Enter this code on GitHub:',
-            style: TextStyle(color: Colors.white70),
+            style: TextStyle(color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 8),
           SelectableText(
             widget.device.userCode,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22,
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: AppTextSize.title,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 16),
           if (_error == null)
-            const Row(
+            Row(
               children: [
-                SizedBox(
+                const SizedBox(
                   width: 16,
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Waiting for authorization…',
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(color: colorScheme.onSurfaceVariant),
                   ),
                 ),
               ],
             )
           else
-            Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+            Text(_error!, style: TextStyle(color: colorScheme.error)),
         ],
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text(
+          child: Text(
             'Cancel',
-            style: TextStyle(color: Colors.white70),
+            style: TextStyle(color: colorScheme.onSurfaceVariant),
           ),
         ),
         FilledButton.icon(

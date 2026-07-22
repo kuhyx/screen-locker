@@ -9,6 +9,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/screens/history_screen.dart';
 import 'package:workout_app/services/storage_service.dart';
+import 'package:workout_app/ui/theme.dart';
 
 import '../fake_secure_storage.dart';
 
@@ -35,8 +36,10 @@ void main() {
     await tester.pump();
   }
 
-  Widget _wrap({http.Client? httpClient}) =>
-      MaterialApp(home: HistoryScreen(httpClient: httpClient));
+  Widget _wrap({http.Client? httpClient}) => MaterialApp(
+    theme: buildAppTheme(),
+    home: HistoryScreen(httpClient: httpClient),
+  );
 
   /// A GitHub mock serving one PC device log holding a run and a manual.
   http.Client _syncMock() {
@@ -72,9 +75,12 @@ void main() {
     return MockClient((req) async {
       final path = req.url.path;
       if (path.endsWith('screen-locker-sync/devices')) {
-        return http.Response(jsonEncode([
-          {'name': 'pc', 'type': 'dir'},
-        ]), 200);
+        return http.Response(
+          jsonEncode([
+            {'name': 'pc', 'type': 'dir'},
+          ]),
+          200,
+        );
       }
       if (path.contains('pc/log.json')) {
         return http.Response(file(log), 200);
@@ -136,8 +142,9 @@ void main() {
     expect(find.textContaining('Workout A'), findsWidgets);
   });
 
-  testWidgets('exercise picker shows "Total (all workouts)" initially',
-      (tester) async {
+  testWidgets('exercise picker shows "Total (all workouts)" initially', (
+    tester,
+  ) async {
     final json = jsonEncode({
       'exercises': [
         {
@@ -181,8 +188,9 @@ void main() {
     expect(find.byIcon(Icons.cancel), findsWidgets);
   });
 
-  testWidgets('session duration over 1 hour formats with h prefix',
-      (tester) async {
+  testWidgets('session duration over 1 hour formats with h prefix', (
+    tester,
+  ) async {
     final json = jsonEncode({'exercises': []});
     await _seed(tester, json, duration: 3700);
     await _pump(tester, _wrap());
@@ -248,7 +256,9 @@ void main() {
     });
   }
 
-  testWidgets('selecting an exercise shows the drill-down view', (tester) async {
+  testWidgets('selecting an exercise shows the drill-down view', (
+    tester,
+  ) async {
     // Use a real progression-tracked exercise so getExerciseState is non-null
     // and the streak stats card renders. Three distinct weights on three dates
     // give the weight chart >= 2 points with a real range (painter fully runs).
@@ -260,7 +270,13 @@ void main() {
     );
     await _seed(
       tester,
-      _exerciseSessionJson(name, 22.5, ok: false, warmup: false, withSets: false),
+      _exerciseSessionJson(
+        name,
+        22.5,
+        ok: false,
+        warmup: false,
+        withSets: false,
+      ),
       date: '2024-06-08',
       succeeded: false,
     );
@@ -308,23 +324,24 @@ void main() {
     expect(find.textContaining('reps:'), findsWidgets);
   });
 
-  testWidgets('chart handles two points on the same date (tRange == 0)',
-      (tester) async {
+  testWidgets('chart handles two points on the same date (tRange == 0)', (
+    tester,
+  ) async {
     // Two sessions on the SAME date give the total chart two points that share
     // a timestamp, exercising the painter's tRange == 0 (centre-x) branch.
     String vol(double w) => jsonEncode({
-          'exercises': [
-            {
-              'name': 'Squat',
-              'targetSets': 3,
-              'targetReps': 5,
-              'targetWeight': w,
-              'warmupDone': false,
-              'succeeded': true,
-              'sets': <Map<String, dynamic>>[],
-            },
-          ],
-        });
+      'exercises': [
+        {
+          'name': 'Squat',
+          'targetSets': 3,
+          'targetReps': 5,
+          'targetWeight': w,
+          'warmupDone': false,
+          'succeeded': true,
+          'sets': <Map<String, dynamic>>[],
+        },
+      ],
+    });
     await _seed(tester, vol(20), date: '2024-06-01');
     await _seed(tester, vol(40), date: '2024-06-01');
     await _pump(tester, _wrap());

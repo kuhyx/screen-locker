@@ -5,9 +5,13 @@ import 'package:workout_app/models/exercise_result.dart';
 import 'package:workout_app/models/set_result.dart';
 import 'package:workout_app/models/workout_session.dart';
 import 'package:workout_app/services/sync_service.dart';
+import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/workout_summary_dialog.dart';
 
-WorkoutSession _session({bool allSucceeded = true, Duration duration = const Duration(minutes: 45, seconds: 30)}) {
+WorkoutSession _session({
+  bool allSucceeded = true,
+  Duration duration = const Duration(minutes: 45, seconds: 30),
+}) {
   final start = DateTime(2024, 6, 1, 9);
   final end = start.add(duration);
   return WorkoutSession(
@@ -32,9 +36,12 @@ WorkoutSession _session({bool allSucceeded = true, Duration duration = const Dur
 
 void main() {
   group('WorkoutSummaryDialog', () {
-    testWidgets('shows "Workout Complete!" when fully succeeded', (tester) async {
+    testWidgets('shows "Workout Complete!" when fully succeeded', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
+          theme: buildAppTheme(),
           home: WorkoutSummaryDialog(
             session: _session(),
             syncResult: const SyncResult(
@@ -47,9 +54,12 @@ void main() {
       expect(find.textContaining('Workout Complete'), findsOneWidget);
     });
 
-    testWidgets('shows "Workout Done" when not fully succeeded', (tester) async {
+    testWidgets('shows "Workout Done" when not fully succeeded', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
+          theme: buildAppTheme(),
           home: WorkoutSummaryDialog(
             session: _session(allSucceeded: false),
             syncResult: const SyncResult(
@@ -63,9 +73,12 @@ void main() {
       expect(find.text('Workout Done'), findsOneWidget);
     });
 
-    testWidgets('shows duration in mm m ss s format for sub-hour workout', (tester) async {
+    testWidgets('shows duration in mm m ss s format for sub-hour workout', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
+          theme: buildAppTheme(),
           home: WorkoutSummaryDialog(
             session: _session(),
             syncResult: const SyncResult(success: true, path: '/p'),
@@ -78,8 +91,11 @@ void main() {
     testWidgets('shows hours in duration for long workouts', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          theme: buildAppTheme(),
           home: WorkoutSummaryDialog(
-            session: _session(duration: const Duration(hours: 1, minutes: 5, seconds: 3)),
+            session: _session(
+              duration: const Duration(hours: 1, minutes: 5, seconds: 3),
+            ),
             syncResult: const SyncResult(success: true, path: '/p'),
           ),
         ),
@@ -87,9 +103,12 @@ void main() {
       expect(find.textContaining('1h'), findsOneWidget);
     });
 
-    testWidgets('shows exercise name with check mark on success', (tester) async {
+    testWidgets('shows exercise name with check mark on success', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
+          theme: buildAppTheme(),
           home: WorkoutSummaryDialog(
             session: _session(),
             syncResult: const SyncResult(success: true, path: '/p'),
@@ -102,9 +121,14 @@ void main() {
     testWidgets('shows exercise name with cross on failure', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          theme: buildAppTheme(),
           home: WorkoutSummaryDialog(
             session: _session(allSucceeded: false),
-            syncResult: const SyncResult(success: false, path: null, error: 'err'),
+            syncResult: const SyncResult(
+              success: false,
+              path: null,
+              error: 'err',
+            ),
           ),
         ),
       );
@@ -114,6 +138,7 @@ void main() {
     testWidgets('shows saved path on sync success', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          theme: buildAppTheme(),
           home: WorkoutSummaryDialog(
             session: _session(),
             syncResult: const SyncResult(
@@ -132,6 +157,7 @@ void main() {
     testWidgets('shows error message on sync failure', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          theme: buildAppTheme(),
           home: WorkoutSummaryDialog(
             session: _session(allSucceeded: false),
             syncResult: const SyncResult(
@@ -151,6 +177,7 @@ void main() {
     testWidgets('"Back to Home" button pops to first route', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          theme: buildAppTheme(),
           home: Scaffold(
             body: WorkoutSummaryDialog(
               session: _session(),

@@ -5,6 +5,7 @@ import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/screens/home_screen.dart';
 import 'package:workout_app/screens/workout_screen.dart';
 import 'package:workout_app/services/storage_service.dart';
+import 'package:workout_app/ui/theme.dart';
 
 import '../fake_secure_storage.dart';
 
@@ -29,7 +30,8 @@ void main() {
     await tester.pump();
   }
 
-  Widget _wrap() => const MaterialApp(home: HomeScreen());
+  Widget _wrap() =>
+      MaterialApp(theme: buildAppTheme(), home: const HomeScreen());
 
   testWidgets('shows Workout Tracker app bar', (tester) async {
     await _pump(tester, _wrap());
@@ -62,8 +64,9 @@ void main() {
     expect(find.text('Settings'), findsOneWidget);
   });
 
-  testWidgets('"Done for today" message shows after saving a session today',
-      (tester) async {
+  testWidgets('"Done for today" message shows after saving a session today', (
+    tester,
+  ) async {
     final today = DateTime.now();
     final dateStr =
         '${today.year}-${today.month.toString().padLeft(2, '0')}'
@@ -88,7 +91,9 @@ void main() {
     expect(find.text('HTTP sync (no ADB needed)'), findsOneWidget);
   });
 
-  testWidgets('manual-workout icon navigates to the manual form', (tester) async {
+  testWidgets('manual-workout icon navigates to the manual form', (
+    tester,
+  ) async {
     installFakeSecureStorage(); // ManualWorkoutScreen loads its sync budget
     await _pump(tester, _wrap());
     await tester.tap(find.byIcon(Icons.edit_note));
@@ -97,8 +102,9 @@ void main() {
     expect(find.text('Log Manual Workout'), findsOneWidget);
   });
 
-  testWidgets('starting a workout navigates to the workout screen',
-      (tester) async {
+  testWidgets('starting a workout navigates to the workout screen', (
+    tester,
+  ) async {
     await _pump(tester, _wrap());
     await tester.tap(find.text('Start Workout A'));
     await tester.pump();
@@ -106,8 +112,9 @@ void main() {
     expect(find.textContaining('Workout A'), findsWidgets);
   });
 
-  testWidgets('an active session auto-resumes into the workout screen',
-      (tester) async {
+  testWidgets('an active session auto-resumes into the workout screen', (
+    tester,
+  ) async {
     await tester.runAsync(
       () => StorageService.instance.saveActiveSession({
         'workoutType': 'A',
@@ -121,8 +128,9 @@ void main() {
     expect(find.textContaining('Workout A'), findsWidgets);
   });
 
-  testWidgets('active session shows Resume, returns (98) and re-enters (153)',
-      (tester) async {
+  testWidgets('active session shows Resume, returns (98) and re-enters (153)', (
+    tester,
+  ) async {
     // A fully-formed active session so WorkoutScreen restores cleanly (its
     // _restoreFromSaved expects startTimeMs + per-exercise tapped/doneReps).
     await tester.runAsync(
@@ -130,7 +138,9 @@ void main() {
         'workoutType': 'A',
         'startTimeMs': DateTime.now().millisecondsSinceEpoch,
         'tapped': [for (final e in workoutA) List<bool>.filled(e.sets, false)],
-        'doneReps': [for (final e in workoutA) List<int>.filled(e.sets, e.reps)],
+        'doneReps': [
+          for (final e in workoutA) List<int>.filled(e.sets, e.reps),
+        ],
         'warmupTapped': List<bool>.filled(workoutA.length, false),
       }),
     );
@@ -166,8 +176,9 @@ void main() {
     expect(find.byType(WorkoutScreen), findsOneWidget);
   });
 
-  testWidgets('returning from settings reloads the home screen',
-      (tester) async {
+  testWidgets('returning from settings reloads the home screen', (
+    tester,
+  ) async {
     installFakeSecureStorage(); // SettingsScreen reads the sync token on init
     await _pump(tester, _wrap());
     await tester.tap(find.byIcon(Icons.settings));
@@ -185,8 +196,9 @@ void main() {
     expect(find.text('Workout Tracker'), findsOneWidget);
   });
 
-  testWidgets('ServerAddressTile shows a placeholder when no addresses',
-      (tester) async {
+  testWidgets('ServerAddressTile shows a placeholder when no addresses', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(body: ServerAddressTile(addresses: <String>[])),

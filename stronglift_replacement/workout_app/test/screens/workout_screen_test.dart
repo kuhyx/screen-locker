@@ -5,6 +5,7 @@ import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/screens/workout_screen.dart';
 import 'package:workout_app/services/storage_service.dart';
+import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/break_banner.dart';
 import 'package:workout_app/widgets/exercise_tile.dart';
 import 'package:workout_app/widgets/rep_circle.dart';
@@ -15,18 +16,18 @@ import '../fake_secure_storage.dart';
 
 /// A saved state with every set of the two [_exercises] tapped as done.
 Map<String, dynamic> _completeSaved() => {
-      'workoutType': 'A',
-      'startTimeMs': DateTime.now().millisecondsSinceEpoch,
-      'tapped': [
-        [true, true, true],
-        [true, true, true],
-      ],
-      'doneReps': [
-        [5, 5, 5],
-        [5, 5, 5],
-      ],
-      'warmupTapped': [false, false],
-    };
+  'workoutType': 'A',
+  'startTimeMs': DateTime.now().millisecondsSinceEpoch,
+  'tapped': [
+    [true, true, true],
+    [true, true, true],
+  ],
+  'doneReps': [
+    [5, 5, 5],
+    [5, 5, 5],
+  ],
+  'warmupTapped': [false, false],
+};
 
 const _exercises = [
   Exercise(name: 'Squat', sets: 3, reps: 5, weight: 20.0),
@@ -37,14 +38,14 @@ Widget _wrap({
   String type = 'A',
   List<Exercise> exercises = _exercises,
   Map<String, dynamic>? savedState,
-}) =>
-    MaterialApp(
-      home: WorkoutScreen(
-        workoutType: type,
-        exercises: exercises,
-        savedState: savedState,
-      ),
-    );
+}) => MaterialApp(
+  theme: buildAppTheme(),
+  home: WorkoutScreen(
+    workoutType: type,
+    exercises: exercises,
+    savedState: savedState,
+  ),
+);
 
 void main() {
   setUpAll(() {
@@ -89,7 +90,9 @@ void main() {
     expect(find.text('Finish'), findsOneWidget);
   });
 
-  testWidgets('Finish button is disabled when not all sets done', (tester) async {
+  testWidgets('Finish button is disabled when not all sets done', (
+    tester,
+  ) async {
     await _pump(tester, _wrap());
     final finishButton = tester.widget<TextButton>(
       find.widgetWithText(TextButton, 'Finish'),
@@ -121,8 +124,9 @@ void main() {
     final now = DateTime.now();
     final saved = {
       'workoutType': 'A',
-      'startTimeMs':
-          now.subtract(const Duration(minutes: 10)).millisecondsSinceEpoch,
+      'startTimeMs': now
+          .subtract(const Duration(minutes: 10))
+          .millisecondsSinceEpoch,
       'tapped': [
         [true, true, true],
         [true, true, true],
@@ -200,7 +204,9 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('tapping a set starts a break which Skip cancels', (tester) async {
+  testWidgets('tapping a set starts a break which Skip cancels', (
+    tester,
+  ) async {
     await _pump(tester, _wrap());
     await _tapReal(tester, find.byType(RepCircle).first);
     expect(find.byType(BreakBanner), findsOneWidget);
@@ -217,8 +223,9 @@ void main() {
     expect(find.textContaining('Warmup rest'), findsOneWidget);
   });
 
-  testWidgets('re-tapping a set decrements reps and recomputes the break',
-      (tester) async {
+  testWidgets('re-tapping a set decrements reps and recomputes the break', (
+    tester,
+  ) async {
     await _pump(tester, _wrap());
     final circle = find.byType(RepCircle).first;
     await _tapReal(tester, circle); // done=5 -> success break
@@ -228,8 +235,9 @@ void main() {
     expect(find.textContaining('keep going'), findsOneWidget);
   });
 
-  testWidgets('long-pressing a set resets it and cancels its break',
-      (tester) async {
+  testWidgets('long-pressing a set resets it and cancels its break', (
+    tester,
+  ) async {
     await _pump(tester, _wrap());
     final circle = find.byType(RepCircle).first;
     await _tapReal(tester, circle);
@@ -239,8 +247,9 @@ void main() {
     expect(find.byType(BreakBanner), findsNothing);
   });
 
-  testWidgets('finishing a completed workout saves and shows the summary',
-      (tester) async {
+  testWidgets('finishing a completed workout saves and shows the summary', (
+    tester,
+  ) async {
     await _pump(tester, _wrap(savedState: _completeSaved()));
 
     // Drive the whole flow on the real loop: _confirmFinish's showDialog await
@@ -299,7 +308,9 @@ void main() {
     expect(session, isNull); // reset cleared the persisted session
   });
 
-  testWidgets('changing a threshold in the workout persists it', (tester) async {
+  testWidgets('changing a threshold in the workout persists it', (
+    tester,
+  ) async {
     // A real exercise has a progression-state row, so _onThresholdChanged's
     // state-update branch runs (and the write actually lands).
     final name = workoutA.first.name;

@@ -10,6 +10,7 @@ import 'package:workout_app/screens/settings_screen.dart';
 import 'package:workout_app/screens/workout_screen.dart';
 import 'package:workout_app/services/http_server_service.dart';
 import 'package:workout_app/services/storage_service.dart';
+import 'package:workout_app/ui/theme.dart';
 
 /// Home screen: auto-resumes active sessions and shows done-today status.
 class HomeScreen extends StatefulWidget {
@@ -100,17 +101,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.grey.shade900,
       appBar: AppBar(
-        backgroundColor: Colors.grey.shade800,
-        title: const Text(
+        backgroundColor: colorScheme.surfaceContainerHigh,
+        title: Text(
           'Workout Tracker',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: colorScheme.onSurface),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit_note, color: Colors.white),
+            icon: Icon(Icons.edit_note, color: colorScheme.onSurface),
             tooltip: 'Log manual workout',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
@@ -119,13 +120,13 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.history, color: Colors.white),
+            icon: Icon(Icons.history, color: colorScheme.onSurface),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const HistoryScreen()),
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.settings, color: Colors.white),
+            icon: Icon(Icons.settings, color: colorScheme.onSurface),
             onPressed: () async {
               await Navigator.of(context).push(
                 MaterialPageRoute<void>(
@@ -182,24 +183,29 @@ class _WorkoutCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final status = Theme.of(context).extension<AppStatusColors>()!;
+    // Canonical button padding (rule 22): vertical 12, horizontal 24 — an
+    // exact 2x ratio, both on the 4px spacing scale (tokens.md's own example).
+    const buttonPadding = EdgeInsets.symmetric(horizontal: 24, vertical: 12);
     return Card(
-      color: Colors.grey.shade800,
+      color: colorScheme.surfaceContainerHigh,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (doneToday && !hasActiveSession) ...[
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.check_circle, color: Colors.greenAccent, size: 18),
-                  SizedBox(width: 8),
+                  Icon(Icons.check_circle, color: status.success, size: 18),
+                  const SizedBox(width: 8),
                   Text(
                     'Done for today!',
                     style: TextStyle(
-                      color: Colors.greenAccent,
+                      color: status.success,
                       fontWeight: FontWeight.bold,
-                      fontSize: 15,
+                      fontSize: AppTextSize.body,
                     ),
                   ),
                 ],
@@ -207,9 +213,9 @@ class _WorkoutCard extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 'Next: Workout $type — tomorrow',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: AppTextSize.body,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -219,8 +225,10 @@ class _WorkoutCard extends StatelessWidget {
                     ? 'Workout $type in progress'
                     : 'Next: Workout $type',
                 style: TextStyle(
-                  color: hasActiveSession ? Colors.orangeAccent : Colors.white,
-                  fontSize: 20,
+                  color: hasActiveSession
+                      ? status.warning
+                      : colorScheme.onSurface,
+                  fontSize: AppTextSize.subtitle,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -229,7 +237,10 @@ class _WorkoutCard extends StatelessWidget {
             ...exercises.map(
               (e) => Text(
                 '${e.name}  ${e.sets}×${e.reps}×${e.weight}kg',
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
+                style: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: AppTextSize.label,
+                ),
               ),
             ),
             const SizedBox(height: 14),
@@ -238,15 +249,15 @@ class _WorkoutCard extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange.shade800,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    backgroundColor: status.warning,
+                    padding: buttonPadding,
                   ),
                   onPressed: onResume,
-                  child: const Text(
+                  child: Text(
                     'Resume Workout',
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
+                      color: colorScheme.onPrimary,
+                      fontSize: AppTextSize.body,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -257,15 +268,15 @@ class _WorkoutCard extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.indigo,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    backgroundColor: colorScheme.primary,
+                    padding: buttonPadding,
                   ),
                   onPressed: onStart,
                   child: Text(
                     'Start Workout $type',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
+                    style: TextStyle(
+                      color: colorScheme.onPrimary,
+                      fontSize: AppTextSize.body,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -290,6 +301,7 @@ class ServerAddressTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final lines = addresses.isEmpty
         ? ['Server not started']
         : addresses.map((ip) => '$ip:$kWorkoutServerPort').toList();
@@ -297,17 +309,17 @@ class ServerAddressTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.grey.shade800,
-        borderRadius: BorderRadius.circular(8),
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'HTTP sync (no ADB needed)',
             style: TextStyle(
-              color: Colors.white54,
-              fontSize: 11,
+              color: colorScheme.onSurfaceVariant,
+              fontSize: AppTextSize.caption,
               letterSpacing: 1.1,
             ),
           ),
@@ -315,10 +327,10 @@ class ServerAddressTile extends StatelessWidget {
           ...lines.map(
             (line) => Text(
               line,
-              style: const TextStyle(
-                color: Colors.white70,
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
                 fontFamily: 'monospace',
-                fontSize: 13,
+                fontSize: AppTextSize.label,
               ),
             ),
           ),

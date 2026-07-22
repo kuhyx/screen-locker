@@ -2,6 +2,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:workout_app/ui/theme.dart';
 
 /// Banner widget showing a break countdown and a skip button.
 class BreakBanner extends StatelessWidget {
@@ -30,8 +31,12 @@ class BreakBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final status = Theme.of(context).extension<AppStatusColors>()!;
     return Container(
-      color: Colors.indigo.shade900,
+      // Elevation via fill step (ink-raised-2), not a shadow — differentiates
+      // the banner from the page without a saturated attention-grabbing fill.
+      color: colorScheme.surfaceContainerHighest,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
@@ -42,15 +47,19 @@ class BreakBanner extends StatelessWidget {
               children: [
                 Text(
                   breakLabel,
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: AppTextSize.caption,
+                  ),
                 ),
                 Text(
                   _fmt(breakRemaining),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
+                  style: TextStyle(
+                    // Warning (caution/pending) — this is a running countdown.
+                    color: status.warning,
+                    fontSize: AppTextSize.title,
                     fontWeight: FontWeight.bold,
-                    fontFeatures: [FontFeature.tabularFigures()],
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
               ],
@@ -58,10 +67,7 @@ class BreakBanner extends StatelessWidget {
           ),
           TextButton(
             onPressed: onSkip,
-            child: const Text(
-              'Skip',
-              style: TextStyle(color: Colors.white70),
-            ),
+            child: Text('Skip', style: TextStyle(color: colorScheme.primary)),
           ),
         ],
       ),

@@ -5,6 +5,7 @@ import 'package:workout_app/screens/home_screen.dart';
 import 'package:workout_app/services/backup_service.dart';
 import 'package:workout_app/services/http_server_service.dart';
 import 'package:workout_app/services/storage_service.dart';
+import 'package:workout_app/ui/theme.dart';
 
 // coverage:ignore-start
 // App bootstrap: permission request, DB init, and a real listening socket —
@@ -65,13 +66,7 @@ class _WorkoutAppState extends State<WorkoutApp> with WidgetsBindingObserver {
     return MaterialApp(
       title: 'Workout Tracker',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.indigo,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      theme: buildAppTheme(),
       home: const HomeScreen(),
     );
   }

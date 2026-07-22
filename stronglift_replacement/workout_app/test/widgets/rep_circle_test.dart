@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/rep_circle.dart';
 
-Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
+Widget _wrap(Widget child) => MaterialApp(
+  theme: buildAppTheme(),
+  home: Scaffold(body: child),
+);
 
 void main() {
   group('RepCircle states', () {
-    testWidgets('neutral shows target reps and white background', (tester) async {
+    testWidgets('neutral shows target reps and white background', (
+      tester,
+    ) async {
       var tapped = false;
       await tester.pumpWidget(
         _wrap(
@@ -25,7 +31,9 @@ void main() {
       expect(tapped, isTrue);
     });
 
-    testWidgets('success state (tapped, doneReps == targetReps)', (tester) async {
+    testWidgets('success state (tapped, doneReps == targetReps)', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _wrap(
           RepCircle(
@@ -40,7 +48,9 @@ void main() {
       expect(find.text('5'), findsOneWidget);
     });
 
-    testWidgets('partial state (tapped, 0 < doneReps < targetReps)', (tester) async {
+    testWidgets('partial state (tapped, 0 < doneReps < targetReps)', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _wrap(
           RepCircle(
@@ -90,7 +100,10 @@ void main() {
 
   group('RepCircleState enum', () {
     test('all values are distinct', () {
-      expect(RepCircleState.values.toSet().length, RepCircleState.values.length);
+      expect(
+        RepCircleState.values.toSet().length,
+        RepCircleState.values.length,
+      );
     });
   });
 }

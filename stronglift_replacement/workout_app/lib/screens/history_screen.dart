@@ -13,6 +13,7 @@ import 'package:http/http.dart' as http;
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/workout_sync_service.dart';
+import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/calendar_widget.dart';
 
 const _kTotal = 'Total (all workouts)';
@@ -96,10 +97,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final payloads = await WorkoutSyncService(
       httpClient: widget.httpClient,
     ).readMergedWorkoutPayloads();
-    final synced = payloads
-        .where((p) => _kSyncedOnlyKinds.contains(p['kind']))
-        .toList()
-      ..sort((a, b) => '${b['date']}'.compareTo('${a['date']}'));
+    final synced =
+        payloads.where((p) => _kSyncedOnlyKinds.contains(p['kind'])).toList()
+          ..sort((a, b) => '${b['date']}'.compareTo('${a['date']}'));
     return synced;
   }
 
@@ -202,20 +202,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final allNames = [_kTotal, ..._exerciseNames];
     final isTotal = _selected == _kTotal;
 
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.grey.shade900,
       appBar: AppBar(
-        backgroundColor: Colors.grey.shade800,
-        title: const Text('Progress', style: TextStyle(color: Colors.white)),
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: colorScheme.surfaceContainerHigh,
+        title: Text(
+          'Progress',
+          style: TextStyle(color: colorScheme.onSurface),
+        ),
+        iconTheme: IconThemeData(color: colorScheme.onSurface),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _rows.isEmpty
-          ? const Center(
+          ? Center(
               child: Text(
                 'No workouts yet.',
-                style: TextStyle(color: Colors.white54),
+                style: TextStyle(color: colorScheme.onSurfaceVariant),
               ),
             )
           : ListView(
@@ -327,9 +330,9 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
-        color: Colors.white54,
-        fontSize: 11,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontSize: AppTextSize.caption,
         letterSpacing: 1.3,
       ),
     );
@@ -349,10 +352,11 @@ class _ExercisePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return DropdownButton<String>(
       value: selected,
-      dropdownColor: Colors.grey.shade800,
-      style: const TextStyle(color: Colors.white),
+      dropdownColor: colorScheme.surfaceContainerHigh,
+      style: TextStyle(color: colorScheme.onSurface),
       underline: const SizedBox(),
       isExpanded: true,
       items: names
@@ -362,7 +366,9 @@ class _ExercisePicker extends StatelessWidget {
               child: Text(
                 n,
                 style: TextStyle(
-                  color: n == _kTotal ? Colors.white70 : Colors.white,
+                  color: n == _kTotal
+                      ? colorScheme.onSurfaceVariant
+                      : colorScheme.onSurface,
                   fontStyle: n == _kTotal ? FontStyle.italic : FontStyle.normal,
                 ),
               ),
@@ -395,27 +401,29 @@ class _ProgressStatsCard extends StatelessWidget {
     final successLeft = state.successThreshold - state.successStreak;
     final failLeft = state.failThreshold - state.failStreak;
 
+    final colorScheme = Theme.of(context).colorScheme;
+    final status = Theme.of(context).extension<AppStatusColors>()!;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade800,
-        borderRadius: BorderRadius.circular(8),
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             '${state.name}  —  ${state.weight}kg',
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontWeight: FontWeight.bold,
-              fontSize: 14,
+              fontSize: AppTextSize.label,
             ),
           ),
           const SizedBox(height: 8),
           _StreakRow(
             icon: Icons.trending_up,
-            color: Colors.greenAccent,
+            color: status.success,
             current: state.successStreak,
             threshold: state.successThreshold,
             leftLabel: '$successLeft more',
@@ -429,7 +437,7 @@ class _ProgressStatsCard extends StatelessWidget {
           const SizedBox(height: 6),
           _StreakRow(
             icon: Icons.trending_down,
-            color: Colors.redAccent,
+            color: colorScheme.error,
             current: state.failStreak,
             threshold: state.failThreshold,
             leftLabel: '$failLeft more',
@@ -463,6 +471,7 @@ class _StreakRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Row(
       children: [
         Icon(icon, color: color, size: 14),
@@ -475,7 +484,7 @@ class _StreakRow extends StatelessWidget {
             margin: const EdgeInsets.only(right: 3),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: i < current ? color : Colors.white24,
+              color: i < current ? color : colorScheme.surfaceContainerHighest,
             ),
           ),
         ),
@@ -483,7 +492,10 @@ class _StreakRow extends StatelessWidget {
         Expanded(
           child: Text(
             '$leftLabel to $direction $actionLabel',
-            style: const TextStyle(color: Colors.white60, fontSize: 12),
+            style: TextStyle(
+              color: colorScheme.onSurfaceVariant,
+              fontSize: AppTextSize.caption,
+            ),
           ),
         ),
       ],
@@ -498,20 +510,25 @@ class _WeightChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     if (points.length < 2) {
       return Container(
         height: 80,
         alignment: Alignment.center,
-        child: const Text(
+        child: Text(
           'Not enough data for chart',
-          style: TextStyle(color: Colors.white38),
+          style: TextStyle(color: colorScheme.onSurfaceVariant),
         ),
       );
     }
     return SizedBox(
       height: 140,
       child: CustomPaint(
-        painter: _ChartPainter(points),
+        painter: _ChartPainter(
+          points,
+          lineColor: colorScheme.primary,
+          labelColor: colorScheme.onSurfaceVariant,
+        ),
         size: Size.infinite,
       ),
     );
@@ -519,9 +536,18 @@ class _WeightChart extends StatelessWidget {
 }
 
 class _ChartPainter extends CustomPainter {
-  _ChartPainter(this.points);
+  _ChartPainter(
+    this.points, {
+    required this.lineColor,
+    required this.labelColor,
+  });
 
   final List<(DateTime, double)> points;
+
+  // CustomPainter.paint() has no BuildContext, so the caller (which does)
+  // passes the themed colors in explicitly.
+  final Color lineColor;
+  final Color labelColor;
 
   // Layout constants
   static const _topPad = 14.0; // room for top Y label
@@ -569,11 +595,11 @@ class _ChartPainter extends CustomPainter {
         : (1 - (w - minW) / wRange) * plotHeight + plotTop;
 
     final linePaint = Paint()
-      ..color = Colors.indigoAccent
+      ..color = lineColor
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
     final dotPaint = Paint()
-      ..color = Colors.indigoAccent
+      ..color = lineColor
       ..style = PaintingStyle.fill;
 
     final path = Path()..moveTo(xOf(points.first.$1), yOf(points.first.$2));
@@ -591,7 +617,7 @@ class _ChartPainter extends CustomPainter {
       tp
         ..text = TextSpan(
           text: text,
-          style: TextStyle(color: Colors.white54, fontSize: fontSize),
+          style: TextStyle(color: labelColor, fontSize: fontSize),
         )
         ..layout()
         ..paint(canvas, offset);
@@ -609,7 +635,7 @@ class _ChartPainter extends CustomPainter {
       tp
         ..text = TextSpan(
           text: label,
-          style: const TextStyle(color: Colors.white38, fontSize: 9),
+          style: TextStyle(color: labelColor, fontSize: 9),
         )
         ..layout();
       final cx = xOf(p.$1);
@@ -618,6 +644,8 @@ class _ChartPainter extends CustomPainter {
     }
   }
 
+  // lineColor/labelColor come from the app's single fixed dark theme, so
+  // they never actually change at runtime — only points varies.
   @override
   bool shouldRepaint(_ChartPainter old) => old.points != points;
 }
@@ -630,6 +658,7 @@ class _SyncedWorkoutTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final kind = '${payload['kind']}';
     final isRun = kind == 'runnerup_verified';
     final label = isRun ? 'Run' : 'Manual';
@@ -639,17 +668,17 @@ class _SyncedWorkoutTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.grey.shade800,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isRun ? Colors.blue.shade800 : Colors.orange.shade900,
-        ),
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        // Neutral — this distinguishes entry TYPE (run vs. manual), not a
+        // status/judgment, so it doesn't borrow a semantic status color.
+        border: Border.all(color: colorScheme.outline),
       ),
       child: Row(
         children: [
           Icon(
             isRun ? Icons.directions_run : Icons.edit_note,
-            color: isRun ? Colors.blue.shade300 : Colors.orange.shade300,
+            color: colorScheme.onSurfaceVariant,
             size: 20,
           ),
           const SizedBox(width: 10),
@@ -659,15 +688,18 @@ class _SyncedWorkoutTile extends StatelessWidget {
               children: [
                 Text(
                   '${payload['date']}  ·  $label',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 if (detail.isNotEmpty)
                   Text(
                     detail,
-                    style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                    style: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: AppTextSize.caption,
+                    ),
                   ),
               ],
             ),
@@ -692,26 +724,27 @@ class _AllSessionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final status = Theme.of(context).extension<AppStatusColors>()!;
     final succeeded = (row['succeeded'] as int) == 1;
     final type = row['workout_type'] as String;
     final date = row['date'] as String;
     final dur = _formatDuration(row['duration_seconds'] as int);
+    final statusColor = succeeded ? status.success : colorScheme.error;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.grey.shade800,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: succeeded ? Colors.green.shade800 : Colors.red.shade900,
-        ),
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: statusColor),
       ),
       child: Row(
         children: [
           Icon(
             succeeded ? Icons.check_circle : Icons.cancel,
-            color: succeeded ? Colors.greenAccent : Colors.redAccent,
+            color: statusColor,
             size: 18,
           ),
           const SizedBox(width: 10),
@@ -721,14 +754,17 @@ class _AllSessionTile extends StatelessWidget {
               children: [
                 Text(
                   'Workout $type  ·  $date',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
                   dur,
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: AppTextSize.caption,
+                  ),
                 ),
               ],
             ),
@@ -753,6 +789,8 @@ class _ExerciseSessionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final status = Theme.of(context).extension<AppStatusColors>()!;
     final exData = session['exerciseData'] as Map<String, dynamic>;
     final succeeded = (exData['succeeded'] as bool?) == true;
     final date = session['date'] as String;
@@ -763,16 +801,19 @@ class _ExerciseSessionTile extends StatelessWidget {
     final targetSets = exData['targetSets'] as int? ?? sets.length;
     final doneSets = sets.where((s) => s['succeeded'] == true).length;
     final repsSummary = sets.map((s) => '${s['doneReps']}').join(', ');
+    final statusColor = succeeded ? status.success : colorScheme.error;
+    final mutedStyle = TextStyle(
+      color: colorScheme.onSurfaceVariant,
+      fontSize: AppTextSize.caption,
+    );
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade800,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: succeeded ? Colors.green.shade800 : Colors.red.shade900,
-        ),
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: statusColor),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -781,7 +822,7 @@ class _ExerciseSessionTile extends StatelessWidget {
             padding: const EdgeInsets.only(top: 2),
             child: Icon(
               succeeded ? Icons.check_circle : Icons.cancel,
-              color: succeeded ? Colors.greenAccent : Colors.redAccent,
+              color: statusColor,
               size: 18,
             ),
           ),
@@ -792,8 +833,8 @@ class _ExerciseSessionTile extends StatelessWidget {
               children: [
                 Text(
                   date,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -801,29 +842,14 @@ class _ExerciseSessionTile extends StatelessWidget {
                 Text(
                   '${weight ?? '?'}kg  ·  $doneSets/$targetSets sets'
                   '  ·  ${warmupDone ? '⬤ warmup' : '○ no warmup'}',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
+                  style: mutedStyle,
                 ),
                 if (repsSummary.isNotEmpty) ...[
                   const SizedBox(height: 2),
-                  Text(
-                    'reps: $repsSummary',
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 11,
-                    ),
-                  ),
+                  Text('reps: $repsSummary', style: mutedStyle),
                 ],
                 const SizedBox(height: 2),
-                Text(
-                  'workout: $dur',
-                  style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 11,
-                  ),
-                ),
+                Text('workout: $dur', style: mutedStyle),
               ],
             ),
           ),

@@ -2,6 +2,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:workout_app/ui/theme.dart';
 
 /// Monthly calendar widget that highlights days with completed workouts.
 class WorkoutCalendar extends StatelessWidget {
@@ -48,6 +49,8 @@ class WorkoutCalendar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final status = Theme.of(context).extension<AppStatusColors>()!;
     final year = month.year;
     final m = month.month;
     final daysInMonth = DateTime(year, m + 1, 0).day;
@@ -59,8 +62,8 @@ class WorkoutCalendar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade800,
-        borderRadius: BorderRadius.circular(8),
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Column(
         children: [
@@ -69,21 +72,27 @@ class WorkoutCalendar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                icon: const Icon(Icons.chevron_left, color: Colors.white70),
+                icon: Icon(
+                  Icons.chevron_left,
+                  color: colorScheme.onSurfaceVariant,
+                ),
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
                 onPressed: onPrevMonth,
               ),
               Text(
                 '${_monthNames[m - 1]} $year',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                  fontSize: AppTextSize.label,
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.chevron_right, color: Colors.white70),
+                icon: Icon(
+                  Icons.chevron_right,
+                  color: colorScheme.onSurfaceVariant,
+                ),
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
                 onPressed: onNextMonth,
@@ -101,9 +110,9 @@ class WorkoutCalendar extends StatelessWidget {
                     child: Text(
                       h,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 11,
+                      style: TextStyle(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: AppTextSize.caption,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -131,15 +140,18 @@ class WorkoutCalendar extends StatelessWidget {
                   decoration: worked
                       ? BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.green.shade700,
+                          color: status.success,
                         )
                       : null,
                   alignment: Alignment.center,
                   child: Text(
                     '$day',
                     style: TextStyle(
-                      color: worked ? Colors.white : Colors.white38,
-                      fontSize: 12,
+                      // on-fill (dark) on the success circle, muted otherwise.
+                      color: worked
+                          ? colorScheme.onPrimary
+                          : colorScheme.onSurfaceVariant,
+                      fontSize: AppTextSize.caption,
                       fontWeight: worked ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),

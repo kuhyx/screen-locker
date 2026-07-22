@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:workout_app/models/exercise.dart';
+import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/rep_circle.dart';
 
 /// Card widget displaying warmup and working-set rep circles for one exercise.
@@ -59,10 +60,20 @@ class ExerciseTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var headerColor = Colors.grey.shade800;
+    final colorScheme = Theme.of(context).colorScheme;
+    final status = Theme.of(context).extension<AppStatusColors>()!;
+    var headerColor = colorScheme.surfaceContainerHigh;
     if (_allCompleted) {
-      headerColor = _allSucceeded ? Colors.green.shade800 : Colors.red.shade900;
+      headerColor = _allSucceeded ? status.success : colorScheme.error;
     }
+    // A filled success/danger card needs on-fill text throughout (tokens.md:
+    // one on-fill value for all four fills, never a per-fill judgment call).
+    final onHeader = _allCompleted
+        ? colorScheme.onPrimary
+        : colorScheme.onSurface;
+    final onHeaderMuted = _allCompleted
+        ? colorScheme.onPrimary
+        : colorScheme.onSurfaceVariant;
 
     return Card(
       color: headerColor,
@@ -76,16 +87,19 @@ class ExerciseTile extends StatelessWidget {
                 Expanded(
                   child: Text(
                     exercise.name,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: onHeader,
                       fontWeight: FontWeight.bold,
-                      fontSize: 15,
+                      fontSize: AppTextSize.body,
                     ),
                   ),
                 ),
                 Text(
                   '${exercise.sets}×${exercise.reps}×${exercise.weight}kg',
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  style: TextStyle(
+                    color: onHeaderMuted,
+                    fontSize: AppTextSize.label,
+                  ),
                 ),
               ],
             ),
@@ -112,7 +126,8 @@ class ExerciseTile extends StatelessWidget {
                 ),
               ),
             ),
-            const Divider(color: Colors.white12, height: 20),
+            // Color inherited from the shared dividerTheme (line-dark).
+            const Divider(height: 20),
             _ThresholdRow(
               successThreshold: successThreshold,
               failThreshold: failThreshold,
@@ -141,41 +156,35 @@ class _ThresholdRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final status = Theme.of(context).extension<AppStatusColors>()!;
+    final captionStyle = TextStyle(
+      color: colorScheme.onSurfaceVariant,
+      fontSize: AppTextSize.caption,
+    );
     return Row(
       children: [
-        const Icon(Icons.trending_up, size: 13, color: Colors.greenAccent),
+        Icon(Icons.trending_up, size: 13, color: status.success),
         const SizedBox(width: 4),
-        const Text(
-          'after',
-          style: TextStyle(color: Colors.white38, fontSize: 11),
-        ),
+        Text('after', style: captionStyle),
         const SizedBox(width: 6),
         _MiniStepper(
           value: successThreshold,
           onChanged: onSuccessChanged,
         ),
         const SizedBox(width: 4),
-        const Text(
-          '↑',
-          style: TextStyle(color: Colors.white38, fontSize: 11),
-        ),
+        Text('↑', style: captionStyle),
         const Spacer(),
-        const Icon(Icons.trending_down, size: 13, color: Colors.redAccent),
+        Icon(Icons.trending_down, size: 13, color: colorScheme.error),
         const SizedBox(width: 4),
-        const Text(
-          'after',
-          style: TextStyle(color: Colors.white38, fontSize: 11),
-        ),
+        Text('after', style: captionStyle),
         const SizedBox(width: 6),
         _MiniStepper(
           value: failThreshold,
           onChanged: onFailChanged,
         ),
         const SizedBox(width: 4),
-        const Text(
-          '↓',
-          style: TextStyle(color: Colors.white38, fontSize: 11),
-        ),
+        Text('↓', style: captionStyle),
       ],
     );
   }
@@ -192,40 +201,57 @@ class _MiniStepper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _btn(Icons.remove, value > _min ? () => onChanged(value - 1) : null),
+        _btn(
+          context,
+          Icons.remove,
+          value > _min ? () => onChanged(value - 1) : null,
+        ),
         SizedBox(
           width: 22,
           child: Text(
             '$value',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white, fontSize: 12),
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: AppTextSize.caption,
+            ),
           ),
         ),
-        _btn(Icons.add, value < _max ? () => onChanged(value + 1) : null),
+        _btn(
+          context,
+          Icons.add,
+          value < _max ? () => onChanged(value + 1) : null,
+        ),
       ],
     );
   }
 
-  Widget _btn(IconData icon, VoidCallback? onTap) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      width: 22,
-      height: 22,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade700,
-        borderRadius: BorderRadius.circular(4),
+  Widget _btn(BuildContext context, IconData icon, VoidCallback? onTap) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 22,
+        height: 22,
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        alignment: Alignment.center,
+        child: Icon(
+          icon,
+          size: 12,
+          color: onTap != null
+              ? colorScheme.onSurface
+              : colorScheme.onSurfaceVariant,
+        ),
       ),
-      alignment: Alignment.center,
-      child: Icon(
-        icon,
-        size: 12,
-        color: onTap != null ? Colors.white : Colors.white24,
-      ),
-    ),
-  );
+    );
+  }
 }
 
 class _WarmupRow extends StatelessWidget {
@@ -241,16 +267,16 @@ class _WarmupRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final status = Theme.of(context).extension<AppStatusColors>()!;
+    final mutedStyle = TextStyle(
+      color: colorScheme.onSurfaceVariant,
+      fontSize: AppTextSize.caption,
+    );
     return Row(
       children: [
-        const Text(
-          'Warmup  1×5×',
-          style: TextStyle(color: Colors.white54, fontSize: 12),
-        ),
-        Text(
-          '${warmupWeight}kg',
-          style: const TextStyle(color: Colors.white54, fontSize: 12),
-        ),
+        Text('Warmup  1×5×', style: mutedStyle),
+        Text('${warmupWeight}kg', style: mutedStyle),
         const SizedBox(width: 10),
         GestureDetector(
           onTap: tapped ? null : onTap,
@@ -260,16 +286,21 @@ class _WarmupRow extends StatelessWidget {
             height: 36,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: tapped ? Colors.teal : Colors.transparent,
+              // Tapped = a completed milestone, same semantic as every other
+              // "done" indicator in this app (rep circles, calendar days).
+              color: tapped ? status.success : Colors.transparent,
               border: Border.all(
-                color: tapped ? Colors.teal : Colors.white38,
+                color: tapped ? status.success : colorScheme.outline,
                 width: 2,
               ),
             ),
             alignment: Alignment.center,
             child: Icon(
               tapped ? Icons.check : Icons.fitness_center,
-              color: tapped ? Colors.white : Colors.white38,
+              // on-fill on the filled circle; muted on the empty outline one.
+              color: tapped
+                  ? colorScheme.onPrimary
+                  : colorScheme.onSurfaceVariant,
               size: 16,
             ),
           ),
@@ -278,8 +309,8 @@ class _WarmupRow extends StatelessWidget {
         Text(
           tapped ? 'done' : 'optional',
           style: TextStyle(
-            color: tapped ? Colors.tealAccent : Colors.white30,
-            fontSize: 11,
+            color: tapped ? status.success : colorScheme.onSurfaceVariant,
+            fontSize: AppTextSize.caption,
           ),
         ),
       ],

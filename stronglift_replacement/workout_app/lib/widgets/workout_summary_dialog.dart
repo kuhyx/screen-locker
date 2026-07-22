@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:workout_app/models/workout_session.dart';
 import 'package:workout_app/services/sync_service.dart';
+import 'package:workout_app/ui/theme.dart';
 
 /// Dialog that summarises a completed workout and reports the sync status.
 class WorkoutSummaryDialog extends StatelessWidget {
@@ -28,13 +29,15 @@ class WorkoutSummaryDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final status = Theme.of(context).extension<AppStatusColors>()!;
     final succeeded = session.fullySucceeded;
     return AlertDialog(
-      backgroundColor: Colors.grey.shade900,
+      backgroundColor: colorScheme.surfaceContainerHigh,
       title: Text(
         succeeded ? 'Workout Complete! 💪' : 'Workout Done',
         style: TextStyle(
-          color: succeeded ? Colors.greenAccent : Colors.orangeAccent,
+          color: succeeded ? status.success : status.warning,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -44,14 +47,14 @@ class WorkoutSummaryDialog extends StatelessWidget {
         children: [
           Text(
             'Duration: ${_fmt(session.duration)}',
-            style: const TextStyle(color: Colors.white70),
+            style: TextStyle(color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 8),
           ...session.exercises.map(
             (e) => Text(
               '${e.exercise.name}: ${e.succeeded ? "✓" : "✗"}',
               style: TextStyle(
-                color: e.succeeded ? Colors.greenAccent : Colors.redAccent,
+                color: e.succeeded ? status.success : colorScheme.error,
               ),
             ),
           ),
@@ -61,8 +64,10 @@ class WorkoutSummaryDialog extends StatelessWidget {
                 ? 'Saved to ${syncResult.path}'
                 : 'Sync failed: ${syncResult.error}',
             style: TextStyle(
-              color: syncResult.success ? Colors.white54 : Colors.redAccent,
-              fontSize: 12,
+              color: syncResult.success
+                  ? colorScheme.onSurfaceVariant
+                  : colorScheme.error,
+              fontSize: AppTextSize.caption,
             ),
           ),
         ],
@@ -72,9 +77,9 @@ class WorkoutSummaryDialog extends StatelessWidget {
           onPressed: () {
             Navigator.of(context).popUntil((r) => r.isFirst);
           },
-          child: const Text(
+          child: Text(
             'Back to Home',
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(color: colorScheme.primary),
           ),
         ),
       ],

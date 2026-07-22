@@ -13,6 +13,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:workout_app/ui/theme.dart';
 
 /// Visual state of a [RepCircle].
 enum RepCircleState {
@@ -65,27 +66,29 @@ class RepCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final status = Theme.of(context).extension<AppStatusColors>()!;
     final state = _state;
+    // on-fill: this circle is a solid filled surface — text on it always
+    // needs dark (ink) text, never the page's near-white text-on-dark.
+    final fg = colorScheme.onPrimary;
     final Color bg;
-    final Color fg;
     final String label;
 
     switch (state) {
       case RepCircleState.neutral:
-        bg = Colors.white;
-        fg = Colors.black87;
+        // Not yet acted upon — a near-white fill (not pure Colors.white)
+        // still reads as "the bright/blank one" against the dark page.
+        bg = colorScheme.onSurface;
         label = '$targetReps';
       case RepCircleState.success:
-        bg = Colors.green;
-        fg = Colors.white;
+        bg = status.success;
         label = '$targetReps';
       case RepCircleState.partial:
-        bg = Colors.orange;
-        fg = Colors.white;
+        bg = status.warning;
         label = '$doneReps';
       case RepCircleState.failed:
-        bg = Colors.red;
-        fg = Colors.white;
+        bg = colorScheme.error;
         label = '0';
     }
 
@@ -99,16 +102,11 @@ class RepCircle extends StatelessWidget {
           shape: BoxShape.circle,
           color: bg,
           border: Border.all(
-            color: state == RepCircleState.neutral ? Colors.grey.shade400 : bg,
+            color: state == RepCircleState.neutral ? colorScheme.outline : bg,
             width: 2,
           ),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 4,
-              offset: Offset(0, 2),
-            ),
-          ],
+          // No shadow (rule 26: dark surfaces never shadow) — the fill
+          // color already differentiates this circle from the page.
         ),
         alignment: Alignment.center,
         child: Text(
@@ -116,7 +114,7 @@ class RepCircle extends StatelessWidget {
           style: TextStyle(
             color: fg,
             fontWeight: FontWeight.bold,
-            fontSize: 16,
+            fontSize: AppTextSize.body,
           ),
         ),
       ),

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/widgets/exercise_tile.dart';
 import 'package:workout_app/widgets/rep_circle.dart';
 
-Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
+Widget _wrap(Widget child) => MaterialApp(
+  theme: buildAppTheme(),
+  home: Scaffold(body: child),
+);
 
 const _exercise = Exercise(name: 'Squat', sets: 3, reps: 5, weight: 20.0);
 
@@ -18,19 +22,18 @@ ExerciseTile _tile({
   void Function(int)? onLongPressCircle,
   VoidCallback? onTapWarmup,
   void Function(int, int)? onThresholdChanged,
-}) =>
-    ExerciseTile(
-      exercise: _exercise,
-      tapped: tapped ?? [false, false, false],
-      doneReps: doneReps ?? [5, 5, 5],
-      warmupTapped: warmupTapped,
-      successThreshold: successThreshold,
-      failThreshold: failThreshold,
-      onTapCircle: onTapCircle ?? (_) {},
-      onLongPressCircle: onLongPressCircle ?? (_) {},
-      onTapWarmup: onTapWarmup ?? () {},
-      onThresholdChanged: onThresholdChanged ?? (_, __) {},
-    );
+}) => ExerciseTile(
+  exercise: _exercise,
+  tapped: tapped ?? [false, false, false],
+  doneReps: doneReps ?? [5, 5, 5],
+  warmupTapped: warmupTapped,
+  successThreshold: successThreshold,
+  failThreshold: failThreshold,
+  onTapCircle: onTapCircle ?? (_) {},
+  onLongPressCircle: onLongPressCircle ?? (_) {},
+  onTapWarmup: onTapWarmup ?? () {},
+  onThresholdChanged: onThresholdChanged ?? (_, __) {},
+);
 
 void main() {
   group('ExerciseTile', () {
@@ -43,7 +46,10 @@ void main() {
     testWidgets('shows warmup weight', (tester) async {
       await tester.pumpWidget(_wrap(_tile()));
       // warmupWeight for 20kg squat = 10kg (50%)
-      expect(find.textContaining('${_exercise.warmupWeight}kg'), findsOneWidget);
+      expect(
+        find.textContaining('${_exercise.warmupWeight}kg'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('calls onTapCircle when set circle tapped', (tester) async {
@@ -87,7 +93,9 @@ void main() {
       expect(find.byType(ExerciseTile), findsOneWidget);
     });
 
-    testWidgets('header is red when all sets tapped but some failed', (tester) async {
+    testWidgets('header is red when all sets tapped but some failed', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _wrap(
           _tile(

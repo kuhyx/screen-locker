@@ -16,6 +16,7 @@ import 'package:workout_app/services/sync_settings.dart';
 import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/screens/settings_screen.dart';
 import 'package:workout_app/services/storage_service.dart';
+import 'package:workout_app/ui/theme.dart';
 
 import '../fake_secure_storage.dart';
 
@@ -59,8 +60,10 @@ void main() {
     await tester.pump();
   }
 
-  Widget _wrap({http.Client? httpClient}) =>
-      MaterialApp(home: SettingsScreen(httpClient: httpClient));
+  Widget _wrap({http.Client? httpClient}) => MaterialApp(
+    theme: buildAppTheme(),
+    home: SettingsScreen(httpClient: httpClient),
+  );
 
   /// Drains the device flow's real `Future.delayed` poll (GitHubDeviceAuth
   /// injects no test delay, so under `runAsync` it is a genuine Timer, not
@@ -94,14 +97,17 @@ void main() {
     expect(find.text('Settings'), findsOneWidget);
   });
 
-  testWidgets('shows WEIGHTS and PROGRESSION THRESHOLDS sections',
-      (tester) async {
+  testWidgets('shows WEIGHTS and PROGRESSION THRESHOLDS sections', (
+    tester,
+  ) async {
     await _pump(tester, _wrap());
     expect(find.text('WEIGHTS'), findsOneWidget);
     expect(find.text('PROGRESSION THRESHOLDS'), findsOneWidget);
   });
 
-  testWidgets('shows all exercise names from both workout plans', (tester) async {
+  testWidgets('shows all exercise names from both workout plans', (
+    tester,
+  ) async {
     await _pump(tester, _wrap());
     for (final ex in [...workoutA, ...workoutB]) {
       expect(find.text(ex.name), findsWidgets);
@@ -169,8 +175,8 @@ void main() {
 
   testWidgets('Reset dialog confirms and resets data', (tester) async {
     await tester.runAsync(
-      () => StorageService.instance
-          .setExerciseWeight(workoutA.first.name, 99.0),
+      () =>
+          StorageService.instance.setExerciseWeight(workoutA.first.name, 99.0),
     );
 
     await _pump(tester, _wrap());
@@ -273,11 +279,10 @@ void main() {
       await tester.tap(find.text('Connect GitHub'));
       await _pumpUntil(
         tester,
-        () =>
-            find
-                .textContaining('Could not start device flow')
-                .evaluate()
-                .isNotEmpty,
+        () => find
+            .textContaining('Could not start device flow')
+            .evaluate()
+            .isNotEmpty,
       );
 
       expect(
@@ -328,11 +333,10 @@ void main() {
 
       await _pumpUntil(
         tester,
-        () =>
-            find
-                .textContaining('Connected and verified via GitHub')
-                .evaluate()
-                .isNotEmpty,
+        () => find
+            .textContaining('Connected and verified via GitHub')
+            .evaluate()
+            .isNotEmpty,
       );
 
       expect(
@@ -437,9 +441,12 @@ void main() {
     final failLabel = find.text('↓ Decrease after N failures').first;
     await tester.ensureVisible(failLabel);
     await tester.pumpAndSettle();
-    final failRow =
-        find.ancestor(of: failLabel, matching: find.byType(Row)).first;
-    final failFour = find.descendant(of: failRow, matching: find.text('4')).first;
+    final failRow = find
+        .ancestor(of: failLabel, matching: find.byType(Row))
+        .first;
+    final failFour = find
+        .descendant(of: failRow, matching: find.text('4'))
+        .first;
     await tester.ensureVisible(failFour);
     await tester.pumpAndSettle();
     await tester.runAsync(() async {
@@ -513,8 +520,10 @@ void main() {
       await tester.tap(find.text('Connect GitHub'));
       await _pumpUntil(
         tester,
-        () =>
-            find.textContaining('could not save the token').evaluate().isNotEmpty,
+        () => find
+            .textContaining('could not save the token')
+            .evaluate()
+            .isNotEmpty,
       );
       expect(
         find.textContaining('could not save the token'),
@@ -606,10 +615,7 @@ void main() {
       await _pumpUntil(
         tester,
         () =>
-            find
-                .textContaining('Connected and verified')
-                .evaluate()
-                .isNotEmpty,
+            find.textContaining('Connected and verified').evaluate().isNotEmpty,
       );
       expect(find.textContaining('Connected and verified'), findsOneWidget);
     });
