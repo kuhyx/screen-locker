@@ -23,13 +23,16 @@ from __future__ import annotations
 
 import contextlib
 import tkinter as tk
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
+
+_W = TypeVar("_W", bound=tk.Misc)
+"""The widget each group mirrors, so a subclass keeps its own methods typed."""
 
 
-class WidgetGroup:
+class WidgetGroup(Generic[_W]):
     """One logical widget, mirrored onto every monitor.
 
     Only the operations the locker actually performs after creation are
@@ -37,20 +40,20 @@ class WidgetGroup:
     from the first copy, since all copies are built identically.
     """
 
-    def __init__(self, widgets: list[Any]) -> None:
+    def __init__(self, widgets: list[_W]) -> None:
         """Wrap the per-monitor copies of one widget."""
         self._widgets = widgets
 
-    def __iter__(self) -> Iterator[Any]:
+    def __iter__(self) -> Iterator[_W]:
         """Iterate the per-monitor copies, for callers that need each one."""
         return iter(self._widgets)
 
     @property
-    def first(self) -> Any:
+    def first(self) -> _W:
         """The primary monitor's copy, for reads that cannot fan out."""
         return self._widgets[0]
 
-    def configure(self, **kwargs: Any) -> None:
+    def configure(self, **kwargs: object) -> None:
         """Apply the same configuration to every copy."""
         for widget in self._widgets:
             with contextlib.suppress(tk.TclError):
@@ -59,7 +62,7 @@ class WidgetGroup:
     # Tk's own alias; several call sites here use the short spelling.
     config = configure
 
-    def pack(self, **kwargs: Any) -> None:
+    def pack(self, **kwargs: object) -> None:
         """Pack every copy with the same options."""
         for widget in self._widgets:
             with contextlib.suppress(tk.TclError):
@@ -78,7 +81,7 @@ class WidgetGroup:
                 widget.destroy()
 
 
-class TextGroup(WidgetGroup):
+class TextGroup(WidgetGroup[tk.Text]):
     """A multi-line text box, mirrored onto every monitor.
 
     Entries can share a ``StringVar`` and so are typed once for all screens.
@@ -100,7 +103,7 @@ class TextGroup(WidgetGroup):
         return str(self._widgets[0].get(start, end))
 
 
-class FrameGroup(WidgetGroup):
+class FrameGroup(WidgetGroup[tk.Frame]):
     """A container, mirrored onto every monitor, that can parent more groups.
 
     This is what makes the incremental widget factory in ``UIWidgetsMixin``
@@ -108,24 +111,24 @@ class FrameGroup(WidgetGroup):
     it to ``_button()`` creates one button inside each of its frames.
     """
 
-    def __init__(self, widgets: list[Any]) -> None:
+    def __init__(self, widgets: list[_W]) -> None:
         """Wrap the per-monitor frames, tracking which output each came from."""
         super().__init__(widgets)
         self._outputs: list[str] = []
 
     @classmethod
-    def single(cls, parent: tk.Misc, **kwargs: Any) -> FrameGroup:
+    def single(cls, parent: tk.Misc, **kwargs: object) -> FrameGroup:
         """Build a group of exactly one centred frame, for non-lock windows."""
         frame = tk.Frame(parent, **kwargs)
         frame.place(relx=0.5, rely=0.5, anchor="center")
         return cls([frame])
 
     @property
-    def surfaces(self) -> list[Any]:
+    def surfaces(self) -> list[tk.Frame]:
         """Every per-monitor frame; empty until the lock builds them."""
         return list(self._widgets)
 
-    def add(self, frame: Any, output_name: str) -> None:
+    def add(self, frame: tk.Frame, output_name: str) -> None:
         """Register the frame built for one newly-live output."""
         self._widgets.append(frame)
         self._outputs.append(output_name)
@@ -140,11 +143,13 @@ class FrameGroup(WidgetGroup):
         self._widgets = [frame for frame, _ in kept]
         self._outputs = [name for _, name in kept]
 
-    def child_frame(self, **kwargs: Any) -> FrameGroup:
+    def child_frame(self, **kwargs: object) -> FrameGroup:
         """Create one child frame inside every copy."""
         return FrameGroup([tk.Frame(frame, **kwargs) for frame in self._widgets])
 
-    def child_widgets(self, factory: Any, **kwargs: Any) -> WidgetGroup:
+    def child_widgets(
+        self, factory: Callable[..., tk.Misc], **kwargs: object
+    ) -> WidgetGroup[tk.Misc]:
         """Create one ``factory(parent, **kwargs)`` widget inside every copy."""
         return WidgetGroup([factory(frame, **kwargs) for frame in self._widgets])
 
@@ -155,7 +160,7 @@ class FrameGroup(WidgetGroup):
                 for child in frame.winfo_children():
                     child.destroy()
 
-    def winfo_toplevel(self) -> Any:
+    def winfo_toplevel(self) -> tk.Misc:
         """The primary monitor's toplevel.
 
         A dialog that needs *a* window to sit relative to gets the primary
@@ -163,6 +168,6 @@ class FrameGroup(WidgetGroup):
         """
         return self._widgets[0].winfo_toplevel()
 
-    def winfo_children(self) -> list[Any]:
+    def winfo_children(self) -> list[tk.Misc]:
         """Children of the primary copy, for tests and geometry queries."""
         return list(self._widgets[0].winfo_children())
