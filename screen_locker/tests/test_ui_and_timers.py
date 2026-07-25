@@ -26,7 +26,7 @@ class TestUITransitions:
         # Set up mock children
         mock_child1 = MagicMock()
         mock_child2 = MagicMock()
-        locker.container.winfo_children.return_value = [
+        locker.container.first.winfo_children.return_value = [
             mock_child1,
             mock_child2,
         ]

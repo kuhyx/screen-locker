@@ -241,7 +241,7 @@ class TestShowSickJustification:
         assert hasattr(locker, "_sick_submit_button")
         # Submit button starts enabled (no commitment).
         # config(state="disabled") only called for commitment path.
-        for call in locker._sick_submit_button.config.call_args_list:
+        for call in locker._sick_submit_button.first.configure.call_args_list:
             assert call.kwargs.get("state") != "disabled"
 
     def test_renders_form_with_commitment_disables_submit(
@@ -257,7 +257,7 @@ class TestShowSickJustification:
         # Submit button was disabled and forced-delay started.
         states = [
             call.kwargs.get("state")
-            for call in locker._sick_submit_button.config.call_args_list
+            for call in locker._sick_submit_button.first.configure.call_args_list
         ]
         assert "disabled" in states
 

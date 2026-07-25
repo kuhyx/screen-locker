@@ -72,7 +72,11 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
         the inner form to the viewport so its two columns split the full width.
         Harmless on StatusWindow, whose container already fills its window.
         """
-        outer = tk.Frame(self.container, bg=self._colors.bg)
+        # The scrolling form is built on the primary surface only: it is a
+        # canvas-and-scrollbar viewport sized from one toplevel's geometry,
+        # and mirroring an independently-scrolled copy per monitor would
+        # show two different parts of the same form.
+        outer = tk.Frame(self.container.first, bg=self._colors.bg)
         outer.pack(fill="both", expand=True, pady=10)
         canvas = tk.Canvas(outer, bg=self._colors.bg, highlightthickness=0)
         scrollbar = tk.Scrollbar(outer, orient="vertical", command=canvas.yview)

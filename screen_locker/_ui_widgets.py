@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from screen_locker._surface_group import FrameGroup, WidgetGroup
+
 
 def disable_paste(widget: tk.Widget) -> None:
     """Disable paste in a Tk Entry/Text widget.
@@ -26,9 +28,8 @@ class UIWidgetsMixin:
     """Mixin providing low-level widget creation helpers."""
 
     def clear_container(self) -> None:
-        """Remove all widgets from the main container."""
-        for widget in self.container.winfo_children():
-            widget.destroy()
+        """Remove all widgets from the main container, on every monitor."""
+        self.container.clear()
 
     def _label(
         self,
@@ -37,10 +38,10 @@ class UIWidgetsMixin:
         font_size: int = 36,
         color: str | None = None,
         pady: int = 20,
-    ) -> tk.Label:
-        """Create and pack a bold label in the container."""
-        label = tk.Label(
-            self.container,
+    ) -> WidgetGroup:
+        """Create and pack a bold label on every monitor."""
+        label = self.container.child_widgets(
+            tk.Label,
             text=text,
             font=(self._colors.font_family, font_size, "bold"),
             fg=color or self._colors.fg,
@@ -56,10 +57,10 @@ class UIWidgetsMixin:
         font_size: int = 18,
         color: str | None = None,
         pady: int = 10,
-    ) -> tk.Label:
-        """Create and pack a non-bold text label in the container."""
-        label = tk.Label(
-            self.container,
+    ) -> WidgetGroup:
+        """Create and pack a non-bold text label on every monitor."""
+        label = self.container.child_widgets(
+            tk.Label,
             text=text,
             font=(self._colors.font_family, font_size),
             fg=color or self._colors.fg,
@@ -88,21 +89,25 @@ class UIWidgetsMixin:
 
     def _button(
         self,
-        parent: tk.Widget,
+        parent: FrameGroup,
         text: str,
         *,
         bg: str,
         command: Callable[[], None],
         width: int = 10,
-    ) -> tk.Button:
-        """Create a styled button (caller must pack).
+    ) -> WidgetGroup:
+        """Create a styled button on every monitor (caller must pack).
+
+        Every copy gets the *same* ``command``, so pressing the button on
+        whichever screen the user is actually looking at does the one thing
+        once -- the same trick the shared entry variable plays for typing.
 
         Padding follows the shared 2x horizontal:vertical ratio (rule 22);
         `relief="flat"` is the one depth technique every button in the app
         uses now (rule 27), matching what `_heat_skip.py` already did alone.
         """
-        return tk.Button(
-            parent,
+        return parent.child_widgets(
+            tk.Button,
             text=text,
             font=(self._colors.font_family, 24, "bold"),
             bg=bg,
@@ -115,32 +120,37 @@ class UIWidgetsMixin:
             pady=12,
         )
 
-    def _button_row(self) -> tk.Frame:
-        """Create and pack a horizontal button container."""
-        frame = tk.Frame(self.container, bg=self._colors.bg)
+    def _button_row(self) -> FrameGroup:
+        """Create and pack a horizontal button container on every monitor."""
+        frame = self.container.child_frame(bg=self._colors.bg)
         frame.pack(pady=20)
         return frame
 
     def _add_label_entry(
         self,
-        parent: tk.Widget,
+        parent: FrameGroup,
         *,
         label: str,
         variable: tk.StringVar,
     ) -> None:
-        """Add a label + single-line entry pair, with paste disabled."""
-        row = tk.Frame(parent, bg=self._colors.bg)
+        """Add a label + single-line entry pair on every monitor.
+
+        All copies share one ``variable``, so typing on any screen is the
+        same text everywhere and reading it back needs no idea which monitor
+        the user actually used.
+        """
+        row = parent.child_frame(bg=self._colors.bg)
         row.pack(pady=8, fill="x")
-        tk.Label(
-            row,
+        row.child_widgets(
+            tk.Label,
             text=label,
             font=(self._colors.font_family, 14),
             fg=self._colors.fg,
             bg=self._colors.bg,
             anchor="w",
         ).pack(side="top", anchor="w")
-        entry = tk.Entry(
-            row,
+        entries = row.child_widgets(
+            tk.Entry,
             textvariable=variable,
             width=50,
             font=(self._colors.font_family, 14),
@@ -148,5 +158,6 @@ class UIWidgetsMixin:
             fg=self._colors.fg,
             insertbackground=self._colors.fg,
         )
-        entry.pack(side="top", anchor="w", pady=4)
-        disable_paste(entry)
+        entries.pack(side="top", anchor="w", pady=4)
+        for entry in entries:
+            disable_paste(entry)

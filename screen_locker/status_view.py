@@ -43,6 +43,7 @@ from screen_locker._status_data import (
     gather_status,
 )
 from screen_locker._status_view_verify import PhoneCheckMixin, _make_bare_verifier
+from screen_locker._surface_group import FrameGroup
 from screen_locker._temperature import (
     fetch_current_temp_with_status,
 )
@@ -100,8 +101,13 @@ class StatusWindow(
         self._temp_result: TemperatureCheck | None = None
         self._last_snapshot = snapshot
         self._colors = _STATUS_COLORS
-        self.container = tk.Frame(root, bg=self._colors.bg)
-        self.container.pack(fill="both", expand=True)
+        # A group of one: this window has no lock and no per-output surfaces,
+        # but it shares UIWidgetsMixin's factory with the locker, which now
+        # builds through a group. Filling the window rather than centring, so
+        # this is built here instead of via FrameGroup.single().
+        frame = tk.Frame(root, bg=self._colors.bg)
+        frame.pack(fill="both", expand=True)
+        self.container = FrameGroup([frame])
         self._start_temperature_check()
         self.render(snapshot)
 

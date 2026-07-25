@@ -338,4 +338,4 @@ class TestShowVerifyRetry:
         locker._show_verify_retry("No workout found")
 
         # Verify container was cleared and buttons were packed
-        locker.container.winfo_children.return_value = []
+        locker.container.first.winfo_children.return_value = []

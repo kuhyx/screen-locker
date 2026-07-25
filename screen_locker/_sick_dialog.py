@@ -12,6 +12,7 @@ from screen_locker._constants import (
     SICK_COMMITMENT_FORCED_READ_SECONDS,
     SICK_JUSTIFICATION_MIN_CHARS,
 )
+from screen_locker._surface_group import FrameGroup, TextGroup
 from screen_locker._ui_widgets import disable_paste as _disable_paste
 
 if TYPE_CHECKING:
@@ -61,7 +62,7 @@ class SickDialogMixin:
 
     def _build_justification_form(self, *, had_commitment: bool) -> None:
         """Add justification form fields and submit button to the container."""
-        form = tk.Frame(self.container, bg=self._colors.bg)
+        form = self.container.child_frame(bg=self._colors.bg)
         form.pack(pady=10)
 
         self._sick_symptom_var = tk.StringVar()
@@ -96,7 +97,7 @@ class SickDialogMixin:
             self._commitment_forced_remaining = SICK_COMMITMENT_FORCED_READ_SECONDS
             self._update_commitment_forced_delay()
 
-    def _add_form_widgets(self, parent: tk.Widget) -> tk.Text:
+    def _add_form_widgets(self, parent: FrameGroup) -> TextGroup:
         """Create symptom/onset/severity/text widgets. Returns the text widget."""
         self._add_label_entry(
             parent,
@@ -108,17 +109,17 @@ class SickDialogMixin:
             label="When did it start? (e.g. last night):",
             variable=self._sick_onset_var,
         )
-        sev_row = tk.Frame(parent, bg=self._colors.bg)
+        sev_row = parent.child_frame(bg=self._colors.bg)
         sev_row.pack(pady=8)
-        tk.Label(
-            sev_row,
+        sev_row.child_widgets(
+            tk.Label,
             text="Severity (1-10):",
             font=(self._colors.font_family, 14),
             fg=self._colors.fg,
             bg=self._colors.bg,
         ).pack(side="left", padx=5)
-        tk.Spinbox(
-            sev_row,
+        sev_row.child_widgets(
+            tk.Spinbox,
             from_=1,
             to=10,
             textvariable=self._sick_severity_var,
@@ -126,25 +127,30 @@ class SickDialogMixin:
             font=(self._colors.font_family, 14),
         ).pack(side="left", padx=5)
 
-        tk.Label(
-            parent,
+        parent.child_widgets(
+            tk.Label,
             text=(f"Describe how you feel (min {SICK_JUSTIFICATION_MIN_CHARS} chars):"),
             font=(self._colors.font_family, 14),
             fg=self._colors.fg,
             bg=self._colors.bg,
         ).pack(pady=8)
-        text_widget = tk.Text(
-            parent,
-            width=60,
-            height=6,
-            font=(self._colors.font_family, 14),
-            bg=self._colors.field_bg,
-            fg=self._colors.fg,
-            insertbackground=self._colors.fg,
+        text_widgets = TextGroup(
+            list(
+                parent.child_widgets(
+                    tk.Text,
+                    width=60,
+                    height=6,
+                    font=(self._colors.font_family, 14),
+                    bg=self._colors.field_bg,
+                    fg=self._colors.fg,
+                    insertbackground=self._colors.fg,
+                )
+            )
         )
-        text_widget.pack(pady=8)
-        _disable_paste(text_widget)
-        return text_widget
+        text_widgets.pack(pady=8)
+        for text_widget in text_widgets:
+            _disable_paste(text_widget)
+        return text_widgets
 
     def _update_commitment_forced_delay(self) -> None:
         """Tick down the forced-read delay then enable the submit button."""

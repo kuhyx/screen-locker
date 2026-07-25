@@ -10,13 +10,74 @@ relaxed-day prompt.
 from __future__ import annotations
 
 import tkinter as tk
+from typing import TYPE_CHECKING
+
+from gatelock import RANK_SCREEN_LOCKER, Arbiter, LockWindow
+
+from screen_locker._surface_group import FrameGroup
+
+if TYPE_CHECKING:
+    from gatelock import SurfaceInfo
 
 
 class WindowSetupMixin:
     """Mixin providing the screen-locker-specific auxiliary windows."""
 
-    def on_focus_ready(self) -> None:
-        """No typed-input field in the lock window; nothing to focus."""
+    # Declared because this mixin both reads and *reassigns* it; without the
+    # annotation mypy cannot infer the attribute's type through the mixin.
+    container: FrameGroup
+
+    def _build_lock_window(self) -> LockWindow:
+        """Claim the screen at this app's rank and build the lock.
+
+        The arbiter is published here and then handed to ``LockWindow``,
+        which owns releasing it on close -- so it is deliberately not kept
+        as an attribute of the locker.
+        """
+        arbiter = Arbiter(
+            "screen_locker",
+            RANK_SCREEN_LOCKER,
+            grab=self._colors.resolved_grab(),
+            disable_vt=self._colors.resolved_disable_vt(),
+        )
+        arbiter.publish()
+        arbiter.acquire_holder()
+        lock = LockWindow(self.root, self._colors, hooks=self, arbiter=arbiter)
+        lock.setup()
+        return lock
+
+    def _ensure_container(self) -> None:
+        """Give the non-lock windows a container group of exactly one.
+
+        The verify and relaxed-day windows never build a lock, so nothing
+        called ``build_surface`` and the group is still empty. They are
+        ordinary single windows, and one frame is all they need.
+        """
+        if not self.container.surfaces:
+            self.container = FrameGroup.single(self.root, bg=self._colors.bg)
+
+    def build_surface(self, parent: tk.Misc, surface: SurfaceInfo) -> None:
+        """Add one centred container for a newly-live output.
+
+        Only the container is built here, not the screen inside it: which
+        screen is showing depends on flow state the lock knows nothing
+        about, so the caller repaints through the usual flow entry point
+        once the surface exists.
+        """
+        frame = tk.Frame(parent, bg=self._colors.bg)
+        frame.place(relx=0.5, rely=0.5, anchor="center")
+        self.container.add(frame, surface.output_name)
+
+    def teardown_surface(self, surface: SurfaceInfo) -> None:
+        """Forget the container for an output that went dark."""
+        self.container.discard(surface.output_name)
+
+    def on_focus_ready(self, surface: SurfaceInfo | None) -> None:
+        """No typed-input field in the lock window; nothing to focus.
+
+        ``surface`` is None when no output is live at all -- the lock is
+        held with nothing to show, which is still a valid state.
+        """
 
     def on_callback_error(self) -> None:
         """Surfaced via GateRoot's logging already; no extra action yet."""

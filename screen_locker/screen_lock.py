@@ -12,7 +12,11 @@ import sys
 import tkinter as tk
 from typing import TYPE_CHECKING
 
-from gatelock import GateRoot, LockConfig, LockWindow
+from gatelock import (
+    GateRoot,
+    LockConfig,
+    LockWindow,
+)
 
 from screen_locker._auto_upgrade import AutoUpgradeMixin
 from screen_locker._constants import (
@@ -48,6 +52,7 @@ from screen_locker._runnerup_verification import RunnerUpVerificationMixin
 from screen_locker._shutdown import ShutdownMixin
 from screen_locker._shutdown_base import reset_to_base_if_new_day
 from screen_locker._sick_dialog import SickDialogMixin
+from screen_locker._surface_group import FrameGroup
 from screen_locker._temperature import fetch_current_temp_with_status
 from screen_locker._ui_flows import UIFlowsMixin
 from screen_locker._ui_flows_relaxed import UIFlowsRelaxedMixin
@@ -149,17 +154,17 @@ class ScreenLocker(
             grab="local" if demo_mode else "global",
             disable_vt=not demo_mode,
         )
+        # Built before setup(), which calls build_surface per live output.
+        self.container = FrameGroup([])
         if verify_only:
             self._setup_verify_window()
         elif self._relaxed_day_mode:
             self._setup_relaxed_day_window()
         else:
-            self._lock = LockWindow(self.root, self._colors, hooks=self)
-            self._lock.setup()
+            self._lock = self._build_lock_window()
             if demo_mode:
                 self._setup_demo_close_button()
-        self.container = tk.Frame(self.root, bg=self._colors.bg)
-        self.container.place(relx=0.5, rely=0.5, anchor="center")
+        self._ensure_container()
         self._phone_future: Future[tuple[str, str]] | None = None
         self._runnerup_future: Future[tuple[str, str]] | None = None
         self._runnerup_on_failure: Callable[[], None] | None = None
