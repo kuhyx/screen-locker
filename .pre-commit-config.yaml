@@ -155,7 +155,11 @@ repos:
         types: [python]
       - id: flutter-analyze
         name: flutter analyze (workout app)
-        entry: bash -c 'cd stronglift_replacement/workout_app && flutter analyze'
+        # env -u GIT_DIR: git exports it to hooks, and flutter shells out to
+        # git to identify its own SDK -- with it set, flutter reads THIS repo
+        # as the SDK and pub resolves every constraint against 0.0.0-unknown.
+        entry: bash -c 'cd stronglift_replacement/workout_app &&
+          env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE flutter analyze'
         language: system
         files: '^stronglift_replacement/workout_app/.*\.(dart|yaml)$'
         pass_filenames: false

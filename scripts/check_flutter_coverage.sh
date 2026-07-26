@@ -15,7 +15,11 @@ LCOV_INFO="$APP_DIR/coverage/lcov.info"
 cd "$APP_DIR"
 
 echo "Running flutter test --coverage ..."
-flutter test --coverage
+# env -u GIT_DIR: git exports it to hooks, and the flutter tool shells out to
+# git to identify its own SDK. With it set, flutter reads THIS repository as
+# the SDK -- reporting our HEAD as the framework revision -- and pub then
+# resolves every version constraint against "0.0.0-unknown" and fails.
+env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE flutter test --coverage
 
 cd - > /dev/null
 
@@ -29,7 +33,7 @@ fi
 # Unreferenced files silently score 100% by absence — catch that here.
 missing=0
 while IFS= read -r dart_file; do
-  rel="${dart_file#$APP_DIR/}"
+  rel="${dart_file#"$APP_DIR"/}"
   if ! grep -qF "SF:$rel" "$LCOV_INFO" && \
      ! grep -qF "SF:lib/${rel#lib/}" "$LCOV_INFO"; then
     echo "MISSING FROM COVERAGE: $dart_file" >&2
