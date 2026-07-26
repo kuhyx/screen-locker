@@ -73,7 +73,13 @@ class WindowSetupMixin:
         self.container.discard(surface.output_name)
 
     def on_focus_ready(self, surface: SurfaceInfo | None) -> None:
-        """No typed-input field in the lock window; nothing to focus.
+        """Nothing to focus yet: the lock's first screen has no input field.
+
+        This fires once, when the lock is mapped and grabbed, and at that
+        moment the screen is the phone-check status -- buttons only. The
+        screens that DO take typed input (the manual-workout form, the sick
+        dialog) are painted later, in response to a button, so each focuses
+        its own first field as it is built rather than relying on this hook.
 
         ``surface`` is None when no output is live at all -- the lock is
         held with nothing to show, which is still a valid state.

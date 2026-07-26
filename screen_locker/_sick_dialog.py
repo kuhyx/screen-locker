@@ -103,6 +103,7 @@ class SickDialogMixin:
             parent,
             label="Symptom (e.g. fever, nausea):",
             variable=self._sick_symptom_var,
+            focus=True,
         )
         self._add_label_entry(
             parent,

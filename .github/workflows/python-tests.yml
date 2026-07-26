@@ -26,3 +26,25 @@ jobs:
 
       - name: Run tests with coverage
         run: python -m pytest -v
+
+  # The pytest suite replaces the whole `tk` module so it can never reach a
+  # display, which means the lock-screen widget behaviour it guards cannot be
+  # asserted there. This job runs the real-Tk half against a throwaway X
+  # server. See scripts/verify_lock_popup_safety.py.
+  lock-popup-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb python3-tk
+          pip install -r requirements.txt
+
+      - name: Sport selector survives gatelock's recovery tick
+        run: python3 scripts/verify_lock_popup_safety.py

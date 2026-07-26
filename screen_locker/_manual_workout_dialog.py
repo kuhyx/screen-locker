@@ -121,7 +121,9 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
 
         self._mw_section(form, "Basics")
         self._mw_sport_row(form)
-        self._mw_vars["start_time"] = self._mw_entry(form, "Start time (HH:MM):")
+        self._mw_vars["start_time"] = self._mw_entry(
+            form, "Start time (HH:MM):", focus=True
+        )
         self._mw_vars["end_time"] = self._mw_entry(form, "End time (HH:MM):")
 
         self._mw_section(form, "Location & logistics")
@@ -195,7 +197,24 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
         ).pack(side="left", padx=10)
 
     def _mw_sport_row(self, parent: tk.Widget) -> None:
-        """Add the sport-selector dropdown; swaps the activity-details section."""
+        """Add the sport-selector radio buttons; swaps the activity section.
+
+        CANONICAL ACCOUNT OF THE 2026-07-26 BUG -- other files point here.
+
+        This was a ``tk.OptionMenu``. A posted Tk menu is a separate
+        override-redirect toplevel that takes the Tk grab for itself, and
+        gatelock's 1 s recovery tick killed it within a second of opening:
+        ``_surfaces.enforce()`` lifts the lock surface over the menu, and
+        ``_reassert_grab()`` saw the grab sitting on the menu rather than the
+        root and yanked it back. The selector stayed stuck on "Table tennis"
+        while locked, and a walk got logged in the table-tennis form.
+
+        Radio buttons are ordinary children of the surface: they lift with it
+        and live inside the root's grab tree, so neither mechanism can reach
+        them. Nothing on a lock surface may open a popup window --
+        ``tests/test_no_popup_widgets.py`` enforces that statically and
+        ``scripts/verify_lock_popup_safety.py`` behaviourally.
+        """
         self._mw_sport_var = tk.StringVar(
             value=_manual_workout.SPORT_LABELS[_manual_workout.SPORT_TABLE_TENNIS]
         )
@@ -207,12 +226,25 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
             fg=self._colors.fg,
             bg=self._colors.bg,
         ).pack(side="left", padx=5)
-        tk.OptionMenu(
-            row,
-            self._mw_sport_var,
-            *_manual_workout.SPORT_LABELS.values(),
-            command=self._on_mw_sport_changed,
-        ).pack(side="left", padx=5)
+        for label in _manual_workout.SPORT_LABELS.values():
+            tk.Radiobutton(
+                row,
+                text=label,
+                value=label,
+                variable=self._mw_sport_var,
+                # Radiobutton's command takes no argument -- bind the label.
+                command=lambda chosen=label: self._on_mw_sport_changed(chosen),
+                font=(self._colors.font_family, 16),
+                fg=self._colors.fg,
+                bg=self._colors.bg,
+                activeforeground=self._colors.fg,
+                activebackground=self._colors.bg,
+                # Without selectcolor the indicator is a white blob on the dark
+                # overlay; the OptionMenu was the one unstyled widget in this
+                # form, which likely added to it reading as dead.
+                selectcolor=self._colors.field_bg,
+                highlightthickness=0,
+            ).pack(side="left", padx=5)
         self._mw_grid(parent, row, full=True)
 
     def _on_mw_sport_changed(self, selected_label: str) -> None:

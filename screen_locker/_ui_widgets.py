@@ -132,12 +132,18 @@ class UIWidgetsMixin:
         *,
         label: str,
         variable: tk.StringVar,
+        focus: bool = False,
     ) -> None:
         """Add a label + single-line entry pair on every monitor.
 
         All copies share one ``variable``, so typing on any screen is the
         same text everywhere and reading it back needs no idea which monitor
         the user actually used.
+
+        ``focus`` gives the primary surface's copy the keyboard focus. Exactly
+        one field per screen should ask: the lock takes a global grab, so with
+        nothing focused the user's typing goes nowhere and there is no other
+        window on screen to make that obvious.
         """
         row = parent.child_frame(bg=self._colors.bg)
         row.pack(pady=8, fill="x")
@@ -161,3 +167,5 @@ class UIWidgetsMixin:
         entries.pack(side="top", anchor="w", pady=4)
         for entry in entries:
             disable_paste(entry)
+        if focus:
+            entries.first.focus_set()

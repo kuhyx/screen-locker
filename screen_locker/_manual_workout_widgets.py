@@ -74,12 +74,21 @@ class ManualWorkoutFormWidgetsMixin:
         )
         self._mw_grid(parent, label, full=True)
 
-    def _mw_entry(self, parent: tk.Widget, label: str) -> tk.StringVar:
+    def _mw_entry(
+        self, parent: tk.Widget, label: str, *, focus: bool = False
+    ) -> tk.StringVar:
         """Add a half-width label+entry cell and return its backing StringVar.
 
         Builds its own cell inline (rather than reusing ``_add_label_entry``,
         which is pack-based and shared with the sick dialog) so it slots into
         the two-column grid. Paste stays disabled via ``disable_paste``.
+
+        Args:
+            parent: The grid master to place the cell in.
+            label: Text shown above the entry.
+            focus: Give this entry the keyboard focus; see
+                ``_ui_widgets.UIWidgetsMixin._add_label_entry`` for why exactly
+                one field per form should ask.
         """
         var = tk.StringVar()
         cell = tk.Frame(parent, bg=self._colors.bg)
@@ -101,6 +110,8 @@ class ManualWorkoutFormWidgetsMixin:
         )
         entry.pack(fill="x", pady=4)
         disable_paste(entry)
+        if focus:
+            entry.focus_set()
         self._mw_grid(parent, cell)
         return var
 
