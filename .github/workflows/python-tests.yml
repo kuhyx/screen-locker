@@ -45,6 +45,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xvfb python3-tk
           pip install -r requirements.txt
+          # The script imports screen_locker directly rather than through
+          # pytest, which would put the rootdir on sys.path for it.
+          pip install -e . --no-deps
 
       - name: Sport selector survives gatelock's recovery tick
         run: python3 scripts/verify_lock_popup_safety.py

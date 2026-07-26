@@ -97,10 +97,13 @@ class HostileLock:
 
     def _tick(self) -> None:
         """Lift the surface and re-take the grab, exactly as gatelock does."""
-        self.ticks += 1
         self.root.lift()
         if not self._loop.holds_grab():
             self.root.grab_set_global()
+        # Counted only after the work, so a raising tick does not count. Tk
+        # swallows exceptions from `after` callbacks, and this harness once
+        # reported OK while every tick was dying on an AttributeError.
+        self.ticks += 1
         self.root.after(TICK_MS, self._tick)
 
 
@@ -120,13 +123,21 @@ def run_ticks(
         nonlocal verdict
         verdict = judge()
 
-    HostileLock(root)
+    lock = HostileLock(root)
     if setup is not None:
         root.after(200, setup)
     root.after(TICK_MS * TICKS + 400, decide)
     root.after(TICK_MS * TICKS + 600, root.quit)
     root.mainloop()
     root.destroy()
+    if lock.ticks < TICKS:
+        _logger.error(
+            "  only %d of %d hostile ticks completed -- the harness itself is "
+            "broken, so this result proves nothing",
+            lock.ticks,
+            TICKS,
+        )
+        return False
     return verdict
 
 
@@ -268,6 +279,14 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
     if os.environ.get(INNER_ENV) != "1":
         return reexec_under_xvfb()
+
+    if not hasattr(RecoveryLoop, "holds_grab"):
+        _logger.error(
+            "The installed gatelock has no RecoveryLoop.holds_grab, so this "
+            "check cannot replay the real grab predicate. Bump the gatelock "
+            "pin in requirements.txt to a version that has it."
+        )
+        return 1
 
     _logger.info("The mechanism (a popup on a lock surface):")
     mechanism_reproduced = check_optionmenu_still_fails()
