@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 
-from gatelock import LockConfig
+from gatelock import LockConfig, bind_activate, bind_cancel
 
 from screen_locker._constants import HEAT_SKIP_CITY, HEAT_SKIP_TEMP_THRESHOLD
 
@@ -83,7 +83,7 @@ class HeatSkipMixin:
             result[0] = False
             root.destroy()
 
-        tk.Button(
+        skip_button = tk.Button(
             btn_frame,
             text="Skip workout",
             command=_on_skip,
@@ -94,9 +94,11 @@ class HeatSkipMixin:
             padx=16,
             pady=8,
             relief="flat",
-        ).pack(side="left", padx=12)
+            **_COLORS.focus_kwargs(),
+        )
+        skip_button.pack(side="left", padx=12)
 
-        tk.Button(
+        decline_button = tk.Button(
             btn_frame,
             text="No, I'll workout",
             command=_on_no,
@@ -107,7 +109,21 @@ class HeatSkipMixin:
             padx=16,
             pady=8,
             relief="flat",
-        ).pack(side="left", padx=12)
+            **_COLORS.focus_kwargs(),
+        )
+        decline_button.pack(side="left", padx=12)
+
+        # This modal grabs input and sits fullscreen with no window decoration,
+        # so the keyboard is the only way out for a pointerless user. It used to
+        # focus_force() the root and stop there: nothing was focused, no ring was
+        # visible (Tk's default is black on bg), Enter did nothing because Tk
+        # binds only <space> on Button, and there was no <Escape>. Default focus
+        # goes to the *declining* option, so a blind Return keeps the workout
+        # rather than silently skipping it.
+        for button in (skip_button, decline_button):
+            bind_activate(button)
+        bind_cancel(root, _on_no)
+        decline_button.focus_set()
 
         root.mainloop()
 

@@ -136,20 +136,30 @@ class TestVerifyOnlyInit:
 class TestSetupVerifyWindow:
     """Tests for _setup_verify_window."""
 
-    def test_sets_geometry_and_protocol(
+    def test_sizes_itself_to_content_with_a_floor(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Verify window uses 600x400 geometry and WM_DELETE_WINDOW."""
+        """Verify window fits its content, with 600x400 as a floor not a cap.
+
+        This asserted ``geometry("600x400")``, which pinned the window to a size
+        smaller than what it displays -- the same defect that left the
+        relaxed-day prompt's 862px button row sheared inside a 700px window.
+        ``geometry("")`` hands sizing to the geometry manager, ``minsize`` keeps
+        the old dimensions as a floor, and ``maxsize`` stops a wide screen's
+        content pushing the window off-display.
+        """
         locker = create_locker(
             mock_tk,
             tmp_path,
             verify_only=True,
             is_sick_day_log=True,
         )
-        locker.root.geometry.assert_called_with("600x400")
+        locker.root.geometry.assert_called_with("")
+        locker.root.minsize.assert_called_once()
+        locker.root.maxsize.assert_called_once()
         locker.root.configure.assert_called_with(
             bg=locker._colors.bg,
             cursor="arrow",

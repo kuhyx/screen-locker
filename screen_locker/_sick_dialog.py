@@ -6,6 +6,8 @@ import logging
 import tkinter as tk
 from typing import TYPE_CHECKING
 
+from gatelock import escape_text_tab_trap
+
 from screen_locker import _sick_tracker
 from screen_locker._constants import (
     COMMITMENT_PROMPT_TIMEOUT_SECONDS,
@@ -145,12 +147,18 @@ class SickDialogMixin:
                     bg=self._colors.field_bg,
                     fg=self._colors.fg,
                     insertbackground=self._colors.fg,
+                    **self._colors.focus_kwargs(),
                 )
             )
         )
         text_widgets.pack(pady=8)
         for text_widget in text_widgets:
             _disable_paste(text_widget)
+            # Tk traps <Tab> inside a Text (inserts a tab, refocuses itself) and
+            # no-ops <Shift-Tab>, so without this a keyboard-only user who tabs
+            # into the justification box can never reach SUBMIT -- inside a lock
+            # whose only other exit is waiting out the countdown.
+            escape_text_tab_trap(text_widget)
         return text_widgets
 
     def _update_commitment_forced_delay(self) -> None:

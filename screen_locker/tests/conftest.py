@@ -50,6 +50,11 @@ _TK_MODULES = (
     "screen_locker.status_view",
     "screen_locker._heat_skip",
     "screen_locker._surface_group",
+    # The scroll viewport the lock surfaces are built from lives in gatelock
+    # and imports tkinter independently, so it needs the same mock -- otherwise
+    # container.first is a *real* tk.Frame whose winfo_children() cannot be
+    # stubbed, and every surface assertion breaks.
+    "gatelock._scrollable",
 )
 __all__ = [
     "FAKE_OUTPUTS",

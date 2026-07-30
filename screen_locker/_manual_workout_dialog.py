@@ -64,43 +64,34 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
         self._build_manual_workout_form()
 
     def _mw_scrollable_form(self) -> tk.Frame:
-        """Create the scrollable canvas + inner two-column form frame.
+        """Create the two-column form frame inside the surface's viewport.
 
-        The canvas is given a concrete size from the toplevel so the fullscreen
-        lock screen's centered container can't shrink-wrap to a narrow column
-        (leaving huge empty margins); the ``<Configure>`` binding then stretches
-        the inner form to the viewport so its two columns split the full width.
-        Harmless on StatusWindow, whose container already fills its window.
+        This used to build its *own* ``Canvas`` + ``Scrollbar`` viewport, which
+        had three problems that are all gone by deletion now that the surface
+        container is itself a :class:`~gatelock.ScrollableSurface`:
+
+        1. **Scrolling was pointer-only.** ``tk.Canvas`` has no class-level key
+           bindings, so ``::tk::FocusOK`` rejected it as a focus stop, and the
+           canvas bound no ``<MouseWheel>``, ``<Prior>``/``<Next>`` or arrows.
+           The scrollbar thumb had to be *dragged* -- inside a lock that cannot
+           be dismissed without submitting this form.
+        2. **Focus walked off-screen.** Canvas clipping does not unmap a child,
+           so every below-the-fold field stayed ``winfo viewable`` and stayed in
+           the tab ring while Tk never scrolled to follow focus. Tab led to
+           fields the user could neither see nor bring into view.
+        3. **The height was a magic fraction.** ``height=0.7 * toplevel`` sat
+           above ~230-290px of fixed chrome (title, budget line, error label,
+           and a 24pt button row), so the constraint was ``0.3 * H >= chrome``:
+           satisfied at 1080p, violated at 768p, where SUBMIT/BACK were pushed
+           off the bottom of a centred, unscrollable container.
+
+        Still built on the primary surface only -- an independently scrolled
+        copy per monitor would show two different parts of one form.
         """
-        # The scrolling form is built on the primary surface only: it is a
-        # canvas-and-scrollbar viewport sized from one toplevel's geometry,
-        # and mirroring an independently-scrolled copy per monitor would
-        # show two different parts of the same form.
-        outer = tk.Frame(self.container.first, bg=self._colors.bg)
-        outer.pack(fill="both", expand=True, pady=10)
-        canvas = tk.Canvas(outer, bg=self._colors.bg, highlightthickness=0)
-        scrollbar = tk.Scrollbar(outer, orient="vertical", command=canvas.yview)
-        form = tk.Frame(canvas, bg=self._colors.bg)
+        form = tk.Frame(self.container.first, bg=self._colors.bg)
+        form.pack(fill="both", expand=True, pady=10)
         form.grid_columnconfigure(0, weight=1, uniform="mw")
         form.grid_columnconfigure(1, weight=1, uniform="mw")
-        form.bind(
-            "<Configure>",
-            lambda _e: canvas.configure(scrollregion=canvas.bbox("all")),
-        )
-        self._mw_form_window = canvas.create_window((0, 0), window=form, anchor="nw")
-        canvas.bind(
-            "<Configure>",
-            lambda e: canvas.itemconfig(self._mw_form_window, width=e.width),
-        )
-        canvas.configure(yscrollcommand=scrollbar.set)
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-        top = self.container.winfo_toplevel()
-        top.update_idletasks()
-        canvas.configure(
-            width=int(top.winfo_width() * 0.9),
-            height=int(top.winfo_height() * 0.7),
-        )
         return form
 
     def _build_manual_workout_form(self) -> None:

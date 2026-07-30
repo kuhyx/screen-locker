@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import tkinter as tk
 
+from gatelock import escape_text_tab_trap
+
 from screen_locker._constants import (
     MANUAL_WORKOUT_RPE_MAX,
     MANUAL_WORKOUT_RPE_MIN,
@@ -107,6 +109,7 @@ class ManualWorkoutFormWidgetsMixin:
             bg=self._colors.field_bg,
             fg=self._colors.fg,
             insertbackground=self._colors.fg,
+            **self._colors.focus_kwargs(),
         )
         entry.pack(fill="x", pady=4)
         disable_paste(entry)
@@ -135,6 +138,7 @@ class ManualWorkoutFormWidgetsMixin:
             textvariable=var,
             width=4,
             font=(self._colors.font_family, 16),
+            **self._colors.focus_kwargs(),
         ).pack(side="left", padx=5)
         self._mw_grid(parent, row)
         return var
@@ -157,9 +161,15 @@ class ManualWorkoutFormWidgetsMixin:
             bg=self._colors.field_bg,
             fg=self._colors.fg,
             insertbackground=self._colors.fg,
+            **self._colors.focus_kwargs(),
         )
         text_widget.pack(pady=4, fill="x")
         disable_paste(text_widget)
+        # Tk makes <Tab> insert a literal tab and refocus the widget, and binds
+        # <Shift-Tab> to nothing, so an untreated Text is a keyboard dead end --
+        # and the only exits (Ctrl+Tab / Ctrl+Shift+Tab) are advertised nowhere.
+        # On this form that means never reaching SUBMIT.
+        escape_text_tab_trap(text_widget)
         self._mw_grid(parent, cell, full=True)
         return text_widget
 
@@ -183,5 +193,6 @@ class ManualWorkoutFormWidgetsMixin:
             textvariable=self._mw_rpe_var,
             width=4,
             font=(self._colors.font_family, 16),
+            **self._colors.focus_kwargs(),
         ).pack(side="left", padx=5)
         self._mw_grid(parent, row)
