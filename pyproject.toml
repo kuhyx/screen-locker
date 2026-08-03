@@ -8,7 +8,7 @@ requires-python = ">=3.10"
 # also used by diet_guard; here for phone-workout GitHub sync (Workstream C)
 dependencies = [
     "gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.4.0#subdirectory=gatelock",
-    "crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.1.0#subdirectory=crdt-sync",
+    "crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.3.0#subdirectory=crdt-sync",
 ]
 
 [project.scripts]
@@ -152,6 +152,12 @@ color_output = true
 exclude = [".venv/"]
 
 [tool.pylint.main]
+# The repo root on the path, so a file outside the package (scripts/) can be
+# linted on its own. pylint otherwise infers the path from the files it is
+# given, so `scripts/verify_screen_fits.py` resolved `screen_locker` only when
+# a package file happened to be in the same batch -- passing or failing by
+# what else was staged.
+init-hook = "import sys; sys.path.insert(0, '.')"
 analyse-fallback-blocks = true
 persistent = true
 jobs = 0

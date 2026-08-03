@@ -18,7 +18,12 @@ whole ``tk`` module for every test so the suite can never reach a display, and
 widget heights can only be measured by really rendering them. Like
 ``verify_lock_popup_safety.py``, this re-executes itself under Xvfb:
 
-    python3 ~/screen-locker/scripts/verify_screen_fits.py
+    cd ~/screen-locker && python3 -m scripts.verify_screen_fits
+
+Run as a *module*, not a path: ``-m`` puts the repo root on ``sys.path`` so
+``screen_locker`` resolves from the checkout. Running it as a path only works
+where the package happens to be pip-installed, which is why it passed here and
+died in CI.
 """
 
 from __future__ import annotations
@@ -88,9 +93,11 @@ def reexec_under_xvfb() -> int:
             "-s",
             "-screen 0 1600x1200x24",
             sys.executable,
-            str(Path(__file__).resolve()),
+            "-m",
+            "scripts.verify_screen_fits",
         ],
         check=False,
+        cwd=Path(__file__).resolve().parent.parent,
         env=env,
     ).returncode
 
