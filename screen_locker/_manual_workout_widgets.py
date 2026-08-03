@@ -45,8 +45,10 @@ class ManualWorkoutFormWidgetsMixin:
             column=col,
             columnspan=2 if full else 1,
             sticky="ew",
-            padx=12,
-            pady=8,
+            padx=self._colors.space("sm"),
+            # "xs", not "sm": with ten cells plus headings this gap is paid
+            # per row, and the form has to fit a 768px panel in full.
+            pady=self._colors.space("xs"),
         )
         counters[id(parent)] = idx + (2 if full else 1)
 
@@ -69,7 +71,7 @@ class ManualWorkoutFormWidgetsMixin:
         label = tk.Label(
             parent,
             text=title,
-            font=(self._colors.font_family, 20, "bold"),
+            font=self._colors.font("body", bold=True),
             fg=self._colors.accent,
             bg=self._colors.bg,
             anchor="w",
@@ -94,24 +96,29 @@ class ManualWorkoutFormWidgetsMixin:
         """
         var = tk.StringVar()
         cell = tk.Frame(parent, bg=self._colors.bg)
+        # Label beside the field, not above it. Stacked, each of the ten cells
+        # cost two lines plus the gap between them, and the form measured
+        # 1320px against a 768px panel; side-by-side each cell is one line
+        # tall. The lock cannot scroll its way out of not fitting, so rows this
+        # form does not need are rows it must not spend.
         tk.Label(
             cell,
             text=label,
-            font=(self._colors.font_family, 16),
+            font=self._colors.font("label"),
             fg=self._colors.fg,
             bg=self._colors.bg,
             anchor="w",
-        ).pack(fill="x")
+        ).pack(side="left", padx=(0, self._colors.space("xs")))
         entry = tk.Entry(
             cell,
             textvariable=var,
-            font=(self._colors.font_family, 18),
+            font=self._colors.font("label"),
             bg=self._colors.field_bg,
             fg=self._colors.fg,
             insertbackground=self._colors.fg,
             **self._colors.focus_kwargs(),
         )
-        entry.pack(fill="x", pady=4)
+        entry.pack(side="left", fill="x", expand=True)
         disable_paste(entry)
         if focus:
             entry.focus_set()
@@ -127,50 +134,55 @@ class ManualWorkoutFormWidgetsMixin:
         tk.Label(
             row,
             text=label,
-            font=(self._colors.font_family, 16),
+            font=self._colors.font("label"),
             fg=self._colors.fg,
             bg=self._colors.bg,
-        ).pack(side="left", padx=5)
+        ).pack(side="left", padx=self._colors.space("xs"))
         tk.Spinbox(
             row,
             from_=frm,
             to=to,
             textvariable=var,
             width=4,
-            font=(self._colors.font_family, 16),
+            font=self._colors.font("label"),
             **self._colors.focus_kwargs(),
-        ).pack(side="left", padx=5)
+        ).pack(side="left", padx=self._colors.space("xs"))
         self._mw_grid(parent, row)
         return var
 
     def _mw_textbox(self, parent: tk.Widget, label: str) -> tk.Text:
-        """Add a full-width label + multi-line Text cell and return the widget."""
+        """Add a half-width label + multi-line Text cell and return the widget.
+
+        Half-width, not full: three full-width reflection boxes were three
+        whole rows of a form that has to fit a 768px panel, and two of them
+        sit side by side just as legibly.
+        """
         cell = tk.Frame(parent, bg=self._colors.bg)
         tk.Label(
             cell,
             text=label,
-            font=(self._colors.font_family, 16),
+            font=self._colors.font("label"),
             fg=self._colors.fg,
             bg=self._colors.bg,
             anchor="w",
-        ).pack(fill="x", pady=(8, 0))
+        ).pack(fill="x")
         text_widget = tk.Text(
             cell,
-            height=3,
-            font=(self._colors.font_family, 14),
+            height=2,
+            font=self._colors.font("label"),
             bg=self._colors.field_bg,
             fg=self._colors.fg,
             insertbackground=self._colors.fg,
             **self._colors.focus_kwargs(),
         )
-        text_widget.pack(pady=4, fill="x")
+        text_widget.pack(pady=self._colors.space("xs"), fill="x")
         disable_paste(text_widget)
         # Tk makes <Tab> insert a literal tab and refocus the widget, and binds
         # <Shift-Tab> to nothing, so an untreated Text is a keyboard dead end --
         # and the only exits (Ctrl+Tab / Ctrl+Shift+Tab) are advertised nowhere.
         # On this form that means never reaching SUBMIT.
         escape_text_tab_trap(text_widget)
-        self._mw_grid(parent, cell, full=True)
+        self._mw_grid(parent, cell)
         return text_widget
 
     def _mw_rpe_row(self, parent: tk.Widget) -> None:
@@ -182,17 +194,17 @@ class ManualWorkoutFormWidgetsMixin:
                 f"RPE — perceived exertion "
                 f"({MANUAL_WORKOUT_RPE_MIN}-{MANUAL_WORKOUT_RPE_MAX}):"
             ),
-            font=(self._colors.font_family, 16),
+            font=self._colors.font("label"),
             fg=self._colors.fg,
             bg=self._colors.bg,
-        ).pack(side="left", padx=5)
+        ).pack(side="left", padx=self._colors.space("xs"))
         tk.Spinbox(
             row,
             from_=MANUAL_WORKOUT_RPE_MIN,
             to=MANUAL_WORKOUT_RPE_MAX,
             textvariable=self._mw_rpe_var,
             width=4,
-            font=(self._colors.font_family, 16),
+            font=self._colors.font("label"),
             **self._colors.focus_kwargs(),
-        ).pack(side="left", padx=5)
+        ).pack(side="left", padx=self._colors.space("xs"))
         self._mw_grid(parent, row)

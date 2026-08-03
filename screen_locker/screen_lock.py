@@ -38,7 +38,6 @@ from screen_locker._constants import (
 )
 from screen_locker._early_bird import EarlyBirdMixin
 from screen_locker._extra_benefits import (
-    current_streak,
     process_week_transition,
     weekly_shutdown_bonus_hours,
 )
@@ -57,6 +56,7 @@ from screen_locker._temperature import fetch_current_temp_with_status
 from screen_locker._ui_flows import UIFlowsMixin
 from screen_locker._ui_flows_relaxed import UIFlowsRelaxedMixin
 from screen_locker._ui_widgets import UIWidgetsMixin
+from screen_locker._unlock_view import UnlockViewMixin
 from screen_locker._weekly_check import (
     WEEKLY_WORKOUT_MINIMUM,
     count_weekly_workouts,
@@ -119,6 +119,7 @@ class ScreenLocker(
     UIFlowsMixin,
     UIFlowsRelaxedMixin,
     UIWidgetsMixin,
+    UnlockViewMixin,
 ):
     """Screen locker that requires workout logging to unlock."""
 
@@ -314,52 +315,6 @@ class ScreenLocker(
         bonus = weekly_shutdown_bonus_hours(EXTRA_BENEFITS_FILE)
         if bonus > 0 and self._adjust_shutdown_time_by(bonus):
             _logger.info("Weekly bonus: +%dh shutdown time this week.", bonus)
-
-    def unlock_screen(self) -> None:
-        """Apply workout credit and display success message."""
-        credit = self._apply_workout_credit()
-
-        self.clear_container()
-        self._label("Great job! 💪", font_size=48, color=self._colors.success, pady=30)
-        if credit.shutdown_adjusted:
-            self._text(
-                "Shutdown time +2h later! 🎁",
-                font_size=24,
-                color=self._colors.warning,
-            )
-        if credit.extra_bonus_delta > 0:
-            self._text(
-                f"Extra workout today! +{credit.extra_bonus_delta}h tonight",
-                font_size=20,
-                color=self._colors.warning,
-            )
-        if credit.new_debt is not None:
-            self._text(
-                f"Workout debt: {credit.new_debt}",
-                font_size=20,
-                color=self._colors.warning
-                if credit.new_debt > 0
-                else self._colors.muted,
-            )
-        streak = current_streak(EXTRA_BENEFITS_FILE)
-        if streak >= 1:
-            self._text(
-                f"🔥 {streak}-week streak (5+ workouts each)",
-                font_size=14,
-                color=self._colors.muted,
-            )
-        self._text("Screen Unlocked!", font_size=36, pady=20)
-        if self.workout_data.get("type") in (
-            "phone_verified",
-            "runnerup_verified",
-            "manual_workout",
-        ):
-            self.root.after(
-                1500,
-                lambda: self._show_commitment_prompt(on_done=self.close),
-            )
-        else:
-            self.root.after(1500, self.close)
 
     def close(self) -> None:
         """Close the application and exit."""

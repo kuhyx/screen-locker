@@ -11,6 +11,8 @@ from gatelock import bind_activate, escape_text_tab_trap
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from gatelock import SpaceStep, TypeRole
+
     from screen_locker._surface_group import FrameGroup, WidgetGroup
 
 
@@ -52,38 +54,54 @@ class UIWidgetsMixin:
         self,
         text: str,
         *,
-        font_size: int = 36,
+        role: TypeRole = "display",
+        scale: float = 1.0,
         color: str | None = None,
-        pady: int = 20,
+        pad: SpaceStep = "md",
     ) -> WidgetGroup:
-        """Create and pack a bold label on every monitor."""
+        """Create and pack a bold label on every monitor.
+
+        ``role``/``pad`` name a design-system token instead of a pixel count.
+        That is what makes a screen shrink on a short display: the tokens are
+        compacted per screen height (``gatelock._density``), and a raw literal
+        is not. It also fixes the unit bug the literals carried -- Tk reads a
+        positive size as *points*, so ``36`` rendered ~37% larger than the
+        36px it was meant to be, on every screen.
+
+        ``scale`` is for deliberate emphasis (a hero countdown), kept explicit
+        so an outlier is visible rather than hidden behind a fresh literal.
+        """
         label = self.container.child_widgets(
             tk.Label,
             text=text,
-            font=(self._colors.font_family, font_size, "bold"),
+            font=self._colors.font(role, bold=True, scale=scale),
             fg=color or self._colors.fg,
             bg=self._colors.bg,
         )
-        label.pack(pady=pady)
+        label.pack(pady=self._colors.space(pad))
         return label
 
     def _text(
         self,
         text: str,
         *,
-        font_size: int = 18,
+        role: TypeRole = "body",
+        scale: float = 1.0,
         color: str | None = None,
-        pady: int = 10,
+        pad: SpaceStep = "sm",
     ) -> WidgetGroup:
-        """Create and pack a non-bold text label on every monitor."""
+        """Create and pack a non-bold text label on every monitor.
+
+        See :meth:`_label` for why these are token names, not pixel counts.
+        """
         label = self.container.child_widgets(
             tk.Label,
             text=text,
-            font=(self._colors.font_family, font_size),
+            font=self._colors.font(role, scale=scale),
             fg=color or self._colors.fg,
             bg=self._colors.bg,
         )
-        label.pack(pady=pady)
+        label.pack(pady=self._colors.space(pad))
         return label
 
     def _fg_for(self, bg: str) -> str:
@@ -138,15 +156,15 @@ class UIWidgetsMixin:
         buttons = parent.child_widgets(
             tk.Button,
             text=text,
-            font=(self._colors.font_family, 24, "bold"),
+            font=self._colors.font("title", bold=True),
             bg=bg,
             fg=self._fg_for(bg),
             width=width,
             command=command,
             cursor="hand2" if self.demo_mode else "",
             relief="flat",
-            padx=24,
-            pady=12,
+            padx=self._colors.space("lg"),
+            pady=self._colors.space("sm"),
             **self._colors.focus_kwargs(),
         )
         # Every per-monitor copy, not just `.first` -- one flow paints N screens
@@ -156,9 +174,14 @@ class UIWidgetsMixin:
         return buttons
 
     def _button_row(self) -> FrameGroup:
-        """Create and pack a horizontal button container on every monitor."""
+        """Create and pack a horizontal button container on every monitor.
+
+        The gap is "sm" rather than "md" because this row is the last thing
+        on every screen: the pixels it spends are the ones the manual-workout
+        form has left over on a 1024x600 panel.
+        """
         frame = self.container.child_frame(bg=self._colors.bg)
-        frame.pack(pady=20)
+        frame.pack(pady=self._colors.space("sm"))
         return frame
 
     def _add_label_entry(
@@ -181,11 +204,11 @@ class UIWidgetsMixin:
         window on screen to make that obvious.
         """
         row = parent.child_frame(bg=self._colors.bg)
-        row.pack(pady=8, fill="x")
+        row.pack(pady=self._colors.space("sm"), fill="x")
         row.child_widgets(
             tk.Label,
             text=label,
-            font=(self._colors.font_family, 14),
+            font=self._colors.font("label"),
             fg=self._colors.fg,
             bg=self._colors.bg,
             anchor="w",
@@ -194,13 +217,13 @@ class UIWidgetsMixin:
             tk.Entry,
             textvariable=variable,
             width=50,
-            font=(self._colors.font_family, 14),
+            font=self._colors.font("label"),
             bg=self._colors.field_bg,
             fg=self._colors.fg,
             insertbackground=self._colors.fg,
             **self._colors.focus_kwargs(),
         )
-        entries.pack(side="top", anchor="w", pady=4)
+        entries.pack(side="top", anchor="w", pady=self._colors.space("xs"))
         for entry in entries:
             disable_paste(entry)
         if focus:
@@ -223,11 +246,11 @@ class UIWidgetsMixin:
         into it can never reach the submit button.
         """
         row = parent.child_frame(bg=self._colors.bg)
-        row.pack(pady=8, fill="x")
+        row.pack(pady=self._colors.space("sm"), fill="x")
         row.child_widgets(
             tk.Label,
             text=label,
-            font=(self._colors.font_family, 14),
+            font=self._colors.font("label"),
             fg=self._colors.fg,
             bg=self._colors.bg,
             anchor="w",
@@ -237,13 +260,13 @@ class UIWidgetsMixin:
             width=60,
             height=height,
             wrap="word",
-            font=(self._colors.font_family, 14),
+            font=self._colors.font("label"),
             bg=self._colors.field_bg,
             fg=self._colors.fg,
             insertbackground=self._colors.fg,
             **self._colors.focus_kwargs(),
         )
-        boxes.pack(side="top", anchor="w", pady=4)
+        boxes.pack(side="top", anchor="w", pady=self._colors.space("xs"))
         for box in boxes:
             disable_paste(box)
             escape_text_tab_trap(box)

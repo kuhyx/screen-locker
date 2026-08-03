@@ -19,13 +19,22 @@ if TYPE_CHECKING:
 class UIFlowsMixin:
     """Mixin providing UI flow logic for the screen locker."""
 
-    def _start_phone_check(self) -> None:
-        """Check phone for today's workout immediately at startup."""
+    def paint_phone_check(self) -> None:
+        """Paint the "checking phone" screen, without starting the check.
+
+        Split from :meth:`_start_phone_check` so the fit check
+        (``scripts/verify_screen_fits.py``) can measure this screen without
+        starting a background thread that talks to a phone over adb.
+        """
         self.clear_container()
         self._label(
-            "Checking phone...", font_size=36, color=self._colors.warning, pady=30
+            "Checking phone...", role="display", color=self._colors.warning, pad="lg"
         )
-        self._text("Looking for today's workout in StrongLifts...", font_size=18)
+        self._text("Looking for today's workout in StrongLifts...", role="body")
+
+    def _start_phone_check(self) -> None:
+        """Check phone for today's workout immediately at startup."""
+        self.paint_phone_check()
         executor = ThreadPoolExecutor(max_workers=1)
         self._phone_future = executor.submit(self._verify_phone_workout)
         executor.shutdown(wait=False)
@@ -43,7 +52,7 @@ class UIFlowsMixin:
         """Show TRY AGAIN and (if budget allows) I'm sick after a failed check."""
         self.clear_container()
         self._label(
-            "No Workout Found", font_size=36, color=self._colors.danger, pady=20
+            "No Workout Found", role="display", color=self._colors.danger, pad="md"
         )
         self._text(message, color=self._colors.warning)
         history = _sick_tracker.load_history()
@@ -58,7 +67,7 @@ class UIFlowsMixin:
             bg=self._colors.accent,
             command=self._start_phone_check,
             width=12,
-        ).pack(side="left", padx=10)
+        ).pack(side="left", padx=self._colors.space("sm"))
         if _sick_tracker.is_budget_exhausted(history):
             self._text(
                 "Sick budget exhausted. No 'I'm sick' option available.",
@@ -71,7 +80,7 @@ class UIFlowsMixin:
                 bg=self._colors.warning,
                 command=self.ask_if_sick,
                 width=12,
-            ).pack(side="left", padx=10)
+            ).pack(side="left", padx=self._colors.space("sm"))
         if _manual_workout.is_budget_exhausted(self.log_file):
             self._text(
                 "Manual-workout budget exhausted. No manual-log option available.",
@@ -84,7 +93,7 @@ class UIFlowsMixin:
                 bg=self._colors.accent,
                 command=self._show_manual_workout_form,
                 width=16,
-            ).pack(side="left", padx=10)
+            ).pack(side="left", padx=self._colors.space("sm"))
 
     def _on_manual_workout_saved(self, entry: dict) -> None:
         """Show confirmation and unlock after a manual-workout entry is built."""
@@ -92,12 +101,13 @@ class UIFlowsMixin:
         self.clear_container()
         self._label(
             "✓ Manual Workout Logged!",
-            font_size=42,
+            role="display",
+            scale=1.3,
             color=self._colors.success,
-            pady=30,
+            pad="lg",
         )
-        self._text(entry.get("source", ""), font_size=20, color=self._colors.success)
-        self._text("Unlocking...", font_size=18, color=self._colors.muted)
+        self._text(entry.get("source", ""), role="subtitle", color=self._colors.success)
+        self._text("Unlocking...", role="body", color=self._colors.muted)
         unlock_delay = 1500 if self.demo_mode else 2000
         self.root.after(unlock_delay, self.unlock_screen)
 
@@ -113,12 +123,13 @@ class UIFlowsMixin:
             self.clear_container()
             self._label(
                 "✓ Workout Verified!",
-                font_size=42,
+                role="display",
+                scale=1.3,
                 color=self._colors.success,
-                pady=30,
+                pad="lg",
             )
-            self._text(message, font_size=20, color=self._colors.success)
-            self._text("Unlocking...", font_size=18, color=self._colors.muted)
+            self._text(message, role="subtitle", color=self._colors.success)
+            self._text("Unlocking...", role="body", color=self._colors.muted)
             unlock_delay = 1500 if self.demo_mode else 2000
             self.root.after(unlock_delay, self.unlock_screen)
         elif status == "too_short":
@@ -155,9 +166,9 @@ class UIFlowsMixin:
         """
         self.clear_container()
         self._label(
-            "Checking RunnerUp...", font_size=36, color=self._colors.warning, pady=30
+            "Checking RunnerUp...", role="display", color=self._colors.warning, pad="lg"
         )
-        self._text("Looking for today's run in RunnerUp...", font_size=18)
+        self._text("Looking for today's run in RunnerUp...", role="body")
         executor = ThreadPoolExecutor(max_workers=1)
         self._runnerup_future = executor.submit(self._verify_runnerup_workout)
         executor.shutdown(wait=False)
@@ -174,12 +185,13 @@ class UIFlowsMixin:
                 self.clear_container()
                 self._label(
                     "✓ Run Verified!",
-                    font_size=42,
+                    role="display",
+                    scale=1.3,
                     color=self._colors.success,
-                    pady=30,
+                    pad="lg",
                 )
-                self._text(message, font_size=20, color=self._colors.success)
-                self._text("Unlocking...", font_size=18, color=self._colors.muted)
+                self._text(message, role="subtitle", color=self._colors.success)
+                self._text("Unlocking...", role="body", color=self._colors.muted)
                 unlock_delay = 1500 if self.demo_mode else 2000
                 self.root.after(unlock_delay, self.unlock_screen)
             else:
@@ -228,18 +240,19 @@ class UIFlowsMixin:
         countdown: int,
     ) -> None:
         """Display sick day UI labels and countdown."""
-        self._label("Sick Day Mode", color=self._colors.warning, pady=20)
+        self._label("Sick Day Mode", color=self._colors.warning, pad="md")
         self._text(status_text, color=status_color)
         minutes = countdown // 60
         self._text(
             f"Please wait ~{minutes} min before unlocking...",
-            font_size=24,
-            pady=20,
+            role="title",
+            pad="md",
         )
         self.sick_countdown_label = self._label(
             str(countdown),
-            font_size=80,
-            pady=30,
+            role="display",
+            scale=2.5,
+            pad="lg",
         )
 
     def _update_sick_countdown(self) -> None:
@@ -275,14 +288,16 @@ class UIFlowsMixin:
         self.clear_container()
         self.lockout_label = self._label(
             f"Go work out!\nLocked for {self.lockout_time} seconds",
-            font_size=48,
+            role="display",
+            scale=1.5,
             color=self._colors.danger,
-            pady=30,
+            pad="lg",
         )
         self.countdown_label = self._label(
             str(self.lockout_time),
-            font_size=120,
-            pady=30,
+            role="display",
+            scale=3.75,
+            pad="lg",
         )
         self.remaining_time = self.lockout_time
         self.update_lockout_countdown()
@@ -323,22 +338,23 @@ class UIFlowsMixin:
         )
         self._label(
             "Cannot Verify Workout",
-            font_size=36,
+            role="display",
             color=self._colors.warning,
-            pady=20,
+            pad="md",
         )
         self._text(message, color=self._colors.warning)
         self._text(
             "Connect phone via ADB to skip this wait,\n"
             "or wait for the penalty timer.\n\n"
             "Note: Phone must be rooted and StrongLifts installed.",
-            font_size=18,
+            role="body",
         )
         self.phone_penalty_remaining = delay
         self.phone_penalty_label = self._label(
             str(delay),
-            font_size=80,
-            pady=20,
+            role="display",
+            scale=2.5,
+            pad="md",
         )
         self._update_phone_penalty()
 

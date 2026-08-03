@@ -115,7 +115,7 @@ class StatusWindow(
         """Redraw the whole window from *snapshot*."""
         self._last_snapshot = snapshot
         self.clear_container()
-        self._label("Workout Status", font_size=28, pady=15)
+        self._label("Workout Status", role="title", pad="md")
         self._section_today(self.container, snapshot.today)
         self._section_week(self.container, snapshot.week)
         self._section_lock_explanation(self.container, snapshot.lock_explanation)
@@ -130,9 +130,9 @@ class StatusWindow(
             color = (
                 self._colors.success if status == "verified" else self._colors.warning
             )
-            self._text(f"Phone check ({status}): {message}", font_size=16, color=color)
+            self._text(f"Phone check ({status}): {message}", role="body", color=color)
         if self._credit_message is not None:
-            self._text(self._credit_message, font_size=16, color=self._colors.success)
+            self._text(self._credit_message, role="body", color=self._colors.success)
         # "Check Phone"/"Log Manual Workout" are the primary write actions
         # (accent, high contrast per rule 3); "Refresh"/"Close" are secondary
         # utility actions (muted) -- two tiers instead of four arbitrary hues.
@@ -143,7 +143,7 @@ class StatusWindow(
             bg=self._colors.accent,
             command=self._on_check_phone_clicked,
             width=14,
-        ).pack(side="left", padx=8)
+        ).pack(side="left", padx=self._colors.space("sm"))
         if not _manual_workout.is_budget_exhausted(self.log_file):
             self._button(
                 frame,
@@ -151,21 +151,21 @@ class StatusWindow(
                 bg=self._colors.accent,
                 command=self._show_manual_workout_form,
                 width=16,
-            ).pack(side="left", padx=8)
+            ).pack(side="left", padx=self._colors.space("sm"))
         self._button(
             frame,
             "Refresh",
             bg=self._colors.field_bg,
             command=self._on_refresh_clicked,
             width=10,
-        ).pack(side="left", padx=8)
+        ).pack(side="left", padx=self._colors.space("sm"))
         self._button(
             frame,
             "Close",
             bg=self._colors.field_bg,
             command=self.root.destroy,
             width=8,
-        ).pack(side="left", padx=8)
+        ).pack(side="left", padx=self._colors.space("sm"))
 
     def _section_today(self, parent: tk.Widget, day: DayStatus) -> None:
         """Render today's outcome."""
@@ -176,19 +176,19 @@ class StatusWindow(
         )
         self._text(
             f"{mark} Today ({day.label}): {entry_str}",
-            font_size=18,
+            role="body",
             color=self._colors.success if day.counted else self._colors.warning,
         )
         if day.source:
             # Secondary provenance note on an already-shown entry -- a
             # deliberately caption-sized exception to the 16px floor.
-            self._text(day.source, font_size=12, color=self._colors.muted, pady=4)
+            self._text(day.source, role="caption", color=self._colors.muted, pad="xs")
 
     def _section_week(self, parent: tk.Widget, week: WeeklySummary) -> None:
         """Render this ISO week's per-day breakdown and totals."""
         del parent
         self._label(
-            f"This Week: {week.counted_count}/{week.minimum}", font_size=18, pady=8
+            f"This Week: {week.counted_count}/{week.minimum}", role="body", pad="sm"
         )
         for day in week.days:
             mark = "✓" if day.counted else ("😷" if day.is_sick_day else "·")
@@ -197,20 +197,20 @@ class StatusWindow(
             )
             self._text(
                 f"{mark} {day.label}: {entry_str}",
-                font_size=16,
+                role="body",
                 color=self._colors.muted,
-                pady=4,
+                pad="xs",
             )
         if week.remaining > 0:
             self._text(
                 f"Need {week.remaining} more this week.",
-                font_size=16,
+                role="body",
                 color=self._colors.warning,
             )
         elif week.extra > 0:
             self._text(
                 f"{week.extra} above the weekly minimum!",
-                font_size=16,
+                role="body",
                 color=self._colors.success,
             )
 
@@ -219,27 +219,27 @@ class StatusWindow(
     ) -> None:
         """Render why the lock did/didn't fire today, plus its evaluation trace."""
         del parent
-        self._label("Why the lock did/didn't fire", font_size=16, pady=8)
+        self._label("Why the lock did/didn't fire", role="body", pad="sm")
         self._text(
             expl.reason,
-            font_size=16,
+            role="body",
             color=self._colors.danger if expl.fired else self._colors.success,
         )
         if expl.auto_upgrade.would_attempt:
             self._text(
                 f"Pending auto-upgrade: {expl.auto_upgrade.reason}",
-                font_size=14,
+                role="label",
                 color=self._colors.warning,
             )
 
     def _section_sick_budget(self, parent: tk.Widget, sick: SickBudgetStatus) -> None:
         """Render rolling sick-day budget usage."""
         del parent
-        self._label("Sick Budget", font_size=16, pady=8)
+        self._label("Sick Budget", role="body", pad="sm")
         self._text(
             f"{sick.used_7d}/{sick.budget_7d} week · {sick.used_30d}/{sick.budget_30d} "
             f"month · {sick.used_90d}/{sick.budget_90d} quarter · debt {sick.debt}",
-            font_size=16,
+            role="body",
             color=self._colors.danger if sick.exhausted else self._colors.muted,
         )
 
@@ -248,11 +248,11 @@ class StatusWindow(
     ) -> None:
         """Render rolling manual-workout budget usage."""
         del parent
-        self._label("Manual Workout Budget", font_size=16, pady=8)
+        self._label("Manual Workout Budget", role="body", pad="sm")
         self._text(
             f"{manual.used_7d}/{manual.budget_7d} week · "
             f"{manual.used_30d}/{manual.budget_30d} month",
-            font_size=16,
+            role="body",
             color=self._colors.danger if manual.exhausted else self._colors.muted,
         )
 
@@ -261,18 +261,18 @@ class StatusWindow(
     ) -> None:
         """Render tonight's live config, rest-of-week, and next-week preview."""
         del parent
-        self._label("Shutdown Time", font_size=16, pady=8)
+        self._label("Shutdown Time", role="body", pad="sm")
         if shutdown.tonight is not None:
             mon_wed_hour, thu_sun_hour, _morning = shutdown.tonight
             self._text(
                 f"Live config — Mon-Wed {mon_wed_hour:02d}:00, "
                 f"Thu-Sun {thu_sun_hour:02d}:00",
-                font_size=16,
+                role="body",
             )
         else:
             self._text(
                 "Live shutdown config unavailable.",
-                font_size=16,
+                role="body",
                 color=self._colors.warning,
             )
         # Rest-of-week/next-week/explanation are speculative annotations, not
@@ -282,16 +282,18 @@ class StatusWindow(
         rest_line = ", ".join(
             f"{d.label} {d.hour:02d}:00" for d in shutdown.rest_of_week
         )
-        self._text(f"Rest of week: {rest_line}", font_size=12, color=self._colors.muted)
+        self._text(
+            f"Rest of week: {rest_line}", role="caption", color=self._colors.muted
+        )
         next_line = ", ".join(
             f"{d.label} {d.hour:02d}:00" for d in shutdown.next_week_preview
         )
         self._text(
             f"Next week (speculative): {next_line}",
-            font_size=12,
+            role="caption",
             color=self._colors.muted,
         )
-        self._text(shutdown.explanation, font_size=12, color=self._colors.muted)
+        self._text(shutdown.explanation, role="caption", color=self._colors.muted)
 
     def _on_refresh_clicked(self) -> None:
         """Clear any stale phone-check/credit/temperature results, re-check both."""

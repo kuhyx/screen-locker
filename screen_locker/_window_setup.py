@@ -201,7 +201,7 @@ class WindowSetupMixin:
         close_btn = tk.Button(
             self.root,
             text="✕ Close Demo",
-            font=(self._colors.font_family, 12),
+            font=self._colors.font("caption"),
             bg=self._colors.danger,
             fg=self._colors.on_fill,
             command=self.close,

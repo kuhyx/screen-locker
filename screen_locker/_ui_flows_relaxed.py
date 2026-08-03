@@ -22,13 +22,13 @@ class UIFlowsRelaxedMixin:
         self.clear_container()
         self._label(
             "Verifying Workout",
-            font_size=36,
+            role="display",
             color=self._colors.warning,
-            pady=30,
+            pad="lg",
         )
         self._text(
             "Checking phone for today's workout...",
-            font_size=18,
+            role="body",
         )
         executor = ThreadPoolExecutor(max_workers=1)
         self._phone_future = executor.submit(self._verify_phone_workout)
@@ -58,15 +58,16 @@ class UIFlowsRelaxedMixin:
             self.clear_container()
             self._label(
                 "✓ Workout Verified!",
-                font_size=42,
+                role="display",
+                scale=1.3,
                 color=self._colors.success,
-                pady=30,
+                pad="lg",
             )
-            self._text(message, font_size=20, color=self._colors.success)
+            self._text(message, role="subtitle", color=self._colors.success)
             if adjusted:
                 self._text(
                     "Shutdown time moved later!",
-                    font_size=20,
+                    role="subtitle",
                     color=self._colors.warning,
                 )
             self.root.after(2000, self.close)
@@ -78,9 +79,9 @@ class UIFlowsRelaxedMixin:
         self.clear_container()
         self._label(
             "Workout Not Found",
-            font_size=36,
+            role="display",
             color=self._colors.danger,
-            pady=20,
+            pad="md",
         )
         self._text(message, color=self._colors.warning)
         frame = self._button_row()
@@ -90,14 +91,14 @@ class UIFlowsRelaxedMixin:
             bg=self._colors.accent,
             command=self._start_verify_workout_check,
             width=12,
-        ).pack(side="left", padx=10)
+        ).pack(side="left", padx=self._colors.space("sm"))
         self._button(
             frame,
             "Close",
             bg=self._colors.field_bg,
             command=self.close,
             width=12,
-        ).pack(side="left", padx=10)
+        ).pack(side="left", padx=self._colors.space("sm"))
 
     # ------------------------------------------------------------------
     # Relaxed-day flow (Tue/Wed/Thu — optional, no penalty for skipping)
@@ -113,16 +114,16 @@ class UIFlowsRelaxedMixin:
         self.clear_container()
         self._label(
             "Optional Day (Tue / Wed / Thu)",
-            font_size=30,
+            role="title",
             color=self._colors.warning,
-            pady=20,
+            pad="md",
         )
         self._text(
             f"Weekly workouts: {count} / {WEEKLY_WORKOUT_MINIMUM}\n"
             "No penalty for skipping today.",
-            font_size=20,
+            role="subtitle",
             color=self._colors.muted,
-            pady=10,
+            pad="sm",
         )
         frame = self._button_row()
         self._button(
@@ -131,22 +132,22 @@ class UIFlowsRelaxedMixin:
             bg=self._colors.success,
             command=self.close,
             width=18,
-        ).pack(side="left", padx=10)
+        ).pack(side="left", padx=self._colors.space("sm"))
         self._button(
             frame,
             "Log Stronglift Workout",
             bg=self._colors.accent,
             command=self._start_relaxed_phone_check,
             width=20,
-        ).pack(side="left", padx=10)
+        ).pack(side="left", padx=self._colors.space("sm"))
 
     def _start_relaxed_phone_check(self) -> None:
         """Run Stronglift check in relaxed mode (no screen grab, no sick option)."""
         self.clear_container()
         self._label(
-            "Checking phone...", font_size=36, color=self._colors.warning, pady=30
+            "Checking phone...", role="display", color=self._colors.warning, pad="lg"
         )
-        self._text("Looking for today's workout in StrongLifts...", font_size=18)
+        self._text("Looking for today's workout in StrongLifts...", role="body")
         executor = ThreadPoolExecutor(max_workers=1)
         self._phone_future = executor.submit(self._verify_phone_workout)
         executor.shutdown(wait=False)
@@ -178,7 +179,7 @@ class UIFlowsRelaxedMixin:
         """Show retry and skip-close when workout not found in relaxed mode."""
         self.clear_container()
         self._label(
-            "No Workout Found", font_size=36, color=self._colors.danger, pady=20
+            "No Workout Found", role="display", color=self._colors.danger, pad="md"
         )
         self._text(f"❌ {message}\n\nReason: {status}", color=self._colors.warning)
         frame = self._button_row()
@@ -188,11 +189,11 @@ class UIFlowsRelaxedMixin:
             bg=self._colors.accent,
             command=self._start_relaxed_phone_check,
             width=12,
-        ).pack(side="left", padx=10)
+        ).pack(side="left", padx=self._colors.space("sm"))
         self._button(
             frame,
             "Close (Skip)",
             bg=self._colors.success,
             command=self.close,
             width=14,
-        ).pack(side="left", padx=10)
+        ).pack(side="left", padx=self._colors.space("sm"))

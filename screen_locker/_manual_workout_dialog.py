@@ -39,7 +39,7 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
     def _show_manual_workout_form(self) -> None:
         """Render the manual-workout evidence form, or a budget-exhausted note."""
         self.clear_container()
-        self._label("Log Manual Workout", color=self._colors.accent, pady=10)
+        self._label("Log Manual Workout", color=self._colors.accent, pad="xs")
         if _manual_workout.is_budget_exhausted(self.log_file):
             self._text(
                 "Manual-workout budget exhausted for this window.",
@@ -56,10 +56,13 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
                 bg=self._colors.field_bg,
                 command=self._on_manual_workout_cancelled,
                 width=12,
-            ).pack(side="left", padx=10)
+            ).pack(side="left", padx=self._colors.space("sm"))
             return
         self._text(
-            _manual_workout.budget_summary(self.log_file), color=self._colors.accent
+            _manual_workout.budget_summary(self.log_file),
+            role="label",
+            color=self._colors.accent,
+            pad="xs",
         )
         self._build_manual_workout_form()
 
@@ -89,7 +92,10 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
         copy per monitor would show two different parts of one form.
         """
         form = tk.Frame(self.container.first, bg=self._colors.bg)
-        form.pack(fill="both", expand=True, pady=10)
+        # No outer gap: the budget line above and the first section heading
+        # below already separate the grid, and on a 1024x600 panel this form
+        # fits by single-digit pixels.
+        form.pack(fill="both", expand=True)
         form.grid_columnconfigure(0, weight=1, uniform="mw")
         form.grid_columnconfigure(1, weight=1, uniform="mw")
         return form
@@ -137,7 +143,12 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
             sport_frame.grid_columnconfigure(0, weight=1, uniform="mwact")
             sport_frame.grid_columnconfigure(1, weight=1, uniform="mwact")
             sport_frame.grid(
-                row=act_row, column=0, columnspan=2, sticky="ew", padx=12, pady=6
+                row=act_row,
+                column=0,
+                columnspan=2,
+                sticky="ew",
+                padx=self._colors.space("sm"),
+                pady=self._colors.space("xs"),
             )
         self._build_table_tennis_fields(self._mw_tt_frame)
         self._build_other_sport_fields(self._mw_other_frame)
@@ -170,7 +181,9 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
             f"(min {MANUAL_WORKOUT_REFLECTION_MIN_CHARS} chars):",
         )
 
-        self._mw_error_label = self._text("", color=self._colors.danger, pady=8)
+        self._mw_error_label = self._text(
+            "", role="label", color=self._colors.danger, pad="xs"
+        )
         button_row = self._button_row()
         self._button(
             button_row,
@@ -178,14 +191,14 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
             bg=self._colors.accent,
             command=self._submit_manual_workout_form,
             width=12,
-        ).pack(side="left", padx=10)
+        ).pack(side="left", padx=self._colors.space("sm"))
         self._button(
             button_row,
             "BACK",
             bg=self._colors.field_bg,
             command=self._on_manual_workout_cancelled,
             width=12,
-        ).pack(side="left", padx=10)
+        ).pack(side="left", padx=self._colors.space("sm"))
 
     def _mw_sport_row(self, parent: tk.Widget) -> None:
         """Add the sport-selector radio buttons; swaps the activity section.
@@ -213,10 +226,10 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
         tk.Label(
             row,
             text="Sport:",
-            font=(self._colors.font_family, 16),
+            font=self._colors.font("body"),
             fg=self._colors.fg,
             bg=self._colors.bg,
-        ).pack(side="left", padx=5)
+        ).pack(side="left", padx=self._colors.space("xs"))
         for label in _manual_workout.SPORT_LABELS.values():
             tk.Radiobutton(
                 row,
@@ -225,7 +238,7 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
                 variable=self._mw_sport_var,
                 # Radiobutton's command takes no argument -- bind the label.
                 command=lambda chosen=label: self._on_mw_sport_changed(chosen),
-                font=(self._colors.font_family, 16),
+                font=self._colors.font("body"),
                 fg=self._colors.fg,
                 bg=self._colors.bg,
                 activeforeground=self._colors.fg,
@@ -235,7 +248,7 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
                 # form, which likely added to it reading as dead.
                 selectcolor=self._colors.field_bg,
                 highlightthickness=0,
-            ).pack(side="left", padx=5)
+            ).pack(side="left", padx=self._colors.space("xs"))
         self._mw_grid(parent, row, full=True)
 
     def _on_mw_sport_changed(self, selected_label: str) -> None:

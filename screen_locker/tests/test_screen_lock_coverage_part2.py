@@ -88,7 +88,7 @@ class TestUnlockScreenExtras:
                 return_value=5,
             ),
             patch(
-                "screen_locker.screen_lock.current_streak",
+                "screen_locker._unlock_view.current_streak",
                 return_value=0,
             ),
             patch("screen_locker._log_mixin.compute_entry_hmac", return_value=None),
@@ -124,7 +124,7 @@ class TestUnlockScreenExtras:
                 return_value=5,
             ),
             patch(
-                "screen_locker.screen_lock.current_streak",
+                "screen_locker._unlock_view.current_streak",
                 return_value=0,
             ),
             patch("screen_locker._log_mixin.compute_entry_hmac", return_value=None),
@@ -155,7 +155,7 @@ class TestUnlockScreenExtras:
                 "screen_locker._workout_credit.count_weekly_workouts",
                 return_value=5,
             ),
-            patch("screen_locker.screen_lock.current_streak", return_value=0),
+            patch("screen_locker._unlock_view.current_streak", return_value=0),
             patch("screen_locker._log_mixin.compute_entry_hmac", return_value=None),
         ):
             locker.unlock_screen()
@@ -181,7 +181,7 @@ class TestUnlockScreenExtras:
                 "screen_locker._workout_credit.count_weekly_workouts",
                 return_value=5,
             ),
-            patch("screen_locker.screen_lock.current_streak", return_value=0),
+            patch("screen_locker._unlock_view.current_streak", return_value=0),
             patch("screen_locker._log_mixin.compute_entry_hmac", return_value=None),
         ):
             locker.unlock_screen()
@@ -210,7 +210,7 @@ class TestUnlockScreenExtras:
                 return_value=3,
             ),
             patch(
-                "screen_locker.screen_lock.current_streak",
+                "screen_locker._unlock_view.current_streak",
                 return_value=3,
             ),
             patch("screen_locker._log_mixin.compute_entry_hmac", return_value=None),
@@ -235,7 +235,7 @@ class TestUnlockScreenExtras:
                 "screen_locker._workout_credit.count_weekly_workouts",
                 return_value=5,
             ),
-            patch("screen_locker.screen_lock.current_streak", return_value=0),
+            patch("screen_locker._unlock_view.current_streak", return_value=0),
             patch("screen_locker._log_mixin.compute_entry_hmac", return_value=None),
         ):
             locker.unlock_screen()
@@ -257,7 +257,7 @@ class TestUnlockScreenExtras:
                 "screen_locker._workout_credit.count_weekly_workouts",
                 return_value=5,
             ),
-            patch("screen_locker.screen_lock.current_streak", return_value=0),
+            patch("screen_locker._unlock_view.current_streak", return_value=0),
             patch("screen_locker._log_mixin.compute_entry_hmac", return_value=None),
         ):
             locker.unlock_screen()
