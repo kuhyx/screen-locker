@@ -37,7 +37,8 @@ from pathlib import Path
 import sys
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
+from mcp.types import ToolAnnotations
 
 from screen_locker._compliance_state import (
     has_logged_today,
@@ -62,7 +63,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-mcp = FastMCP("screen-locker")
+mcp = MCPServer("screen-locker")
+
+# Every tool here only reads local state: the workout log, the sick history
+# and the clock. Saying so lets a client run them without asking -- and the
+# day one of them stops being read-only, this annotation is the thing that
+# has to change with it. (See the section banner below: "never mutate" was
+# already the rule; this is the machine-readable half of it.)
+_READS_ONLY = ToolAnnotations(
+    read_only_hint=True,
+    idempotent_hint=True,
+    open_world_hint=False,
+)
 
 # The workout log lives beside the package, same default as
 # ``_status_data._DEFAULT_LOG_FILE``; declared here to avoid importing a
@@ -75,7 +87,7 @@ _LOG_FILE = Path(__file__).resolve().parent / "workout_log.json"
 # ──────────────────────────────────────────────────────────────
 
 
-@mcp.tool()
+@mcp.tool(title="Workout gate status", annotations=_READS_ONLY)
 def get_status() -> dict[str, Any]:
     """Return the full read-only status snapshot.
 
@@ -87,7 +99,7 @@ def get_status() -> dict[str, Any]:
     return asdict(gather_status())
 
 
-@mcp.tool()
+@mcp.tool(title="One-line status summary", annotations=_READS_ONLY)
 def get_summary() -> dict[str, Any]:
     """Return the one-line i3blocks summary plus the compliance-state word.
 
@@ -102,7 +114,7 @@ def get_summary() -> dict[str, Any]:
     }
 
 
-@mcp.tool()
+@mcp.tool(title="Why the screen is locked", annotations=_READS_ONLY)
 def explain_lock() -> dict[str, Any]:
     """Return why the screen is or is not being locked right now.
 
@@ -114,7 +126,7 @@ def explain_lock() -> dict[str, Any]:
     return asdict(gather_status().lock_explanation)
 
 
-@mcp.tool()
+@mcp.tool(title="Lock-decision predicates", annotations=_READS_ONLY)
 def get_flags() -> dict[str, bool]:
     """Return the individual boolean lock-decision predicates for today.
 
