@@ -8,7 +8,7 @@ requires-python = ">=3.10"
 # also used by diet_guard; here for phone-workout GitHub sync (Workstream C)
 dependencies = [
     "gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.4.0#subdirectory=gatelock",
-    "crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.3.0#subdirectory=crdt-sync",
+    "crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.1.0#subdirectory=crdt-sync",
 ]
 
 [project.scripts]
@@ -20,7 +20,7 @@ screen-locker-status = "screen_locker.status_view:main"
 # so the systemd/CLI system-python path stays dependency-light and never has
 # to import the MCP SDK.
 [project.optional-dependencies]
-mcp = ["mcp>=1.9"]
+mcp = ["mcp>=1.9,<2"]
 
 [tool.setuptools.packages.find]
 # This repo also holds stronglift_replacement/ (an unrelated Flutter app, not
