@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -60,10 +61,43 @@ void main() {
     await tester.pump();
   }
 
-  Widget _wrap({http.Client? httpClient}) => MaterialApp(
+  Widget _wrap({
+    http.Client? httpClient,
+    Future<FirebaseRestClient?> Function()? firebaseFactory,
+    Future<FirebaseAccount?> Function()? accountLoader,
+    Future<void> Function(FirebaseAccount)? accountSaver,
+    Future<void> Function()? accountClearer,
+  }) => MaterialApp(
     theme: buildAppTheme(),
-    home: SettingsScreen(httpClient: httpClient),
+    home: SettingsScreen(
+      httpClient: httpClient,
+      // Injected so the widget never reaches the OS keystore, which
+      // `flutter test` has no platform-channel binding for.
+      firebaseFactory: firebaseFactory ?? () async => null,
+      accountLoader: accountLoader ?? () async => null,
+      accountSaver: accountSaver,
+      accountClearer: accountClearer,
+    ),
   );
+
+  /// Expands the "Advanced (GitHub mirror)" section.
+  ///
+  /// GitHub is the cutover mirror rather than a choice the user makes, so
+  /// everything GitHub-facing -- the connect button and the PAT fallback --
+  /// is collapsed by default.
+  Future<void> openAdvanced(WidgetTester tester) async {
+    // The ListView builds lazily, so the tile has to be scrolled into the
+    // viewport before it exists to tap. Name the outer Scrollable: once the
+    // tile is built there is more than one.
+    await tester.scrollUntilVisible(
+      find.text('Advanced (GitHub mirror)'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Advanced (GitHub mirror)'));
+    await tester.pumpAndSettle();
+  }
 
   /// Drains the device flow's real `Future.delayed` poll (GitHubDeviceAuth
   /// injects no test delay, so under `runAsync` it is a genuine Timer, not
@@ -85,10 +119,13 @@ void main() {
   /// viewport (+ cache extent) even for a plain `children:` list, so it must
   /// be scrolled into view before `find` can see it.
   Future<void> _scrollToGitHubSync(WidgetTester tester) async {
+    // Scroll to the SYNC header rather than "Connect GitHub": the latter now
+    // lives inside a collapsed disclosure, and once that tile is built there
+    // is more than one Scrollable, so the finder must name the outer list.
     await tester.scrollUntilVisible(
-      find.text('Connect GitHub'),
+      find.text('Advanced (GitHub mirror)'),
       500,
-      scrollable: find.byType(Scrollable),
+      scrollable: find.byType(Scrollable).first,
     );
   }
 
@@ -195,12 +232,130 @@ void main() {
     expect(state!.weight, workoutA.first.weight);
   });
 
-  testWidgets('shows GITHUB SYNC section with a Connect GitHub button', (
+  testWidgets('Connect Firebase with empty fields asks for credentials', (
+    tester,
+  ) async {
+    var saved = false;
+    await _pump(tester, _wrap(accountSaver: (_) async => saved = true));
+    await _scrollToGitHubSync(tester);
+
+    await tester.ensureVisible(find.text('Connect Firebase'));
+    await tester.pump();
+    await tester.tap(find.text('Connect Firebase'));
+    await tester.pump();
+
+    expect(
+      find.textContaining('Enter the sync account email and password'),
+      findsOneWidget,
+    );
+    expect(saved, isFalse);
+  });
+
+  testWidgets('Connect Firebase stores the account and reports success', (
+    tester,
+  ) async {
+    FirebaseAccount? saved;
+    await _pump(
+      tester,
+      _wrap(
+        accountSaver: (a) async => saved = a,
+        firebaseFactory: () async => _stubFirebaseClient(),
+      ),
+    );
+    await _scrollToGitHubSync(tester);
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Sync account email'),
+      'sync@example.com',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Sync account password'),
+      'pw',
+    );
+    await tester.ensureVisible(find.text('Connect Firebase'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Connect Firebase'));
+    await tester.pumpAndSettle();
+
+    // saveAccount must actually be called: without it openFirebase() reads an
+    // account nothing ever wrote, and Firebase is a silent no-op forever.
+    expect(saved?.email, 'sync@example.com');
+    expect(find.text('Connected to Firebase.'), findsOneWidget);
+    expect(find.text('sync@example.com'), findsOneWidget);
+  });
+
+  testWidgets('a rejected account is cleared rather than left half-stored', (
+    tester,
+  ) async {
+    var cleared = false;
+    await _pump(
+      tester,
+      _wrap(
+        accountSaver: (_) async {},
+        accountClearer: () async => cleared = true,
+        firebaseFactory: () async => null,
+      ),
+    );
+    await _scrollToGitHubSync(tester);
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Sync account email'),
+      'wrong@example.com',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Sync account password'),
+      'bad',
+    );
+    await tester.ensureVisible(find.text('Connect Firebase'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Connect Firebase'));
+    await tester.pumpAndSettle();
+
+    expect(cleared, isTrue);
+    expect(find.text('Firebase rejected that account.'), findsOneWidget);
+  });
+
+  testWidgets('a stored account shows as connected, and disconnects', (
+    tester,
+  ) async {
+    var cleared = false;
+    await _pump(
+      tester,
+      _wrap(
+        accountLoader: () async =>
+            const FirebaseAccount(email: 'stored@example.com', password: 'pw'),
+        accountClearer: () async => cleared = true,
+      ),
+    );
+    await _scrollToGitHubSync(tester);
+
+    expect(find.text('stored@example.com'), findsOneWidget);
+
+    // Explicit pumps, not pumpAndSettle: the token-verification path this
+    // screen kicks off on open keeps a timer alive, so settling never
+    // completes (same pitfall the device-flow tests work around).
+    await tester.ensureVisible(find.text('Disconnect'));
+    await tester.pump();
+    await tester.tap(find.text('Disconnect'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(cleared, isTrue);
+    expect(find.text('Firebase disconnected.'), findsOneWidget);
+  });
+
+  testWidgets('leads with Firebase and hides GitHub behind Advanced', (
     tester,
   ) async {
     await _pump(tester, _wrap());
     await _scrollToGitHubSync(tester);
-    expect(find.text('GITHUB SYNC'), findsOneWidget);
+
+    // GitHub is the cutover mirror, not a peer choice.
+    expect(find.text('SYNC'), findsOneWidget);
+    expect(find.text('Connect Firebase'), findsOneWidget);
+    expect(find.text('Connect GitHub'), findsNothing);
+
+    await openAdvanced(tester);
     expect(find.text('Connect GitHub'), findsOneWidget);
   });
 
@@ -247,22 +402,27 @@ void main() {
     await _scrollToGitHubSync(tester);
     expect(find.text('Save'), findsNothing);
 
-    await tester.tap(find.text('Advanced: paste a token instead'));
-    await tester.pumpAndSettle();
+    await openAdvanced(tester);
 
-    expect(find.widgetWithText(TextField, ''), findsOneWidget);
+    // The Firebase email/password fields are empty too, so scope the
+    // assertion to the PAT field's own Save button instead of counting
+    // empty TextFields.
     expect(find.text('Save'), findsOneWidget);
   });
 
   testWidgets('saving a pasted token shows a confirmation', (tester) async {
     await _pump(tester, _wrap());
     await _scrollToGitHubSync(tester);
-    await tester.tap(find.text('Advanced: paste a token instead'));
-    await tester.pumpAndSettle();
+    await openAdvanced(tester);
     await tester.ensureVisible(find.widgetWithText(ElevatedButton, 'Save'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), 'a-pasted-token');
+    // Three TextFields exist now (Firebase email/password + the PAT), so
+    // pick the PAT field by its hint rather than by type.
+    await tester.enterText(
+      find.widgetWithText(TextField, 'GitHub PAT'),
+      'a-pasted-token',
+    );
     await tester.tap(find.text('Save'));
     await tester.pump();
     expect(find.text('Sync token saved.'), findsOneWidget);
@@ -276,6 +436,9 @@ void main() {
       await tester.pump();
       await _scrollToGitHubSync(tester);
 
+      await openAdvanced(tester);
+      await tester.ensureVisible(find.text('Connect GitHub'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Connect GitHub'));
       await _pumpUntil(
         tester,
@@ -324,6 +487,9 @@ void main() {
       await tester.pump();
       await _scrollToGitHubSync(tester);
 
+      await openAdvanced(tester);
+      await tester.ensureVisible(find.text('Connect GitHub'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Connect GitHub'));
       await _pumpUntil(
         tester,
@@ -389,6 +555,9 @@ void main() {
       await tester.pump();
       await _scrollToGitHubSync(tester);
 
+      await openAdvanced(tester);
+      await tester.ensureVisible(find.text('Connect GitHub'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Connect GitHub'));
       await _pumpUntil(
         tester,
@@ -517,6 +686,9 @@ void main() {
       await tester.pump();
       await _scrollToGitHubSync(tester);
 
+      await openAdvanced(tester);
+      await tester.ensureVisible(find.text('Connect GitHub'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Connect GitHub'));
       await _pumpUntil(
         tester,
@@ -561,6 +733,9 @@ void main() {
       await tester.pump();
       await _scrollToGitHubSync(tester);
 
+      await openAdvanced(tester);
+      await tester.ensureVisible(find.text('Connect GitHub'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Connect GitHub'));
       await _pumpUntil(
         tester,
@@ -604,6 +779,9 @@ void main() {
       await tester.pump();
       await _scrollToGitHubSync(tester);
 
+      await openAdvanced(tester);
+      await tester.ensureVisible(find.text('Connect GitHub'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Connect GitHub'));
       await _pumpUntil(
         tester,
@@ -660,3 +838,10 @@ void main() {
     },
   );
 }
+
+/// A real [FirebaseRestClient] that is never called: the settings screen only
+/// checks it for null, so no network or keystore is touched.
+FirebaseRestClient _stubFirebaseClient() => FirebaseRestClient(
+  databaseUrl: 'https://example.invalid',
+  auth: FirebaseTokenProvider(apiKey: 'k', store: InMemoryCredentialStore()),
+);

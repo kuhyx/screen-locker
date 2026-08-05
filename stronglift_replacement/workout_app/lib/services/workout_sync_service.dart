@@ -57,6 +57,12 @@ class WorkoutSyncService {
   Future<FirebaseRestClient?> _openFirebase() =>
       (firebaseFactory ?? openFirebase)();
 
+  /// Whether this device has been set up for Firebase.
+  ///
+  /// Cheap on the common path: [openFirebase] reuses a cached refresh token
+  /// and only signs in when there is none.
+  Future<bool> _hasFirebaseAccount() async => await _openFirebase() != null;
+
   /// The revision cache, defaulting to a file beside the app's data.
   Future<SyncStateStore> _openStateStore() async =>
       stateStore ?? await openSyncStateStore();
@@ -73,7 +79,10 @@ class WorkoutSyncService {
   /// configured; logs (but does not rethrow) any [GitHubSyncError].
   Future<void> push(WorkoutSession session) async {
     final settings = await SyncSettings.load();
-    if (!settings.isConfigured) return;
+    // Either backend counts. Gating on the GitHub token alone silently
+    // dropped every push from a device connected only to Firebase -- and
+    // once the mirror is retired that would be every device.
+    if (!settings.isConfigured && !await _hasFirebaseAccount()) return;
 
     final github = GitHubClient(
       owner: owner,
@@ -121,7 +130,7 @@ class WorkoutSyncService {
   /// failure contract as [push].
   Future<void> pushManual(Record record) async {
     final settings = await SyncSettings.load();
-    if (!settings.isConfigured) return;
+    if (!settings.isConfigured && !await _hasFirebaseAccount()) return;
 
     final github = GitHubClient(
       owner: owner,
@@ -178,9 +187,9 @@ class WorkoutSyncService {
 
   Future<List<Map<String, dynamic>>> _readMergedPayloads({String? kind}) async {
     final settings = await SyncSettings.load();
-    if (!settings.isConfigured) {
+    if (!settings.isConfigured && !await _hasFirebaseAccount()) {
       debugPrint(
-        'WorkoutSyncService: NOT reading synced workouts — no sync token/repo '
+        'WorkoutSyncService: NOT reading synced workouts — no sync backend '
         'configured in Settings, so this phone cannot see the PC history.',
       );
       return const [];

@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/workout_plan.dart';
+import 'package:workout_app/services/firebase_backend.dart';
 import 'package:workout_app/services/github_device_auth.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_settings.dart';
@@ -21,11 +22,32 @@ enum _SyncStatusKind { success, pending, error }
 /// Screen for editing per-exercise thresholds and manual weight overrides.
 class SettingsScreen extends StatefulWidget {
   /// Creates a [SettingsScreen].
-  const SettingsScreen({super.key, this.httpClient});
+  const SettingsScreen({
+    super.key,
+    this.httpClient,
+    this.firebaseFactory,
+    this.accountLoader,
+    this.accountSaver,
+    this.accountClearer,
+  });
 
   /// Injectable HTTP client; tests pass a `MockClient` so the device-flow
   /// requests never hit the real network.
   final http.Client? httpClient;
+
+  /// Builds the Firebase client. Injected so tests need no platform channel.
+  final Future<FirebaseRestClient?> Function()? firebaseFactory;
+
+  /// Keystore accessors for the Firebase account. Injected as a group so the
+  /// connect/disconnect flows are testable without a platform channel --
+  /// `flutter test` has no binding for one.
+  final Future<FirebaseAccount?> Function()? accountLoader;
+
+  /// Persists the account. See [accountLoader].
+  final Future<void> Function(FirebaseAccount)? accountSaver;
+
+  /// Forgets the account and any cached session. See [accountLoader].
+  final Future<void> Function()? accountClearer;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -42,6 +64,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final Map<String, Timer> _weightTimers = {};
 
   final _tokenController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _firebaseConnected = false;
+  bool _firebaseBusy = false;
 
   // Persistent (not a transient SnackBar) so the result of Connect GitHub /
   // Save is still visible if the user looks back at the screen later --
@@ -60,6 +86,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     unawaited(_load());
+    unawaited(_loadFirebaseAccount());
+  }
+
+  /// Reflects a previously-stored account, so a returning user sees the real
+  /// state instead of an empty form that looks unconfigured.
+  Future<void> _loadFirebaseAccount() async {
+    final account = await (widget.accountLoader ?? loadAccount)();
+    if (!mounted) return;
+    if (account != null) _emailController.text = account.email;
+    setState(() => _firebaseConnected = account != null);
+  }
+
+  /// Stores the typed account and signs in immediately, so a typo surfaces
+  /// here rather than as a silent background failure on the next push.
+  ///
+  /// Without this the app could never reach Firebase at all: `openFirebase()`
+  /// would read an account nothing had ever written.
+  Future<void> _connectFirebase() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    if (email.isEmpty || password.isEmpty) {
+      _setSyncStatus(
+        'Enter the sync account email and password.',
+        _SyncStatusKind.error,
+      );
+      return;
+    }
+    setState(() => _firebaseBusy = true);
+    await (widget.accountSaver ?? saveAccount)(
+      FirebaseAccount(email: email, password: password),
+    );
+    final client = await (widget.firebaseFactory ?? openFirebase)();
+    if (!mounted) return;
+    if (client == null) {
+      await (widget.accountClearer ?? clearAccount)();
+      if (!mounted) return;
+      setState(() {
+        _firebaseBusy = false;
+        _firebaseConnected = false;
+      });
+      _setSyncStatus(
+        'Firebase rejected that account.',
+        _SyncStatusKind.error,
+      );
+      return;
+    }
+    _passwordController.clear();
+    setState(() {
+      _firebaseBusy = false;
+      _firebaseConnected = true;
+    });
+    _setSyncStatus('Connected to Firebase.', _SyncStatusKind.success);
+  }
+
+  Future<void> _disconnectFirebase() async {
+    await (widget.accountClearer ?? clearAccount)();
+    if (!mounted) return;
+    _emailController.clear();
+    _passwordController.clear();
+    setState(() => _firebaseConnected = false);
+    _setSyncStatus('Firebase disconnected.', _SyncStatusKind.pending);
   }
 
   @override
@@ -68,6 +155,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       t.cancel();
     }
     _tokenController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -340,12 +429,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   );
                 }),
                 const SizedBox(height: 20),
-                const _SectionHeader('GITHUB SYNC'),
+                const _SectionHeader('SYNC'),
                 const SizedBox(height: 4),
                 Text(
-                  'Authorize in your browser -- no token to paste. Syncs to '
-                  '$syncRepoOwner/$syncRepoName. Workouts push automatically '
-                  'on completion.',
+                  _firebaseConnected
+                      ? 'Connected. Workouts go to Firebase first, and still '
+                            'mirror to GitHub until every device has moved.'
+                      : 'Not connected -- syncing over GitHub only. Enter the '
+                            'shared sync account to move this device over. '
+                            'The password is kept in the device keystore, '
+                            'never in the app or the repo.',
                   style: TextStyle(
                     color: colorScheme.onSurfaceVariant,
                     fontSize: AppTextSize.caption,
@@ -356,15 +449,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SyncStatusBadge(text: _syncStatus!, kind: _syncStatusKind),
                   const SizedBox(height: 12),
                 ],
-                ElevatedButton.icon(
-                  onPressed: _connectGitHub,
-                  icon: const Icon(Icons.login),
-                  label: const Text('Connect GitHub'),
-                ),
+                // Once connected the account is read-only text: an editable
+                // email box beside an empty password box reads as "you still
+                // have to enter this", making a connected device look
+                // unconfigured.
+                if (_firebaseConnected)
+                  Row(
+                    children: [
+                      const Icon(Icons.cloud_done, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(_emailController.text)),
+                      TextButton(
+                        onPressed: _firebaseBusy ? null : _disconnectFirebase,
+                        child: const Text('Disconnect'),
+                      ),
+                    ],
+                  )
+                else ...[
+                  TextField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    autocorrect: false,
+                    decoration: const InputDecoration(
+                      labelText: 'Sync account email',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    autocorrect: false,
+                    decoration: const InputDecoration(
+                      labelText: 'Sync account password',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: _firebaseBusy ? null : _connectFirebase,
+                    icon: const Icon(Icons.cloud_done),
+                    label: const Text('Connect Firebase'),
+                  ),
+                ],
                 const SizedBox(height: 8),
+                // GitHub is the cutover mirror, not a choice competing with
+                // Firebase, so its connect button moves in here too.
                 ExpansionTile(
                   title: Text(
-                    'Advanced: paste a token instead',
+                    'Advanced (GitHub mirror)',
                     style: TextStyle(
                       color: colorScheme.onSurfaceVariant,
                       fontSize: AppTextSize.label,
@@ -373,8 +504,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   collapsedIconColor: colorScheme.onSurfaceVariant,
                   iconColor: colorScheme.onSurfaceVariant,
                   tilePadding: EdgeInsets.zero,
-                  childrenPadding: const EdgeInsets.only(top: 8, bottom: 8),
                   children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Authorize in your browser -- no token to paste. '
+                        'Syncs to $syncRepoOwner/$syncRepoName.',
+                        style: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: AppTextSize.caption,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: ElevatedButton.icon(
+                        onPressed: _connectGitHub,
+                        icon: const Icon(Icons.login),
+                        label: const Text('Connect GitHub'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // The PAT fallback lives inside the mirror section too:
+                    // two sibling "Advanced" disclosures made it look like
+                    // there were two independent things to configure.
                     _SyncTokenField(
                       controller: _tokenController,
                       onSave: _saveToken,
