@@ -13,6 +13,7 @@ from __future__ import annotations
 from contextlib import ExitStack
 from datetime import datetime, timezone
 import json
+from pathlib import Path
 import tkinter as tk
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
@@ -34,7 +35,6 @@ from screen_locker.tests._locker_factories import (
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
-    from pathlib import Path
 
 
 # Every module that imports ``tkinter as tk`` and calls it directly. The UI is
@@ -300,3 +300,20 @@ def _mock_sys_exit(mock_sys_exit: MagicMock) -> MagicMock:
 def temp_log_file(tmp_path: Path) -> Path:
     """Create a temporary log file path."""
     return tmp_path / "workout_log.json"
+
+
+@pytest.fixture(autouse=True)
+def _no_real_firebase_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Point the Firebase config at a path that does not exist.
+
+    ``remote_client`` reads ``crdt_sync.CONFIG_FILE`` to decide whether to
+    build a Firebase-primary mirror. On a developer machine that file *does*
+    exist, so without this the sync tests would reach the real database and
+    assert against live data instead of their own fakes. Tests that want the
+    Firebase path point it back at a file they control.
+    """
+    from screen_locker import _workout_sync
+
+    monkeypatch.setattr(
+        _workout_sync, "CONFIG_FILE", Path("/nonexistent/firebase.json")
+    )

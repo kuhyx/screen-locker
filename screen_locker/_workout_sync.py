@@ -13,7 +13,18 @@ from __future__ import annotations
 import json
 import logging
 
-from crdt_sync import GitHubSyncClient, GitHubSyncError, Hlc, Record
+from crdt_sync import (
+    CONFIG_FILE,
+    ConfigError,
+    FirebaseAuthError,
+    GitHubSyncClient,
+    GitHubSyncError,
+    Hlc,
+    Record,
+    RemoteStore,
+    RemoteSyncError,
+    mirror_client_for,
+)
 
 from screen_locker._constants import (
     SYNC_PHONE_DEVICE_ID,
@@ -84,6 +95,32 @@ def _latest_payload(log_json: str) -> dict | None:
     return payload
 
 
+def remote_client(github: RemoteStore) -> RemoteStore:
+    """Return the backend to read the phone's workout log from.
+
+    Firebase when ``~/.config/crdt-sync/`` is set up, with GitHub kept as a
+    mirror so a phone that has not moved yet is still seen; GitHub alone
+    otherwise. Both callers here are read-only pulls -- this side never pushes
+    -- and :class:`MirrorSyncClient` reads the union of both, so a workout
+    logged against either backend still counts.
+
+    The config file is checked before constructing anything, so an
+    unconfigured machine never reaches the network.
+
+    Rolling back is deleting this function and passing ``github`` straight
+    through: no data moves either way.
+    """
+    if not CONFIG_FILE.is_file():
+        return github
+    try:
+        return mirror_client_for("screen_locker", github)
+    except (ConfigError, FirebaseAuthError, RemoteSyncError) as exc:
+        _logger.warning(
+            "Firebase unavailable, reading workouts via GitHub only: %s", exc
+        )
+        return github
+
+
 def pull_synced_workout() -> tuple[dict | None, str | None]:
     """Return ``(data, error)``: the phone's last-synced workout, if any.
 
@@ -107,11 +144,13 @@ def pull_synced_workout() -> tuple[dict | None, str | None]:
         )
         return None, None
 
-    client = GitHubSyncClient(
-        SYNC_REPO_OWNER,
-        SYNC_REPO_NAME,
-        token,
-        timeout_seconds=SYNC_TIMEOUT_SECONDS,
+    client = remote_client(
+        GitHubSyncClient(
+            SYNC_REPO_OWNER,
+            SYNC_REPO_NAME,
+            token,
+            timeout_seconds=SYNC_TIMEOUT_SECONDS,
+        )
     )
     try:
         text = with_sync_retry(
@@ -186,11 +225,13 @@ def pull_all_manual_records() -> list[tuple[str, dict]]:
         )
         return []
 
-    client = GitHubSyncClient(
-        SYNC_REPO_OWNER,
-        SYNC_REPO_NAME,
-        token,
-        timeout_seconds=SYNC_TIMEOUT_SECONDS,
+    client = remote_client(
+        GitHubSyncClient(
+            SYNC_REPO_OWNER,
+            SYNC_REPO_NAME,
+            token,
+            timeout_seconds=SYNC_TIMEOUT_SECONDS,
+        )
     )
     try:
         devices = with_sync_retry(

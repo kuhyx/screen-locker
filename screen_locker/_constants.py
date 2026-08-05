@@ -130,6 +130,13 @@ SYNC_PHONE_DEVICE_ID: str = "phone"
 # committed — this path is outside the repo entirely. Unlike diet_guard,
 # this file being absent is a normal, expected state (sync is optional here).
 SYNC_TOKEN_FILE: Path = Path.home() / ".config" / "screen_locker" / "sync_token"
+
+# Revision cache for cross-device sync. Without it every push re-uploads and
+# every pull re-downloads regardless of change, which is the traffic the
+# Firebase free tier's monthly budget depends on not happening.
+SYNC_STATE_FILE: Path = (
+    Path.home() / ".local" / "share" / "screen_locker" / "sync_state.json"
+)
 SYNC_TIMEOUT_SECONDS: float = 10.0
 
 # Sync runs from the morning routine, which is started right after boot and

@@ -28,10 +28,12 @@ import logging
 from typing import TYPE_CHECKING
 
 from crdt_sync import (
+    FileSyncStateStore,
     GitHubSyncClient,
     GitHubSyncError,
     Hlc,
     Record,
+    RemoteSyncError,
     RepoNotFoundError,
     sync_log,
 )
@@ -39,6 +41,7 @@ from crdt_sync import (
 from screen_locker._constants import (
     SYNC_REPO_NAME,
     SYNC_REPO_OWNER,
+    SYNC_STATE_FILE,
     SYNC_TIMEOUT_SECONDS,
     SYNC_TOKEN_FILE,
 )
@@ -46,7 +49,7 @@ from screen_locker._log_io import load_workout_log
 from screen_locker._log_mixin import _derive_workout_id
 from screen_locker._sync_retry import with_sync_retry
 from screen_locker._weekly_check import COUNTED_WORKOUT_TYPES
-from screen_locker._workout_sync import _DEVICES_PREFIX, read_sync_token
+from screen_locker._workout_sync import _DEVICES_PREFIX, read_sync_token, remote_client
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -175,11 +178,13 @@ def push_pc_workouts(log_file: Path) -> PushResult:
         _logger.warning("Workouts NOT synced: %s", reason)
         return PushResult(pushed=False, record_count=0, reason=reason)
 
-    client = GitHubSyncClient(
-        SYNC_REPO_OWNER,
-        SYNC_REPO_NAME,
-        token,
-        timeout_seconds=SYNC_TIMEOUT_SECONDS,
+    client = remote_client(
+        GitHubSyncClient(
+            SYNC_REPO_OWNER,
+            SYNC_REPO_NAME,
+            token,
+            timeout_seconds=SYNC_TIMEOUT_SECONDS,
+        )
     )
     try:
         with_sync_retry(
@@ -190,10 +195,11 @@ def push_pc_workouts(log_file: Path) -> PushResult:
                 local_log=log,
                 encode=_encode_log,
                 decode=_decode_log,
+                state_store=FileSyncStateStore(SYNC_STATE_FILE),
             ),
             description="push PC workouts",
         )
-    except GitHubSyncError as exc:
+    except (GitHubSyncError, RemoteSyncError) as exc:
         reason = f"sync error: {exc}"
         # Report what actually happened. This used to assert "a 403 here means
         # the token lacks contents:write" for *every* failure, including a

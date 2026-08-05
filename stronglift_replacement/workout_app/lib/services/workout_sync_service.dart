@@ -8,7 +8,9 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:workout_app/models/manual_workout.dart';
 import 'package:workout_app/models/workout_session.dart';
+import 'package:workout_app/services/firebase_backend.dart';
 import 'package:workout_app/services/sync_settings.dart';
+import 'package:workout_app/services/sync_state_factory.dart';
 
 const _deviceId = 'phone';
 const _pathPrefix = 'screen-locker-sync/devices';
@@ -36,10 +38,28 @@ class WorkoutSyncService {
     this.owner = syncRepoOwner,
     this.repo = syncRepoName,
     http.Client? httpClient,
+    this.firebaseFactory,
+    this.stateStore,
     // Dart forbids private named params, so this can't be an initializing
     // formal; assign it explicitly (mirrors crdt_sync_dart's GitHubClient).
     // ignore: prefer_initializing_formals
   }) : _httpClient = httpClient;
+
+  /// Builds the Firebase backend. Injected so tests can supply a fake, or null
+  /// to assert the pre-migration GitHub-only path still works.
+  final Future<FirebaseRestClient?> Function()? firebaseFactory;
+
+  /// Revision cache. Injected so tests need no application-support directory.
+  final SyncStateStore? stateStore;
+
+  /// Firebase when this device is set up for it, else null (a normal state
+  /// during the cutover: sync then runs over GitHub exactly as before).
+  Future<FirebaseRestClient?> _openFirebase() =>
+      (firebaseFactory ?? openFirebase)();
+
+  /// The revision cache, defaulting to a file beside the app's data.
+  Future<SyncStateStore> _openStateStore() async =>
+      stateStore ?? await openSyncStateStore();
 
   /// The repo owner/org to push to.
   final String owner;
@@ -55,12 +75,16 @@ class WorkoutSyncService {
     final settings = await SyncSettings.load();
     if (!settings.isConfigured) return;
 
-    final client = GitHubClient(
+    final github = GitHubClient(
       owner: owner,
       repo: repo,
       token: settings.token,
       httpClient: _httpClient,
     );
+    final firebase = await _openFirebase();
+    final client = firebase == null
+        ? github
+        : MirrorStore(primary: firebase, mirror: github);
     try {
       const path = '$_pathPrefix/$_deviceId/$_logFilename';
       final existingText = await client.getFileText(path);
@@ -79,11 +103,16 @@ class WorkoutSyncService {
         localLog: localLog,
         encode: _encode,
         decode: _decode,
+        // Without this every push re-uploads the whole log and every pull
+        // re-downloads every peer's, regardless of change -- the traffic the
+        // Firebase free tier's monthly budget depends on not happening.
+        stateStore: await _openStateStore(),
       );
     } on GitHubSyncError catch (error) {
       debugPrint('WorkoutSyncService.push failed: $error');
     } finally {
-      client.close();
+      github.close();
+      firebase?.close();
     }
   }
 
@@ -94,12 +123,16 @@ class WorkoutSyncService {
     final settings = await SyncSettings.load();
     if (!settings.isConfigured) return;
 
-    final client = GitHubClient(
+    final github = GitHubClient(
       owner: owner,
       repo: repo,
       token: settings.token,
       httpClient: _httpClient,
     );
+    final firebase = await _openFirebase();
+    final client = firebase == null
+        ? github
+        : MirrorStore(primary: firebase, mirror: github);
     try {
       const path = '$_pathPrefix/$_deviceId/$_logFilename';
       final existingText = await client.getFileText(path);
@@ -114,11 +147,16 @@ class WorkoutSyncService {
         localLog: localLog,
         encode: _encode,
         decode: _decode,
+        // Without this every push re-uploads the whole log and every pull
+        // re-downloads every peer's, regardless of change -- the traffic the
+        // Firebase free tier's monthly budget depends on not happening.
+        stateStore: await _openStateStore(),
       );
     } on GitHubSyncError catch (error) {
       debugPrint('WorkoutSyncService.pushManual failed: $error');
     } finally {
-      client.close();
+      github.close();
+      firebase?.close();
     }
   }
 
@@ -181,16 +219,24 @@ class WorkoutSyncService {
     String token,
     String? kind,
   ) async {
-    final client = GitHubClient(
+    final github = GitHubClient(
       owner: owner,
       repo: repo,
       token: token,
       httpClient: _httpClient,
     );
+    // Read-only: MirrorStore reads the union of both, so a workout logged
+    // against either backend still shows up during the cutover.
+    final firebase = await _openFirebase();
+    final client = firebase == null
+        ? github
+        : MirrorStore(primary: firebase, mirror: github);
     try {
       final merged = <String, Record>{};
       for (final device in await client.listDirectory(_pathPrefix)) {
-        final text = await client.getFileText('$_pathPrefix/$device/$_logFilename');
+        final text = await client.getFileText(
+          '$_pathPrefix/$device/$_logFilename',
+        );
         if (text == null) continue;
         _mergeRecords(_decode(text), merged, kind: kind);
       }
@@ -198,7 +244,8 @@ class WorkoutSyncService {
           .map((r) => (r.fields['payload']!.$1! as Map).cast<String, dynamic>())
           .toList();
     } finally {
-      client.close();
+      github.close();
+      firebase?.close();
     }
   }
 

@@ -67,7 +67,35 @@ WorkoutSession _session({DateTime? startTime}) => WorkoutSession(
   ],
 );
 
+/// Builds the service with the platform kept out of it.
+///
+/// The real factories want the OS keystore and an application-support
+/// directory, neither of which exists under `flutter test`; passing null for
+/// Firebase also asserts the pre-migration GitHub-only path still works.
+
+/// The PUT that carries the log itself.
+///
+/// Each push now writes twice: the log, then this device's revision (which is
+/// what lets a later tick skip an unchanged peer). These assertions are about
+/// the log, so select it rather than assuming a single write.
+_PutCall _logPut(List<_PutCall> calls) =>
+    calls.firstWhere((c) => c.path.endsWith('log.json'));
+
+WorkoutSyncService _service({
+  http.Client? httpClient,
+  String? owner,
+  String? repo,
+  Future<FirebaseRestClient?> Function()? firebaseFactory,
+}) => WorkoutSyncService(
+  httpClient: httpClient,
+  owner: owner ?? syncRepoOwner,
+  repo: repo ?? syncRepoName,
+  firebaseFactory: firebaseFactory ?? () async => null,
+  stateStore: InMemorySyncStateStore(),
+);
+
 void main() {
+  _cutoverTests();
   // installFakeSecureStorage touches the test binary messenger, which needs
   // the binding up first (widget tests get this for free via testWidgets).
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -76,7 +104,7 @@ void main() {
     installFakeSecureStorage();
     final (:httpClient, :putCalls) = _mockGitHub();
 
-    await WorkoutSyncService(httpClient: httpClient).push(_session());
+    await _service(httpClient: httpClient).push(_session());
 
     expect(putCalls, isEmpty);
   });
@@ -88,14 +116,15 @@ void main() {
     );
 
     final session = _session();
-    await WorkoutSyncService(httpClient: httpClient).push(session);
+    await _service(httpClient: httpClient).push(session);
 
-    expect(putCalls, hasLength(1));
-    expect(putCalls.single.path, 'screen-locker-sync/devices/phone/log.json');
+    // Two writes: the log, then the revision published after it.
+    expect(putCalls, hasLength(2));
+    expect(_logPut(putCalls).path, 'screen-locker-sync/devices/phone/log.json');
     final pushedLog =
         jsonDecode(
               utf8.decode(
-                base64.decode(putCalls.single.body['content'] as String),
+                base64.decode(_logPut(putCalls).body['content'] as String),
               ),
             )
             as Map<String, dynamic>;
@@ -121,12 +150,12 @@ void main() {
     );
 
     final session = _session();
-    await WorkoutSyncService(httpClient: httpClient).push(session);
+    await _service(httpClient: httpClient).push(session);
 
     final pushedLog =
         jsonDecode(
               utf8.decode(
-                base64.decode(putCalls.single.body['content'] as String),
+                base64.decode(_logPut(putCalls).body['content'] as String),
               ),
             )
             as Map<String, dynamic>;
@@ -143,7 +172,7 @@ void main() {
     );
 
     await expectLater(
-      WorkoutSyncService(httpClient: httpClient).push(_session()),
+      _service(httpClient: httpClient).push(_session()),
       completes,
     );
   });
@@ -161,7 +190,7 @@ void main() {
   test('pushManual does nothing without a token', () async {
     installFakeSecureStorage();
     final (:httpClient, :putCalls) = _mockGitHub();
-    await WorkoutSyncService(
+    await _service(
       httpClient: httpClient,
     ).pushManual(_manual('manual:x', '40', 1000));
     expect(putCalls, isEmpty);
@@ -172,10 +201,10 @@ void main() {
     final (:httpClient, :putCalls) = _mockGitHub(
       contentResponses: {'screen-locker-sync/devices': _response(200, [])},
     );
-    await WorkoutSyncService(
+    await _service(
       httpClient: httpClient,
     ).pushManual(_manual('manual:2026-07-13T18:00', '40', 1000));
-    expect(putCalls.single.path, 'screen-locker-sync/devices/phone/log.json');
+    expect(_logPut(putCalls).path, 'screen-locker-sync/devices/phone/log.json');
   });
 
   test('pushManual merges onto an existing log', () async {
@@ -189,13 +218,13 @@ void main() {
         'screen-locker-sync/devices/phone/log.json': _fileContaining(existing),
       },
     );
-    await WorkoutSyncService(
+    await _service(
       httpClient: httpClient,
     ).pushManual(_manual('manual:2026-07-13T18:00', '40', 2000));
     final pushedLog =
         jsonDecode(
               utf8.decode(
-                base64.decode(putCalls.single.body['content'] as String),
+                base64.decode(_logPut(putCalls).body['content'] as String),
               ),
             )
             as Map<String, dynamic>;
@@ -211,7 +240,7 @@ void main() {
       (request) async => http.Response('', 500),
     );
     await expectLater(
-      WorkoutSyncService(
+      _service(
         httpClient: httpClient,
       ).pushManual(_manual('manual:x', '40', 1000)),
       completes,
@@ -222,7 +251,7 @@ void main() {
     installFakeSecureStorage();
     final (:httpClient, putCalls: _) = _mockGitHub();
     expect(
-      await WorkoutSyncService(
+      await _service(
         httpClient: httpClient,
       ).readMergedManualPayloads(),
       isEmpty,
@@ -234,12 +263,17 @@ void main() {
     final session = Record(
       id: 's',
       fields: {
-        'payload': ({'workout_type': 'A'}, Hlc(wallTimeMs: 1000, counter: 0, nodeId: 'phone')),
+        'payload': (
+          {'workout_type': 'A'},
+          Hlc(wallTimeMs: 1000, counter: 0, nodeId: 'phone'),
+        ),
       },
     );
     final noPayload = Record(
       id: 'np',
-      fields: {'other': (1, Hlc(wallTimeMs: 1000, counter: 0, nodeId: 'phone'))},
+      fields: {
+        'other': (1, Hlc(wallTimeMs: 1000, counter: 0, nodeId: 'phone')),
+      },
     );
     final phoneLog = jsonEncode({
       'manual:a': _manual('manual:a', 'NEW', 2000).toJson(),
@@ -298,7 +332,7 @@ void main() {
         'screen-locker-sync/devices/pc/log.json': _fileContaining(pcLog),
       },
     );
-    final service = WorkoutSyncService(httpClient: httpClient);
+    final service = _service(httpClient: httpClient);
 
     final all = await service.readMergedWorkoutPayloads();
     expect(all, hasLength(2));
@@ -308,37 +342,39 @@ void main() {
     );
   });
 
-  test('readMergedManualPayloads still excludes runs (budget stays manual)',
-      () async {
-    // A verified run must never consume the manual self-report budget.
-    installFakeSecureStorage(initial: {'sync.token': 'tok'});
-    final run = Record(
-      id: 'runnerup_verified:2026-07-13',
-      fields: {
-        'payload': (
-          {'kind': 'runnerup_verified', 'date': '2026-07-13'},
-          Hlc(wallTimeMs: 3000, counter: 0, nodeId: 'pc'),
-        ),
-      },
-    );
-    final pcLog = jsonEncode({
-      'manual:a': _manual('manual:a', 'NEW', 2000).toJson(),
-      'runnerup_verified:2026-07-13': run.toJson(),
-    });
-    final (:httpClient, putCalls: _) = _mockGitHub(
-      contentResponses: {
-        'screen-locker-sync/devices': _response(200, [
-          {'name': 'pc'},
-        ]),
-        'screen-locker-sync/devices/pc/log.json': _fileContaining(pcLog),
-      },
-    );
-    final manuals = await WorkoutSyncService(
-      httpClient: httpClient,
-    ).readMergedManualPayloads();
-    expect(manuals, hasLength(1));
-    expect(manuals.single['kind'], 'manual_workout');
-  });
+  test(
+    'readMergedManualPayloads still excludes runs (budget stays manual)',
+    () async {
+      // A verified run must never consume the manual self-report budget.
+      installFakeSecureStorage(initial: {'sync.token': 'tok'});
+      final run = Record(
+        id: 'runnerup_verified:2026-07-13',
+        fields: {
+          'payload': (
+            {'kind': 'runnerup_verified', 'date': '2026-07-13'},
+            Hlc(wallTimeMs: 3000, counter: 0, nodeId: 'pc'),
+          ),
+        },
+      );
+      final pcLog = jsonEncode({
+        'manual:a': _manual('manual:a', 'NEW', 2000).toJson(),
+        'runnerup_verified:2026-07-13': run.toJson(),
+      });
+      final (:httpClient, putCalls: _) = _mockGitHub(
+        contentResponses: {
+          'screen-locker-sync/devices': _response(200, [
+            {'name': 'pc'},
+          ]),
+          'screen-locker-sync/devices/pc/log.json': _fileContaining(pcLog),
+        },
+      );
+      final manuals = await WorkoutSyncService(
+        httpClient: httpClient,
+      ).readMergedManualPayloads();
+      expect(manuals, hasLength(1));
+      expect(manuals.single['kind'], 'manual_workout');
+    },
+  );
 
   test('readMergedManualPayloads swallows a sync error', () async {
     installFakeSecureStorage(initial: {'sync.token': 'tok'});
@@ -346,7 +382,7 @@ void main() {
       (request) async => http.Response('', 500),
     );
     expect(
-      await WorkoutSyncService(
+      await _service(
         httpClient: httpClient,
       ).readMergedManualPayloads(),
       isEmpty,
@@ -375,9 +411,12 @@ void main() {
         return http.Response('Bad credentials', 401);
       }
       if (req.url.path.endsWith('screen-locker-sync/devices')) {
-        return http.Response(jsonEncode([
-          {'name': 'pc', 'type': 'dir'},
-        ]), 200);
+        return http.Response(
+          jsonEncode([
+            {'name': 'pc', 'type': 'dir'},
+          ]),
+          200,
+        );
       }
       return http.Response(
         jsonEncode({
@@ -414,8 +453,109 @@ void main() {
     );
 
     expect(
-      await WorkoutSyncService(httpClient: httpClient).readMergedManualPayloads(),
+      await _service(httpClient: httpClient).readMergedManualPayloads(),
       isEmpty,
     );
+  });
+}
+
+/// A Firebase client wired to an in-memory mock, for the cutover tests.
+///
+/// The session's expiry uses the real clock: the token provider compares
+/// against `DateTime.now()`, so a fixture-dated session looks expired and
+/// triggers a refresh the mock never answers.
+({FirebaseRestClient client, List<String> puts}) _fakeFirebase() {
+  final puts = <String>[];
+  final client = FirebaseRestClient(
+    databaseUrl: 'https://x-rtdb.europe-west1.firebasedatabase.app',
+    auth: FirebaseTokenProvider(
+      apiKey: 'AIzaKey',
+      store: InMemoryCredentialStore(
+        FirebaseCredentials(
+          idToken: 'id',
+          refreshToken: 'refresh',
+          expiresAt: DateTime.now().add(const Duration(hours: 1)),
+        ),
+      ),
+    ),
+    httpClient: http_testing.MockClient((request) async {
+      if (request.method == 'PUT') {
+        puts.add(request.url.path);
+        return http.Response(request.body, 200);
+      }
+      return http.Response('null', 200);
+    }),
+  );
+  return (client: client, puts: puts);
+}
+
+void _cutoverTests() {
+  group('Firebase cutover', () {
+    test('pushes to Firebase and still mirrors to GitHub', () async {
+      // The cutover guarantee: both backends receive the write, so a PC that
+      // has not moved yet still sees the workout.
+      installFakeSecureStorage(initial: {'sync.token': 'tok'});
+      final (:httpClient, :putCalls) = _mockGitHub();
+      final firebase = _fakeFirebase();
+
+      await _service(
+        httpClient: httpClient,
+        firebaseFactory: () async => firebase.client,
+      ).push(_session());
+
+      expect(
+        firebase.puts.any((p) => p.contains('screen-locker-sync')),
+        isTrue,
+        reason: 'Firebase is primary and must receive the write',
+      );
+      expect(
+        putCalls,
+        isNotEmpty,
+        reason: 'GitHub must still be mirrored during the cutover',
+      );
+    });
+
+    test('pushManual also mirrors to both backends', () async {
+      // pushManual is a separate path from push(); it needs its own proof
+      // that Firebase became primary rather than being skipped.
+      installFakeSecureStorage(initial: {'sync.token': 'tok'});
+      final (:httpClient, :putCalls) = _mockGitHub();
+      final firebase = _fakeFirebase();
+
+      await _service(
+        httpClient: httpClient,
+        firebaseFactory: () async => firebase.client,
+      ).pushManual(
+        Record(
+          id: 'manual:x',
+          fields: {
+            'payload': (
+              {'kind': 'manual_workout', 'date': '2026-07-13', 'cost': '40'},
+              Hlc(wallTimeMs: 1000, counter: 0, nodeId: 'phone'),
+            ),
+          },
+        ),
+      );
+
+      expect(
+        firebase.puts.any((p) => p.contains('screen-locker-sync')),
+        isTrue,
+      );
+      expect(putCalls, isNotEmpty);
+    });
+
+    test('reads merge both backends', () async {
+      // Read-only path: a workout logged against either backend must count.
+      installFakeSecureStorage(initial: {'sync.token': 'tok'});
+      final firebase = _fakeFirebase();
+
+      final (:httpClient, :putCalls) = _mockGitHub();
+      final payloads = await _service(
+        httpClient: httpClient,
+        firebaseFactory: () async => firebase.client,
+      ).readMergedWorkoutPayloads();
+
+      expect(payloads, isEmpty);
+    });
   });
 }

@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from crdt_sync import GitHubSyncError, Hlc, Record
+from crdt_sync import ConfigError, GitHubSyncError, Hlc, Record
 import pytest
 
 from screen_locker import _workout_sync
@@ -292,3 +293,51 @@ class TestPullAllManualRecords:
             result = _workout_sync.pull_all_manual_records()
         assert len(result) == 1
         assert result[0][1]["cost"] == "NEW"
+
+
+class TestRemoteClient:
+    """Which backend the workout pull reads from during the cutover."""
+
+    def test_stays_on_github_without_firebase_config(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An unconfigured machine must not reach the network at all."""
+        monkeypatch.setattr(
+            _workout_sync, "CONFIG_FILE", Path("/nonexistent/firebase.json")
+        )
+        github = object()
+
+        assert _workout_sync.remote_client(github) is github
+
+    def test_mirrors_to_github_when_configured(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Configured: reads union both, so either backend's workout counts."""
+        config = tmp_path / "firebase.json"
+        config.write_text("{}", encoding="utf-8")
+        monkeypatch.setattr(_workout_sync, "CONFIG_FILE", config)
+        monkeypatch.setattr(
+            _workout_sync,
+            "mirror_client_for",
+            lambda _app, client: ("mirror", client),
+        )
+        github = object()
+
+        assert _workout_sync.remote_client(github) == ("mirror", github)
+
+    def test_falls_back_when_firebase_is_unusable(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A broken Firebase must degrade to GitHub, never fail the pull."""
+        config = tmp_path / "firebase.json"
+        config.write_text("{}", encoding="utf-8")
+        monkeypatch.setattr(_workout_sync, "CONFIG_FILE", config)
+
+        def _boom(*_args: object, **_kwargs: object) -> None:
+            message = "no password"
+            raise ConfigError(message)
+
+        monkeypatch.setattr(_workout_sync, "mirror_client_for", _boom)
+        github = object()
+
+        assert _workout_sync.remote_client(github) is github
