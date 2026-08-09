@@ -44,6 +44,7 @@ from screen_locker._status_data import (
 )
 from screen_locker._status_view_verify import PhoneCheckMixin, _make_bare_verifier
 from screen_locker._surface_group import FrameGroup
+from screen_locker._sync_status import format_sync_line, gather_sync_status
 from screen_locker._temperature import (
     fetch_current_temp_with_status,
 )
@@ -124,6 +125,7 @@ class StatusWindow(
         self._section_manual_workout_budget(
             self.container, snapshot.manual_workout_budget
         )
+        self._section_sync_backend(self.container)
         self._section_shutdown(self.container, snapshot.shutdown)
         if self._phone_check_result is not None:
             status, message = self._phone_check_result
@@ -256,6 +258,24 @@ class StatusWindow(
             color=self._colors.danger if manual.exhausted else self._colors.muted,
         )
 
+    def _section_sync_backend(self, parent: tk.Widget) -> None:
+        """Render which backend this machine syncs through.
+
+        Read from local state only (see :mod:`screen_locker._sync_status`), so
+        opening or refreshing the window never makes a network call. Coloured
+        by ``healthy`` rather than by backend: "configured but never pushed"
+        looks fine everywhere else and produces no data, which is exactly the
+        state worth surfacing here.
+        """
+        del parent
+        status = gather_sync_status()
+        self._label("Sync backend", role="body", pad="sm")
+        self._text(
+            format_sync_line(status),
+            role="body",
+            color=self._colors.muted if status.healthy else self._colors.danger,
+        )
+
     def _section_shutdown(
         self, parent: tk.Widget, shutdown: ShutdownProjection
     ) -> None:
@@ -344,13 +364,20 @@ def _compliance_state_word(snapshot: StatusSnapshot) -> str:
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Entry point: ``--summary``/``--state`` print one line; else opens the window."""
+    """Entry point: ``--summary``/``--state``/``--sync`` print one line.
+
+    With no flag, opens the status window.
+    """
     args = sys.argv[1:] if argv is None else argv
     if "--summary" in args:
         print(format_summary_line(gather_status()))
         return
     if "--state" in args:
         print(_compliance_state_word(gather_status()))
+        return
+    if "--sync" in args:
+        # On-disk only, like the other two -- safe on an i3blocks tick.
+        print(format_sync_line(gather_sync_status()))
         return
 
     root = tk.Tk()
