@@ -3,6 +3,7 @@
 library;
 
 import 'dart:async';
+import 'dart:developer';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:vibration/vibration.dart';
@@ -464,7 +465,17 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     await storage.clearActiveSession();
 
     final syncResult = await _sync.writeWorkoutResult(session);
-    unawaited(WorkoutSyncService().push(session));
+    // Not awaited: a slow or unreachable backend must not delay the summary
+    // dialog. But the result is no longer discarded -- a failed push logs at
+    // error level inside push(), so an unpushed workout is diagnosable
+    // instead of silently absent from every other device.
+    unawaited(
+      WorkoutSyncService().push(session).then((result) {
+        if (!result.pushed) {
+          log('Workout not synced: ${result.reason}', level: 1000);
+        }
+      }),
+    );
 
     if (!mounted) return;
     unawaited(

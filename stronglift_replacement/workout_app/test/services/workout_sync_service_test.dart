@@ -104,9 +104,13 @@ void main() {
     installFakeSecureStorage();
     final (:httpClient, :putCalls) = _mockGitHub();
 
-    await _service(httpClient: httpClient).push(_session());
+    final result = await _service(httpClient: httpClient).push(_session());
 
     expect(putCalls, isEmpty);
+    // Not just "nothing happened" -- the caller can tell WHY, so an unpushed
+    // workout is diagnosable instead of silently absent everywhere else.
+    expect(result.pushed, isFalse);
+    expect(result.reason, contains('not configured'));
   });
 
   test('pushes a new record when nothing has been synced yet', () async {
@@ -165,16 +169,41 @@ void main() {
     );
   });
 
-  test('a GitHubSyncError is swallowed, not rethrown', () async {
+  test('a sync error is swallowed, but reported', () async {
     installFakeSecureStorage(initial: {'sync.token': 'tok'});
     final httpClient = http_testing.MockClient(
       (request) async => http.Response('', 500),
     );
 
-    await expectLater(
-      _service(httpClient: httpClient).push(_session()),
-      completes,
+    final result = await _service(httpClient: httpClient).push(_session());
+
+    // Swallowed: a failed push must never cost the user their finished
+    // workout. Reported: the previous contract logged to debugPrint, which
+    // goes nowhere in a release build -- a workout could go unpushed with
+    // nothing anywhere saying so.
+    expect(result.pushed, isFalse);
+    expect(result.reason, contains('push failed'));
+  });
+
+  test('PushResult stringifies both fields for logs', () {
+    // It exists to be readable in a log line, so the log line is the test.
+    const result = PushResult(pushed: false, reason: 'push failed: boom');
+
+    expect(result.toString(), contains('pushed: false'));
+    expect(result.toString(), contains('push failed: boom'));
+  });
+
+  test('a successful push reports that it happened', () async {
+    installFakeSecureStorage(initial: {'sync.token': 'tok'});
+    final (:httpClient, :putCalls) = _mockGitHub(
+      contentResponses: {'screen-locker-sync/devices': _response(200, [])},
     );
+
+    final result = await _service(httpClient: httpClient).push(_session());
+
+    expect(result.pushed, isTrue);
+    expect(result.reason, 'pushed');
+    expect(putCalls, isNotEmpty);
   });
 
   Record _manual(String id, String cost, int wallMs) => Record(
@@ -234,7 +263,7 @@ void main() {
     );
   });
 
-  test('pushManual swallows a sync error', () async {
+  test('pushManual reports a failure instead of hiding it', () async {
     installFakeSecureStorage(initial: {'sync.token': 'tok'});
     final httpClient = http_testing.MockClient(
       (request) async => http.Response('', 500),

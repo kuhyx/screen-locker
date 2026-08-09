@@ -1,8 +1,9 @@
-/// Pushes completed workout sessions to the shared GitHub sync repo.
+/// Pushes completed workout sessions to the shared sync backend.
 library;
 
 
 import 'dart:convert';
+import 'dart:developer';
 import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -23,11 +24,36 @@ Log _decode(String text) => (jsonDecode(text) as Map<String, dynamic>).map(
   (id, data) => MapEntry(id, Record.fromJson(data as Map<String, dynamic>)),
 );
 
+/// The outcome of a [WorkoutSyncService.push] / [WorkoutSyncService.pushManual].
+///
+/// A bare `Future<void>` used to hide every failure: the caller could not
+/// tell "nothing to do" from "it broke", and the only trace was a
+/// `debugPrint` that goes nowhere in a release build. That is the exact
+/// silent-failure shape `CLAUDE.md` forbids, and it is why a workout could
+/// go unpushed with nothing anywhere saying so.
+@immutable
+class PushResult {
+  /// Creates a result. [reason] should read like a sentence a human can act on.
+  const PushResult({required this.pushed, required this.reason});
+
+  /// Whether the sync tick completed without error.
+  final bool pushed;
+
+  /// Why it did or did not happen.
+  final String reason;
+
+  @override
+  String toString() => 'PushResult(pushed: $pushed, reason: $reason)';
+}
+
 /// Mirrors the PC-side `_workout_sync.py`: GitHub is used purely as dumb
 /// file storage via the Contents API, one [Record] per completed session,
-/// merged onto whatever this phone has already pushed. A missing token or a
-/// failed push is swallowed here -- sync being unconfigured or unreachable
-/// must never crash or delay the workout-completion flow that calls [push].
+/// merged onto whatever this phone has already pushed.
+///
+/// A failed push never throws into the workout-completion flow -- sync being
+/// unreachable must not cost the user their session -- but it is never
+/// silent either: every path returns a [PushResult] whose `reason` says what
+/// happened, and failures log at error level.
 class WorkoutSyncService {
   /// Creates a [WorkoutSyncService]. [owner]/[repo]/[httpClient] default to
   /// the real `syncs` repo (`screen-locker-sync/` subdirectory) and a fresh
@@ -74,15 +100,22 @@ class WorkoutSyncService {
   final String repo;
   final http.Client? _httpClient;
 
-  /// Pushes [session] to `devices/phone/log.json`, merging with whatever
-  /// this device has already pushed. No-ops silently if sync isn't
-  /// configured; logs (but does not rethrow) any [GitHubSyncError].
-  Future<void> push(WorkoutSession session) async {
+  /// Pushes [session] to this device's log, merging with whatever it has
+  /// already pushed.
+  ///
+  /// Never throws: returns a [PushResult] saying whether the tick happened
+  /// and why. Failures are logged at error level so an unpushed workout
+  /// leaves a trace rather than vanishing.
+  Future<PushResult> push(WorkoutSession session) async {
     final settings = await SyncSettings.load();
     // Either backend counts. Gating on the GitHub token alone silently
     // dropped every push from a device connected only to Firebase -- and
     // once the mirror is retired that would be every device.
-    if (!settings.isConfigured && !await _hasFirebaseAccount()) return;
+    if (!settings.isConfigured && !await _hasFirebaseAccount()) {
+      const reason = 'sync not configured (no Firebase account, no token)';
+      log('WorkoutSyncService.push skipped: $reason', level: 900);
+      return const PushResult(pushed: false, reason: reason);
+    }
 
     final github = GitHubClient(
       owner: owner,
@@ -120,20 +153,37 @@ class WorkoutSyncService {
         // Firebase free tier's monthly budget depends on not happening.
         stateStore: await _openStateStore(),
       );
-    } on GitHubSyncError catch (error) {
-      debugPrint('WorkoutSyncService.push failed: $error');
+      return const PushResult(pushed: true, reason: 'pushed');
+    } on Object catch (error, stackTrace) {
+      // Deliberately broad: a GitHubSyncError was the only case handled
+      // before, so a Firebase error, an auth failure or a dropped connection
+      // vanished with no trace at all. Still swallowed rather than rethrown
+      // -- a sync failure must not cost the user their finished workout --
+      // but now it is reported, not hidden.
+      final reason = 'push failed: $error';
+      log(
+        'WorkoutSyncService.push failed',
+        level: 1000,
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return PushResult(pushed: false, reason: reason);
     } finally {
       github.close();
       firebase?.close();
     }
   }
 
-  /// Pushes a pre-built manual-workout [record] to `devices/phone/log.json`,
-  /// merging with whatever this device has already pushed. Same swallow-on-
-  /// failure contract as [push].
-  Future<void> pushManual(Record record) async {
+  /// Pushes a pre-built manual-workout [record] to this device's log.
+  ///
+  /// Same never-throw, always-report contract as [push].
+  Future<PushResult> pushManual(Record record) async {
     final settings = await SyncSettings.load();
-    if (!settings.isConfigured && !await _hasFirebaseAccount()) return;
+    if (!settings.isConfigured && !await _hasFirebaseAccount()) {
+      const reason = 'sync not configured (no Firebase account, no token)';
+      log('WorkoutSyncService.pushManual skipped: $reason', level: 900);
+      return const PushResult(pushed: false, reason: reason);
+    }
 
     final github = GitHubClient(
       owner: owner,
@@ -165,8 +215,16 @@ class WorkoutSyncService {
         // Firebase free tier's monthly budget depends on not happening.
         stateStore: await _openStateStore(),
       );
-    } on GitHubSyncError catch (error) {
-      debugPrint('WorkoutSyncService.pushManual failed: $error');
+      return const PushResult(pushed: true, reason: 'pushed');
+    } on Object catch (error, stackTrace) {
+      final reason = 'push failed: $error';
+      log(
+        'WorkoutSyncService.pushManual failed',
+        level: 1000,
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return PushResult(pushed: false, reason: reason);
     } finally {
       github.close();
       firebase?.close();

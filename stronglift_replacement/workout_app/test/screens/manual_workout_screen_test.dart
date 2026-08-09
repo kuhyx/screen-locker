@@ -16,8 +16,9 @@ class _FakeSync extends WorkoutSyncService {
       payloads;
 
   @override
-  Future<void> pushManual(Record record) async {
+  Future<PushResult> pushManual(Record record) async {
     pushed = record;
+    return const PushResult(pushed: true, reason: 'pushed');
   }
 }
 
