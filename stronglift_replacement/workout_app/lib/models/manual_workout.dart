@@ -12,15 +12,20 @@ import 'package:crdt_sync/crdt_sync.dart';
 
 // ── Shared constants ─────────────────────────────────────────────────────────
 // Hand-maintained mirror of the Python source of truth in
-// `screen_locker/_constants.py` (the `MANUAL_WORKOUT_*` values); the two
-// languages can't share a file, so the cross-language payload fixture (see the
-// model test and its Python twin) is the tripwire that catches drift.
+// `screen_locker/_constants.py` (the `MANUAL_WORKOUT_*` values).
+//
+// The payload fixture does NOT pin these: the caps never travel on the wire,
+// so it cannot see them drift — and they did (298daf0 raised Python 5 -> 10
+// touching no Dart, leaving the phone at 5). The actual tripwire is
+// `TestCrossLanguageBudgetConstants` in
+// `screen_locker/tests/test_manual_workout_features.py`, which parses THIS
+// file and compares it to the Python constants, so either side drifting fails.
 
 /// Max manual workouts allowed in any rolling 7-day window.
 const int kManualWorkoutBudgetPer7Days = 2;
 
 /// Max manual workouts allowed in any rolling 30-day window.
-const int kManualWorkoutBudgetPer30Days = 5;
+const int kManualWorkoutBudgetPer30Days = 10;
 
 /// Minimum session length, in minutes, for a manual workout to count.
 const int kManualWorkoutMinDurationMinutes = 20;
@@ -353,18 +358,24 @@ class ManualBudget {
 
 /// Counts DAYS with a manual workout in the rolling 7-/30-day windows.
 ///
-/// The budget is counted per DAY, not per workout: several self-reports on one
-/// day consume a single slot (and only one counts toward the weekly total
-/// anyway). Each payload's own `date` (YYYY-MM-DD) is the window key, so both
-/// devices compute the same shared budget over the merged record set — this
-/// mirrors the PC's `count_in_window` (screen_locker/_manual_workout.py).
+/// The budget is counted per ENTRY, not per day: each self-report consumes its
+/// own slot, so three workouts logged on one day cost three. That matches the
+/// PC's `count_in_window` (screen_locker/_manual_workout.py), which is the
+/// source of truth — each entry separately earns weekly-count and shutdown
+/// credit, so each must separately cost budget.
+///
+/// This counted DAYS until 2026-08-09 (a `Set` of date strings) while the PC
+/// counted entries, so three same-day workouts read as 3/2 on the PC — over
+/// its 7-day cap — but 1/2 here, and the phone kept accepting. Callers pass
+/// one payload per synced record (`manual:<date>T<HH:MM>`), so same-day
+/// workouts at different times arrive as distinct payloads.
 ManualBudget countManualBudget(
   Iterable<Map<String, dynamic>> payloads,
   DateTime now,
 ) {
   final today = DateTime(now.year, now.month, now.day);
-  final weekDays = <String>{};
-  final monthDays = <String>{};
+  var week = 0;
+  var month = 0;
   for (final payload in payloads) {
     final dateStr = payload['date'];
     if (dateStr is! String) continue;
@@ -374,8 +385,8 @@ ManualBudget countManualBudget(
         .difference(DateTime(date.year, date.month, date.day))
         .inDays;
     if (days < 0) continue;
-    if (days < 7) weekDays.add(dateStr);
-    if (days < 30) monthDays.add(dateStr);
+    if (days < 7) week++;
+    if (days < 30) month++;
   }
-  return ManualBudget(week: weekDays.length, month: monthDays.length);
+  return ManualBudget(week: week, month: month);
 }

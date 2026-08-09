@@ -24,6 +24,7 @@ automatically decreases weight (in decrements of 2.5kg) if user failed to do the
 automatically decreases weight if user had a break from using the app
 Tracks how much time workout took -> Fully automatically, user CANNOT set it manually
 Adds optional warmup exercises (With weight equal 2/3 of target weight (rounding DOWN to nearest increment of 2.5kg) and always having 5 reps exactly and exactly one set) before each exercise (after warmup 3 minutes break too)
+    SUPERSEDED (2026-08-09): the warmup fraction shipped as 4/5, not 2/3 (nor the 3/4 in dfesign_v2.md). 4/5 is confirmed intended; see Exercise.warmupWeight in workout_app/lib/models/exercise.dart.
 adds breaks between exercises (3 minutes if exercise succeeded and 5 minutes if it failed)
 The user selects exercise as done by tapping on a circle with number of reps for this exercise, exercises are organized in rows where one row = one full set of one exercise, tapping on a circle again means that
 the user failed to do the exercise and it decreases the rep by "1" tappign again further reduces this count, if user holds finger over the specific circle they can reset the state of this circle (which should

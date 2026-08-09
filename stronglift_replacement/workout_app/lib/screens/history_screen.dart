@@ -142,7 +142,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return result;
   }
 
-  /// (date, total volume) per session – sum of targetWeight × targetSets.
+  /// (date, total volume) per session – tonnage actually lifted, summed as
+  /// `weight × doneReps` over every logged set.
+  ///
+  /// This deliberately uses the per-set actuals rather than
+  /// `targetWeight × targetSets × targetReps`: with targets, a session where
+  /// every set failed plotted identically to one completed in full, so the
+  /// line only moved when progression changed the target.
+  ///
+  /// The target-based fallback is defensive only — `ExerciseResult.toJson`
+  /// has emitted `sets` since the app's first commit, so no row written by
+  /// this app lacks it. It exists for hand-edited or truncated backup JSON,
+  /// not for a migration that ever happened.
   List<(DateTime, double)> _totalVolumePoints() {
     final points = <(DateTime, double)>[];
     for (final row in _rows.reversed) {
@@ -150,10 +161,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
       double total = 0;
       for (final ex in (json['exercises'] as List? ?? const [])) {
         final m = ex as Map<String, dynamic>;
-        final w = (m['targetWeight'] as num?)?.toDouble() ?? 0;
-        final s = (m['targetSets'] as num?)?.toInt() ?? 0;
-        final r = (m['targetReps'] as num?)?.toInt() ?? 0;
-        total += w * s * r;
+        final sets = m['sets'] as List?;
+        if (sets == null || sets.isEmpty) {
+          final w = (m['targetWeight'] as num?)?.toDouble() ?? 0;
+          final s = (m['targetSets'] as num?)?.toInt() ?? 0;
+          final r = (m['targetReps'] as num?)?.toInt() ?? 0;
+          total += w * s * r;
+          continue;
+        }
+        for (final set in sets) {
+          final sm = set as Map<String, dynamic>;
+          // `weight` is a non-nullable double in SetResult and always
+          // serialized, so there is no targetWeight fallback here — an absent
+          // value would mean hand-edited JSON, and silently substituting the
+          // target would overstate a set the user never did.
+          final w = (sm['weight'] as num?)?.toDouble() ?? 0;
+          total += w * ((sm['doneReps'] as num?)?.toInt() ?? 0);
+        }
       }
       final date = DateTime.tryParse(row['date'] as String);
       if (date != null) points.add((date, total));

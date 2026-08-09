@@ -141,6 +141,19 @@ void main() {
       expect(record.id, 'manual:2026-07-13T18:00');
       expect(record.fields['payload']!.$1, buildSyncPayload(wireDraft, _wireDate));
     });
+
+    // NOTE: comparing a Dart constant to a Dart literal only catches a local
+    // edit — it stays green when Python drifts, which is the failure that
+    // actually happened (298daf0). The real cross-language guard is
+    // `TestCrossLanguageBudgetConstants` in
+    // `screen_locker/tests/test_manual_workout_features.py`: it parses this
+    // package's manual_workout.dart and compares it to the Python constants,
+    // so either side drifting fails. This test only pins the local values so
+    // a stray edit here is caught by `flutter test` too.
+    test('budget constants are the locally expected values', () {
+      expect(kManualWorkoutBudgetPer7Days, 2);
+      expect(kManualWorkoutBudgetPer30Days, 10);
+    });
   });
 
   group('validateManualWorkout', () {
@@ -268,20 +281,34 @@ void main() {
     });
   });
 
-  group('countManualBudget (per-day)', () {
+  group('countManualBudget (per-entry)', () {
     Map<String, dynamic> payload(String date, String start) => {
       'date': date,
       'start_time': start,
     };
     final now = DateTime(2026, 7, 16);
 
-    test('multiple workouts on one day count as a single day', () {
+    // Was "count as a single day" until 2026-08-09, which disagreed with the
+    // PC's count_in_window ("Counted per entry, not per day"): three same-day
+    // workouts read 3/2 there — over the 7-day cap — but 1/2 here, so the
+    // phone kept accepting what the PC had already refused.
+    test('multiple workouts on one day each consume a slot', () {
       final budget = countManualBudget([
         payload('2026-07-13', '14:00'),
         payload('2026-07-13', '23:07'),
       ], now);
-      expect(budget.week, 1);
-      expect(budget.month, 1);
+      expect(budget.week, 2);
+      expect(budget.month, 2);
+    });
+
+    test('three on one day exhaust the 7-day cap, matching the PC', () {
+      final budget = countManualBudget([
+        payload('2026-07-13', '09:00'),
+        payload('2026-07-13', '14:00'),
+        payload('2026-07-13', '19:00'),
+      ], now);
+      expect(budget.week, 3);
+      expect(budget.week >= kManualWorkoutBudgetPer7Days, isTrue);
     });
 
     test('workouts on distinct days each count', () {
@@ -292,13 +319,13 @@ void main() {
       expect(budget.week, 2);
     });
 
-    test('same-day plus another day counts two days', () {
+    test('same-day pair plus another day counts three entries', () {
       final budget = countManualBudget([
         payload('2026-07-13', '14:00'),
         payload('2026-07-13', '23:07'),
         payload('2026-07-15', '09:00'),
       ], now);
-      expect(budget.week, 2);
+      expect(budget.week, 3);
     });
 
     test('ignores dates outside the 30-day window and future dates', () {
