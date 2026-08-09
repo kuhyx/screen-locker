@@ -1,18 +1,18 @@
 /// Pushes completed workout sessions to the shared GitHub sync repo.
 library;
 
-import 'dart:convert';
 
+import 'dart:convert';
 import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:workout_app/models/manual_workout.dart';
 import 'package:workout_app/models/workout_session.dart';
 import 'package:workout_app/services/firebase_backend.dart';
+import 'package:workout_app/services/sync_device_id.dart';
 import 'package:workout_app/services/sync_settings.dart';
 import 'package:workout_app/services/sync_state_factory.dart';
 
-const _deviceId = 'phone';
 const _pathPrefix = 'screen-locker-sync/devices';
 const _logFilename = 'log.json';
 
@@ -95,19 +95,22 @@ class WorkoutSyncService {
         ? github
         : MirrorStore(primary: firebase, mirror: github);
     try {
-      const path = '$_pathPrefix/$_deviceId/$_logFilename';
+      final path = '$_pathPrefix/$currentSyncDeviceId/$_logFilename';
       final existingText = await client.getFileText(path);
       final existingLog = existingText == null
           ? <String, Record>{}
           : _decode(existingText);
       final record = Record(
         id: session.startTime.toIso8601String(),
-        fields: {'payload': (session.toJson(), Hlc.newTick(_deviceId))},
+        fields: {
+          'payload': (session.toJson(), Hlc.newTick(currentSyncDeviceId)),
+        },
       );
       final localLog = mergeLogs(existingLog, {record.id: record});
       await syncLog(
         client: client,
-        deviceId: _deviceId,
+        deviceId: currentSyncDeviceId,
+        legacyDeviceId: legacySyncDeviceId,
         pathPrefix: _pathPrefix,
         localLog: localLog,
         encode: _encode,
@@ -143,7 +146,7 @@ class WorkoutSyncService {
         ? github
         : MirrorStore(primary: firebase, mirror: github);
     try {
-      const path = '$_pathPrefix/$_deviceId/$_logFilename';
+      final path = '$_pathPrefix/$currentSyncDeviceId/$_logFilename';
       final existingText = await client.getFileText(path);
       final existingLog = existingText == null
           ? <String, Record>{}
@@ -151,7 +154,8 @@ class WorkoutSyncService {
       final localLog = mergeLogs(existingLog, {record.id: record});
       await syncLog(
         client: client,
-        deviceId: _deviceId,
+        deviceId: currentSyncDeviceId,
+        legacyDeviceId: legacySyncDeviceId,
         pathPrefix: _pathPrefix,
         localLog: localLog,
         encode: _encode,

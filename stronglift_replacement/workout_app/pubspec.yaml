@@ -12,7 +12,7 @@ dependencies:
   crdt_sync:
     git:
       url: https://github.com/kuhyx/utils
-      ref: crdt_sync_dart-v0.6.0
+      ref: crdt_sync_dart-v0.7.0
       path: crdt_sync_dart
   flutter:
     sdk: flutter
@@ -24,6 +24,7 @@ dependencies:
   shared_preferences: ^2.5.3
   sqflite: ^2.4.2
   url_launcher: ^6.3.2
+  uuid: ^4.6.0
   vibration: ^3.1.0
 
 dev_dependencies:

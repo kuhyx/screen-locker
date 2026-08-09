@@ -1,10 +1,11 @@
-import 'dart:async';
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:workout_app/screens/home_screen.dart';
 import 'package:workout_app/services/backup_service.dart';
 import 'package:workout_app/services/http_server_service.dart';
 import 'package:workout_app/services/storage_service.dart';
+import 'package:workout_app/services/sync_device_id.dart';
 import 'package:workout_app/ui/theme.dart';
 
 // coverage:ignore-start
@@ -13,6 +14,9 @@ import 'package:workout_app/ui/theme.dart';
 // up are unit-tested individually; the entry point itself is not.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Before anything that stamps an Hlc or syncs: until this resolves, the
+  // device id falls back to the pre-migration constant.
+  await initSyncDeviceId();
   await BackupService.instance.requestStoragePermission();
   await StorageService.init();
   await StorageService.instance.restoreFromBackupIfNeeded();

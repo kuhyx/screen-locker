@@ -36,6 +36,21 @@ def isolate_sync_token(tmp_path: Path) -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
+def isolate_sync_device_id(tmp_path: Path) -> Iterator[None]:
+    """Redirect the persisted device id so tests never mint one for real.
+
+    Without this the first test that syncs writes a uuid into the real
+    ``~/.local/share/screen_locker/.device_id``, and this machine's live sync
+    identity ends up decided by whichever test happened to run first.
+    """
+    with patch(
+        "screen_locker._device.SYNC_DEVICE_ID_FILE",
+        tmp_path / ".device_id",
+    ):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def no_sync_retry_sleep() -> Iterator[None]:
     """Make the sync retry's backoff instant for every test.
 

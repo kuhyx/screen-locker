@@ -45,6 +45,7 @@ from screen_locker._constants import (
     SYNC_TIMEOUT_SECONDS,
     SYNC_TOKEN_FILE,
 )
+from screen_locker._device import device_identity
 from screen_locker._log_io import load_workout_log
 from screen_locker._log_mixin import _derive_workout_id
 from screen_locker._sync_retry import with_sync_retry
@@ -58,7 +59,6 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
-_PC_DEVICE_ID = "pc"
 _PAYLOAD_FIELD = "payload"
 
 
@@ -127,6 +127,7 @@ def records_from_workout_log(log_file: Path) -> dict[str, Record]:
     The payload is the workout's own data plus the ``kind``/``date`` the wire
     contract requires.
     """
+    identity = device_identity()
     log: dict[str, Record] = {}
     for date, entries in load_workout_log(log_file).items():
         for entry in entries:
@@ -146,7 +147,9 @@ def records_from_workout_log(log_file: Path) -> dict[str, Record]:
                 )
                 continue
             payload = {**workout_data, "kind": workout_data["type"], "date": date}
-            hlc = Hlc.new_tick(_PC_DEVICE_ID, wall_time_ms=_entry_wall_ms(entry, date))
+            hlc = Hlc.new_tick(
+                identity.device_id, wall_time_ms=_entry_wall_ms(entry, date)
+            )
             log[str(record_id)] = Record(
                 id=str(record_id), fields={_PAYLOAD_FIELD: (payload, hlc)}
             )
@@ -154,12 +157,13 @@ def records_from_workout_log(log_file: Path) -> dict[str, Record]:
 
 
 def push_pc_workouts(log_file: Path) -> PushResult:
-    """Publish every counted workout in ``log_file`` to ``devices/pc/log.json``.
+    """Publish every counted workout in ``log_file`` to this device's log.
 
     Runs one full sync tick, so it also retries anything a previous push failed
     to publish. It never raises into the caller — but it is never silent either:
     the returned :class:`PushResult` and a WARNING say why a push did not happen.
     """
+    identity = device_identity()
     token = read_sync_token()
     if token is None:
         reason = f"no sync token at {SYNC_TOKEN_FILE}"
@@ -190,7 +194,8 @@ def push_pc_workouts(log_file: Path) -> PushResult:
         with_sync_retry(
             lambda: sync_log(
                 client=client,
-                device_id=_PC_DEVICE_ID,
+                device_id=identity.device_id,
+                legacy_device_id=identity.legacy_id,
                 path_prefix=_DEVICES_PREFIX,
                 local_log=log,
                 encode=_encode_log,

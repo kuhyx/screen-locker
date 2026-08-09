@@ -124,7 +124,20 @@ RUNNERUP_EXPORT_DIRS: tuple[str, ...] = (
 # ---------------------------------------------------------------------------
 SYNC_REPO_OWNER: str = "kuhyx"
 SYNC_REPO_NAME: str = "syncs"
+# The phone's pre-uuid device id. Still read (the phone may not have migrated
+# yet), but no longer the only path the reader knows about -- it discovers
+# every device directory.
 SYNC_PHONE_DEVICE_ID: str = "phone"
+# The id this machine pushed manual workouts under before per-install uuids.
+# Kept so the sync layer still recognises devices/pc/ as its own and does not
+# re-merge its own history as a peer's; drop to None once that path is gone.
+SYNC_LEGACY_DEVICE_ID: str | None = "pc"
+# This machine's sync id, minted once and persisted. A fixed "pc" collides as
+# soon as a second machine takes the same role, and a reinstall would inherit
+# the previous install's CRDT identity.
+SYNC_DEVICE_ID_FILE: Path = (
+    Path.home() / ".local" / "share" / "screen_locker" / ".device_id"
+)
 # A fine-grained GitHub PAT, scoped to just SYNC_REPO_NAME's contents. The
 # user creates this once via github.com and saves it here, mode 600. Never
 # committed — this path is outside the repo entirely. Unlike diet_guard,
