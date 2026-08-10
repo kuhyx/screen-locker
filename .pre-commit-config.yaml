@@ -153,6 +153,14 @@ repos:
         entry: python3 scripts/check_silent_failures.py
         language: system
         types: [python]
+      - id: no-silent-failures-dart
+        # The Python hook above is types:[python] and so had never looked at a
+        # single Dart file — in the app where a swallowed sync error costs the
+        # user a workout with nothing anywhere saying so.
+        name: Block silent failures in Dart (swallowed errors must log why)
+        entry: python3 scripts/check_silent_failures_dart.py
+        language: system
+        types: [dart]
       - id: screens-fit
         name: Every lock screen fits 1366x768 (no scrolling required)
         entry: python3 -m scripts.verify_screen_fits

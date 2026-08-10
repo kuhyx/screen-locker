@@ -8,6 +8,7 @@
 /// library doc for the security trade-off this represents.
 library;
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:workout_app/services/backup_service.dart';
@@ -53,7 +54,11 @@ class SyncSettings {
     String? token;
     try {
       token = await _secure.read(key: _secureToken);
-    } on PlatformException {
+    } on PlatformException catch (error) {
+      debugPrint(
+        'WorkoutApp: could not read the sync token from the keystore '
+        '($error) — falling back to the external backup below.',
+      );
       token = null;
     }
     if (token == null || token.isEmpty) {
@@ -62,8 +67,13 @@ class SyncSettings {
         token = backedUp;
         try {
           await _secure.write(key: _secureToken, value: backedUp);
-        } on PlatformException {
+        } on PlatformException catch (error) {
           // Keystore unavailable; still return the recovered token below.
+          debugPrint(
+            'WorkoutApp: recovered the sync token from the backup but could '
+            'NOT write it back to the keystore ($error) — sync works this '
+            'run, but every launch will keep re-reading the backup.',
+          );
         }
       }
     }
@@ -88,8 +98,13 @@ class SyncSettings {
     }
     try {
       await _secure.write(key: _secureToken, value: backedUp);
-    } on PlatformException {
+    } on PlatformException catch (error) {
       // Keystore unavailable — the caller can still use the returned token.
+      debugPrint(
+        'WorkoutApp: could not re-seed the keystore with the recovered sync '
+        'token ($error) — this retry still works, but the stale entry will '
+        'keep shadowing the backup on future launches.',
+      );
     }
     return backedUp;
   }
@@ -106,7 +121,12 @@ class SyncSettings {
         await _secure.write(key: _secureToken, value: token);
       }
       return true;
-    } on PlatformException {
+    } on PlatformException catch (error) {
+      debugPrint(
+        'WorkoutApp: could not save the sync token to the keystore ($error) '
+        '— it is still mirrored to external storage, so sync survives, but '
+        'the keystore copy is missing.',
+      );
       return false;
     }
   }

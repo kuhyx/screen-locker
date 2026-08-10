@@ -9,6 +9,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/services/backup_service.dart';
+import 'package:workout_app/services/progression_sync_service.dart';
 
 /// Per-exercise progression state stored in SQLite.
 class ExerciseState {
@@ -81,7 +82,17 @@ class StorageService {
   static void resetForTesting({String dbPath = ':memory:'}) {
     _instance = null;
     _testDbPath = dbPath;
+    remoteActiveSessionReader = null;
   }
+
+  /// Reads the shared in-progress session from Firebase. Injected because the
+  /// real implementation reaches the OS keystore through a platform channel,
+  /// which `flutter test` has no binding for — and the resulting failure is an
+  /// `Error`, not an `Exception`, so it escapes the usual guards.
+  ///
+  /// Null means "use the real Firebase reader" (production).
+  @visibleForTesting
+  static Future<Map<String, dynamic>?> Function()? remoteActiveSessionReader;
 
   Future<void> _open() async {
     final dbPath =
@@ -241,12 +252,20 @@ class StorageService {
   /// Falls back to the external mirror (re-seeding the table from it) when the
   /// table is empty — which is exactly the state right after an app-data wipe,
   /// so the workout resumes on the same set and rep instead of vanishing.
+  ///
+  /// Then, if the mirror is unavailable too, to Firebase. The mirror is tried
+  /// first because it is a local file read; Firebase costs a network round
+  /// trip, but it is the only copy that survives a reinstall with storage
+  /// permission denied — where `/sdcard` is unreadable by definition.
   Future<Map<String, dynamic>?> loadActiveSession() async {
     final rows = await _db.query('active_session', where: 'id = 1');
     if (rows.isNotEmpty) {
       return jsonDecode(rows.first['json']! as String) as Map<String, dynamic>;
     }
-    final mirrored = await BackupService.instance.readActiveSession();
+    final mirrored =
+        await BackupService.instance.readActiveSession() ??
+        await (remoteActiveSessionReader ??
+            ProgressionSyncService().readActiveSession)();
     if (mirrored == null) return null;
     await _db.insert(
       'active_session',
@@ -330,6 +349,30 @@ class StorageService {
       whereArgs: [name],
     );
     unawaited(_backupNow());
+  }
+
+  /// Overwrites [state] wholesale, inserting it when the row is absent.
+  ///
+  /// Used by the Firebase progression restore, which carries a complete record
+  /// (weight, reps, both streaks, max weight, both thresholds) and must land it
+  /// atomically — a field-by-field update would leave a half-restored row if it
+  /// failed partway. Unlike [setExerciseWeight] this deliberately does NOT
+  /// reset streaks: the streaks are part of what is being restored.
+  ///
+  /// Does not trigger a backup write. The caller is restoring INTO a
+  /// freshly-seeded database, and `_backupNow()` mid-restore is what previously
+  /// let default rows reach the only off-device copy.
+  Future<void> replaceExerciseState(ExerciseState state) async {
+    await _db.insert('exercise_state', {
+      'name': state.name,
+      'weight': state.weight,
+      'reps': state.reps,
+      'success_streak': state.successStreak,
+      'fail_streak': state.failStreak,
+      'max_weight': state.maxWeight,
+      'success_threshold': state.successThreshold,
+      'fail_threshold': state.failThreshold,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   /// Sets the working weight for [name], resetting streaks.
@@ -527,9 +570,13 @@ class StorageService {
     try {
       final decoded = jsonDecode(raw);
       return decoded is Map<String, dynamic> ? decoded : null;
-    } on FormatException {
+    } on FormatException catch (error) {
       // A corrupt local row must not block restoring the rest; it simply
       // cannot be matched against, so it is treated as "not seen".
+      debugPrint(
+        'WorkoutApp: a stored session row is not valid JSON ($error) — '
+        'treating it as unseen, so a remote copy may be re-imported.',
+      );
       return null;
     }
   }
@@ -612,16 +659,56 @@ class StorageService {
     });
   }
 
-  /// Restores from backup if the local DB is empty (fresh install).
+  /// Whether this database has never recorded a workout on this install.
   ///
-  /// "Empty" means no workout history and no [last_workout_type] setting.
-  Future<void> restoreFromBackupIfNeeded() async {
+  /// "Empty" means no workout history and no [last_workout_type] setting —
+  /// the state a fresh install or a `pm clear` leaves behind, and the only
+  /// state in which overwriting local rows wholesale is safe.
+  ///
+  /// Shared with the Firebase progression restore so both restore paths agree
+  /// on what "fresh install" means. Deliberately NOT a per-exercise value
+  /// comparison: [resetExerciseToDefaults] leaves `reps` and `max_weight`
+  /// alone, so resetting an exercise that already sits at its default reps
+  /// produces a row byte-identical to a seeded one. Treating that as "fresh"
+  /// would let a pull silently revert a reset the user just performed.
+  Future<bool> looksFreshlyInstalled() async {
     final hasHistory =
         (await _db.rawQuery('SELECT COUNT(*) AS c FROM workout_history'))
             .first['c'] as int? ??
         0;
-    final hasType = await _getSetting('last_workout_type');
-    if (hasHistory > 0 || hasType != null) return; // DB has real data
+    if (hasHistory > 0) return false;
+    return await _getSetting('last_workout_type') == null;
+  }
+
+  /// Whether this install has reconciled its progression with Firebase.
+  ///
+  /// This — NOT [looksFreshlyInstalled] — is what gates pushing progression
+  /// up. The freshness test is unusable there because the only production
+  /// caller (`_finishWorkout`) writes a `workout_history` row and
+  /// `last_workout_type` *before* it pushes, so the DB has stopped looking
+  /// fresh by the time the guard runs: the guard could never fire, and a
+  /// reinstall that connected Firebase late would overwrite every real remote
+  /// record with factory defaults on its first finished workout.
+  ///
+  /// It is also wrong for hand edits: `setExerciseWeight` and
+  /// `resetExerciseToDefaults` write neither history nor `last_workout_type`,
+  /// so a DB still "looks fresh" after them and the next pull would revert the
+  /// user's own change.
+  Future<bool> hasSyncedProgression() async =>
+      await _getSetting(_progressionSyncedKey) != null;
+
+  /// Records that remote progression has been reconciled, so later pushes are
+  /// allowed and later pulls stop overwriting local state.
+  Future<void> markProgressionSynced() =>
+      _setSetting(_progressionSyncedKey, DateTime.now().toIso8601String());
+
+  static const _progressionSyncedKey = 'progression_synced_at';
+
+  /// Restores from backup if the local DB is empty (fresh install).
+  ///
+  /// "Empty" means no workout history and no [last_workout_type] setting.
+  Future<void> restoreFromBackupIfNeeded() async {
+    if (!await looksFreshlyInstalled()) return; // DB has real data
 
     final backup = await BackupService.instance.readBackup();
     if (backup == null) {

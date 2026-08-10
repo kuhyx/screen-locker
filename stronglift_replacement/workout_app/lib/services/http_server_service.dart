@@ -58,8 +58,13 @@ class HttpServerService {
         kWorkoutServerPort,
       );
       unawaited(_serve());
-    } on SocketException {
+    } on SocketException catch (error) {
       // Port already in use or binding failed — not fatal.
+      debugPrint(
+        'WorkoutApp: could not bind the workout HTTP server on port '
+        '$kWorkoutServerPort ($error) — the PC cannot pull workouts over '
+        'HTTP; ADB and sync still work.',
+      );
       _server = null;
     }
   }
@@ -78,8 +83,12 @@ class HttpServerService {
       try {
         final dir = await getExternalStorageDirectory();
         if (dir != null) candidates.add('${dir.path}/workout_result.json');
-      } on Exception {
+      } on Exception catch (error) {
         // Ignore; the /sdcard path is tried first.
+        debugPrint(
+          'WorkoutApp: could not resolve the external storage directory '
+          '($error) — only $kSyncFilePath will be tried.',
+        );
       }
       // coverage:ignore-end
     }
@@ -92,8 +101,12 @@ class HttpServerService {
         try {
           _latestJson = await file.readAsString();
           return;
-        } on IOException {
+        } on IOException catch (error) {
           // Try next path.
+          debugPrint(
+            'WorkoutApp: could not read $path ($error) — trying the next '
+            'candidate.',
+          );
         }
       }
       // coverage:ignore-end

@@ -10,8 +10,10 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/workout_plan.dart';
+import 'package:workout_app/services/backup_service.dart';
 import 'package:workout_app/services/firebase_backend.dart';
 import 'package:workout_app/services/github_device_auth.dart';
+import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_settings.dart';
 import 'package:workout_app/ui/theme.dart';
@@ -29,6 +31,9 @@ class SettingsScreen extends StatefulWidget {
     this.accountLoader,
     this.accountSaver,
     this.accountClearer,
+    this.storageChecker,
+    this.storageRequester,
+    this.progressionPuller,
   });
 
   /// Injectable HTTP client; tests pass a `MockClient` so the device-flow
@@ -48,6 +53,17 @@ class SettingsScreen extends StatefulWidget {
 
   /// Forgets the account and any cached session. See [accountLoader].
   final Future<void> Function()? accountClearer;
+
+  /// Reads whether storage permission is held. Injected for the same reason as
+  /// [accountLoader]: `permission_handler` is a platform channel, and calling
+  /// it unguarded in `initState` made every settings-screen test throw.
+  final Future<bool> Function()? storageChecker;
+
+  /// Opens the system grant page. See [storageChecker].
+  final Future<bool> Function()? storageRequester;
+
+  /// Pulls progression after a successful connect. See [storageChecker].
+  final Future<ProgressionSyncResult> Function()? progressionPuller;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -71,6 +87,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _firebaseConnected = false;
+  bool _storageGranted = false;
   bool _firebaseBusy = false;
 
   // Persistent (not a transient SnackBar) so the result of Connect GitHub /
@@ -91,6 +108,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     unawaited(_load());
     unawaited(_loadFirebaseAccount());
+    unawaited(_loadStorageGranted());
+  }
+
+  Future<void> _loadStorageGranted() async {
+    final granted =
+        await (widget.storageChecker ??
+            BackupService.instance.hasStoragePermission)();
+    if (!mounted) return;
+    setState(() => _storageGranted = granted);
+  }
+
+  /// Opens the system page for MANAGE_EXTERNAL_STORAGE.
+  ///
+  /// The ONLY caller of [BackupService.requestStoragePermission]: startup used
+  /// to call it and dumped the user in system Settings on every launch, for a
+  /// permission that is now genuinely optional.
+  Future<void> _grantStorage() async {
+    final granted =
+        await (widget.storageRequester ??
+            BackupService.instance.requestStoragePermission)();
+    if (!mounted) return;
+    setState(() => _storageGranted = granted);
   }
 
   /// Reflects a previously-stored account, so a returning user sees the real
@@ -137,11 +176,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
     _passwordController.clear();
+
+    // Pull immediately. Startup already ran its pull and skipped, because at
+    // that point there was no account — so without this the device stays on
+    // factory defaults holding real remote progression, and its first finished
+    // workout would push those defaults over the top. Connecting late is the
+    // normal path after a reinstall (the uninstall wipes the keystore), so
+    // this is the common case, not an edge one.
+    final restored = await (widget.progressionPuller ??
+        ProgressionSyncService().pullProgression)();
+    if (!mounted) return;
+
     setState(() {
       _firebaseBusy = false;
       _firebaseConnected = true;
     });
-    _setSyncStatus('Connected to Firebase.', _SyncStatusKind.success);
+    _setSyncStatus(
+      restored.changed
+          ? 'Connected. Restored ${restored.count} exercise(s) from Firebase.'
+          : 'Connected to Firebase.',
+      _SyncStatusKind.success,
+    );
+    if (restored.changed) await _load();
   }
 
   Future<void> _disconnectFirebase() async {
@@ -573,6 +629,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 20),
+                const _SectionHeader('OFFLINE BACKUP'),
+                const SizedBox(height: 4),
+                Text(
+                  _storageGranted
+                      ? 'Granted. Progression is also written to '
+                            '$kBackupPath, so it survives a reinstall even '
+                            'with no network.'
+                      : 'Optional. Progression is restored from Firebase on '
+                            'a fresh install, so this is a second, offline '
+                            'copy — not a requirement. Granting it also keeps '
+                            'a readable snapshot at $kBackupPath.',
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: AppTextSize.caption,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (_storageGranted)
+                  const Row(
+                    children: [
+                      Icon(Icons.check_circle, size: 20),
+                      SizedBox(width: 8),
+                      Expanded(child: Text('Storage permission granted')),
+                    ],
+                  )
+                else
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: ElevatedButton.icon(
+                      onPressed: _grantStorage,
+                      icon: const Icon(Icons.sd_storage),
+                      label: const Text('Grant storage permission'),
+                    ),
+                  ),
               ],
             ),
     );

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show debugPrint;
 
 import 'package:http/http.dart' as http;
 
@@ -130,11 +131,15 @@ class GitHubDeviceAuth {
           },
         );
         json = jsonDecode(res.body) as Map<String, dynamic>;
-      } on Exception {
+      } on Exception catch (error) {
         // A dropped connection or malformed response is transient noise on a
         // long-lived poll loop (e.g. a flaky network) -- retry on the next
         // interval rather than aborting the whole ~15-minute authorization
         // window over one blip. The deadline above still bounds this.
+        debugPrint(
+          'WorkoutApp: device-flow poll blipped ($error) — retrying on the '
+          'next interval until the authorization window closes.',
+        );
         continue;
       }
 

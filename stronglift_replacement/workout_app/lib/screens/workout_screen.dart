@@ -11,6 +11,7 @@ import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/exercise_result.dart';
 import 'package:workout_app/models/set_result.dart';
 import 'package:workout_app/models/workout_session.dart';
+import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_service.dart';
 import 'package:workout_app/services/workout_sync_service.dart';
@@ -145,8 +146,35 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   // ── Persistence ────────────────────────────────────────────────────────────
 
-  Future<void> _saveActiveSession() async {
-    await StorageService.instance.saveActiveSession({
+  /// The most recent remote active-session write, so the clear-on-finish can
+  /// be ordered after it instead of racing it.
+  Future<void> _lastActiveSessionPush = Future.value();
+
+  /// Persists the active session locally, and to Firebase when [toFirebase].
+  ///
+  /// [toFirebase] is false on the per-tap paths (rep decrements, break
+  /// bookkeeping) and true only on set/warmup completion. `saveActiveSession`
+  /// runs on every tap, and a Firebase write per tap is exactly the traffic the
+  /// sync revision cache exists to avoid — so the remote copy is debounced to
+  /// the events that actually change which set the user is standing on.
+  Future<void> _saveActiveSession({bool toFirebase = false}) async {
+    final data = _activeSessionData();
+    await StorageService.instance.saveActiveSession(data);
+    if (!toFirebase) return;
+    _lastActiveSessionPush = ProgressionSyncService()
+        .pushActiveSession(data)
+        .then((result) {
+          if (!result.changed) {
+            debugPrint(
+              'WorkoutScreen: active session not shared — ${result.reason}',
+            );
+          }
+        });
+    await _lastActiveSessionPush;
+  }
+
+  Map<String, dynamic> _activeSessionData() {
+    return {
       'workoutType': widget.workoutType,
       'startTimeMs': _startTime.millisecondsSinceEpoch,
       'tapped': _tapped,
@@ -161,7 +189,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 .add(Duration(seconds: _breakDurationSecs))
                 .millisecondsSinceEpoch
           : 0,
-    });
+    };
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -216,7 +244,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       }
     }
 
-    unawaited(_saveActiveSession());
+    // Only a newly-completed set moves the workout forward; a rep decrement
+    // re-enters here and must not cost a remote write.
+    unawaited(_saveActiveSession(toFirebase: wasNotTapped));
   }
 
   void _tapWarmup(int exIdx) {
@@ -225,7 +255,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     if (!_inBreak) {
       _startBreak(_warmupBreakSecs, 'Warmup rest (3 min)', exIdx, -1);
     }
-    unawaited(_saveActiveSession());
+    unawaited(_saveActiveSession(toFirebase: true));
   }
 
   void _resetCircle(int exIdx, int setIdx) {
@@ -300,7 +330,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Future<void> _onBreakFinished() async {
-    await _audio.play(AssetSource('sounds/break_end.mp3')).catchError((_) {});
+    await _audio
+        .play(AssetSource('sounds/break_end.mp3'))
+        .catchError((Object error) {
+          // Never fatal: a missing audio route must not interrupt the workout.
+          // But it is the break-end cue, so a silent failure looks like the
+          // timer itself is broken.
+          debugPrint('WorkoutApp: break-end sound failed to play ($error).');
+        });
     if (await Vibration.hasVibrator()) {
       // Android/iOS-only: hasVibrator() returns false on the Linux test host
       // (no Platform.isAndroid/isIOS), so this body never runs there.
@@ -463,6 +500,29 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
     await storage.setLastWorkoutType(widget.workoutType);
     await storage.clearActiveSession();
+
+    // applyProgression just moved weights/reps/streaks, so this is the moment
+    // the remote copy goes stale. Pushed here (not on every set) because a
+    // finished workout is the only thing that changes progression.
+    unawaited(
+      ProgressionSyncService().pushProgression().then((result) {
+        if (!result.changed) {
+          log('Progression not synced: ${result.reason}', level: 1000);
+        }
+      }),
+    );
+    // The workout is over: retract the shared in-progress session so another
+    // device cannot resume a session that no longer exists.
+    //
+    // Chained onto the in-flight publish rather than fired alongside it: the
+    // last set's `_saveActiveSession(toFirebase: true)` is unawaited, so two
+    // concurrent PUTs to the same path can land out of order and strand a
+    // finished session that the next install would faithfully restore.
+    unawaited(
+      _lastActiveSessionPush.then(
+        (_) => ProgressionSyncService().pushActiveSession(null),
+      ),
+    );
 
     final syncResult = await _sync.writeWorkoutResult(session);
     // Not awaited: a slow or unreachable backend must not delay the summary

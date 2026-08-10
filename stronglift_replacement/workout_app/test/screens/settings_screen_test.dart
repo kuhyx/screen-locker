@@ -16,6 +16,7 @@ import 'package:workout_app/services/backup_service.dart';
 import 'package:workout_app/services/sync_settings.dart';
 import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/screens/settings_screen.dart';
+import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/ui/theme.dart';
 
@@ -67,6 +68,9 @@ void main() {
     Future<FirebaseAccount?> Function()? accountLoader,
     Future<void> Function(FirebaseAccount)? accountSaver,
     Future<void> Function()? accountClearer,
+    Future<bool> Function()? storageChecker,
+    Future<bool> Function()? storageRequester,
+    Future<ProgressionSyncResult> Function()? progressionPuller,
   }) => MaterialApp(
     theme: buildAppTheme(),
     home: SettingsScreen(
@@ -77,6 +81,17 @@ void main() {
       accountLoader: accountLoader ?? () async => null,
       accountSaver: accountSaver,
       accountClearer: accountClearer,
+      // Same reason: permission_handler is a platform channel too.
+      storageChecker: storageChecker ?? () async => false,
+      storageRequester: storageRequester,
+      // Default to a no-op pull: connecting triggers one, and the real service
+      // would open a database and hit the network from a widget test.
+      progressionPuller:
+          progressionPuller ??
+          () async => const ProgressionSyncResult(
+            changed: false,
+            reason: 'stubbed in tests',
+          ),
     ),
   );
 
@@ -314,6 +329,49 @@ void main() {
     expect(find.text('sync@example.com'), findsOneWidget);
   });
 
+  testWidgets('connecting pulls progression down immediately', (tester) async {
+    // Regression: connecting is the NORMAL path after a reinstall, because the
+    // uninstall wipes the keystore and startup's pull therefore found no
+    // account. Without pulling here the device sits on factory defaults while
+    // holding real remote progression, and its first finished workout pushes
+    // those defaults over the top.
+    var pulled = false;
+    await _pump(
+      tester,
+      _wrap(
+        firebaseFactory: () async => _stubFirebaseClient(),
+        progressionPuller: () async {
+          pulled = true;
+          return const ProgressionSyncResult(
+            changed: true,
+            count: 7,
+            reason: 'restored 7 exercise(s) from Firebase',
+          );
+        },
+      ),
+    );
+    await _scrollToGitHubSync(tester);
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Sync account email'),
+      'sync@example.com',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Sync account password'),
+      'pw',
+    );
+    await tester.ensureVisible(find.text('Connect Firebase'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Connect Firebase'));
+    await tester.pumpAndSettle();
+
+    expect(pulled, isTrue);
+    expect(
+      find.text('Connected. Restored 7 exercise(s) from Firebase.'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('a rejected account is cleared rather than left half-stored', (
     tester,
   ) async {
@@ -374,6 +432,54 @@ void main() {
     expect(find.text('Firebase disconnected.'), findsOneWidget);
   });
 
+  testWidgets('offline backup offers a grant button when not held', (
+    tester,
+  ) async {
+    var asked = false;
+    await _pump(
+      tester,
+      _wrap(
+        storageChecker: () async => false,
+        storageRequester: () async {
+          asked = true;
+          return true;
+        },
+      ),
+    );
+    await tester.scrollUntilVisible(
+      find.text('Grant storage permission'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    // Framed as optional: Firebase restores progression without it.
+    expect(
+      find.textContaining('Optional.', skipOffstage: false),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Grant storage permission'));
+    await tester.pumpAndSettle();
+
+    expect(asked, isTrue, reason: 'the grant page is opened on demand only');
+    expect(find.text('Storage permission granted'), findsOneWidget);
+    expect(find.text('Grant storage permission'), findsNothing);
+  });
+
+  testWidgets('offline backup reports an already-granted permission', (
+    tester,
+  ) async {
+    await _pump(tester, _wrap(storageChecker: () async => true));
+    await tester.scrollUntilVisible(
+      find.text('Storage permission granted'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('Storage permission granted'), findsOneWidget);
+    expect(find.text('Grant storage permission'), findsNothing);
+    expect(find.textContaining('Granted.', skipOffstage: false), findsOneWidget);
+  });
+
   testWidgets('leads with Firebase and hides GitHub behind Advanced', (
     tester,
   ) async {
@@ -381,8 +487,17 @@ void main() {
     await _scrollToGitHubSync(tester);
 
     // GitHub is the cutover mirror, not a peer choice.
-    expect(find.text('SYNC'), findsOneWidget);
-    expect(find.text('Connect Firebase'), findsOneWidget);
+    //
+    // `SYNC` is found with a scroll-independent finder: the OFFLINE BACKUP
+    // section added below `Advanced (GitHub mirror)` made the page taller, so
+    // scrolling that tile into view now pushes the SYNC header off the top.
+    // What this test asserts is the ORDER (Firebase leads, GitHub is hidden),
+    // not that both happen to fit on screen at once.
+    expect(find.text('SYNC', skipOffstage: false), findsOneWidget);
+    expect(
+      find.text('Connect Firebase', skipOffstage: false),
+      findsOneWidget,
+    );
     expect(find.text('Connect GitHub'), findsNothing);
 
     await openAdvanced(tester);

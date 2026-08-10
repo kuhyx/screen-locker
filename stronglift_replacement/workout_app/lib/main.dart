@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:workout_app/screens/home_screen.dart';
 import 'package:workout_app/services/backup_service.dart';
 import 'package:workout_app/services/http_server_service.dart';
+import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_device_id.dart';
 import 'package:workout_app/ui/theme.dart';
@@ -17,22 +18,50 @@ void main() async {
   // Before anything that stamps an Hlc or syncs: until this resolves, the
   // device id falls back to the pre-migration constant.
   await initSyncDeviceId();
-  // Storage permission MUST be settled before the DB is opened: opening it
-  // seeds factory defaults for any missing exercise, and restoring afterwards
-  // is a no-op once rows exist. Losing the race means a reinstall silently
-  // comes up at defaults with months of progression gone -- which is what
-  // happened on 2026-08-05.
-  final storageGranted = await BackupService.instance
-      .requestStoragePermission();
+  // Storage permission is settled before the DB is opened: opening it seeds
+  // factory defaults for any missing exercise, and restoring afterwards is a
+  // no-op once rows exist. Losing that race is what wiped months of
+  // progression on 2026-08-05.
+  //
+  // CHECKED, never requested. `request()` throws the user into a system
+  // Settings page on every launch where the permission is absent, and since
+  // Firebase now carries progression the `/sdcard` backup is a second copy
+  // rather than the only one. The grant prompt lives in Settings, where the
+  // user asks for it.
+  final storageGranted = await BackupService.instance.hasStoragePermission();
   if (!storageGranted) {
     debugPrint(
-      'WorkoutApp: storage permission DENIED — the backup at $kBackupPath can '
-      'neither be read nor written. Progression cannot be restored on this '
-      'launch and will not be protected against the next reinstall.',
+      'WorkoutApp: no storage permission — the backup at $kBackupPath can '
+      'neither be read nor written, so progression rides on Firebase alone. '
+      'Grant it in Settings to keep a second, offline copy.',
     );
   }
   await StorageService.init();
   await StorageService.instance.restoreFromBackupIfNeeded();
+  // The permission-free restore path, and the reason storage is now optional.
+  // `backup.json` is unreadable without the grant, so on a denied reinstall the
+  // line above is a no-op and this is the ONLY thing between the user and
+  // factory defaults. Safe to run unconditionally: it applies remote records
+  // only to a freshly-installed DB, so it restores a wiped install but never
+  // overwrites progression — or a deliberate reset — made on this phone.
+  //
+  // Bounded: this is N sequential network reads on the launch path, so a slow
+  // or half-open connection would otherwise hold the UI on a blank screen.
+  // Timing out is safe — it leaves `progression_synced_at` unset, so the next
+  // launch retries and, until it succeeds, pushProgression refuses to
+  // overwrite the remote copy.
+  final restored = await ProgressionSyncService()
+      .pullProgression()
+      .timeout(
+        const Duration(seconds: 20),
+        onTimeout: () => const ProgressionSyncResult(
+          changed: false,
+          reason:
+              'progression pull timed out after 20s — starting on local state; '
+              'the next launch will retry',
+        ),
+      );
+  debugPrint('WorkoutApp: ${restored.reason}');
   await HttpServerService.instance.start();
   runApp(const WorkoutApp());
 }

@@ -2,6 +2,7 @@
 library;
 
 import 'dart:io';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:path_provider/path_provider.dart';
 import 'package:workout_app/models/workout_session.dart';
 import 'package:workout_app/services/http_server_service.dart';
@@ -25,8 +26,12 @@ class SyncService {
       final file = File(kSyncFilePath);
       await file.writeAsString(json);
       return const SyncResult(success: true, path: kSyncFilePath);
-    } on Exception {
+    } on Exception catch (error) {
       // Fallback: app-specific external directory (still ADB accessible).
+      debugPrint(
+        'WorkoutApp: could not write $kSyncFilePath ($error) — trying the '
+        'app-specific external directory next.',
+      );
     }
 
     // External storage is Android-only; getExternalStorageDirectory() throws
@@ -42,8 +47,12 @@ class SyncService {
           await file.writeAsString(json);
           return SyncResult(success: true, path: file.path);
         }
-      } on Exception {
+      } on Exception catch (error) {
         // Fallback failed.
+        debugPrint(
+          'WorkoutApp: the external-storage fallback failed too ($error) — '
+          'this workout will NOT be readable over ADB/HTTP.',
+        );
       }
     }
     // coverage:ignore-end

@@ -12,6 +12,8 @@
 /// half. On Android there is no such file.
 library;
 
+import 'dart:developer';
+
 import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -50,9 +52,28 @@ Future<FirebaseAccount?> loadAccount() async {
     return FirebaseAccount.tryParse(
       await _secure.read(key: kFirebaseAccountKey),
     );
-  } on Exception {
+  } on Object catch (error) {
     // No secret service available: behave as "not configured" rather than
-    // crashing the settings screen.
+    // crashing the caller. Deliberately catches Object, not Exception: with no
+    // platform-channel binding (the `flutter test` host) this throws a
+    // FlutterError -- an Error, not an Exception -- which slipped straight
+    // through the old guard and failed any test whose code path reached the
+    // keystore.
+    //
+    // "Not configured" is the honest answer in both cases, and it is never
+    // silent: callers log their own "no Firebase account" reason, and this
+    // says which failure produced it.
+    // `log`, not `debugPrint`: debugPrint is stripped in release builds, and a
+    // keystore that has stopped answering means every sync path on this device
+    // silently reports "not configured" — the exact invisible failure the
+    // repo's CLAUDE.md forbids.
+    log(
+      'WorkoutApp: cannot read the Firebase account from the keystore '
+      '($error) — treating this device as NOT connected to sync, so '
+      'progression and workouts will not reach any other device.',
+      level: 1000,
+      error: error,
+    );
     return null;
   }
 }

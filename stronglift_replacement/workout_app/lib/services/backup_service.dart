@@ -15,6 +15,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
+import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:permission_handler/permission_handler.dart';
 
 /// Default directory backups live in on external storage.
@@ -69,12 +70,36 @@ class BackupService {
   // Thin wrappers over the permission_handler platform channel — Android
   // runtime permissions that can't be meaningfully exercised on the test host.
 
-  /// Returns true if the app has MANAGE_EXTERNAL_STORAGE.
+  /// Whether MANAGE_EXTERNAL_STORAGE is already held.
+  ///
+  /// A pure query: unlike [requestStoragePermission] this never navigates the
+  /// user anywhere, so startup can check it and move on.
+  ///
+  /// Answers "not granted" instead of throwing when there is no platform
+  /// channel to ask — the state on the `flutter test` host, where a
+  /// MissingPluginException from a widget's `initState` fails the test rather
+  /// than surfacing anything useful. "No permission" is also the truthful
+  /// answer there: the test host has no `/sdcard` to write to.
   Future<bool> hasStoragePermission() async {
-    return Permission.manageExternalStorage.isGranted;
+    try {
+      return await Permission.manageExternalStorage.isGranted;
+    } on MissingPluginException catch (error) {
+      debugPrint(
+        'WorkoutApp: no permission_handler platform channel ($error) — '
+        'treating storage as not granted. Expected on the test host.',
+      );
+      return false;
+    }
   }
 
   /// Requests MANAGE_EXTERNAL_STORAGE; opens the system settings page.
+  ///
+  /// Only ever called from an explicit user action in Settings. Startup must
+  /// NOT call this: `Permission.manageExternalStorage.request()` throws the
+  /// user into a system Settings page whenever the permission is absent, and
+  /// since Firebase carries progression the `/sdcard` backup is a convenience,
+  /// not a requirement. Prompting for it on every launch made an optional
+  /// permission feel mandatory.
   ///
   /// Returns true once granted.
   Future<bool> requestStoragePermission() async {
@@ -161,8 +186,12 @@ class BackupService {
         dir.createSync(recursive: true);
       }
       await f.writeAsString(token);
-    } on Exception {
+    } on Exception catch (error) {
       // Backup is best-effort; never throw.
+      debugPrint(
+        'WorkoutApp: could not mirror the sync token to $_syncTokenPath '
+        '($error) — the token will NOT survive the next uninstall.',
+      );
     }
   }
 
@@ -183,8 +212,13 @@ class BackupService {
         dir.createSync(recursive: true);
       }
       await f.writeAsString(jsonEncode(data));
-    } on Exception {
+    } on Exception catch (error) {
       // Backup is best-effort; never throw mid-workout.
+      debugPrint(
+        'WorkoutApp: could not mirror the active session to '
+        '$_activeSessionPath ($error) — an app-data wipe mid-workout would '
+        'now lose the set you are standing on.',
+      );
     }
   }
 
@@ -195,7 +229,12 @@ class BackupService {
       if (!f.existsSync()) return null;
       final decoded = jsonDecode(await f.readAsString());
       return decoded is Map<String, dynamic> ? decoded : null;
-    } on Exception {
+    } on Exception catch (error) {
+      debugPrint(
+        'WorkoutApp: mirrored active session at $_activeSessionPath exists '
+        'but is unreadable ($error) — an in-progress workout cannot be '
+        'resumed from it.',
+      );
       return null;
     }
   }
@@ -210,7 +249,11 @@ class BackupService {
       // coverage:ignore-start
       // Defensive: a present, readable token file is the norm; a portable way
       // to make readAsString throw here (unreadable file) isn't available.
-    } on Exception {
+    } on Exception catch (error) {
+      debugPrint(
+        'WorkoutApp: mirrored sync token at $_syncTokenPath exists but is '
+        'unreadable ($error) — sync cannot be recovered from the backup.',
+      );
       return null;
     }
     // coverage:ignore-end
