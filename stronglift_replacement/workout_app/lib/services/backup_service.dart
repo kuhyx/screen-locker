@@ -14,7 +14,7 @@ library;
 
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:permission_handler/permission_handler.dart';
 
 /// Default directory backups live in on external storage.
@@ -87,9 +87,13 @@ class BackupService {
 
   /// Writes [data] to the backup path as pretty-printed JSON.
   ///
-  /// Silently swallows errors (e.g. permission not granted, no external
-  /// storage) so the caller never crashes.
-  Future<void> export(Map<String, dynamic> data) async {
+  /// Never throws — a failed backup must not crash a workout in progress — but
+  /// it is NOT silent: a backup that quietly stops working is invisible until
+  /// the reinstall that needed it, which is exactly how the 2026-08-05 wipe
+  /// destroyed months of progression.
+  ///
+  /// Returns true if the backup was written.
+  Future<bool> export(Map<String, dynamic> data) async {
     try {
       final dir = Directory(_baseDir);
       if (!dir.existsSync()) {
@@ -98,8 +102,14 @@ class BackupService {
       await File(
         _backupPath,
       ).writeAsString(const JsonEncoder.withIndent('  ').convert(data));
-    } on Exception {
-      // Backup is best-effort; never throw.
+      return true;
+    } on Exception catch (e) {
+      debugPrint(
+        'WorkoutApp: BACKUP FAILED to $_backupPath: $e — progression state is '
+        'now unprotected against an uninstall/reinstall. Check that storage '
+        'permission is granted.',
+      );
+      return false;
     }
   }
 
@@ -107,13 +117,29 @@ class BackupService {
 
   /// Returns the parsed backup JSON, or null if the file does not exist or
   /// is unreadable.
+  ///
+  /// Distinguishes the two cases in the log: "no backup exists" is normal on a
+  /// genuinely first install, whereas "a backup exists but could not be read"
+  /// means a restore is about to fall through to defaults and silently lose
+  /// real data. The second must never pass unnoticed.
   Future<Map<String, dynamic>?> readBackup() async {
+    final f = File(_backupPath);
     try {
-      final f = File(_backupPath);
-      if (!f.existsSync()) return null;
+      if (!f.existsSync()) {
+        debugPrint(
+          'WorkoutApp: no backup at $_backupPath — nothing to restore. Normal '
+          'on a first install; on a REINSTALL it means the backup was lost.',
+        );
+        return null;
+      }
       final raw = await f.readAsString();
       return jsonDecode(raw) as Map<String, dynamic>;
-    } on Exception {
+    } on Exception catch (e) {
+      debugPrint(
+        'WorkoutApp: BACKUP UNREADABLE at $_backupPath: $e — a backup EXISTS '
+        'but cannot be parsed, so restore will fall through to defaults and '
+        'lose progression state. Do not let the app overwrite it.',
+      );
       return null;
     }
   }

@@ -342,3 +342,31 @@ class TestTryAutoUpgradeEarlyBirdRunnerUp:
             MagicMock(return_value=("not_verified", "no run")),
         )
         assert locker._try_auto_upgrade_early_bird() is False
+
+
+class TestSyncNow:
+    """Tests for sync_now, the public entry point behind ``--sync-only``."""
+
+    def test_runs_one_full_sync_pass(
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
+    ) -> None:
+        """The timer unit's entry point must actually push and ingest.
+
+        ``workout-sync.timer`` calls this headlessly; if it stopped delegating,
+        the timer would run and silently sync nothing.
+        """
+        locker = create_locker(mock_tk, tmp_path)
+        with (
+            patch(
+                "screen_locker.screen_lock.pull_all_manual_records",
+                return_value=[("manual:x", {})],
+            ),
+            patch("screen_locker.screen_lock.push_pc_workouts") as push,
+            patch(
+                "screen_locker.screen_lock.ingest_manual_records",
+                return_value=["manual:x"],
+            ) as ingest,
+        ):
+            locker.sync_now()
+        push.assert_called_once()
+        ingest.assert_called_once()

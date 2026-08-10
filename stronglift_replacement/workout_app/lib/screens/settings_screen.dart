@@ -59,9 +59,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final Map<String, int> _successThresholds = {};
   final Map<String, int> _failThresholds = {};
   final Map<String, double> _weights = {};
+  final Map<String, int> _reps = {};
 
   // Debounce weight saves to avoid resetting streaks on every tap.
   final Map<String, Timer> _weightTimers = {};
+
+  // Same debounce for reps, for the same reason.
+  final Map<String, Timer> _repsTimers = {};
 
   final _tokenController = TextEditingController();
   final _emailController = TextEditingController();
@@ -154,6 +158,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     for (final t in _weightTimers.values) {
       t.cancel();
     }
+    for (final t in _repsTimers.values) {
+      t.cancel();
+    }
     _tokenController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -169,6 +176,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _successThresholds[s.name] = s.successThreshold;
           _failThresholds[s.name] = s.failThreshold;
           _weights[s.name] = s.weight;
+          _reps[s.name] = s.reps;
         }
         _tokenController.text = syncSettings.token;
         _loading = false;
@@ -299,6 +307,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
+  void _onRepsChanged(String name, int value) {
+    setState(() => _reps[name] = value);
+    _repsTimers[name]?.cancel();
+    _repsTimers[name] = Timer(const Duration(milliseconds: 600), () {
+      unawaited(StorageService.instance.setExerciseReps(name, value));
+    });
+  }
+
   Future<void> _onThresholdChanged(String name, int success, int fail) async {
     setState(() {
       _successThresholds[name] = success;
@@ -401,6 +417,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     name: name,
                     weight: w,
                     onChanged: (v) => _onWeightChanged(name, v),
+                  );
+                }),
+                const SizedBox(height: 20),
+                const _SectionHeader('TARGET REPS'),
+                const SizedBox(height: 4),
+                Text(
+                  'Override target reps per set. Resets streak counters. '
+                  'Progression only ever raises reps, so this is the only way '
+                  'to lower one.',
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: AppTextSize.caption,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ..._orderedNames.map((name) {
+                  final r = _reps[name];
+                  if (r == null) return const SizedBox.shrink();
+                  return _RepsRow(
+                    name: name,
+                    reps: r,
+                    onChanged: (v) => _onRepsChanged(name, v),
                   );
                 }),
                 const SizedBox(height: 20),
@@ -554,6 +592,59 @@ class _SectionHeader extends StatelessWidget {
         color: Theme.of(context).colorScheme.onSurfaceVariant,
         fontSize: AppTextSize.caption,
         letterSpacing: 1.4,
+      ),
+    );
+  }
+}
+
+class _RepsRow extends StatelessWidget {
+  const _RepsRow({
+    required this.name,
+    required this.reps,
+    required this.onChanged,
+  });
+
+  final String name;
+  final int reps;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              name,
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: AppTextSize.label,
+              ),
+            ),
+          ),
+          _StepperButton(
+            icon: Icons.remove,
+            onTap: () => onChanged((reps - 1).clamp(1, 999)),
+          ),
+          SizedBox(
+            width: 72,
+            child: Text(
+              '$reps reps',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontSize: AppTextSize.label,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          _StepperButton(
+            icon: Icons.add,
+            onTap: () => onChanged((reps + 1).clamp(1, 999)),
+          ),
+        ],
       ),
     );
   }

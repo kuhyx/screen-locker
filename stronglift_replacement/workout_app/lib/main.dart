@@ -17,7 +17,20 @@ void main() async {
   // Before anything that stamps an Hlc or syncs: until this resolves, the
   // device id falls back to the pre-migration constant.
   await initSyncDeviceId();
-  await BackupService.instance.requestStoragePermission();
+  // Storage permission MUST be settled before the DB is opened: opening it
+  // seeds factory defaults for any missing exercise, and restoring afterwards
+  // is a no-op once rows exist. Losing the race means a reinstall silently
+  // comes up at defaults with months of progression gone -- which is what
+  // happened on 2026-08-05.
+  final storageGranted = await BackupService.instance
+      .requestStoragePermission();
+  if (!storageGranted) {
+    debugPrint(
+      'WorkoutApp: storage permission DENIED — the backup at $kBackupPath can '
+      'neither be read nor written. Progression cannot be restored on this '
+      'launch and will not be protected against the next reinstall.',
+    );
+  }
   await StorageService.init();
   await StorageService.instance.restoreFromBackupIfNeeded();
   await HttpServerService.instance.start();

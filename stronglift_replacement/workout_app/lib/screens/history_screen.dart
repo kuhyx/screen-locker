@@ -57,6 +57,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<void> _load() async {
+    // Put any of this device's own sessions that only exist remotely back into
+    // the local table FIRST, so they show up in this same load. A reinstall
+    // wipes local history while Firebase/GitHub keep it; without this the app
+    // silently shows less history than actually happened.
+    final remote = await _readSyncedPayloads();
+    await StorageService.instance.restoreSyncedSessions(remote);
     final rows = await StorageService.instance.getWorkoutHistory(limit: 200);
     final names = <String>[];
     final seen = <String>{};
@@ -76,7 +82,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       state = await StorageService.instance.getExerciseState(_selected);
       // coverage:ignore-end
     }
-    final synced = await _loadSyncedWorkouts();
+    final synced = _syncedOnly(remote);
     if (mounted) {
       setState(() {
         _rows = rows;
@@ -88,20 +94,27 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
+  /// Every payload the sync backends hold, across all devices.
+  ///
+  /// Read once per load and used twice: to restore this device's own missing
+  /// sessions into local history, and to list the PC-only records below them.
+  Future<List<Map<String, dynamic>>> _readSyncedPayloads() =>
+      WorkoutSyncService(
+        httpClient: widget.httpClient,
+      ).readMergedWorkoutPayloads();
+
   /// Workouts the PC published that this phone has no local record of.
   ///
   /// The PC pushes its whole `workout_log.json` (RunnerUp runs and manual
   /// entries included), so pulling them here is what makes both devices show
   /// the SAME history. Sorted newest-first to match the local session list.
-  Future<List<Map<String, dynamic>>> _loadSyncedWorkouts() async {
-    final payloads = await WorkoutSyncService(
-      httpClient: widget.httpClient,
-    ).readMergedWorkoutPayloads();
-    final synced =
-        payloads.where((p) => _kSyncedOnlyKinds.contains(p['kind'])).toList()
-          ..sort((a, b) => '${b['date']}'.compareTo('${a['date']}'));
-    return synced;
-  }
+  /// StrongLifts sessions are deliberately excluded: they are restored into
+  /// local history instead, so listing them here too would double them up.
+  List<Map<String, dynamic>> _syncedOnly(
+    List<Map<String, dynamic>> payloads,
+  ) =>
+      payloads.where((p) => _kSyncedOnlyKinds.contains(p['kind'])).toList()
+        ..sort((a, b) => '${b['date']}'.compareTo('${a['date']}'));
 
   Future<void> _pickExercise(String name) async {
     ExerciseState? state;

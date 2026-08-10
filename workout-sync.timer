@@ -1,0 +1,12 @@
+[Unit]
+Description=Periodically pull phone workouts into the screen-locker log
+
+[Timer]
+# Every 15 minutes, matching diet-guard-sync.timer and the phone app's
+# WorkManager floor, so both sides converge on roughly the same cadence.
+# Persistent catches a run missed while the machine was suspended.
+OnCalendar=*-*-* *:00/15:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

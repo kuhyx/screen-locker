@@ -227,6 +227,16 @@ class ScreenLocker(
         # shutdown-time-only reward (see _apply_weekly_shutdown_bonus).
         self._check_heat_skip_exit()
 
+    def sync_now(self) -> None:
+        """Run one sync pass: publish this PC's workouts, ingest everyone's.
+
+        The public entry point behind ``--sync-only``, which the
+        ``workout-sync.timer`` unit calls. Sync used to happen only inside the
+        locker's startup path, so a workout finished after login stayed
+        invisible until the next login.
+        """
+        self._ingest_synced_manual_workouts()
+
     def _ingest_synced_manual_workouts(self) -> None:
         """Sync manual workouts: publish this PC's, ingest everyone else's.
 
@@ -341,6 +351,24 @@ if __name__ == "__main__":
         _sl.log_file = Path(__file__).resolve().parent / "workout_log.json"
         _sl.workout_data = {}
         run_status(_sl)
+
+    if "--sync-only" in sys.argv:
+        # Headless sync for the timer unit: pull other devices' workouts and
+        # apply their credit, with no Tk and no lock screen. Sync used to run
+        # ONLY at process start, so a workout finished after login was not seen
+        # until the next login — the timer closes that window.
+        #
+        # Same __init__ bypass as --status: this path touches only log_file and
+        # workout_data, and constructing the real ScreenLocker would build a UI.
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(levelname)s %(name)s: %(message)s",
+        )
+        _sl = object.__new__(ScreenLocker)
+        _sl.log_file = Path(__file__).resolve().parent / "workout_log.json"
+        _sl.workout_data = {}
+        _sl.sync_now()
+        sys.exit(0)
 
     demo_mode = True
     verify_only = "--verify-workout" in sys.argv

@@ -4,9 +4,13 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE_FILE="$SCRIPT_DIR/workout-locker.service"
 EARLY_BIRD_TIMER_FILE="$SCRIPT_DIR/early-bird-workout-check.timer"
+SYNC_SERVICE_FILE="$SCRIPT_DIR/workout-sync.service"
+SYNC_TIMER_FILE="$SCRIPT_DIR/workout-sync.timer"
 USER_SERVICE_DIR="$HOME/.config/systemd/user"
 SERVICE_NAME="workout-locker.service"
 EARLY_BIRD_TIMER_NAME="early-bird-workout-check.timer"
+SYNC_SERVICE_NAME="workout-sync.service"
+SYNC_TIMER_NAME="workout-sync.timer"
 
 # Check if service is already installed
 if [ -f "$USER_SERVICE_DIR/$SERVICE_NAME" ]; then
@@ -44,6 +48,12 @@ cp "$SERVICE_FILE" "$USER_SERVICE_DIR/$SERVICE_NAME"
 # Copy early bird timer
 cp "$EARLY_BIRD_TIMER_FILE" "$USER_SERVICE_DIR/$EARLY_BIRD_TIMER_NAME"
 
+# Copy the periodic workout-sync units. Without these, syncing happens only
+# once per locker start, so a workout finished after login is not seen until
+# the next login.
+cp "$SYNC_SERVICE_FILE" "$USER_SERVICE_DIR/$SYNC_SERVICE_NAME"
+cp "$SYNC_TIMER_FILE" "$USER_SERVICE_DIR/$SYNC_TIMER_NAME"
+
 # Update paths in the service file to use absolute paths
 REPO_ROOT="$SCRIPT_DIR"
 sed -i "s|WorkingDirectory=.*|WorkingDirectory=$REPO_ROOT|" "$USER_SERVICE_DIR/$SERVICE_NAME"
@@ -58,6 +68,9 @@ systemctl --user enable "$SERVICE_NAME"
 
 # Enable the early bird re-check timer
 systemctl --user enable --now "$EARLY_BIRD_TIMER_NAME"
+
+# Enable the periodic workout sync
+systemctl --user enable --now "$SYNC_TIMER_NAME"
 
 echo "✓ Workout locker service installed"
 echo "✓ Early bird re-check timer installed (fires daily at 08:30)"
@@ -80,6 +93,11 @@ if systemctl --user is-enabled "$EARLY_BIRD_TIMER_NAME" &>/dev/null; then
 	echo "✓ early bird timer: INSTALLED and enabled"
 else
 	echo "✗ early bird timer: NOT enabled"
+fi
+if systemctl --user is-enabled "$SYNC_TIMER_NAME" &>/dev/null; then
+	echo "✓ workout sync timer: INSTALLED and enabled (every 15 min)"
+else
+	echo "✗ workout sync timer: NOT enabled"
 fi
 
 I3_CONFIG="$HOME/.config/i3/config"

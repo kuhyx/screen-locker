@@ -11,8 +11,13 @@ Retrying at the application layer rather than ordering the unit after
 ordering does not apply, and the user services involved cannot depend on a
 system target anyway.
 
-Any :class:`GitHubSyncError` is retried, deliberately including
-:class:`RepoNotFoundError`. Classifying "transient" vs "permanent" would mean
+Any :class:`RemoteSyncError` is retried, deliberately including
+:class:`RepoNotFoundError`. Catching the common parent rather than
+:class:`GitHubSyncError` matters since the Firebase cutover:
+:class:`FirebaseSyncError` is a *sibling* of :class:`GitHubSyncError`, not a
+subclass, so catching the latter let every Firebase failure escape uncaught and
+take the whole locker down (``status=1/FAILURE``) instead of degrading to "no
+synced workout". Classifying "transient" vs "permanent" would mean
 depending on which exception ``crdt_sync`` chains where, which is internal to
 that library and has changed before; a few wasted seconds on a genuinely
 misconfigured token is a much cheaper mistake than skipping a real retry.
@@ -24,7 +29,7 @@ import logging
 from time import sleep
 from typing import TYPE_CHECKING, TypeVar
 
-from crdt_sync import GitHubSyncError
+from crdt_sync import RemoteSyncError
 
 from screen_locker._constants import (
     SYNC_RETRY_ATTEMPTS,
@@ -60,7 +65,7 @@ def with_sync_retry(
         Whatever *operation* returns.
 
     Raises:
-        GitHubSyncError: If every attempt failed. The caller keeps its own
+        RemoteSyncError: If every attempt failed. The caller keeps its own
             handling — this only buys time, it never hides the outcome.
     """
     last_attempt = max(attempts, 1)
@@ -69,7 +74,7 @@ def with_sync_retry(
     for attempt in range(1, last_attempt):
         try:
             return operation()
-        except GitHubSyncError as exc:
+        except RemoteSyncError as exc:
             wait = delay_seconds * (2 ** (attempt - 1))
             _logger.warning(
                 "Could not %s (attempt %d/%d): %s — retrying in %.0fs; "
@@ -85,7 +90,7 @@ def with_sync_retry(
 
     try:
         return operation()
-    except GitHubSyncError as exc:
+    except RemoteSyncError as exc:
         _logger.warning(
             "Could not %s after %d attempt(s): %s — giving up",
             description,

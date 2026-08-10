@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -153,6 +154,25 @@ void main() {
       final state = await _svc.getExerciseState(name);
       expect(state!.successThreshold, 5);
       expect(state.failThreshold, 3);
+    });
+  });
+
+  group('setExerciseReps', () {
+    test('updates reps and resets streaks', () async {
+      // Progression can only ever RAISE reps, so this is the only way to
+      // correct a rep target a defaults re-seed set wrong.
+      const name = 'Situp';
+      await _svc.setExerciseReps(name, 31);
+      final state = await _svc.getExerciseState(name);
+      expect(state!.reps, 31);
+      expect(state.successStreak, 0);
+      expect(state.failStreak, 0);
+    });
+
+    test('can lower a rep target', () async {
+      const name = 'Situp';
+      await _svc.setExerciseReps(name, 25);
+      expect((await _svc.getExerciseState(name))!.reps, 25);
     });
   });
 
@@ -437,6 +457,169 @@ void main() {
   });
 
   // ── Restore from backup ─────────────────────────────────────────────────────
+
+  // Regression guard for the 2026-08-05 data loss: a reinstall re-seeded the
+  // DB to factory defaults, and the first write afterwards exported those
+  // defaults over /sdcard/WorkoutTracker/backup.json -- destroying the only
+  // off-device copy of months of progression. The seed is survivable; the
+  // clobber is what made it permanent.
+  group('restoreSyncedSessions', () {
+    Map<String, dynamic> session(String date, String start) => {
+      'workout_type': 'B',
+      'date': date,
+      'start_time': start,
+      'duration_seconds': 3600,
+      'succeeded': true,
+      'exercises': [
+        {'name': 'Situp', 'targetReps': 31, 'targetWeight': 10.0, 'sets': []},
+      ],
+    };
+
+    test('restores sessions the local DB is missing', () async {
+      final restored = await _svc.restoreSyncedSessions([
+        session('2026-07-17', '2026-07-17T09:48:34.338'),
+        session('2026-07-27', '2026-07-27T09:14:22.547'),
+      ]);
+      expect(restored, 2);
+      final hist = await _svc.getWorkoutHistory();
+      expect(hist.length, 2);
+      expect(hist.first['date'], '2026-07-27');
+    });
+
+    test('is idempotent — re-syncing never duplicates a session', () async {
+      final payloads = [session('2026-07-17', '2026-07-17T09:48:34.338')];
+      expect(await _svc.restoreSyncedSessions(payloads), 1);
+      expect(await _svc.restoreSyncedSessions(payloads), 0);
+      expect((await _svc.getWorkoutHistory()).length, 1);
+    });
+
+    test('does not duplicate a session the device already recorded', () async {
+      final payload = session('2026-08-10', '2026-08-10T10:19:44.075703');
+      await _svc.saveSession(
+        date: '2026-08-10',
+        workoutType: 'B',
+        durationSeconds: 10313,
+        succeeded: true,
+        json: jsonEncode(payload),
+      );
+      expect(await _svc.restoreSyncedSessions([payload]), 0);
+      expect((await _svc.getWorkoutHistory()).length, 1);
+    });
+
+    test('ignores PC-side records that are not sessions', () async {
+      // runnerup/manual entries have no `exercises` and belong in the synced
+      // list, not local history.
+      final restored = await _svc.restoreSyncedSessions([
+        {'kind': 'runnerup_verified', 'date': '2026-07-12', 'type': 'x'},
+        {'kind': 'manual_workout', 'date': '2026-07-13', 'type': 'y'},
+      ]);
+      expect(restored, 0);
+      expect(await _svc.getWorkoutHistory(), isEmpty);
+    });
+
+    test('empty payload list is a no-op', () async {
+      expect(await _svc.restoreSyncedSessions([]), 0);
+    });
+
+    test('skips a payload with no date or start_time', () async {
+      final restored = await _svc.restoreSyncedSessions([
+        {'exercises': <dynamic>[], 'duration_seconds': 60},
+      ]);
+      expect(restored, 0);
+    });
+
+    test('a corrupt local row does not block restoring the rest', () async {
+      await _svc.saveSession(
+        date: '2026-07-01',
+        workoutType: 'A',
+        durationSeconds: 60,
+        succeeded: true,
+        json: 'not valid json',
+      );
+      final restored = await _svc.restoreSyncedSessions([
+        session('2026-07-17', '2026-07-17T09:48:34.338'),
+      ]);
+      expect(restored, 1);
+    });
+  });
+
+  group('_backupNow clobber guard', () {
+    late Directory tmp;
+
+    setUp(() {
+      tmp = Directory.systemTemp.createTempSync('mw_clobber');
+      BackupService.baseDirForTesting = tmp.path;
+    });
+
+    tearDown(() {
+      BackupService.baseDirForTesting = kBackupDir;
+      tmp.deleteSync(recursive: true);
+    });
+
+    test('refuses to overwrite a real backup from a history-less DB', () async {
+      // A good backup: real progression and a real session.
+      await BackupService.instance.export({
+        'exercise_state': [
+          {
+            'name': 'Situp',
+            'weight': 10.0,
+            'reps': 31,
+            'success_streak': 2,
+            'fail_streak': 0,
+            'max_weight': 10.0,
+            'success_threshold': 5,
+            'fail_threshold': 2,
+          },
+        ],
+        'workout_history': [
+          {
+            'date': '2026-07-17',
+            'workout_type': 'B',
+            'duration_seconds': 6465,
+            'succeeded': 1,
+            'json': '{}',
+          },
+        ],
+        'settings': [
+          {'key': 'last_workout_type', 'value': 'B'},
+        ],
+      });
+
+      // The DB here is freshly seeded: defaults, and no history at all.
+      // Any write triggers _backupNow(), which used to export over the good
+      // backup. setExerciseWeight is one such write.
+      await _svc.setExerciseWeight('Situp', 10.0);
+      // Let the unawaited _backupNow() settle.
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      final backup = await BackupService.instance.readBackup();
+      final history = backup!['workout_history'] as List;
+      final exercises = backup['exercise_state'] as List;
+
+      // The good backup must still be intact.
+      expect(history.length, 1, reason: 'real session was clobbered');
+      expect((history.first as Map)['date'], '2026-07-17');
+      final situp = exercises.firstWhere(
+        (e) => (e as Map)['name'] == 'Situp',
+      ) as Map;
+      expect(situp['reps'], 31, reason: 'progression reps were clobbered');
+    });
+
+    test('still writes the backup once the DB has real history', () async {
+      await _svc.saveSession(
+        date: '2026-08-10',
+        workoutType: 'B',
+        durationSeconds: 10313,
+        succeeded: true,
+        json: '{}',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      final backup = await BackupService.instance.readBackup();
+      expect(backup, isNotNull, reason: 'a real DB must still back itself up');
+      expect((backup!['workout_history'] as List).length, 1);
+    });
+  });
 
   group('restoreFromBackupIfNeeded', () {
     late Directory tmp;

@@ -316,6 +316,22 @@ class StorageService {
     );
   }
 
+  /// Sets the target reps for [name], resetting streaks.
+  ///
+  /// Progression can only ever raise reps (by one, and only once an exercise
+  /// is at its max weight), so without this there is no way to lower a rep
+  /// target that a defaults re-seed set wrong -- the 2026-08-05 wipe dropped
+  /// Situp from 31 to the default 30 with no way back short of editing the DB.
+  Future<void> setExerciseReps(String name, int reps) async {
+    await _db.update(
+      'exercise_state',
+      {'reps': reps, 'success_streak': 0, 'fail_streak': 0},
+      where: 'name = ?',
+      whereArgs: [name],
+    );
+    unawaited(_backupNow());
+  }
+
   /// Sets the working weight for [name], resetting streaks.
   Future<void> setExerciseWeight(String name, double weight) async {
     await _db.update(
@@ -449,6 +465,76 @@ class StorageService {
   }
 
   /// Returns up to [limit] rows from workout history, newest first.
+  /// Inserts synced sessions this device has no local record of.
+  ///
+  /// These are the user's OWN completed workouts, already in Firebase/GitHub;
+  /// a reinstall wipes the local `workout_history` table while the remote copy
+  /// survives, so the app ends up showing far less history than actually
+  /// happened. This puts the real records back rather than inventing anything.
+  ///
+  /// Idempotent: a session is matched on (date, start_time) taken from the
+  /// payload, so repeated syncs never duplicate a row. Sessions the device
+  /// already has always win -- the local row is the one the progression
+  /// engine acted on.
+  ///
+  /// Returns the number of sessions restored.
+  Future<int> restoreSyncedSessions(
+    List<Map<String, dynamic>> payloads,
+  ) async {
+    if (payloads.isEmpty) return 0;
+    final existing = await _db.query('workout_history', columns: ['json']);
+    final seen = <String>{
+      for (final row in existing) _sessionKey(_decodeJson(row['json'])),
+    };
+
+    var restored = 0;
+    for (final payload in payloads) {
+      // Only real sessions: a payload with no exercises is a PC-side
+      // runnerup/manual record, which belongs in the synced list, not here.
+      if (payload['exercises'] is! List) continue;
+      final key = _sessionKey(payload);
+      if (key.isEmpty || seen.contains(key)) continue;
+      seen.add(key);
+      await _db.insert('workout_history', {
+        'date': payload['date'] as String? ?? '',
+        'workout_type': payload['workout_type'] as String? ?? '',
+        'duration_seconds': (payload['duration_seconds'] as num?)?.toInt() ?? 0,
+        'succeeded': (payload['succeeded'] as bool? ?? false) ? 1 : 0,
+        'json': jsonEncode(payload),
+      });
+      restored++;
+    }
+    if (restored > 0) {
+      debugPrint('WorkoutApp: restored $restored synced session(s) locally.');
+      unawaited(_backupNow());
+    }
+    return restored;
+  }
+
+  /// Identity of a session: its date plus start time, both from the payload.
+  ///
+  /// `start_time` alone would be enough, but pairing it with the date keeps
+  /// the key readable in logs and survives a payload missing either field.
+  static String _sessionKey(Map<String, dynamic>? payload) {
+    if (payload == null) return '';
+    final start = payload['start_time'] as String? ?? '';
+    final date = payload['date'] as String? ?? '';
+    return start.isEmpty && date.isEmpty ? '' : '$date|$start';
+  }
+
+  static Map<String, dynamic>? _decodeJson(Object? raw) {
+    if (raw is! String || raw.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } on FormatException {
+      // A corrupt local row must not block restoring the rest; it simply
+      // cannot be matched against, so it is treated as "not seen".
+      return null;
+    }
+  }
+
+  /// Returns up to [limit] past sessions, newest first.
   Future<List<Map<String, dynamic>>> getWorkoutHistory({
     int limit = 60,
   }) async {
@@ -491,10 +577,34 @@ class StorageService {
   // ── Backup / restore ───────────────────────────────────────────────────────
 
   /// Exports all persistent data to external storage as a JSON snapshot.
+  ///
+  /// Refuses to overwrite a richer existing backup with a freshly-seeded,
+  /// history-less DB. That combination is never a real state worth saving: it
+  /// only happens when a restore failed (permission denied, unreadable file)
+  /// and the DB is sitting at [workoutA]/[workoutB] defaults. The old code
+  /// exported anyway on the first write after such a seed, replacing the only
+  /// off-device copy of months of progression with default rows — the step
+  /// that turned the 2026-08-05 reinstall from recoverable into permanent.
   Future<void> _backupNow() async {
     final exerciseRows = await _db.query('exercise_state');
     final historyRows = await _db.query('workout_history');
     final settingsRows = await _db.query('settings');
+
+    if (historyRows.isEmpty) {
+      final existing = await BackupService.instance.readBackup();
+      final existingHistory =
+          (existing?['workout_history'] as List?) ?? const [];
+      if (existingHistory.isNotEmpty) {
+        debugPrint(
+          'WorkoutApp: REFUSING to overwrite the backup — this DB has no '
+          'workout history but the backup holds ${existingHistory.length} '
+          'session(s). A restore almost certainly failed; keeping the backup '
+          'so the data stays recoverable.',
+        );
+        return;
+      }
+    }
+
     await BackupService.instance.export({
       'exercise_state': exerciseRows,
       'workout_history': historyRows,
@@ -514,7 +624,16 @@ class StorageService {
     if (hasHistory > 0 || hasType != null) return; // DB has real data
 
     final backup = await BackupService.instance.readBackup();
-    if (backup == null) return;
+    if (backup == null) {
+      // readBackup() has already said which case this is. Say what it MEANS:
+      // the DB is sitting at seeded defaults and that is now the live state.
+      debugPrint(
+        'WorkoutApp: no backup restored — the database is at factory defaults. '
+        'If this is a reinstall, progression state (weights, reps, streaks) '
+        'has been lost and must be re-entered.',
+      );
+      return;
+    }
 
     await _db.transaction((txn) async {
       for (final row in (backup['exercise_state'] as List? ?? [])

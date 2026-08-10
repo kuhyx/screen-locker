@@ -1,0 +1,15 @@
+[Unit]
+Description=Pull phone workouts into the screen-locker log (crdt_sync)
+
+[Service]
+Type=oneshot
+# No WorkingDirectory/PYTHONPATH needed: screen_locker is pip-installed
+# (pip install --user --break-system-packages -e .), so /usr/bin/python3
+# finds it via user site-packages. Run as a module for the same reason the
+# fit check is (see dd233b2) -- it works where nothing is installed.
+#
+# --sync-only is headless: no DISPLAY, no Tk, no lock screen. It pulls other
+# devices' workouts and applies their credit, which the locker itself only
+# did once per process start -- so a workout finished after login was invisible
+# until the next login.
+ExecStart=/usr/bin/python3 -m screen_locker.screen_lock --sync-only

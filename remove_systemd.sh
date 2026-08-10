@@ -5,19 +5,23 @@ SERVICE_NAME="workout-locker.service"
 TIMER_NAME="workout-locker.timer"
 USER_SERVICE_DIR="$HOME/.config/systemd/user"
 
-# Stop the service and timer if running
-systemctl --user stop "$TIMER_NAME" 2>/dev/null
-systemctl --user stop "$SERVICE_NAME" 2>/dev/null
+# Every unit install_systemd.sh creates. Removal has to enumerate all of them,
+# or a "removed" locker keeps firing from a timer nobody remembers installing.
+UNITS=(
+	"$SERVICE_NAME"
+	"$TIMER_NAME"
+	"early-bird-workout-check.timer"
+	"workout-sync.timer"
+	"workout-sync.service"
+)
 
-# Disable the service and timer
-systemctl --user disable "$TIMER_NAME" 2>/dev/null
-systemctl --user disable "$SERVICE_NAME" 2>/dev/null
-
-# Remove service and timer files
-rm -f "$USER_SERVICE_DIR/$SERVICE_NAME"
-rm -f "$USER_SERVICE_DIR/$TIMER_NAME"
+for unit in "${UNITS[@]}"; do
+	systemctl --user stop "$unit" 2>/dev/null
+	systemctl --user disable "$unit" 2>/dev/null
+	rm -f "$USER_SERVICE_DIR/$unit"
+done
 
 # Reload systemd daemon
 systemctl --user daemon-reload
 
-echo "✓ Workout locker service and timer removed"
+echo "✓ Workout locker services and timers removed"

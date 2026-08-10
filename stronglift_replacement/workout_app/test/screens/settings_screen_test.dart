@@ -134,12 +134,38 @@ void main() {
     expect(find.text('Settings'), findsOneWidget);
   });
 
-  testWidgets('shows WEIGHTS and PROGRESSION THRESHOLDS sections', (
+  testWidgets('shows WEIGHTS, TARGET REPS and PROGRESSION THRESHOLDS', (
     tester,
   ) async {
     await _pump(tester, _wrap());
     expect(find.text('WEIGHTS'), findsOneWidget);
+    // TARGET REPS and the thresholds below it are off-screen at the test
+    // viewport height, so scroll them into view rather than asserting on
+    // whatever happens to be built.
+    await tester.scrollUntilVisible(find.text('TARGET REPS'), 200);
+    expect(find.text('TARGET REPS'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('PROGRESSION THRESHOLDS'), 200);
     expect(find.text('PROGRESSION THRESHOLDS'), findsOneWidget);
+  });
+
+  testWidgets('increment reps button increases the target reps', (
+    tester,
+  ) async {
+    await _pump(tester, _wrap());
+    await tester.scrollUntilVisible(find.text('TARGET REPS'), 200);
+    await tester.pumpAndSettle();
+    // Situp defaults to 30 reps and is the only exercise at that value.
+    expect(find.text('30 reps'), findsOneWidget);
+    final plus = find.descendant(
+      of: find.ancestor(
+        of: find.text('30 reps'),
+        matching: find.byType(Row),
+      ).first,
+      matching: find.byIcon(Icons.add),
+    );
+    await tester.tap(plus);
+    await tester.pumpAndSettle();
+    expect(find.text('31 reps'), findsOneWidget);
   });
 
   testWidgets('shows all exercise names from both workout plans', (
@@ -193,6 +219,10 @@ void main() {
 
   testWidgets('threshold circles show values 1-5', (tester) async {
     await _pump(tester, _wrap());
+    // The threshold cards sit below WEIGHTS and TARGET REPS, past the test
+    // viewport's fold, so they are not built until scrolled to.
+    await tester.scrollUntilVisible(find.text('PROGRESSION THRESHOLDS'), 200);
+    await tester.pumpAndSettle();
     for (int i = 1; i <= 5; i++) {
       expect(find.text('$i'), findsWidgets);
     }
@@ -582,6 +612,11 @@ void main() {
 
   testWidgets('changing a success threshold persists it', (tester) async {
     await _pump(tester, _wrap());
+    // Scroll to the section header first: the threshold rows below it are not
+    // built at all until then, so a `.first` finder for the label would throw
+    // "Bad state: No element" before it could match anything.
+    await tester.scrollUntilVisible(find.text('PROGRESSION THRESHOLDS'), 200);
+    await tester.pumpAndSettle();
     final label = find.text('↑ Increase after N successes').first;
     await tester.scrollUntilVisible(
       label,
@@ -628,6 +663,33 @@ void main() {
       () => StorageService.instance.getAllExerciseStates(),
     );
     expect(states2!.any((s) => s.failThreshold == 4), isTrue);
+  });
+
+  testWidgets('reps change is debounced then written to storage', (
+    tester,
+  ) async {
+    await _pump(tester, _wrap());
+    await tester.scrollUntilVisible(find.text('TARGET REPS'), 200);
+    await tester.pumpAndSettle();
+
+    // Situp defaults to 30 reps and is the only exercise at that value.
+    final minus = find.descendant(
+      of: find
+          .ancestor(of: find.text('30 reps'), matching: find.byType(Row))
+          .first,
+      matching: find.byIcon(Icons.remove),
+    );
+    // Same 600ms debounce as weights: run on the real loop so the timer fires.
+    await tester.runAsync(() async {
+      await tester.tap(minus);
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+    });
+    await tester.pump();
+
+    final after = (await tester.runAsync(
+      () => StorageService.instance.getExerciseState('Situp'),
+    ))!.reps;
+    expect(after, 29, reason: 'the decrement must reach storage');
   });
 
   testWidgets('weight change is debounced then written to storage', (
