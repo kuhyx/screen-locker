@@ -57,7 +57,14 @@ class RunnerUpDbMixin:
             root=True,
         )
         if not ok:
-            _logger.info("Failed to copy RunnerUp DB to sdcard: %s", err)
+            _logger.warning(
+                "Root DB pull failed for %s (%s) — this device likely has no "
+                "root/su access, so this fallback path cannot work here. "
+                "RunnerUp workouts can only be verified via TCX export files; "
+                "enable RunnerUp's File Synchronizer auto-export on-device.",
+                pkg,
+                err,
+            )
             shutil.rmtree(tmp_dir, ignore_errors=True)
             return None
 
@@ -142,7 +149,12 @@ class RunnerUpDbMixin:
         """Verify today's run via root DB pull (fallback path)."""
         db_path = self._pull_runnerup_db()
         if db_path is None:
-            return "not_verified", "Could not retrieve RunnerUp database from phone"
+            return (
+                "not_verified",
+                "No TCX export found and root DB access is unavailable on this "
+                "device — enable RunnerUp's File Synchronizer auto-export so "
+                "runs land in /sdcard/Documents/RunnerUp/",
+            )
 
         try:
             run_data = self._query_todays_run(db_path)

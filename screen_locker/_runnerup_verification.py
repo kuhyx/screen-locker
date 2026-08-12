@@ -138,6 +138,14 @@ class RunnerUpVerificationMixin(RunnerUpDbMixin):
         today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
         exports = self._find_runnerup_exports_for_date(today)
         if not exports:
+            _logger.warning(
+                "No RunnerUp TCX export found for %s in %s — a run today will "
+                "not be verified unless RunnerUp's File Synchronizer "
+                "auto-export is enabled and the app stays enabled long enough "
+                "to sync (check it isn't disabled by focus mode).",
+                today,
+                RUNNERUP_EXPORT_DIRS,
+            )
             return None
 
         # Try each file; return the best result (verified > validation error).
@@ -174,6 +182,13 @@ class RunnerUpVerificationMixin(RunnerUpDbMixin):
                 continue
             status, msg = self._validate_runnerup_data(data)
             if status != "verified":
+                _logger.warning(
+                    "RunnerUp export %s for %s did not qualify (%s): %s",
+                    remote,
+                    date_str,
+                    status,
+                    msg,
+                )
                 continue
             workout_data = {
                 "type": "runnerup_verified",
@@ -285,5 +300,6 @@ class RunnerUpVerificationMixin(RunnerUpDbMixin):
             return file_result
 
         # Path 2: root DB pull (fallback when no export files found yet).
-        _logger.info("No TCX exports found today; trying root DB pull...")
+        # On a non-rooted device this path cannot succeed; _verify_runnerup_via_db
+        # reports that plainly rather than as a generic failure.
         return self._verify_runnerup_via_db()

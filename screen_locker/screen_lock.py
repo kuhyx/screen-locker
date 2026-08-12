@@ -234,8 +234,15 @@ class ScreenLocker(
         ``workout-sync.timer`` unit calls. Sync used to happen only inside the
         locker's startup path, so a workout finished after login stayed
         invisible until the next login.
+
+        Also re-runs the RunnerUp TCX backfill here, not just at login: the
+        login-time scan gets exactly one shot, and if the phone isn't
+        adb-visible at that instant (e.g. USB debugging not yet
+        authorized), a same-day run stays uncredited until the next login.
+        Repeating it every 15 minutes closes that gap.
         """
         self._ingest_synced_manual_workouts()
+        self._auto_fill_week_runnerup_bonus()
 
     def _ingest_synced_manual_workouts(self) -> None:
         """Sync manual workouts: publish this PC's, ingest everyone else's.
