@@ -31,9 +31,27 @@ fi
 # ── Guard: every lib/**/*.dart must appear in the coverage report ──────────────
 # Flutter only reports files that are transitively imported by a test.
 # Unreferenced files silently score 100% by absence — catch that here.
+#
+# Exception: a file whose only content is a conditional `export` (a
+# platform-gate barrel like google_platform.dart, re-exporting google_platform_io.dart
+# or google_platform_web.dart per dart.library.js_interop) has zero executable
+# statements. Dart's coverage instrumentation never emits an SF: entry for such
+# a file regardless of whether it was imported -- there is no "silently 100% by
+# absence" for it to hide, since there is nothing to cover. Importing it (even
+# transitively) is what makes its *resolved* sibling appear in lcov instead.
+barrel_pattern="^(library;)?[[:space:]]*export[[:space:]]+'[^']+'[[:space:]]+if[[:space:]]*\([^)]+\)[[:space:]]+'[^']+';[[:space:]]*\$"
+
 missing=0
 while IFS= read -r dart_file; do
   rel="${dart_file#"$APP_DIR"/}"
+  # Strip //-comments, ///-doc-comments and blank lines, then collapse
+  # whitespace, so a wrapped `export 'x' if (...) 'y';` statement (the
+  # platform-gate barrel shape) becomes matchable on one logical line
+  # regardless of how it's line-wrapped in source.
+  code_only=$(grep -vE '^[[:space:]]*(///|//|$)' "$dart_file" | tr '\n' ' ' | tr -s ' ')
+  if [[ $code_only =~ $barrel_pattern ]]; then
+    continue
+  fi
   if ! grep -qF "SF:$rel" "$LCOV_INFO" && \
      ! grep -qF "SF:lib/${rel#lib/}" "$LCOV_INFO"; then
     echo "MISSING FROM COVERAGE: $dart_file" >&2

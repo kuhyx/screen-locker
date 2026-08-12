@@ -12,11 +12,15 @@ dependencies:
   crdt_sync:
     git:
       url: https://github.com/kuhyx/utils
-      ref: crdt_sync_dart-v0.9.0
+      ref: crdt_sync_dart-v0.10.0
       path: crdt_sync_dart
   flutter:
     sdk: flutter
   flutter_secure_storage: ^10.3.1
+
+  # One-tap sign-in for the sync account. App-side only: crdt_sync stays pure
+  # Dart so it keeps working on Linux desktop and headless.
+  google_sign_in: ^7.2.0
   http: ^1.6.0
   path: ^1.9.1
   path_provider: ^2.1.5
