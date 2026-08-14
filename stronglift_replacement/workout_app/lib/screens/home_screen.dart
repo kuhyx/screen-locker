@@ -8,7 +8,6 @@ import 'package:workout_app/screens/history_screen.dart';
 import 'package:workout_app/screens/manual_workout_screen.dart';
 import 'package:workout_app/screens/settings_screen.dart';
 import 'package:workout_app/screens/workout_screen.dart';
-import 'package:workout_app/services/http_server_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/ui/theme.dart';
 
@@ -24,7 +23,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late List<Exercise> _exercises;
   String _nextType = 'A';
-  List<String> _serverAddresses = [];
   bool _loading = true;
   bool _doneToday = false;
   Map<String, dynamic>? _savedSession;
@@ -44,7 +42,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final nextType = await storage.getNextWorkoutType();
     final exercises = await storage.getCurrentExercises(nextType);
     final saved = await storage.loadActiveSession();
-    final addrs = await HttpServerService.instance.localAddresses;
     final lastDate = await storage.getLastWorkoutDate();
     final today = DateTime.now();
     final doneToday =
@@ -57,7 +54,6 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _nextType = nextType;
         _exercises = exercises;
-        _serverAddresses = addrs;
         _savedSession = saved;
         _doneToday = doneToday;
         _loading = false;
@@ -153,8 +149,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     onStart: _openWorkout,
                     onResume: () => _openWorkout(resume: true),
                   ),
-                  const SizedBox(height: 20),
-                  ServerAddressTile(addresses: _serverAddresses),
                 ],
               ),
             ),
@@ -284,57 +278,6 @@ class _WorkoutCard extends StatelessWidget {
               ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Displays the LAN addresses the workout HTTP server is reachable at, or a
-/// "Server not started" placeholder when none are available. Public so the
-/// empty-address fallback can be exercised in a widget test.
-class ServerAddressTile extends StatelessWidget {
-  /// Creates a tile listing [addresses] (may be empty).
-  const ServerAddressTile({required this.addresses, super.key});
-
-  /// LAN addresses the server is reachable at; empty when not started.
-  final List<String> addresses;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final lines = addresses.isEmpty
-        ? ['Server not started']
-        : addresses.map((ip) => '$ip:$kWorkoutServerPort').toList();
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'HTTP sync (no ADB needed)',
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: AppTextSize.caption,
-              letterSpacing: 1.1,
-            ),
-          ),
-          const SizedBox(height: 4),
-          ...lines.map(
-            (line) => Text(
-              line,
-              style: TextStyle(
-                color: colorScheme.onSurfaceVariant,
-                fontFamily: 'monospace',
-                fontSize: AppTextSize.label,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

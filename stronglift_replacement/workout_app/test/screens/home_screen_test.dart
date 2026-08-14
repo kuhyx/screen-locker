@@ -86,11 +86,6 @@ void main() {
     expect(find.text('Done for today!'), findsOneWidget);
   });
 
-  testWidgets('HTTP sync tile renders', (tester) async {
-    await _pump(tester, _wrap());
-    expect(find.text('HTTP sync (no ADB needed)'), findsOneWidget);
-  });
-
   testWidgets('manual-workout icon navigates to the manual form', (
     tester,
   ) async {
@@ -194,16 +189,5 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Workout Tracker'), findsOneWidget);
-  });
-
-  testWidgets('ServerAddressTile shows a placeholder when no addresses', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(body: ServerAddressTile(addresses: <String>[])),
-      ),
-    );
-    expect(find.text('Server not started'), findsOneWidget);
   });
 }
