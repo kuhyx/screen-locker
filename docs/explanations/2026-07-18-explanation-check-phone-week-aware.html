@@ -419,6 +419,20 @@
   stores the true, un-inflated distance.
 </p>
 
+<div class="note" style="border-left:4px solid #b58900;padding:0.75rem 1rem;margin:1.5rem 0;background:#fdf6e3">
+  <strong>Superseded 2026-08-14.</strong> The numbers on this page describe the
+  rule as it stood on 2026-07-18 and are kept for that history. The thresholds
+  and their <em>shape</em> have both since changed: duration and distance were
+  an <strong>AND</strong> here (30+ min <em>and</em> 5.0+ km); they are now an
+  <strong>OR</strong> — a run qualifies at
+  <code>MIN_RUN_DISTANCE_KM = 3.5</code> (inclusive, still with the 5% GPS
+  tolerance described above) <em>or</em> at
+  <code>MIN_RUN_DURATION_MINUTES = 40</code> (strict, no tolerance). The
+  30-minute floor every run had to clear is gone, so a fast 5&nbsp;km now
+  passes too. The interactive demo and quiz below still use the old 5.0&nbsp;km
+  AND-rule.
+</div>
+
 <h3>3.5 The CLI bug this surfaced (unrelated file, same root cause)</h3>
 
 <p>

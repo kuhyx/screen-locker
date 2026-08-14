@@ -58,8 +58,12 @@ WORKOUT_HTTP_PORT = 8765
 MIN_WORKOUT_DURATION_MINUTES = 60
 RUNNERUP_PACKAGES = ("org.runnerup", "org.runnerup.free")
 RUNNERUP_DB_SDCARD_TMP = "/sdcard/.runnerup_tmp_verification.db"
-MIN_RUN_DURATION_MINUTES = 30
-MIN_RUN_DISTANCE_KM = 5.0
+# A run qualifies on EITHER criterion — they are an OR, not an AND. A short
+# but long-lasting run counts, and so does a fast 5 km that takes under 40 min.
+# Do not reinstate an AND here: it would reject exactly the slow-run case this
+# pair exists to allow.
+MIN_RUN_DURATION_MINUTES = 40  # strict: "over 40 minutes"
+MIN_RUN_DISTANCE_KM = 3.5  # inclusive: "as low as 3.5 km"
 # GPS distance tracking undershoots on tight turns/tree cover/urban canyons;
 # a run within 5% of the minimum is accepted rather than rejected on
 # measurement noise. Duration comes from the device clock, not GPS, so it

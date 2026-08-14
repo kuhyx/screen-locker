@@ -113,19 +113,23 @@ class TestValidateRunnerupData:
         assert status == "wrong_sport"
         assert "unknown(99)" in msg
 
-    def test_too_short_duration_returns_too_short(
+    def test_short_duration_alone_still_verified_on_distance(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Duration below MIN_RUN_DURATION_MINUTES → too_short with 'min' in message."""
+        """Short duration alone is not enough to reject — distance still qualifies.
+
+        The criteria are an OR, so 6 km in 1 min is verified on distance. If
+        the OR ever regressed to an AND this would return too_short.
+        """
         locker = create_locker(mock_tk, tmp_path)
         status, msg = locker._validate_runnerup_data(
             {"sport": 0, "duration_seconds": 60, "distance_m": 6000}
         )
-        assert status == "too_short"
-        assert "min" in msg
+        assert status == "verified"
+        assert "6.0 km" in msg
 
     def test_too_short_distance_returns_too_short(
         self,
@@ -133,13 +137,18 @@ class TestValidateRunnerupData:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Distance below MIN_RUN_DISTANCE_KM → too_short with 'km' in message."""
+        """Both criteria missed → too_short naming both.
+
+        0.1 km is far under the distance line and 30 min is under the duration
+        line, so neither branch of the OR qualifies.
+        """
         locker = create_locker(mock_tk, tmp_path)
         status, msg = locker._validate_runnerup_data(
-            {"sport": 0, "duration_seconds": 2400, "distance_m": 100}
+            {"sport": 0, "duration_seconds": 1800, "distance_m": 100}
         )
         assert status == "too_short"
-        assert "km" in msg
+        assert "3.5+ km" in msg
+        assert "40+ min" in msg
 
     def test_valid_run_returns_verified(
         self,

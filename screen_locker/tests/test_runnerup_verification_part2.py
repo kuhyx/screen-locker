@@ -89,13 +89,17 @@ class TestValidateRunnerupDataDistanceTolerance:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """4.9 km * 1.05 = 5.145 >= 5.0 km minimum → verified."""
+        """3.45 km * 1.05 = 3.62 >= 3.5 km minimum → verified.
+
+        Duration is held under 40 min so the distance branch is what is
+        actually under test, not the duration branch of the OR.
+        """
         locker = create_locker(mock_tk, tmp_path)
         status, msg = locker._validate_runnerup_data(
-            {"sport": 0, "duration_seconds": 1947, "distance_m": 4929.05}
+            {"sport": 0, "duration_seconds": 1500, "distance_m": 3450.0}
         )
         assert status == "verified"
-        assert "4.9 km" in msg
+        assert "3.5 km" in msg
 
     def test_distance_below_tolerance_is_too_short(
         self,
@@ -103,13 +107,16 @@ class TestValidateRunnerupDataDistanceTolerance:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """4.0 km * 1.05 = 4.2 km, still short of the 5.0 km minimum → too_short."""
+        """3.0 km * 1.05 = 3.15 km, still short of the 3.5 km minimum → too_short.
+
+        Duration is under 40 min so the duration branch cannot rescue it.
+        """
         locker = create_locker(mock_tk, tmp_path)
         status, msg = locker._validate_runnerup_data(
-            {"sport": 0, "duration_seconds": 1947, "distance_m": 4000}
+            {"sport": 0, "duration_seconds": 1500, "distance_m": 3000}
         )
         assert status == "too_short"
-        assert "km" in msg
+        assert "3.5+ km" in msg
 
     def test_distance_at_full_minimum_is_verified(
         self,
@@ -124,6 +131,104 @@ class TestValidateRunnerupDataDistanceTolerance:
             {"sport": 0, "duration_seconds": 1947, "distance_m": 5000}
         )
         assert status == "verified"
+
+
+class TestValidateRunnerupDataOrCriteria:
+    """Distance and duration are an OR: either one alone qualifies a run."""
+
+    def test_long_but_short_distance_is_verified(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """2 km in 45 min → verified on the duration branch alone."""
+        locker = create_locker(mock_tk, tmp_path)
+        status, _ = locker._validate_runnerup_data(
+            {"sport": 0, "duration_seconds": 2700, "distance_m": 2000}
+        )
+        assert status == "verified"
+
+    def test_far_but_quick_is_verified(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """3.6 km in 20 min → verified on the distance branch alone.
+
+        The old rule imposed a 30-minute floor on every run; it is gone, so a
+        fast run is no longer rejected for being quick.
+        """
+        locker = create_locker(mock_tk, tmp_path)
+        status, _ = locker._validate_runnerup_data(
+            {"sport": 0, "duration_seconds": 1200, "distance_m": 3600}
+        )
+        assert status == "verified"
+
+    def test_neither_criterion_met_is_too_short(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """3.0 km in 25 min misses both branches; message names both."""
+        locker = create_locker(mock_tk, tmp_path)
+        status, msg = locker._validate_runnerup_data(
+            {"sport": 0, "duration_seconds": 1500, "distance_m": 3000}
+        )
+        assert status == "too_short"
+        # Pinned literally: a ':.0f' format spec would render 3.5 as "4".
+        assert "need 3.5+ km or 40+ min" in msg
+
+    def test_distance_boundary_is_inclusive(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Exactly 3.5 km qualifies ("as low as 3.5 km")."""
+        locker = create_locker(mock_tk, tmp_path)
+        status, _ = locker._validate_runnerup_data(
+            {"sport": 0, "duration_seconds": 600, "distance_m": 3500}
+        )
+        assert status == "verified"
+
+    def test_duration_boundary_is_strict(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Exactly 40 min does not qualify, but 40.1 min does ("over 40")."""
+        locker = create_locker(mock_tk, tmp_path)
+        at_boundary, _ = locker._validate_runnerup_data(
+            {"sport": 0, "duration_seconds": 2400, "distance_m": 1000}
+        )
+        assert at_boundary == "too_short"
+        just_over, _ = locker._validate_runnerup_data(
+            {"sport": 0, "duration_seconds": 2406, "distance_m": 1000}
+        )
+        assert just_over == "verified"
+
+    def test_real_2026_08_14_run_is_verified(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Regression: the real run this rule change was made for.
+
+        Pulled from RunnerUp_2026-08-14-00-58-45_Running.tcx — 4 laps summing
+        to 3817 m / 2502 s. It qualifies on both branches; under the previous
+        AND rule it was rejected with "Run was 3.8 km — need 5+ km".
+        """
+        locker = create_locker(mock_tk, tmp_path)
+        status, msg = locker._validate_runnerup_data(
+            {"sport": 0, "duration_seconds": 2502, "distance_m": 3817.0}
+        )
+        assert status == "verified"
+        assert "3.8 km" in msg
 
 
 # ---------------------------------------------------------------------------
@@ -178,7 +283,14 @@ class TestVerifyRunnerupViaFiles:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Files found but none verified → returns first non-None validation result."""
+        """Files found but none verified → returns first non-None validation result.
+
+        Both duration and distance are held under their minimums so the OR
+        in _validate_runnerup_data cannot rescue this fixture on either
+        branch — otherwise a fixture qualifying on one branch alone would
+        turn this into a test of that branch, not of the "no file verified"
+        return-first-result behavior this test is actually about.
+        """
         locker = create_locker(mock_tk, tmp_path)
         object.__setattr__(
             locker,
@@ -189,7 +301,7 @@ class TestVerifyRunnerupViaFiles:
             locker,
             "_pull_and_parse_tcx",
             MagicMock(
-                return_value={"sport": 0, "duration_seconds": 60, "distance_m": 6000}
+                return_value={"sport": 0, "duration_seconds": 60, "distance_m": 1000}
             ),
         )
         result = locker._verify_runnerup_via_files()

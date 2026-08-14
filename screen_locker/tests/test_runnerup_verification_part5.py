@@ -321,7 +321,10 @@ class TestBranchCoverageGaps:
         of 'if best is None:' (161->154), exercising the loop-continue with best set."""
         locker = create_locker(mock_tk, tmp_path)
 
-        # Both exports return non-verified data (too_short).
+        # Both exports return non-verified data (too_short). Duration and
+        # distance are an OR, so both must fail their minimum -- a fixture
+        # qualifying on either alone would verify instead of exercising this
+        # branch.
         # Iteration 1: best is None → sets best → loop continues to export 2.
         # Iteration 2: best is NOT None → False branch of 'if best is None:' (161->154).
         object.__setattr__(
@@ -329,7 +332,7 @@ class TestBranchCoverageGaps:
             "_find_runnerup_exports_for_date",
             MagicMock(return_value=["/sdcard/a.tcx", "/sdcard/b.tcx"]),
         )
-        short_run = {"sport": 0, "duration_seconds": 60, "distance_m": 6000}
+        short_run = {"sport": 0, "duration_seconds": 60, "distance_m": 1000}
         object.__setattr__(
             locker,
             "_pull_and_parse_tcx",

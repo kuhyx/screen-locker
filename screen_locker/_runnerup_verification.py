@@ -245,17 +245,22 @@ class RunnerUpVerificationMixin(RunnerUpDbMixin):
             )
 
         duration_min = data["duration_seconds"] / 60
-        if duration_min < MIN_RUN_DURATION_MINUTES:
+        distance_km = data["distance_m"] / 1000
+
+        # Either criterion qualifies the run on its own (see _constants.py).
+        # Distance gets the GPS tolerance; duration, from the device clock,
+        # does not.
+        distance_ok = (
+            distance_km * (1 + RUNNERUP_DISTANCE_TOLERANCE) >= MIN_RUN_DISTANCE_KM
+        )
+        duration_ok = duration_min > MIN_RUN_DURATION_MINUTES
+        if not distance_ok and not duration_ok:
             msg = (
-                f"Run was {duration_min:.0f} min — need {MIN_RUN_DURATION_MINUTES}+ min"
+                f"Run was {distance_km:.1f} km / {duration_min:.0f} min — need "
+                f"{MIN_RUN_DISTANCE_KM:g}+ km or {MIN_RUN_DURATION_MINUTES}+ min"
             )
             return "too_short", msg
-
-        distance_km = data["distance_m"] / 1000
-        if distance_km * (1 + RUNNERUP_DISTANCE_TOLERANCE) < MIN_RUN_DISTANCE_KM:
-            msg = f"Run was {distance_km:.1f} km — need {MIN_RUN_DISTANCE_KM:.0f}+ km"
-            return "too_short", msg
-        if distance_km < MIN_RUN_DISTANCE_KM:
+        if distance_ok and distance_km < MIN_RUN_DISTANCE_KM:
             _logger.info(
                 "RunnerUp distance %.2f km is under the %.1f km minimum but "
                 "within %.0f%% GPS tolerance — accepted.",

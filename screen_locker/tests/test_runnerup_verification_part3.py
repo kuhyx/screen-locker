@@ -217,7 +217,13 @@ class TestScanAndFillWeekRunnerup:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """_validate_runnerup_data returns not-verified → date not filled."""
+        """_validate_runnerup_data returns not-verified → date not filled.
+
+        Both duration and distance are held under their minimums -- the
+        criteria are an OR, so a fixture qualifying on either alone would
+        verify instead of exercising the not-verified path this test is
+        about.
+        """
         locker = create_locker(mock_tk, tmp_path)
         log_file = tmp_path / "log.json"
         log_file.write_text("{}")
@@ -231,7 +237,7 @@ class TestScanAndFillWeekRunnerup:
             locker,
             "_pull_and_parse_tcx",
             MagicMock(
-                return_value={"sport": 0, "duration_seconds": 60, "distance_m": 6000}
+                return_value={"sport": 0, "duration_seconds": 60, "distance_m": 1000}
             ),
         )
         assert locker._scan_and_fill_week_runnerup(log_file) == 0
