@@ -1,28 +1,39 @@
-/// Settings screen: per-exercise streak thresholds and manual weight overrides.
-/// Changes are saved immediately; a "Reset to defaults" button reverts all.
+/// Settings screen: per-exercise streak thresholds and manual weight
+/// overrides, plus links to the sync surfaces.
+///
+/// "Sync settings" is the shared `sync_settings_ui` package (Firebase sync;
+/// no Backup section -- see the class doc on [SettingsScreen] for why).
+/// "Advanced sync (GitHub)" stays app-local ([GitHubMirrorScreen]) because
+/// the shared package has no GitHub surface at all.
 library;
 
 import 'dart:async';
 import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
+import 'package:sync_settings_ui/sync_settings_ui.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/workout_plan.dart';
+import 'package:workout_app/screens/github_mirror_screen.dart';
 import 'package:workout_app/services/backup_service.dart';
 import 'package:workout_app/services/firebase_backend.dart';
-import 'package:workout_app/services/github_device_auth.dart';
 import 'package:workout_app/services/google_sign_in_backend.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
-import 'package:workout_app/services/sync_settings.dart';
 import 'package:workout_app/ui/theme.dart';
 
-/// How to style a [_SyncStatusBadge].
-enum _SyncStatusKind { success, pending, error }
-
 /// Screen for editing per-exercise thresholds and manual weight overrides.
+///
+/// No [BackupSlot] is wired into the shared Sync settings screen: unlike the
+/// notes app and home_inventory, workout_app has no user-facing export/import
+/// action to hand it. `BackupService.export`/`readBackup` are called only from
+/// [StorageService]'s automatic paths (on every weight/threshold write, and
+/// once at startup via `restoreFromBackupIfNeeded`) -- there is nothing for a
+/// manual "Export"/"Import" button to trigger that isn't already automatic,
+/// and a blind manual import would risk clobbering current progression with
+/// whatever is on external storage. The storage-permission affordance itself
+/// is a device permission, not a sync action, so it stays here rather than
+/// moving to either sync screen.
 class SettingsScreen extends StatefulWidget {
   /// Creates a [SettingsScreen].
   const SettingsScreen({
@@ -40,8 +51,8 @@ class SettingsScreen extends StatefulWidget {
     this.progressionPuller,
   });
 
-  /// Injectable HTTP client; tests pass a `MockClient` so the device-flow
-  /// requests never hit the real network.
+  /// Injectable HTTP client, passed through to [GitHubMirrorScreen] so its
+  /// device-flow requests never hit the real network in tests.
   final http.Client? httpClient;
 
   /// Builds the Firebase client. Injected so tests need no platform channel.
@@ -84,7 +95,9 @@ class SettingsScreen extends StatefulWidget {
   /// Opens the system grant page. See [storageChecker].
   final Future<bool> Function()? storageRequester;
 
-  /// Pulls progression after a successful connect. See [storageChecker].
+  /// Pulls progression after returning from Sync settings. See
+  /// [_openSyncSettings] for why this fires on pop rather than being hooked
+  /// into the shared screen's connect flow.
   final Future<ProgressionSyncResult> Function()? progressionPuller;
 
   @override
@@ -105,31 +118,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // Same debounce for reps, for the same reason.
   final Map<String, Timer> _repsTimers = {};
 
-  final _tokenController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _firebaseConnected = false;
   bool _storageGranted = false;
-  bool _firebaseBusy = false;
 
-  // Persistent (not a transient SnackBar) so the result of Connect GitHub /
-  // Save is still visible if the user looks back at the screen later --
-  // mirrors diet-guard/todo's `_status` field in their settings screens.
-  String? _syncStatus;
-  _SyncStatusKind _syncStatusKind = _SyncStatusKind.pending;
-
-  void _setSyncStatus(String message, _SyncStatusKind kind) {
-    setState(() {
-      _syncStatus = message;
-      _syncStatusKind = kind;
-    });
-  }
+  // Set after a Sync settings visit restores progression, so the banner
+  // persists until the user looks back at the screen -- mirrors the pattern
+  // every app-local sync status field in this migration already used.
+  String? _progressionStatus;
 
   @override
   void initState() {
     super.initState();
     unawaited(_load());
-    unawaited(_loadFirebaseAccount());
     unawaited(_loadStorageGranted());
   }
 
@@ -154,149 +153,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _storageGranted = granted);
   }
 
-  /// Reflects a previously-stored account, so a returning user sees the real
-  /// state instead of an empty form that looks unconfigured.
-  Future<void> _loadFirebaseAccount() async {
-    final account = await (widget.accountLoader ?? loadAccount)();
-    // The stored session, not the account marker, decides "connected": a
-    // Google sign-in leaves a refresh token that authenticates every request
-    // even when no marker was written beside it.
-    final connected = await (widget.sessionProbe ?? isFirebaseConfigured)();
-    if (!mounted) return;
-    if (account != null) _emailController.text = account.email;
-    setState(() => _firebaseConnected = connected);
-  }
-
-  /// Signs in by picking a Google account -- the one-tap path.
-  ///
-  /// A dismissed picker is not an error; a wrong-account sign-in reports why,
-  /// because that is the failure that otherwise looks like a working sync
-  /// which silently never syncs.
-  Future<void> _connectGoogle() async {
-    setState(() => _firebaseBusy = true);
-    try {
-      final client =
-          await (widget.googleFirebaseFactory ?? openFirebaseWithGoogle)();
-      if (!mounted) return;
-      if (client == null) {
-        setState(() => _firebaseBusy = false);
-        _setSyncStatus(
-          'Google sign-in was cancelled.',
-          _SyncStatusKind.pending,
-        );
-        return;
-      }
-      // openFirebaseWithGoogle stored the account under the email Firebase
-      // reported; reflect it rather than reading the (empty) form field.
-      final account = await (widget.accountLoader ?? storedAccount)();
-      // Report the persisted state, not the fact that the call returned a
-      // client: a non-null client only means sign-in succeeded in that
-      // moment, which is how four apps claimed "Connected" and then synced
-      // over GitHub after the next restart.
-      final connected = await (widget.sessionProbe ?? isFirebaseConfigured)();
-      if (!mounted) return;
-      if (account != null) _emailController.text = account.email;
-      setState(() {
-        _firebaseBusy = false;
-        _firebaseConnected = connected;
-      });
-      _setSyncStatus(
-        connected
-            ? 'Connected to Firebase.'
-            : 'Signed in, but this device did not save the session - it will '
-                  'sync over GitHub after a restart. Try connecting again.',
-        connected ? _SyncStatusKind.success : _SyncStatusKind.error,
-      );
-    } on FirebaseAuthError catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _firebaseBusy = false;
-        _firebaseConnected = false;
-      });
-      _setSyncStatus(error.message, _SyncStatusKind.error);
-    } on Object catch (error) {
-      // Broader than Exception on purpose: a missing platform binding raises
-      // an Error, and anything escaping here leaves the button disabled and
-      // the screen stuck forever -- which is what happened on the phone
-      // before storedAccount() replaced loadAccount().
-      if (!mounted) return;
-      setState(() {
-        _firebaseBusy = false;
-        _firebaseConnected = false;
-      });
-      _setSyncStatus('Google sign-in failed: $error', _SyncStatusKind.error);
-    }
-  }
-
-  /// Stores the typed account and signs in immediately, so a typo surfaces
-  /// here rather than as a silent background failure on the next push.
-  ///
-  /// Without this the app could never reach Firebase at all: `openFirebase()`
-  /// would read an account nothing had ever written.
-  Future<void> _connectFirebase() async {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
-    if (email.isEmpty || password.isEmpty) {
-      _setSyncStatus(
-        'Enter the sync account email and password.',
-        _SyncStatusKind.error,
-      );
-      return;
-    }
-    setState(() => _firebaseBusy = true);
-    await (widget.accountSaver ?? saveAccount)(
-      FirebaseAccount(email: email, password: password),
-    );
-    final client = await (widget.firebaseFactory ?? openFirebase)();
-    if (!mounted) return;
-    if (client == null) {
-      await (widget.accountClearer ?? clearAccount)();
-      if (!mounted) return;
-      setState(() {
-        _firebaseBusy = false;
-        _firebaseConnected = false;
-      });
-      _setSyncStatus(
-        'Firebase rejected that account.',
-        _SyncStatusKind.error,
-      );
-      return;
-    }
-    _passwordController.clear();
-
-    // Pull immediately. Startup already ran its pull and skipped, because at
-    // that point there was no account — so without this the device stays on
-    // factory defaults holding real remote progression, and its first finished
-    // workout would push those defaults over the top. Connecting late is the
-    // normal path after a reinstall (the uninstall wipes the keystore), so
-    // this is the common case, not an edge one.
-    final restored =
-        await (widget.progressionPuller ??
-            ProgressionSyncService().pullProgression)();
-    if (!mounted) return;
-
-    setState(() {
-      _firebaseBusy = false;
-      _firebaseConnected = true;
-    });
-    _setSyncStatus(
-      restored.changed
-          ? 'Connected. Restored ${restored.count} exercise(s) from Firebase.'
-          : 'Connected to Firebase.',
-      _SyncStatusKind.success,
-    );
-    if (restored.changed) await _load();
-  }
-
-  Future<void> _disconnectFirebase() async {
-    await (widget.accountClearer ?? clearAccount)();
-    if (!mounted) return;
-    _emailController.clear();
-    _passwordController.clear();
-    setState(() => _firebaseConnected = false);
-    _setSyncStatus('Firebase disconnected.', _SyncStatusKind.pending);
-  }
-
   @override
   void dispose() {
     for (final t in _weightTimers.values) {
@@ -305,141 +161,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
     for (final t in _repsTimers.values) {
       t.cancel();
     }
-    _tokenController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
     final states = await StorageService.instance.getAllExerciseStates();
-    final syncSettings = await SyncSettings.load();
-    if (mounted) {
-      setState(() {
-        for (final s in states) {
-          _successThresholds[s.name] = s.successThreshold;
-          _failThresholds[s.name] = s.failThreshold;
-          _weights[s.name] = s.weight;
-          _reps[s.name] = s.reps;
-        }
-        _tokenController.text = syncSettings.token;
-        _loading = false;
-      });
-      // Never claim "Connected" just because a token STRING exists — check it
-      // against the API. A revoked/expired token otherwise shows a reassuring
-      // green badge while every sync 401s and the history silently stays empty.
-      if (syncSettings.isConfigured) {
-        _setSyncStatus('Verifying…', _SyncStatusKind.pending);
-        await _verifyConnection(syncSettings.token);
-      }
-    }
-  }
-
-  Future<void> _saveToken() async {
-    final saved = await SyncSettings(
-      token: _tokenController.text.trim(),
-    ).save();
     if (!mounted) return;
-    _setSyncStatus(
-      saved ? 'Sync token saved.' : 'Could not save token on this device.',
-      saved ? _SyncStatusKind.success : _SyncStatusKind.error,
-    );
-  }
-
-  /// Runs the OAuth device flow and, on success, saves the resulting token
-  /// and verifies it actually works against the sync repo -- a saved token
-  /// that can't reach `$syncRepoOwner/$syncRepoName` (wrong scope, revoked,
-  /// etc.) must be surfaced immediately, not discovered on the next workout.
-  Future<void> _connectGitHub() async {
-    final auth = GitHubDeviceAuth(
-      clientId: SyncSettings.defaultClientId,
-      httpClient: widget.httpClient,
-    );
-    try {
-      final device = await auth.requestDeviceCode();
-      if (!mounted) return;
-      final token = await showDialog<String>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => _DeviceCodeDialog(device: device, auth: auth),
-      );
-      if (token != null && token.isNotEmpty) {
-        setState(() => _tokenController.text = token);
-        _setSyncStatus('Connected — verifying…', _SyncStatusKind.pending);
-        final saved = await SyncSettings(token: token).save();
-        if (!saved) {
-          if (!mounted) return;
-          _setSyncStatus(
-            'Connected, but could not save the token on this device.',
-            _SyncStatusKind.error,
-          );
-          return;
-        }
-        await _verifyConnection(token);
+    setState(() {
+      for (final s in states) {
+        _successThresholds[s.name] = s.successThreshold;
+        _failThresholds[s.name] = s.failThreshold;
+        _weights[s.name] = s.weight;
+        _reps[s.name] = s.reps;
       }
-    } on Exception catch (e) {
-      if (!mounted) return;
-      _setSyncStatus('Could not start device flow: $e', _SyncStatusKind.error);
-    } finally {
-      auth.close();
-    }
+      _loading = false;
+    });
   }
 
-  /// Confirms [token] can actually read `$syncRepoOwner/$syncRepoName`.
-  /// Returns null when [token] works, else the error GitHub gave.
-  Future<GitHubSyncError?> _tryVerify(String token) async {
-    final client = GitHubClient(
-      owner: syncRepoOwner,
-      repo: syncRepoName,
-      token: token,
-      httpClient: widget.httpClient,
+  /// Pushes the shared Sync settings screen, then pulls progression once it
+  /// pops -- covering both "connected just now" and "disconnected/no-op".
+  ///
+  /// Not hooked into the connect flow itself: `SyncSettingsScreen` has no
+  /// post-connect callback, and [ProgressionSyncService.pullProgression]
+  /// already self-gates (returns immediately with no account, and refuses to
+  /// overwrite local state once [StorageService.hasSyncedProgression] is
+  /// true), so calling it unconditionally on pop is safe and simpler than
+  /// threading a callback through the shared screen's Firebase closures.
+  /// [ProgressionSyncService.pushProgression]'s own guard (never overwrite
+  /// remote progression from an install that hasn't pulled yet) is the actual
+  /// safety net against the reinstall-then-finish-a-workout race this
+  /// mirrors; this call is a convenience that restores progression
+  /// immediately instead of waiting for the next app launch, which also
+  /// pulls unconditionally at startup.
+  Future<void> _openSyncSettings() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => SyncSettingsScreen(
+          accountLoader: widget.accountLoader ?? loadAccount,
+          accountSaver: widget.accountSaver ?? saveAccount,
+          accountClearer: widget.accountClearer ?? clearAccount,
+          sessionProbe: widget.sessionProbe ?? isFirebaseConfigured,
+          firebaseFactory: widget.firebaseFactory ?? openFirebase,
+          googleFirebaseFactory:
+              widget.googleFirebaseFactory ?? openFirebaseWithGoogle,
+          googleAvailable: widget.googleAvailable ?? googleSignInSupported,
+        ),
+      ),
     );
-    try {
-      await client.getFileText('devices/phone/log.json');
-      return null;
-    } on GitHubSyncError catch (e) {
-      return e;
-    } finally {
-      client.close();
+    if (!mounted) return;
+    final restored =
+        await (widget.progressionPuller ??
+            ProgressionSyncService().pullProgression)();
+    if (!mounted) return;
+    if (restored.changed) {
+      setState(
+        () => _progressionStatus =
+            'Restored ${restored.count} exercise(s) from Firebase.',
+      );
+      await _load();
     }
   }
 
-  Future<void> _verifyConnection(String token) async {
-    final error = await _tryVerify(token);
-    if (error == null) {
-      if (!mounted) return;
-      _setSyncStatus(
-        'Connected and verified via GitHub.',
-        _SyncStatusKind.success,
-      );
-      return;
-    }
-
-    // The keystore's token may be a stale one shadowing a good backup, and
-    // load() only consults the backup when the keystore is EMPTY. Try the
-    // backup once before making the user re-authorize for nothing.
-    final recovered = await SyncSettings.recoverFromBackup(token);
-    if (recovered != null && await _tryVerify(recovered) == null) {
-      if (!mounted) return;
-      _tokenController.text = recovered;
-      _setSyncStatus(
-        'Connected and verified via GitHub (recovered the saved token from '
-        'backup — the stored one had been rejected).',
-        _SyncStatusKind.success,
-      );
-      return;
-    }
-
-    if (!mounted) return;
-    // Say plainly that sync is broken. "Connected, but…" reads as success
-    // and is how a dead token hid behind a green badge.
-    _setSyncStatus(
-      error.toString().contains('401')
-          ? 'NOT connected: GitHub rejected this token (401) and no working '
-                'backup was found. Tap Connect GitHub to re-authorize — '
-                'until then nothing syncs.'
-          : 'NOT syncing: could not reach GitHub ($error)',
-      _SyncStatusKind.error,
+  Future<void> _openGitHubMirror() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => GitHubMirrorScreen(httpClient: widget.httpClient),
+      ),
     );
   }
 
@@ -613,121 +400,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 20),
                 const _SectionHeader('SYNC'),
                 const SizedBox(height: 4),
-                Text(
-                  _firebaseConnected
-                      ? 'Connected. Workouts go to Firebase first, and still '
-                            'mirror to GitHub until every device has moved.'
-                      : 'Not connected -- syncing over GitHub only. Enter the '
-                            'shared sync account to move this device over. '
-                            'The password is kept in the device keystore, '
-                            'never in the app or the repo.',
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: AppTextSize.caption,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                if (_syncStatus != null) ...[
-                  _SyncStatusBadge(text: _syncStatus!, kind: _syncStatusKind),
-                  const SizedBox(height: 12),
-                ],
-                // Once connected the account is read-only text: an editable
-                // email box beside an empty password box reads as "you still
-                // have to enter this", making a connected device look
-                // unconfigured.
-                if (_firebaseConnected)
-                  Row(
-                    children: [
-                      const Icon(Icons.cloud_done, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(_emailController.text)),
-                      TextButton(
-                        onPressed: _firebaseBusy ? null : _disconnectFirebase,
-                        child: const Text('Disconnect'),
-                      ),
-                    ],
-                  )
-                else ...[
-                  TextField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    autocorrect: false,
-                    decoration: const InputDecoration(
-                      labelText: 'Sync account email',
+                if (_progressionStatus != null) ...[
+                  Text(
+                    _progressionStatus!,
+                    style: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: AppTextSize.caption,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    autocorrect: false,
-                    decoration: const InputDecoration(
-                      labelText: 'Sync account password',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: _firebaseBusy ? null : _connectFirebase,
-                    icon: const Icon(Icons.cloud_done),
-                    label: const Text('Connect Firebase'),
-                  ),
-                  // One tap, no typing -- the path that matters after a
-                  // reinstall. Hidden where the platform has no programmatic
-                  // Google flow (see google_platform.dart), because a button
-                  // that always failed would be worse than none.
-                  if (widget.googleAvailable ?? googleSignInSupported) ...[
-                    const SizedBox(height: 12),
-                    ElevatedButton.icon(
-                      onPressed: _firebaseBusy ? null : _connectGoogle,
-                      icon: const Icon(Icons.account_circle),
-                      label: const Text('Sign in with Google'),
-                    ),
-                  ],
                 ],
-                const SizedBox(height: 8),
-                // GitHub is the cutover mirror, not a choice competing with
-                // Firebase, so its connect button moves in here too.
-                ExpansionTile(
-                  title: Text(
-                    'Advanced (GitHub mirror)',
-                    style: TextStyle(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: AppTextSize.label,
-                    ),
-                  ),
-                  collapsedIconColor: colorScheme.onSurfaceVariant,
-                  iconColor: colorScheme.onSurfaceVariant,
-                  tilePadding: EdgeInsets.zero,
-                  children: [
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Authorize in your browser -- no token to paste. '
-                        'Syncs to $syncRepoOwner/$syncRepoName.',
-                        style: TextStyle(
+                Card(
+                  margin: EdgeInsets.zero,
+                  color: colorScheme.surfaceContainerHigh,
+                  child: Column(
+                    children: [
+                      ListTile(
+                        title: Text(
+                          'Sync settings',
+                          style: TextStyle(color: colorScheme.onSurface),
+                        ),
+                        subtitle: Text(
+                          'Firebase sync',
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        trailing: Icon(
+                          Icons.chevron_right,
                           color: colorScheme.onSurfaceVariant,
-                          fontSize: AppTextSize.caption,
+                        ),
+                        onTap: () => unawaited(_openSyncSettings()),
+                      ),
+                      Divider(
+                        height: 1,
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.2,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: ElevatedButton.icon(
-                        onPressed: _connectGitHub,
-                        icon: const Icon(Icons.login),
-                        label: const Text('Connect GitHub'),
+                      ListTile(
+                        title: Text(
+                          'Advanced sync (GitHub)',
+                          style: TextStyle(color: colorScheme.onSurface),
+                        ),
+                        subtitle: Text(
+                          'Cutover mirror — not recommended',
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        trailing: Icon(
+                          Icons.chevron_right,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        onTap: () => unawaited(_openGitHubMirror()),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    // The PAT fallback lives inside the mirror section too:
-                    // two sibling "Advanced" disclosures made it look like
-                    // there were two independent things to configure.
-                    _SyncTokenField(
-                      controller: _tokenController,
-                      onSave: _saveToken,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 20),
                 const _SectionHeader('OFFLINE BACKUP'),
@@ -922,101 +651,6 @@ class _StepperButton extends StatelessWidget {
   }
 }
 
-/// A visible, colored status pill for the GitHub sync connection state --
-/// placed directly under the section description (not buried below the
-/// collapsed Advanced field) so "am I connected?" has an immediate answer.
-class _SyncStatusBadge extends StatelessWidget {
-  const _SyncStatusBadge({required this.text, required this.kind});
-
-  final String text;
-  final _SyncStatusKind kind;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final status = Theme.of(context).extension<AppStatusColors>()!;
-    final color = switch (kind) {
-      _SyncStatusKind.success => status.success,
-      _SyncStatusKind.error => colorScheme.error,
-      _SyncStatusKind.pending => colorScheme.onSurfaceVariant,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        children: [
-          if (kind == _SyncStatusKind.pending)
-            const SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else
-            Icon(
-              kind == _SyncStatusKind.success
-                  ? Icons.check_circle
-                  : Icons.error,
-              color: color,
-              size: 16,
-            ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                color: color,
-                fontSize: AppTextSize.label,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SyncTokenField extends StatelessWidget {
-  const _SyncTokenField({required this.controller, required this.onSave});
-
-  final TextEditingController controller;
-  final VoidCallback onSave;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: TextField(
-            controller: controller,
-            obscureText: true,
-            style: TextStyle(color: colorScheme.onSurface),
-            // filled/fillColor/border inherit from the shared
-            // inputDecorationTheme (theme.dart) — only the field-specific
-            // hint/padding need setting here.
-            decoration: InputDecoration(
-              hintText: 'GitHub PAT',
-              hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        ElevatedButton(onPressed: onSave, child: const Text('Save')),
-      ],
-    );
-  }
-}
-
 class _ExerciseThresholdCard extends StatelessWidget {
   const _ExerciseThresholdCard({
     required this.name,
@@ -1131,111 +765,6 @@ class _ThresholdRow extends StatelessWidget {
               ),
             ),
           ),
-      ],
-    );
-  }
-}
-
-/// Dialog shown during the device flow: displays the user code, opens the
-/// verification page, and polls until authorized -- popping the token (or
-/// null if cancelled / failed).
-class _DeviceCodeDialog extends StatefulWidget {
-  const _DeviceCodeDialog({required this.device, required this.auth});
-
-  final DeviceCodeResponse device;
-  final GitHubDeviceAuth auth;
-
-  @override
-  State<_DeviceCodeDialog> createState() => _DeviceCodeDialogState();
-}
-
-class _DeviceCodeDialogState extends State<_DeviceCodeDialog> {
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_poll());
-  }
-
-  Future<void> _poll() async {
-    try {
-      final token = await widget.auth.pollForToken(widget.device);
-      if (mounted) Navigator.of(context).pop(token);
-    } on Exception catch (e) {
-      if (mounted) setState(() => _error = '$e');
-    }
-  }
-
-  Future<void> _openPage() async {
-    await Clipboard.setData(ClipboardData(text: widget.device.userCode));
-    await launchUrl(
-      Uri.parse(widget.device.verificationUri),
-      mode: LaunchMode.externalApplication,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AlertDialog(
-      backgroundColor: colorScheme.surfaceContainerHigh,
-      title: Text(
-        'Authorize on GitHub',
-        style: TextStyle(color: colorScheme.onSurface),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Enter this code on GitHub:',
-            style: TextStyle(color: colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 8),
-          SelectableText(
-            widget.device.userCode,
-            style: TextStyle(
-              color: colorScheme.onSurface,
-              fontSize: AppTextSize.title,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          if (_error == null)
-            Row(
-              children: [
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Waiting for authorization…',
-                    style: TextStyle(color: colorScheme.onSurfaceVariant),
-                  ),
-                ),
-              ],
-            )
-          else
-            Text(_error!, style: TextStyle(color: colorScheme.error)),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(
-            'Cancel',
-            style: TextStyle(color: colorScheme.onSurfaceVariant),
-          ),
-        ),
-        FilledButton.icon(
-          onPressed: _openPage,
-          icon: const Icon(Icons.open_in_new),
-          label: const Text('Open GitHub & copy code'),
-        ),
       ],
     );
   }

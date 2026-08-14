@@ -27,6 +27,11 @@ dependencies:
   permission_handler: ^12.0.0
   shared_preferences: ^2.5.3
   sqflite: ^2.4.2
+  sync_settings_ui:
+    git:
+      url: https://github.com/kuhyx/utils
+      ref: sync_settings_ui-v0.1.0
+      path: sync_settings_ui
   url_launcher: ^6.3.2
   uuid: ^4.6.0
   vibration: ^3.1.0
