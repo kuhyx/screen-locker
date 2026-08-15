@@ -7,13 +7,9 @@ Root DB fallback lives in ``_runnerup_db.py``.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import logging
-from pathlib import Path
-import shutil
-import tempfile
 from typing import Any
-import xml.etree.ElementTree as ET
 
 from screen_locker._constants import (
     MIN_RUN_DISTANCE_KM,
@@ -23,8 +19,9 @@ from screen_locker._constants import (
     RUNNERUP_EXPORT_DIRS,
     WORKOUT_DURATION_ACCEPT_MINUTES,
 )
-from screen_locker._log_mixin import write_signed_entry
+from screen_locker._runnerup_backfill import RunnerUpBackfillMixin
 from screen_locker._runnerup_db import RunnerUpDbMixin
+from screen_locker._runnerup_tcx import RunnerUpTcxMixin
 from screen_locker._time_check import check_clock_skew
 
 _logger = logging.getLogger(__name__)
@@ -41,13 +38,13 @@ _SPORT_NAMES: dict[int, str] = {
 }
 
 # TCX uses sport name strings; map back to integer codes for unified validation.
-_TCX_SPORT_TO_INT: dict[str, int] = {v: k for k, v in _SPORT_NAMES.items()}
-
-# TCX XML namespace used by Garmin/RunnerUp.
-_TCX_NS = "http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"
 
 
-class RunnerUpVerificationMixin(RunnerUpDbMixin):
+class RunnerUpVerificationMixin(
+    RunnerUpDbMixin,
+    RunnerUpTcxMixin,
+    RunnerUpBackfillMixin,
+):
     """Mixin providing RunnerUp-based workout verification via ADB."""
 
     # ------------------------------------------------------------------
@@ -73,61 +70,6 @@ class RunnerUpVerificationMixin(RunnerUpDbMixin):
                     if remote not in found:
                         found.append(remote)
         return found
-
-    def _pull_and_parse_tcx(self, remote_path: str) -> dict[str, Any] | None:
-        """Pull a remote TCX file and parse it. Returns activity dict or None."""
-        tmp_dir = tempfile.mkdtemp(prefix="runnerup_tcx_")
-        local_path = str(Path(tmp_dir) / "activity.tcx")
-        try:
-            ok, _ = self._run_adb(["pull", remote_path, local_path])
-            if not ok or not Path(local_path).exists():
-                _logger.info("Failed to pull TCX file: %s", remote_path)
-                return None
-            return self._parse_tcx(local_path)
-        finally:
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-
-    def _parse_tcx(self, tcx_path: str) -> dict[str, Any] | None:
-        """Parse a local TCX file and return activity summary dict.
-
-        Sums ``TotalTimeSeconds`` and ``DistanceMeters`` across all Laps so
-        multi-segment runs (pause/resume) are counted in full.
-        """
-        try:
-            tree = ET.parse(tcx_path)
-        except ET.ParseError as exc:
-            _logger.warning(
-                "TCX file %s is not valid XML (%s) — the run it describes CANNOT "
-                "be verified and will not count",
-                tcx_path,
-                exc,
-            )
-            return None
-
-        root = tree.getroot()
-        activity = root.find(f".//{{{_TCX_NS}}}Activity")
-        if activity is None:
-            _logger.info("No Activity element in TCX file")
-            return None
-
-        sport_str = activity.get("Sport", "")
-        sport_int = _TCX_SPORT_TO_INT.get(sport_str, -1)
-
-        total_seconds = 0.0
-        total_distance = 0.0
-        for lap in activity.findall(f"{{{_TCX_NS}}}Lap"):
-            t_elem = lap.find(f"{{{_TCX_NS}}}TotalTimeSeconds")
-            d_elem = lap.find(f"{{{_TCX_NS}}}DistanceMeters")
-            if t_elem is not None and t_elem.text:
-                total_seconds += float(t_elem.text)
-            if d_elem is not None and d_elem.text:
-                total_distance += float(d_elem.text)
-
-        return {
-            "sport": sport_int,
-            "duration_seconds": int(total_seconds),
-            "distance_m": total_distance,
-        }
 
     def _verify_runnerup_via_files(self) -> tuple[str, str] | None:
         """Try to verify today's run via TCX export files.
@@ -166,70 +108,6 @@ class RunnerUpVerificationMixin(RunnerUpDbMixin):
             "not_verified",
             "RunnerUp TCX export found but could not be read",
         )
-
-    def _try_fill_runnerup_for_date(self, date_str: str, log_file: Path) -> bool:
-        """Append a verified RunnerUp entry for ``date_str`` if not already logged.
-
-        Appends via the write chokepoint, which dedups by ``workout_id``
-        (``runnerup_verified:{date}``): re-scanning a day whose run is already
-        recorded is a no-op, but a day that only holds, say, a manual workout
-        still gets the run appended alongside it (multiple workouts per day).
-
-        Returns True if a new verified entry was appended for ``date_str``.
-        """
-        for remote in self._find_runnerup_exports_for_date(date_str):
-            data = self._pull_and_parse_tcx(remote)
-            if data is None:
-                continue
-            status, msg = self._validate_runnerup_data(data)
-            if status != "verified":
-                _logger.warning(
-                    "RunnerUp export %s for %s did not qualify (%s): %s",
-                    remote,
-                    date_str,
-                    status,
-                    msg,
-                )
-                continue
-            workout_data = {
-                "type": "runnerup_verified",
-                "source": f"Auto-scanned: {msg}",
-                "distance_km": round(data["distance_m"] / 1000, 2),
-                "duration_minutes": round(data["duration_seconds"] / 60, 1),
-            }
-            if write_signed_entry(log_file, date_str, workout_data).appended:
-                _logger.info("Auto-filled RunnerUp entry for %s: %s", date_str, msg)
-                return True
-            return False
-        return False
-
-    def _scan_and_fill_week_runnerup(self, log_file: Path) -> int:
-        """Scan the current ISO week for RunnerUp runs and append any not logged.
-
-        Returns the count of newly appended entries (0 if phone not connected).
-        """
-        if not self._has_adb_device():
-            _logger.info(
-                "Phone not connected; skipping auto-scan for past RunnerUp exports."
-            )
-            return 0
-
-        now = datetime.now(tz=timezone.utc).astimezone()
-        today = now.date()
-        week_start = today - timedelta(days=today.weekday())
-
-        filled = 0
-        current = week_start
-        while current <= today:
-            if self._try_fill_runnerup_for_date(current.strftime("%Y-%m-%d"), log_file):
-                filled += 1
-            current += timedelta(days=1)
-
-        return filled
-
-    # ------------------------------------------------------------------
-    # Shared validation
-    # ------------------------------------------------------------------
 
     def _validate_runnerup_data(self, data: dict[str, Any]) -> tuple[str, str]:
         """Validate a RunnerUp activity against configured thresholds.

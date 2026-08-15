@@ -55,7 +55,10 @@ unfixable = []
     "ANN", "ARG", "D", "DTZ011", "E501", "FBT",
     "PLC0415", "PLR0913", "PLR2004", "PTH", "RUF003", "S101", "SLF001",
 ]
-"screen_locker/_runnerup_verification.py" = ["S314"]
+# The ET.parse call this covers moved to _runnerup_tcx.py when
+# _runnerup_verification.py was split for the 250-line cap. Same waiver, new
+# home -- the TCX files are pulled off the user's own phone by adb.
+"screen_locker/_runnerup_tcx.py" = ["S314"]
 # URL is always built from the hardcoded https:// _WTTR_URL constant with
 # only the (quoted) city interpolated — never user/attacker controlled.
 # ruff's S310 can't verify that via static analysis of a variable URL, so
