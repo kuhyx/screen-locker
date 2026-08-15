@@ -2,29 +2,21 @@
 
 from __future__ import annotations
 
-from concurrent.futures import (  # pylint: disable=no-name-in-module
-    ThreadPoolExecutor,
-    as_completed,
-)
-import contextlib
 from datetime import date, datetime, timedelta, timezone
 from http import client as _http_client
 import json
 import logging
 from pathlib import Path
-import shutil
-import socket
-import subprocess
 import tempfile
 import time
 
+from screen_locker._adb_transport import AdbTransportMixin
 from screen_locker._constants import (
-    ADB_TIMEOUT,
     MIN_WORKOUT_DURATION_MINUTES,
     WORKOUT_APP_JSON_REMOTES,
     WORKOUT_DURATION_ACCEPT_MINUTES,
-    WORKOUT_HTTP_PORT,
 )
+from screen_locker._http_workout_fetch import HttpWorkoutFetchMixin
 from screen_locker._log_mixin import write_signed_entry
 from screen_locker._time_check import check_clock_skew
 from screen_locker._workout_sync import pull_synced_workout
@@ -36,115 +28,8 @@ _HTTP_OK = _http_client.OK
 _logger = logging.getLogger(__name__)
 
 
-class PhoneVerificationMixin:
+class PhoneVerificationMixin(AdbTransportMixin, HttpWorkoutFetchMixin):
     """Mixin providing phone-based workout verification via ADB."""
-
-    def _run_adb(self, args: list[str]) -> tuple[bool, str]:
-        """Run an ADB command and return success flag and stdout."""
-        adb = shutil.which("adb") or "adb"
-        # When multiple devices are connected (e.g. USB + wireless), pin to
-        # the wireless device's serial to avoid "more than one device" errors.
-        _discovery_cmds = {"devices", "connect", "disconnect", "kill-server"}
-        serial = (
-            self._get_wireless_serial()
-            if args and args[0] not in _discovery_cmds
-            else None
-        )
-        serial_args = ["-s", serial] if serial else []
-        try:
-            result = subprocess.run(
-                [adb, *serial_args, *args],
-                capture_output=True,
-                text=True,
-                timeout=ADB_TIMEOUT,
-                check=False,
-            )
-        except (FileNotFoundError, OSError) as exc:
-            _logger.warning("ADB not available: %s", exc)
-            return False, ""
-        except subprocess.TimeoutExpired:
-            _logger.warning("ADB command timed out: %s", args)
-            return False, ""
-        return not result.returncode, result.stdout
-
-    def _adb_shell(self, command: str, *, root: bool = False) -> tuple[bool, str]:
-        """Run a shell command on the connected Android device."""
-        if root:
-            return self._run_adb(["shell", "su", "-c", command])
-        return self._run_adb(["shell", command])
-
-    def _get_wireless_serial(self) -> str | None:
-        """Return the serial (ip:port) of the first connected wireless ADB device."""
-        success, output = self._run_adb(["devices"])
-        if not success:
-            return None
-        for line in output.strip().split("\n")[1:]:
-            parts = line.split()
-            if parts and ":" in parts[0] and "device" in line and "offline" not in line:
-                return parts[0]
-        return None
-
-    def _has_adb_device(self) -> bool:
-        """Return True if adb devices shows at least one connected device."""
-        success, output = self._run_adb(["devices"])
-        if not success:
-            return False
-        lines = output.strip().split("\n")[1:]
-        return any("device" in line and "offline" not in line for line in lines)
-
-    def _try_adb_connect(self, address: str) -> bool:
-        """Run adb connect to address. Returns True on success."""
-        _, output = self._run_adb(["connect", address])
-        lower = output.lower()
-        return "connected" in lower and "unable" not in lower and "failed" not in lower
-
-    def _get_local_subnet_prefix(self) -> str | None:
-        """Detect the local /24 network prefix (e.g. '192.168.1')."""
-        with (
-            contextlib.suppress(OSError),
-            socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock,
-        ):
-            sock.connect(("8.8.8.8", 80))
-            return ".".join(sock.getsockname()[0].split(".")[:3])
-        return None
-
-    def _try_wireless_reconnect(self) -> bool:
-        """Scan local /24 subnet on port 5555 and attempt ADB connect to phone."""
-        prefix = self._get_local_subnet_prefix()
-        if prefix is None:
-            _logger.info("Could not determine local subnet for wireless scan")
-            return False
-
-        def probe(i: int) -> bool:
-            ip = f"{prefix}.{i}"
-            with (
-                contextlib.suppress(OSError),
-                socket.create_connection((ip, 5555), timeout=0.5),
-            ):
-                if self._try_adb_connect(f"{ip}:5555"):
-                    return self._has_adb_device()
-            return False
-
-        _logger.info("Scanning %s.1-254:5555 for phone...", prefix)
-        with ThreadPoolExecutor(max_workers=64) as executor:
-            for future in as_completed(
-                executor.submit(probe, i) for i in range(1, 255)
-            ):
-                if future.result():
-                    return True
-        return False
-
-    def _is_phone_connected(self) -> bool:
-        """Check if an Android device is connected via ADB.
-
-        If no device is visible, attempts wireless reconnection via subnet scan.
-        """
-        if self._has_adb_device():
-            return True
-        _logger.info("No ADB device detected — attempting wireless reconnect...")
-        return self._try_wireless_reconnect()
-
-    # ── ADB verification ──────────────────────────────────────────────────────
 
     def _pull_workout_app_json(self) -> dict | None:
         """Pull workout_result.json from the phone (ADB, no root needed).
@@ -257,67 +142,6 @@ class PhoneVerificationMixin:
         return 0
 
     # ── HTTP fallback (no ADB / developer options required) ───────────────────
-
-    def _scan_for_http_server(self) -> str | None:
-        """Scan local /24 subnet for the workout app HTTP server on port 8765.
-
-        Returns the first reachable URL or None.
-        """
-        prefix = self._get_local_subnet_prefix()
-        if prefix is None:
-            return None
-
-        def probe(i: int) -> str | None:
-            ip = f"{prefix}.{i}"
-            with (
-                contextlib.suppress(OSError),
-                socket.create_connection((ip, WORKOUT_HTTP_PORT), timeout=0.3),
-            ):
-                return f"http://{ip}:{WORKOUT_HTTP_PORT}/workout"
-            return None
-
-        _logger.info(
-            "Scanning %s.1-254:%d for workout app...", prefix, WORKOUT_HTTP_PORT
-        )
-        with ThreadPoolExecutor(max_workers=64) as executor:
-            for future in as_completed(
-                executor.submit(probe, i) for i in range(1, 255)
-            ):
-                result = future.result()
-                if result is not None:
-                    return result
-        return None
-
-    def _fetch_http_workout(self) -> dict | None:
-        """Fetch workout JSON from the app's HTTP server on the local network.
-
-        Uses http.client directly to avoid urllib URL-open security lint rules.
-        The URL is always http://<local-ip>:8765/workout — no user input involved.
-        """
-        url = self._scan_for_http_server()
-        if url is None:
-            return None
-        # url is always "http://<ip>:<port>/workout" — constructed internally.
-        try:
-            _, _, hostport = url.partition("://")
-            host, _, path = hostport.partition("/")
-            hostname, _, port_str = host.partition(":")
-            conn = _HTTPConnection(hostname, int(port_str), timeout=5)
-            conn.request("GET", f"/{path}")
-            resp = conn.getresponse()
-            if resp.status != _HTTP_OK:
-                return None
-            return json.loads(resp.read().decode())
-        except (_HTTPException, OSError, ValueError, json.JSONDecodeError) as exc:
-            _logger.warning(
-                "HTTP fetch of today's workout from %s failed (%s) — no data "
-                "from the phone's HTTP server, so verification falls through",
-                url,
-                exc,
-            )
-            return None
-
-    # ── Main verification entry point ─────────────────────────────────────────
 
     def _verify_phone_workout(self) -> tuple[str, str]:
         """Verify today's workout: GitHub sync first, ADB/HTTP as fallback.

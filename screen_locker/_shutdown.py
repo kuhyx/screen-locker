@@ -2,21 +2,17 @@
 
 from __future__ import annotations
 
-import calendar
-from datetime import datetime, timedelta, timezone
-import json
+from datetime import datetime, timezone
 import logging
 import subprocess
 from typing import TYPE_CHECKING
 
 from screen_locker._constants import (
     ADJUST_SHUTDOWN_SCRIPT,
-    ALARM_DAYS,
-    RTCWAKE_BIN,
     SHUTDOWN_CONFIG_FILE,
-    SICK_DAY_STATE_FILE,
-    WAKE_AFTER_HOURS,
 )
+from screen_locker._shutdown_sick_state import SickDayStateMixin
+from screen_locker._wake_alarm import WakeAlarmMixin
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -52,7 +48,7 @@ def read_shutdown_config(path: Path) -> tuple[int, int, int] | None:
     )
 
 
-class ShutdownMixin:
+class ShutdownMixin(SickDayStateMixin, WakeAlarmMixin):
     """Mixin providing shutdown schedule adjustment functionality."""
 
     def _apply_earlier_shutdown(self, today: str) -> bool:
@@ -139,102 +135,6 @@ class ShutdownMixin:
             )
             return False
 
-    def _sick_mode_used_today(self) -> bool:
-        """Check if sick mode was already used today."""
-        if not SICK_DAY_STATE_FILE.exists():
-            return False
-
-        try:
-            with SICK_DAY_STATE_FILE.open() as f:
-                state = json.load(f)
-            today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-            return state.get("date") == today
-        except (OSError, json.JSONDecodeError) as exc:
-            _logger.warning(
-                "Could not read sick-day state from %s: %s — treating sick mode "
-                "as UNUSED today, which may allow a second sick day",
-                SICK_DAY_STATE_FILE,
-                exc,
-            )
-            return False
-
-    def _save_sick_day_state(
-        self,
-        date: str,
-        orig_mon_wed: int,
-        orig_thu_sun: int,
-    ) -> bool:
-        """Save sick day state with original config values.
-
-        Returns True if saved successfully, False otherwise.
-        """
-        state = {
-            "date": date,
-            "original_mon_wed_hour": orig_mon_wed,
-            "original_thu_sun_hour": orig_thu_sun,
-        }
-        try:
-            with SICK_DAY_STATE_FILE.open("w") as f:
-                json.dump(state, f, indent=2)
-        except OSError as e:
-            _logger.warning("Failed to save sick day state: %s", e)
-            return False
-
-        _logger.info("Saved sick day state for %s", date)
-        return True
-
-    def _load_sick_day_state(self) -> tuple[str, int, int] | None:
-        """Load sick day state file.
-
-        Returns (date, orig_mon_wed_hour, orig_thu_sun_hour) or None.
-        """
-        with SICK_DAY_STATE_FILE.open() as f:
-            state = json.load(f)
-        date = state.get("date")
-        orig_mw = state.get("original_mon_wed_hour")
-        orig_ts = state.get("original_thu_sun_hour")
-        if date is None or orig_mw is None or orig_ts is None:
-            return None
-        return (str(date), int(orig_mw), int(orig_ts))
-
-    def _write_restored_config(
-        self,
-        orig_mw: int,
-        orig_ts: int,
-        state_date: str,
-    ) -> None:
-        """Write restored config values and clean up state file."""
-        config_values = self._read_shutdown_config()
-        if config_values:
-            _, _, morning_end = config_values
-            _logger.info(
-                "Restoring original shutdown config from %s",
-                state_date,
-            )
-            self._write_shutdown_config(
-                orig_mw,
-                orig_ts,
-                morning_end,
-                restore=True,
-            )
-        SICK_DAY_STATE_FILE.unlink()
-        _logger.info("Removed stale sick day state from %s", state_date)
-
-    def _restore_original_config_if_needed(self) -> None:
-        """Restore original config if sick day state is from a previous day."""
-        if not SICK_DAY_STATE_FILE.exists():
-            return
-        try:
-            loaded = self._load_sick_day_state()
-            if loaded is None:
-                return
-            state_date, orig_mw, orig_ts = loaded
-            today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-            if state_date != today:
-                self._write_restored_config(orig_mw, orig_ts, state_date)
-        except (OSError, json.JSONDecodeError) as e:
-            _logger.warning("Error checking sick day state: %s", e)
-
     def _read_shutdown_config(self) -> tuple[int, int, int] | None:
         """Read shutdown config. Returns (mw_hour, ts_hour, me_hour) or None."""
         return read_shutdown_config(SHUTDOWN_CONFIG_FILE)
@@ -310,75 +210,3 @@ class ShutdownMixin:
             result.stdout.strip(),
         )
         return True
-
-    # ------------------------------------------------------------------
-    # rtcwake integration for weekend wake alarm
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _is_tomorrow_alarm_day() -> bool:
-        """Check if tomorrow is an alarm day."""
-        tomorrow = datetime.now(tz=timezone.utc) + timedelta(days=1)
-        return tomorrow.weekday() in ALARM_DAYS
-
-    @staticmethod
-    def _compute_wake_timestamp() -> int:
-        """Compute the UTC epoch timestamp for the next wake alarm.
-
-        Returns:
-            Epoch seconds WAKE_AFTER_HOURS from now.
-        """
-        wake_time = datetime.now(tz=timezone.utc) + timedelta(
-            hours=WAKE_AFTER_HOURS,
-        )
-        return calendar.timegm(wake_time.utctimetuple())
-
-    @staticmethod
-    def _schedule_rtcwake() -> bool:
-        """Set rtcwake to power on the PC after WAKE_AFTER_HOURS.
-
-        Uses ``rtcwake -m disk`` to hibernate immediately while programming
-        the RTC to restore power at wake_epoch.  Hibernate is completely
-        silent and dark (state written to swap file), making it suitable
-        when the PC is in a bedroom.
-
-        Returns:
-            True if rtcwake was set successfully, False otherwise.
-        """
-        wake_epoch = ShutdownMixin._compute_wake_timestamp()
-        cmd = [
-            "/usr/bin/sudo",
-            RTCWAKE_BIN,
-            "-m",
-            "disk",
-            "-t",
-            str(wake_epoch),
-        ]
-        try:
-            subprocess.run(
-                cmd,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-        except subprocess.SubprocessError as exc:
-            _logger.warning("Failed to set rtcwake: %s", exc)
-            return False
-        _logger.info(
-            "rtcwake set: PC will wake at epoch %d",
-            wake_epoch,
-        )
-        return True
-
-    def schedule_wake_if_needed(self) -> bool:
-        """Schedule rtcwake if tomorrow is an alarm day.
-
-        Call this at shutdown time.
-
-        Returns:
-            True if wake was scheduled, False if not needed or failed.
-        """
-        if not self._is_tomorrow_alarm_day():
-            _logger.info("Tomorrow is not an alarm day — skipping rtcwake")
-            return False
-        return self._schedule_rtcwake()

@@ -144,7 +144,7 @@ class TestGetLocalSubnetPrefix:
         mock_sock.__enter__ = MagicMock(return_value=mock_sock)
         mock_sock.__exit__ = MagicMock(return_value=False)
         with patch(
-            "screen_locker._phone_verification.socket.socket",
+            "screen_locker._adb_transport.socket.socket",
             return_value=mock_sock,
         ):
             result = locker._get_local_subnet_prefix()
@@ -159,7 +159,7 @@ class TestGetLocalSubnetPrefix:
         """Test returns None when socket raises OSError."""
         locker = create_locker(mock_tk, tmp_path)
         with patch(
-            "screen_locker._phone_verification.socket.socket",
+            "screen_locker._adb_transport.socket.socket",
             side_effect=OSError("no network"),
         ):
             result = locker._get_local_subnet_prefix()

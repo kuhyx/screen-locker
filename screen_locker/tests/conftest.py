@@ -138,7 +138,10 @@ def _block_real_network() -> Iterator[None]:
     reach the real network. Tests needing a real probe patch it locally.
     """
     targets = (
-        "screen_locker._phone_verification.socket.create_connection",
+        # The subnet probes moved out of _phone_verification when it was split;
+        # both new homes must be blocked or a test reaches the real network.
+        "screen_locker._adb_transport.socket.create_connection",
+        "screen_locker._http_workout_fetch.socket.create_connection",
         "screen_locker._temperature.urllib.request.urlopen",
     )
     with ExitStack() as stack:

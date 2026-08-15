@@ -26,7 +26,7 @@ class TestRunAdb:
         locker = create_locker(mock_tk, tmp_path)
         mock_result = MagicMock(returncode=0, stdout="ok\n")
         with patch(
-            "screen_locker._phone_verification.subprocess.run",
+            "screen_locker._adb_transport.subprocess.run",
             return_value=mock_result,
         ) as mock_run:
             success, output = locker._run_adb(["devices"])
@@ -45,7 +45,7 @@ class TestRunAdb:
         locker = create_locker(mock_tk, tmp_path)
         mock_result = MagicMock(returncode=1, stdout="")
         with patch(
-            "screen_locker._phone_verification.subprocess.run",
+            "screen_locker._adb_transport.subprocess.run",
             return_value=mock_result,
         ):
             success, _output = locker._run_adb(["devices"])
@@ -61,7 +61,7 @@ class TestRunAdb:
         """Test ADB binary not found."""
         locker = create_locker(mock_tk, tmp_path)
         with patch(
-            "screen_locker._phone_verification.subprocess.run",
+            "screen_locker._adb_transport.subprocess.run",
             side_effect=FileNotFoundError("adb not found"),
         ):
             success, output = locker._run_adb(["devices"])
@@ -78,7 +78,7 @@ class TestRunAdb:
         """Test ADB OSError."""
         locker = create_locker(mock_tk, tmp_path)
         with patch(
-            "screen_locker._phone_verification.subprocess.run",
+            "screen_locker._adb_transport.subprocess.run",
             side_effect=OSError("permission denied"),
         ):
             success, output = locker._run_adb(["devices"])
@@ -95,7 +95,7 @@ class TestRunAdb:
         """Test ADB command timeout."""
         locker = create_locker(mock_tk, tmp_path)
         with patch(
-            "screen_locker._phone_verification.subprocess.run",
+            "screen_locker._adb_transport.subprocess.run",
             side_effect=subprocess.TimeoutExpired("adb", 15),
         ):
             success, output = locker._run_adb(["devices"])

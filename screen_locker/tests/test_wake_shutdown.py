@@ -26,7 +26,7 @@ class TestIsTomorrowAlarmDay:
 
         # Sunday 2026-04-12 → tomorrow Monday
         with patch(
-            "screen_locker._shutdown.datetime",
+            "screen_locker._wake_alarm.datetime",
         ) as mock_dt:
             mock_dt.now.return_value = datetime(2026, 4, 12, 23, 0, tzinfo=timezone.utc)
             mock_dt.side_effect = datetime
@@ -34,7 +34,7 @@ class TestIsTomorrowAlarmDay:
 
             # Ensure timedelta works
             with patch(
-                "screen_locker._shutdown.timedelta",
+                "screen_locker._wake_alarm.timedelta",
                 timedelta,
             ):
                 assert locker._is_tomorrow_alarm_day() is True
@@ -52,10 +52,10 @@ class TestIsTomorrowAlarmDay:
         # Monday 2026-04-13 → tomorrow Tuesday (weekday=1)
         with (
             patch(
-                "screen_locker._shutdown.datetime",
+                "screen_locker._wake_alarm.datetime",
             ) as mock_dt,
             patch(
-                "screen_locker._shutdown.timedelta",
+                "screen_locker._wake_alarm.timedelta",
                 timedelta,
             ),
         ):
@@ -76,10 +76,10 @@ class TestIsTomorrowAlarmDay:
         # Thursday 2026-04-16 → tomorrow Friday (weekday=4)
         with (
             patch(
-                "screen_locker._shutdown.datetime",
+                "screen_locker._wake_alarm.datetime",
             ) as mock_dt,
             patch(
-                "screen_locker._shutdown.timedelta",
+                "screen_locker._wake_alarm.timedelta",
                 timedelta,
             ),
         ):
@@ -100,7 +100,7 @@ class TestScheduleRtcwake:
         """Successful rtcwake call returns True."""
         locker = create_locker(mock_tk, tmp_path)
         with patch(
-            "screen_locker._shutdown.subprocess.run",
+            "screen_locker._wake_alarm.subprocess.run",
         ) as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
             assert locker._schedule_rtcwake() is True
@@ -119,7 +119,7 @@ class TestScheduleRtcwake:
         import subprocess
 
         with patch(
-            "screen_locker._shutdown.subprocess.run",
+            "screen_locker._wake_alarm.subprocess.run",
             side_effect=subprocess.SubprocessError("rtcwake failed"),
         ):
             assert locker._schedule_rtcwake() is False

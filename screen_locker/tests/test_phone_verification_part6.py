@@ -39,7 +39,7 @@ class TestTryWirelessReconnect:
             patch.object(locker, "_try_adb_connect", return_value=True),
             patch.object(locker, "_has_adb_device", return_value=True),
             patch(
-                "screen_locker._phone_verification.socket.create_connection",
+                "screen_locker._adb_transport.socket.create_connection",
             ) as mock_conn,
         ):
             mock_sock = MagicMock()
@@ -60,7 +60,7 @@ class TestTryWirelessReconnect:
         with (
             patch.object(locker, "_get_local_subnet_prefix", return_value="192.168.1"),
             patch(
-                "screen_locker._phone_verification.socket.create_connection",
+                "screen_locker._adb_transport.socket.create_connection",
                 side_effect=OSError("refused"),
             ),
         ):
@@ -80,7 +80,7 @@ class TestTryWirelessReconnect:
             patch.object(locker, "_try_adb_connect", return_value=True),
             patch.object(locker, "_has_adb_device", return_value=False),
             patch(
-                "screen_locker._phone_verification.socket.create_connection",
+                "screen_locker._adb_transport.socket.create_connection",
             ) as mock_conn,
         ):
             mock_sock = MagicMock()
@@ -102,7 +102,7 @@ class TestTryWirelessReconnect:
             patch.object(locker, "_get_local_subnet_prefix", return_value="192.168.1"),
             patch.object(locker, "_try_adb_connect", return_value=False),
             patch(
-                "screen_locker._phone_verification.socket.create_connection",
+                "screen_locker._adb_transport.socket.create_connection",
             ) as mock_conn,
         ):
             mock_sock = MagicMock()

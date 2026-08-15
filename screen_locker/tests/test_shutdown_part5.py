@@ -26,7 +26,7 @@ class TestSickModeUsedToday:
         mock_file = MagicMock()
         mock_file.exists.return_value = False
         with patch(
-            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE",
             mock_file,
         ):
             assert locker._sick_mode_used_today() is False
@@ -41,7 +41,7 @@ class TestSickModeUsedToday:
         locker = create_locker(mock_tk, tmp_path)
         state_file = tmp_path / "state.json"
         with patch(
-            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE",
             state_file,
         ):
             from datetime import datetime, timezone
@@ -60,7 +60,7 @@ class TestSickModeUsedToday:
         locker = create_locker(mock_tk, tmp_path)
         state_file = tmp_path / "state.json"
         with patch(
-            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE",
             state_file,
         ):
             state_file.write_text(json.dumps({"date": "2020-01-01"}))
@@ -76,7 +76,7 @@ class TestSickModeUsedToday:
         locker = create_locker(mock_tk, tmp_path)
         state_file = tmp_path / "state.json"
         with patch(
-            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE",
             state_file,
         ):
             state_file.write_text("not json{{{")

@@ -27,7 +27,7 @@ class TestRestoreOriginalConfigIfNeeded:
         mock_file = MagicMock()
         mock_file.exists.return_value = False
         with patch(
-            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE",
             mock_file,
         ):
             locker._restore_original_config_if_needed()
@@ -52,7 +52,7 @@ class TestRestoreOriginalConfigIfNeeded:
         )
         with (
             patch(
-                "screen_locker._shutdown.SICK_DAY_STATE_FILE",
+                "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE",
                 state_file,
             ),
             patch.object(locker, "_write_restored_config") as mock_restore,
@@ -83,7 +83,7 @@ class TestRestoreOriginalConfigIfNeeded:
         )
         with (
             patch(
-                "screen_locker._shutdown.SICK_DAY_STATE_FILE",
+                "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE",
                 state_file,
             ),
             patch.object(locker, "_write_restored_config") as mock_restore,
@@ -103,7 +103,7 @@ class TestRestoreOriginalConfigIfNeeded:
         state_file.write_text(json.dumps({"date": "2020-01-01"}))
         with (
             patch(
-                "screen_locker._shutdown.SICK_DAY_STATE_FILE",
+                "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE",
                 state_file,
             ),
             patch.object(locker, "_write_restored_config") as mock_restore,
@@ -123,7 +123,7 @@ class TestRestoreOriginalConfigIfNeeded:
         mock_file.exists.return_value = True
         mock_file.open.side_effect = OSError("fail")
         with patch(
-            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE",
             mock_file,
         ):
             locker._restore_original_config_if_needed()
@@ -139,7 +139,7 @@ class TestRestoreOriginalConfigIfNeeded:
         state_file = tmp_path / "state.json"
         state_file.write_text("not valid json{{{")
         with patch(
-            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE",
             state_file,
         ):
             locker._restore_original_config_if_needed()

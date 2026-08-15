@@ -128,7 +128,7 @@ class TestScanForHttpServer:
         with (
             patch.object(locker, "_get_local_subnet_prefix", return_value="192.168.1"),
             patch(
-                "screen_locker._phone_verification.socket.create_connection",
+                "screen_locker._http_workout_fetch.socket.create_connection",
                 return_value=_mock_cm(MagicMock()),
             ),
         ):
@@ -145,7 +145,7 @@ class TestScanForHttpServer:
         with (
             patch.object(locker, "_get_local_subnet_prefix", return_value="192.168.1"),
             patch(
-                "screen_locker._phone_verification.socket.create_connection",
+                "screen_locker._http_workout_fetch.socket.create_connection",
                 side_effect=OSError("refused"),
             ),
         ):

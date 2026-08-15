@@ -25,7 +25,7 @@ class TestSaveSickDayState:
         locker = create_locker(mock_tk, tmp_path)
         state_file = tmp_path / "state.json"
         with patch(
-            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE",
             state_file,
         ):
             result = locker._save_sick_day_state("2026-03-21", 21, 20)
@@ -46,7 +46,7 @@ class TestSaveSickDayState:
         mock_path = MagicMock()
         mock_path.open.side_effect = OSError("permission denied")
         with patch(
-            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE",
             mock_path,
         ):
             result = locker._save_sick_day_state("2026-03-21", 21, 20)
@@ -75,7 +75,7 @@ class TestLoadSickDayState:
             )
         )
         with patch(
-            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE",
             state_file,
         ):
             result = locker._load_sick_day_state()
@@ -92,7 +92,7 @@ class TestLoadSickDayState:
         state_file = tmp_path / "state.json"
         state_file.write_text(json.dumps({"date": "2026-03-20"}))
         with patch(
-            "screen_locker._shutdown.SICK_DAY_STATE_FILE",
+            "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE",
             state_file,
         ):
             result = locker._load_sick_day_state()
@@ -118,7 +118,7 @@ class TestWriteRestoredConfig:
                 locker, "_write_shutdown_config", return_value=True
             ) as mock_write,
             patch(
-                "screen_locker._shutdown.SICK_DAY_STATE_FILE",
+                "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE",
                 state_file,
             ),
         ):
@@ -139,7 +139,7 @@ class TestWriteRestoredConfig:
         with (
             patch.object(locker, "_read_shutdown_config", return_value=None),
             patch(
-                "screen_locker._shutdown.SICK_DAY_STATE_FILE",
+                "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE",
                 state_file,
             ),
         ):

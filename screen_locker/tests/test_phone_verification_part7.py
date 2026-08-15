@@ -45,7 +45,7 @@ class TestFetchHttpWorkout:
                 return_value="http://192.168.1.5:8765/workout",
             ),
             patch(
-                "screen_locker._phone_verification._HTTPConnection",
+                "screen_locker._http_workout_fetch._HTTPConnection",
                 return_value=conn,
             ),
         ):
@@ -68,7 +68,7 @@ class TestFetchHttpWorkout:
                 return_value="http://192.168.1.5:8765/workout",
             ),
             patch(
-                "screen_locker._phone_verification._HTTPConnection",
+                "screen_locker._http_workout_fetch._HTTPConnection",
                 return_value=conn,
             ),
         ):
@@ -86,7 +86,7 @@ class TestFetchHttpWorkout:
                 return_value="http://192.168.1.5:8765/workout",
             ),
             patch(
-                "screen_locker._phone_verification._HTTPConnection",
+                "screen_locker._http_workout_fetch._HTTPConnection",
                 side_effect=OSError("unreachable"),
             ),
         ):
