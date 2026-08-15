@@ -272,11 +272,11 @@ class TestIngestSyncedManualWorkouts:
         locker = create_locker(mock_tk, tmp_path)
         with (
             patch(
-                "screen_locker.screen_lock.pull_all_manual_records",
+                "screen_locker._sync_mixin.pull_all_manual_records",
                 return_value=[("manual:x", {})],
             ),
             patch(
-                "screen_locker.screen_lock.ingest_manual_records",
+                "screen_locker._sync_mixin.ingest_manual_records",
                 return_value=["manual:x"],
             ) as ingest,
         ):
@@ -289,11 +289,11 @@ class TestIngestSyncedManualWorkouts:
         locker = create_locker(mock_tk, tmp_path)
         with (
             patch(
-                "screen_locker.screen_lock.pull_all_manual_records",
+                "screen_locker._sync_mixin.pull_all_manual_records",
                 return_value=[],
             ),
             patch(
-                "screen_locker.screen_lock.ingest_manual_records",
+                "screen_locker._sync_mixin.ingest_manual_records",
                 return_value=[],
             ),
         ):
@@ -310,11 +310,11 @@ class TestIngestSyncedManualWorkouts:
         locker.workout_data = {"stale": "state"}
         with (
             patch(
-                "screen_locker.screen_lock.pull_all_manual_records",
+                "screen_locker._sync_mixin.pull_all_manual_records",
                 return_value=[],
             ),
             patch(
-                "screen_locker.screen_lock.ingest_manual_records",
+                "screen_locker._sync_mixin.ingest_manual_records",
                 return_value=[],
             ) as ingest,
         ):

@@ -43,11 +43,11 @@ class TestRelaxedDayBranch:
                 ScreenLocker, "_try_auto_upgrade_early_bird", return_value=False
             ),
             patch(
-                "screen_locker.screen_lock.is_relaxed_day",
+                "screen_locker._startup_checks.is_relaxed_day",
                 return_value=True,
             ),
             patch(
-                "screen_locker.screen_lock.has_weekly_minimum",
+                "screen_locker._startup_checks.has_weekly_minimum",
                 return_value=False,
             ),
             patch.object(ScreenLocker, "_start_phone_check") as mock_phone,
@@ -75,11 +75,11 @@ class TestRelaxedDayBranch:
                 ScreenLocker, "_try_auto_upgrade_early_bird", return_value=False
             ),
             patch(
-                "screen_locker.screen_lock.is_relaxed_day",
+                "screen_locker._startup_checks.is_relaxed_day",
                 return_value=True,
             ),
             patch(
-                "screen_locker.screen_lock.has_weekly_minimum",
+                "screen_locker._startup_checks.has_weekly_minimum",
                 return_value=False,
             ),
             patch("screen_locker.screen_lock.LockWindow") as mock_lock_window,
@@ -109,11 +109,11 @@ class TestRelaxedDayBranch:
                 ScreenLocker, "_try_auto_upgrade_early_bird", return_value=False
             ),
             patch(
-                "screen_locker.screen_lock.is_relaxed_day",
+                "screen_locker._startup_checks.is_relaxed_day",
                 return_value=True,
             ),
             patch(
-                "screen_locker.screen_lock.has_weekly_minimum",
+                "screen_locker._startup_checks.has_weekly_minimum",
                 return_value=False,
             ),
             patch("screen_locker.screen_lock.LockWindow") as mock_lock_window,
@@ -148,7 +148,7 @@ class TestWeeklyMinimumBranch:
         tmp_path: Path,
     ) -> None:
         with patch(
-            "screen_locker.screen_lock.has_weekly_minimum",
+            "screen_locker._startup_checks.has_weekly_minimum",
             return_value=True,
         ):
             create_locker(mock_tk, tmp_path, has_logged=False)
@@ -164,7 +164,7 @@ class TestWeeklyMinimumBranch:
         # create_locker already stubs _start_phone_check; just verify no exit
         # and _relaxed_day_mode stays False (full lock path taken).
         with patch(
-            "screen_locker.screen_lock.has_weekly_minimum",
+            "screen_locker._startup_checks.has_weekly_minimum",
             return_value=False,
         ):
             locker = create_locker(mock_tk, tmp_path, has_logged=False)
@@ -179,7 +179,7 @@ class TestWeeklyMinimumBranch:
         tmp_path: Path,
     ) -> None:
         with patch(
-            "screen_locker.screen_lock.has_weekly_minimum",
+            "screen_locker._startup_checks.has_weekly_minimum",
         ) as mock_weekly:
             create_locker_relaxed_day(mock_tk, tmp_path)
 
@@ -192,7 +192,7 @@ class TestWeeklyMinimumBranch:
         tmp_path: Path,
     ) -> None:
         with patch(
-            "screen_locker.screen_lock.has_weekly_minimum",
+            "screen_locker._startup_checks.has_weekly_minimum",
         ) as mock_weekly:
             create_locker(mock_tk, tmp_path, has_logged=True)
 

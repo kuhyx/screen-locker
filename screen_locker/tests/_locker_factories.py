@@ -93,9 +93,9 @@ def create_locker_relaxed_day(
         patch.object(ScreenLocker, "_is_early_bird_pending", return_value=False),
         patch.object(ScreenLocker, "_is_early_bird_time", return_value=False),
         patch.object(ScreenLocker, "_try_auto_upgrade_early_bird", return_value=False),
-        patch("screen_locker.screen_lock.is_relaxed_day", return_value=True),
+        patch("screen_locker._startup_checks.is_relaxed_day", return_value=True),
         patch(
-            "screen_locker.screen_lock.has_weekly_minimum",
+            "screen_locker._startup_checks.has_weekly_minimum",
             return_value=False,
         ),
         patch.object(ScreenLocker, "_start_phone_check"),

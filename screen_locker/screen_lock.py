@@ -23,49 +23,31 @@ from screen_locker._constants import (
     EARLY_BIRD_END_HOUR,
     EARLY_BIRD_END_MINUTE,
     EARLY_BIRD_START_HOUR,
-    EXTRA_BENEFITS_FILE,
-    HEAT_SKIP_CITY,
-    HEAT_SKIP_TEMP_THRESHOLD,
     HMAC_KEY_FILE,
     MAX_CLOCK_SKEW_SECONDS,
     MIN_WORKOUT_DURATION_MINUTES,
     PHONE_PENALTY_DELAY_DEMO,
     PHONE_PENALTY_DELAY_PRODUCTION,
     SCHEDULED_SKIPS_FILE,
-    SHUTDOWN_BASE_FILE,
-    SICK_DAY_STATE_FILE,
     SICK_LOCKOUT_SECONDS,
 )
 from screen_locker._early_bird import EarlyBirdMixin
-from screen_locker._extra_benefits import (
-    process_week_transition,
-    weekly_shutdown_bonus_hours,
-)
 from screen_locker._heat_skip import HeatSkipMixin
 from screen_locker._log_mixin import LogMixin
-from screen_locker._manual_push import push_pc_workouts
-from screen_locker._manual_sync import ingest_manual_records
 from screen_locker._manual_workout_dialog import ManualWorkoutDialogMixin
 from screen_locker._phone_verification import PhoneVerificationMixin
 from screen_locker._runnerup_verification import RunnerUpVerificationMixin
 from screen_locker._shutdown import ShutdownMixin
-from screen_locker._shutdown_base import reset_to_base_if_new_day
 from screen_locker._sick_dialog import SickDialogMixin
+from screen_locker._startup_checks import StartupChecksMixin
 from screen_locker._surface_group import FrameGroup
-from screen_locker._temperature import fetch_current_temp_with_status
 from screen_locker._ui_flows import UIFlowsMixin
 from screen_locker._ui_flows_relaxed import UIFlowsRelaxedMixin
 from screen_locker._ui_widgets import UIWidgetsMixin
 from screen_locker._unlock_view import UnlockViewMixin
-from screen_locker._weekly_check import (
-    WEEKLY_WORKOUT_MINIMUM,
-    count_weekly_workouts,
-    has_weekly_minimum,
-    is_relaxed_day,
-)
+from screen_locker._weekly_check import WEEKLY_WORKOUT_MINIMUM
 from screen_locker._window_setup import WindowSetupMixin
 from screen_locker._workout_credit import WorkoutCreditMixin
-from screen_locker._workout_sync import pull_all_manual_records
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -116,6 +98,7 @@ class ScreenLocker(
     PhoneVerificationMixin,
     RunnerUpVerificationMixin,
     SickDialogMixin,
+    StartupChecksMixin,
     UIFlowsMixin,
     UIFlowsRelaxedMixin,
     UIWidgetsMixin,
@@ -180,159 +163,6 @@ class ScreenLocker(
             if self._lock is not None:  # pragma: no branch
                 self._lock.grab_input()
 
-    def _check_non_verify_exits(self) -> None:
-        """Check all normal (non-verify) startup early-exit conditions."""
-        if self._is_scheduled_skip_today():
-            _logger.info("Today is a scheduled skip day. Skipping screen lock.")
-            sys.exit(0)
-            return
-        # Award streak / shutdown-bonus / EB-extension rewards from last week
-        # before the daily reset, so a Monday transition's bonus is recorded
-        # in time for _apply_weekly_shutdown_bonus below to see it.
-        for reward_msg in process_week_transition(self.log_file, EXTRA_BENEFITS_FILE):
-            _logger.info("Weekly reward: %s", reward_msg)
-        # Reset shutdown config to base (21:00) at the start of each new day,
-        # then layer this week's earned bonus back on top of the fresh base.
-        if reset_to_base_if_new_day(
-            SHUTDOWN_BASE_FILE, self, sick_day_state_file=SICK_DAY_STATE_FILE
-        ):
-            self._apply_weekly_shutdown_bonus()
-        # Ingest any manual workouts synced from the phone (or another device)
-        # before the early-exit checks, so a manual logged off-app still counts
-        # toward today's/this week's minimum.
-        self._ingest_synced_manual_workouts()
-        # Auto-fill any RunnerUp workouts from earlier in the current ISO week
-        # before any early-exit check, so gaps are closed regardless of today's
-        # logged state (early_bird, sick_day, etc.).
-        self._auto_fill_week_runnerup_bonus()
-        if self._check_today_state_exits():
-            return
-        # Day-of-week routing: Tue/Wed/Thu relaxed (optional), Fri-Mon enforced.
-        if is_relaxed_day():
-            _logger.info("Relaxed day (Tue-Thu) - showing optional workout prompt.")
-            self._relaxed_day_mode = True
-            return
-        # Fri-Mon: skip lock when weekly minimum is already met.
-        if has_weekly_minimum(self.log_file):
-            _logger.info(
-                "Weekly minimum of %d workouts met. Skipping screen lock.",
-                WEEKLY_WORKOUT_MINIMUM,
-            )
-            sys.exit(0)
-            return
-        # Only remaining same-day skip: genuine extreme heat. Sick days go
-        # through the justification flow instead; there is no banked
-        # "skip a workout" credit — that mechanic works against the goal of
-        # maximizing weekly workouts, so it was removed in favor of a
-        # shutdown-time-only reward (see _apply_weekly_shutdown_bonus).
-        self._check_heat_skip_exit()
-
-    def sync_now(self) -> None:
-        """Run one sync pass: publish this PC's workouts, ingest everyone's.
-
-        The public entry point behind ``--sync-only``, which the
-        ``workout-sync.timer`` unit calls. Sync used to happen only inside the
-        locker's startup path, so a workout finished after login stayed
-        invisible until the next login.
-
-        Also re-runs the RunnerUp TCX backfill here, not just at login: the
-        login-time scan gets exactly one shot, and if the phone isn't
-        adb-visible at that instant (e.g. USB debugging not yet
-        authorized), a same-day run stays uncredited until the next login.
-        Repeating it every 15 minutes closes that gap.
-        """
-        self._ingest_synced_manual_workouts()
-        self._auto_fill_week_runnerup_bonus()
-
-    def _ingest_synced_manual_workouts(self) -> None:
-        """Sync manual workouts: publish this PC's, ingest everyone else's.
-
-        Each newly-ingested record earns the identical shutdown/debt reward a
-        live-logged workout would (see
-        ``WorkoutCreditMixin._apply_credit_for_written_entry``), regardless of
-        whether it's dated today or back-dated — there's only one current
-        shutdown config, so a back-dated sync still pushes it.
-        """
-        push_pc_workouts(self.log_file)
-        ingested = ingest_manual_records(
-            self.log_file,
-            pull_all_manual_records(),
-            on_ingested=self._credit_ingested_manual_workout,
-        )
-        for record_id in ingested:
-            _logger.info("Ingested synced manual workout: %s", record_id)
-        self.workout_data = {}
-
-    def _credit_ingested_manual_workout(
-        self, entry: dict[str, str], prior_entries: list[dict]
-    ) -> None:
-        """Apply the live-workout reward to a manual workout ingested via sync."""
-        self.workout_data = entry
-        credit = self._apply_credit_for_written_entry(prior_entries)
-        if credit.shutdown_adjusted:
-            _logger.info(
-                "Synced manual workout pushed shutdown time +2h: %s",
-                entry.get("source", ""),
-            )
-        elif credit.extra_bonus_delta:
-            _logger.info(
-                "Synced manual workout added +%dh shutdown time: %s",
-                credit.extra_bonus_delta,
-                entry.get("source", ""),
-            )
-
-    def _auto_fill_week_runnerup_bonus(self) -> None:
-        """Auto-fill missed RunnerUp workouts and award any earned bonus."""
-        prev_count = count_weekly_workouts(self.log_file)
-        n_filled = self._scan_and_fill_week_runnerup(self.log_file)
-        if not n_filled:
-            return
-        new_count = count_weekly_workouts(self.log_file)
-        _logger.info("Auto-filled %d RunnerUp workout(s) from TCX exports.", n_filled)
-        # Award +1h for each newly auto-filled workout above the minimum.
-        bonus = max(0, new_count - max(WEEKLY_WORKOUT_MINIMUM, prev_count))
-        if bonus > 0 and self._adjust_shutdown_time_by(bonus):
-            _logger.info("Auto-fill extra bonus: +%dh shutdown time.", bonus)
-
-    def _check_heat_skip_exit(self) -> None:
-        """Exit early if today qualifies for the extreme-heat skip dialog.
-
-        Fail-closed by construction: a failed or timed-out temperature fetch
-        falls straight through to the lock, same as "not hot enough" — the
-        only difference is this logs *why* explicitly, so a fetch failure
-        is never silently indistinguishable from a normal day in the logs.
-        """
-        check = fetch_current_temp_with_status(HEAT_SKIP_CITY)
-        if check.timed_out:
-            _logger.warning(
-                "Heat-skip temperature check timed out — defaulting to lock."
-            )
-            return
-        if check.temp_celsius is None:
-            _logger.warning(
-                "Heat-skip temperature check failed (network/API error) — "
-                "defaulting to lock."
-            )
-            return
-        if check.temp_celsius < HEAT_SKIP_TEMP_THRESHOLD:
-            return
-        _logger.info(
-            "Temperature %.0f°C exceeds threshold — showing heat-skip dialog.",
-            check.temp_celsius,
-        )
-        if self._show_heat_skip_dialog(check.temp_celsius):
-            self._save_heat_skip_log(check.temp_celsius)
-            _logger.info(
-                "User skipped workout due to heat (%.0f°C).", check.temp_celsius
-            )
-            sys.exit(0)
-
-    def _apply_weekly_shutdown_bonus(self) -> None:
-        """Layer this week's earned shutdown bonus back on top of the fresh base."""
-        bonus = weekly_shutdown_bonus_hours(EXTRA_BENEFITS_FILE)
-        if bonus > 0 and self._adjust_shutdown_time_by(bonus):
-            _logger.info("Weekly bonus: +%dh shutdown time this week.", bonus)
-
     def close(self) -> None:
         """Close the application and exit."""
         if self._lock is not None:
@@ -350,41 +180,6 @@ class ScreenLocker(
 
 
 if __name__ == "__main__":
-    if "--status" in sys.argv:
-        from screen_locker._status import run_status
+    from screen_locker._cli import main
 
-        # Bypass __init__ (no UI) — only log_file and workout_data are needed.
-        _sl = object.__new__(ScreenLocker)
-        _sl.log_file = Path(__file__).resolve().parent / "workout_log.json"
-        _sl.workout_data = {}
-        run_status(_sl)
-
-    if "--sync-only" in sys.argv:
-        # Headless sync for the timer unit: pull other devices' workouts and
-        # apply their credit, with no Tk and no lock screen. Sync used to run
-        # ONLY at process start, so a workout finished after login was not seen
-        # until the next login — the timer closes that window.
-        #
-        # Same __init__ bypass as --status: this path touches only log_file and
-        # workout_data, and constructing the real ScreenLocker would build a UI.
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(levelname)s %(name)s: %(message)s",
-        )
-        _sl = object.__new__(ScreenLocker)
-        _sl.log_file = Path(__file__).resolve().parent / "workout_log.json"
-        _sl.workout_data = {}
-        _sl.sync_now()
-        sys.exit(0)
-
-    demo_mode = True
-    verify_only = "--verify-workout" in sys.argv
-
-    if "--production" in sys.argv:
-        demo_mode = False
-
-    locker = ScreenLocker(
-        demo_mode=demo_mode,
-        verify_only=verify_only,
-    )
-    locker.run()
+    main(ScreenLocker, sys.argv)

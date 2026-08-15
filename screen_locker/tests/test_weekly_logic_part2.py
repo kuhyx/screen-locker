@@ -215,9 +215,11 @@ class TestHeatSkipBranch:
         tmp_path: Path,
     ) -> None:
         with (
-            patch("screen_locker.screen_lock.has_weekly_minimum", return_value=False),
             patch(
-                "screen_locker.screen_lock.fetch_current_temp_with_status",
+                "screen_locker._startup_checks.has_weekly_minimum", return_value=False
+            ),
+            patch(
+                "screen_locker._startup_checks.fetch_current_temp_with_status",
                 return_value=TemperatureCheck(temp_celsius=20.0, timed_out=False),
             ) as mock_hot,
             patch.object(ScreenLocker, "_show_heat_skip_dialog") as mock_dialog,
@@ -235,9 +237,11 @@ class TestHeatSkipBranch:
         tmp_path: Path,
     ) -> None:
         with (
-            patch("screen_locker.screen_lock.has_weekly_minimum", return_value=False),
             patch(
-                "screen_locker.screen_lock.fetch_current_temp_with_status",
+                "screen_locker._startup_checks.has_weekly_minimum", return_value=False
+            ),
+            patch(
+                "screen_locker._startup_checks.fetch_current_temp_with_status",
                 return_value=TemperatureCheck(temp_celsius=35.0, timed_out=False),
             ),
             patch.object(ScreenLocker, "_show_heat_skip_dialog", return_value=True),
@@ -255,9 +259,11 @@ class TestHeatSkipBranch:
         tmp_path: Path,
     ) -> None:
         with (
-            patch("screen_locker.screen_lock.has_weekly_minimum", return_value=False),
             patch(
-                "screen_locker.screen_lock.fetch_current_temp_with_status",
+                "screen_locker._startup_checks.has_weekly_minimum", return_value=False
+            ),
+            patch(
+                "screen_locker._startup_checks.fetch_current_temp_with_status",
                 return_value=TemperatureCheck(temp_celsius=35.0, timed_out=False),
             ),
             patch.object(ScreenLocker, "_show_heat_skip_dialog", return_value=False),
@@ -276,9 +282,11 @@ class TestHeatSkipBranch:
     ) -> None:
         """A timed-out temperature check must fail closed, not skip the lock."""
         with (
-            patch("screen_locker.screen_lock.has_weekly_minimum", return_value=False),
             patch(
-                "screen_locker.screen_lock.fetch_current_temp_with_status",
+                "screen_locker._startup_checks.has_weekly_minimum", return_value=False
+            ),
+            patch(
+                "screen_locker._startup_checks.fetch_current_temp_with_status",
                 return_value=TemperatureCheck(temp_celsius=None, timed_out=True),
             ),
             patch.object(ScreenLocker, "_show_heat_skip_dialog") as mock_dialog,
@@ -296,9 +304,11 @@ class TestHeatSkipBranch:
     ) -> None:
         """A failed (non-timeout) temperature check must also fail closed."""
         with (
-            patch("screen_locker.screen_lock.has_weekly_minimum", return_value=False),
             patch(
-                "screen_locker.screen_lock.fetch_current_temp_with_status",
+                "screen_locker._startup_checks.has_weekly_minimum", return_value=False
+            ),
+            patch(
+                "screen_locker._startup_checks.fetch_current_temp_with_status",
                 return_value=TemperatureCheck(temp_celsius=None, timed_out=False),
             ),
             patch.object(ScreenLocker, "_show_heat_skip_dialog") as mock_dialog,

@@ -107,6 +107,9 @@ def _block_real_tk_and_exit() -> Iterator[None]:
             )
         )
         stack.enter_context(patch("screen_locker.screen_lock.sys.exit"))
+        # The startup early-exit checks moved to _startup_checks; sys.exit is
+        # bound there now, so it needs blocking separately.
+        stack.enter_context(patch("screen_locker._startup_checks.sys.exit"))
         yield
 
 
@@ -188,7 +191,8 @@ def _isolate_extra_benefits(tmp_path: Path) -> Iterator[None]:
     target = tmp_path / "extra_benefits_state.json"
     with (
         patch("screen_locker._constants.EXTRA_BENEFITS_FILE", target),
-        patch("screen_locker.screen_lock.EXTRA_BENEFITS_FILE", target),
+        patch("screen_locker._startup_checks.EXTRA_BENEFITS_FILE", target),
+        patch("screen_locker._sync_mixin.EXTRA_BENEFITS_FILE", target),
         patch("screen_locker._early_bird.EXTRA_BENEFITS_FILE", target),
         patch("screen_locker._status.EXTRA_BENEFITS_FILE", target),
     ):
@@ -213,7 +217,7 @@ def _isolate_shutdown_base(tmp_path: Path) -> Iterator[None]:
     )
     with (
         patch("screen_locker._constants.SHUTDOWN_BASE_FILE", target),
-        patch("screen_locker.screen_lock.SHUTDOWN_BASE_FILE", target),
+        patch("screen_locker._startup_checks.SHUTDOWN_BASE_FILE", target),
     ):
         yield
 
@@ -224,7 +228,7 @@ def _isolate_sick_day_state(tmp_path: Path) -> Iterator[None]:
     target = tmp_path / "sick_day_state.json"
     with (
         patch("screen_locker._constants.SICK_DAY_STATE_FILE", target),
-        patch("screen_locker.screen_lock.SICK_DAY_STATE_FILE", target),
+        patch("screen_locker._startup_checks.SICK_DAY_STATE_FILE", target),
     ):
         yield
 
@@ -251,11 +255,11 @@ def _mock_weekly_logic() -> Iterator[None]:
     """
     with (
         patch(
-            "screen_locker.screen_lock.is_relaxed_day",
+            "screen_locker._startup_checks.is_relaxed_day",
             return_value=False,
         ),
         patch(
-            "screen_locker.screen_lock.has_weekly_minimum",
+            "screen_locker._startup_checks.has_weekly_minimum",
             return_value=False,
         ),
     ):

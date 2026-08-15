@@ -41,16 +41,18 @@ class TestCheckNonVerifyExitsExtras:
             MagicMock(return_value=True),
         )
         with (
-            patch("screen_locker.screen_lock.reset_to_base_if_new_day"),
+            patch("screen_locker._startup_checks.reset_to_base_if_new_day"),
             patch(
-                "screen_locker.screen_lock.count_weekly_workouts", side_effect=[0, 6]
+                "screen_locker._sync_mixin.count_weekly_workouts", side_effect=[0, 6]
             ),
             patch(
-                "screen_locker.screen_lock.process_week_transition",
+                "screen_locker._startup_checks.process_week_transition",
                 return_value=[],
             ),
-            patch("screen_locker.screen_lock.is_relaxed_day", return_value=False),
-            patch("screen_locker.screen_lock.has_weekly_minimum", return_value=True),
+            patch("screen_locker._startup_checks.is_relaxed_day", return_value=False),
+            patch(
+                "screen_locker._startup_checks.has_weekly_minimum", return_value=True
+            ),
             patch("screen_locker.screen_lock.sys.exit"),
         ):
             locker._check_non_verify_exits()
@@ -75,17 +77,19 @@ class TestCheckNonVerifyExitsExtras:
             MagicMock(return_value=False),
         )
         with (
-            patch("screen_locker.screen_lock.reset_to_base_if_new_day"),
+            patch("screen_locker._startup_checks.reset_to_base_if_new_day"),
             # prev=2, new=3 → bonus=max(0,3-max(5,2))=0 → no bonus logger call
             patch(
-                "screen_locker.screen_lock.count_weekly_workouts", side_effect=[2, 3]
+                "screen_locker._sync_mixin.count_weekly_workouts", side_effect=[2, 3]
             ),
             patch(
-                "screen_locker.screen_lock.process_week_transition",
+                "screen_locker._startup_checks.process_week_transition",
                 return_value=[],
             ),
-            patch("screen_locker.screen_lock.is_relaxed_day", return_value=False),
-            patch("screen_locker.screen_lock.has_weekly_minimum", return_value=False),
+            patch("screen_locker._startup_checks.is_relaxed_day", return_value=False),
+            patch(
+                "screen_locker._startup_checks.has_weekly_minimum", return_value=False
+            ),
             patch("screen_locker.screen_lock.sys.exit"),
         ):
             locker._check_non_verify_exits()
@@ -104,13 +108,15 @@ class TestCheckNonVerifyExitsExtras:
             MagicMock(return_value=0),
         )
         with (
-            patch("screen_locker.screen_lock.reset_to_base_if_new_day"),
+            patch("screen_locker._startup_checks.reset_to_base_if_new_day"),
             patch(
-                "screen_locker.screen_lock.process_week_transition",
+                "screen_locker._startup_checks.process_week_transition",
                 return_value=["🎉 +1h shutdown bonus for 5-workout week!"],
             ),
-            patch("screen_locker.screen_lock.is_relaxed_day", return_value=False),
-            patch("screen_locker.screen_lock.has_weekly_minimum", return_value=True),
+            patch("screen_locker._startup_checks.is_relaxed_day", return_value=False),
+            patch(
+                "screen_locker._startup_checks.has_weekly_minimum", return_value=True
+            ),
             patch("screen_locker.screen_lock.sys.exit"),
         ):
             locker._check_non_verify_exits()
@@ -135,18 +141,21 @@ class TestCheckNonVerifyExitsExtras:
         )
         with (
             patch(
-                "screen_locker.screen_lock.reset_to_base_if_new_day", return_value=True
+                "screen_locker._startup_checks.reset_to_base_if_new_day",
+                return_value=True,
             ),
             patch(
-                "screen_locker.screen_lock.process_week_transition",
+                "screen_locker._startup_checks.process_week_transition",
                 return_value=[],
             ),
             patch(
-                "screen_locker.screen_lock.weekly_shutdown_bonus_hours",
+                "screen_locker._sync_mixin.weekly_shutdown_bonus_hours",
                 return_value=2,
             ),
-            patch("screen_locker.screen_lock.is_relaxed_day", return_value=False),
-            patch("screen_locker.screen_lock.has_weekly_minimum", return_value=True),
+            patch("screen_locker._startup_checks.is_relaxed_day", return_value=False),
+            patch(
+                "screen_locker._startup_checks.has_weekly_minimum", return_value=True
+            ),
             patch("screen_locker.screen_lock.sys.exit"),
         ):
             locker._check_non_verify_exits()
@@ -172,18 +181,21 @@ class TestCheckNonVerifyExitsExtras:
         )
         with (
             patch(
-                "screen_locker.screen_lock.reset_to_base_if_new_day", return_value=False
+                "screen_locker._startup_checks.reset_to_base_if_new_day",
+                return_value=False,
             ),
             patch(
-                "screen_locker.screen_lock.process_week_transition",
+                "screen_locker._startup_checks.process_week_transition",
                 return_value=[],
             ),
             patch(
-                "screen_locker.screen_lock.weekly_shutdown_bonus_hours",
+                "screen_locker._sync_mixin.weekly_shutdown_bonus_hours",
                 return_value=2,
             ),
-            patch("screen_locker.screen_lock.is_relaxed_day", return_value=False),
-            patch("screen_locker.screen_lock.has_weekly_minimum", return_value=True),
+            patch("screen_locker._startup_checks.is_relaxed_day", return_value=False),
+            patch(
+                "screen_locker._startup_checks.has_weekly_minimum", return_value=True
+            ),
             patch("screen_locker.screen_lock.sys.exit"),
         ):
             locker._check_non_verify_exits()
@@ -358,12 +370,12 @@ class TestSyncNow:
         locker = create_locker(mock_tk, tmp_path)
         with (
             patch(
-                "screen_locker.screen_lock.pull_all_manual_records",
+                "screen_locker._sync_mixin.pull_all_manual_records",
                 return_value=[("manual:x", {})],
             ),
-            patch("screen_locker.screen_lock.push_pc_workouts") as push,
+            patch("screen_locker._sync_mixin.push_pc_workouts") as push,
             patch(
-                "screen_locker.screen_lock.ingest_manual_records",
+                "screen_locker._sync_mixin.ingest_manual_records",
                 return_value=["manual:x"],
             ) as ingest,
         ):
