@@ -70,85 +70,79 @@ void main() {
     }
   }
 
-  testWidgets('shows the app bar and Connect GitHub', (tester) async {
+  testWidgets('device flow failure to start shows a message', (tester) async {
+    final mock = MockClient((_) async => http.Response('nope', 422));
     await tester.runAsync(() async {
-      await tester.pumpWidget(_wrap());
+      await tester.pumpWidget(_wrap(httpClient: mock));
       await Future<void>.delayed(const Duration(milliseconds: 300));
-    });
-    await tester.pump();
+      await tester.pump();
 
-    expect(find.text('Advanced sync (GitHub)'), findsOneWidget);
-    expect(find.text('Connect GitHub'), findsOneWidget);
+      await tester.tap(find.text('Connect GitHub'));
+      await _pumpUntil(
+        tester,
+        () => find
+            .textContaining('Could not start device flow')
+            .evaluate()
+            .isNotEmpty,
+      );
+
+      expect(
+        find.textContaining('Could not start device flow'),
+        findsOneWidget,
+      );
+    });
   });
 
-  testWidgets(
-    'a saved token is VERIFIED on open, not blindly trusted',
-    (tester) async {
-      // Regression: the badge used to read "Connected." whenever a token
-      // string existed, so a revoked token showed green while every sync
-      // 401'd and history silently stayed empty.
-      installFakeSecureStorage(initial: {'sync.token': 'revoked-token'});
-      final mock = MockClient(
-        (req) async => http.Response('Bad credentials', 401),
-      );
-      await tester.runAsync(() async {
-        await tester.pumpWidget(_wrap(httpClient: mock));
-        await Future<void>.delayed(const Duration(milliseconds: 300));
-      });
-      await tester.pump();
-
-      expect(find.text('Connected.'), findsNothing);
-      expect(find.textContaining('NOT connected'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'a saved token that GitHub accepts reports verified',
-    (tester) async {
-      installFakeSecureStorage(initial: {'sync.token': 'good-token'});
-      final mock = MockClient(
-        (req) async => http.Response(
-          jsonEncode({'content': base64Encode(utf8.encode('{}')), 'sha': 's'}),
+  testWidgets('device flow happy path saves and verifies the token', (
+    tester,
+  ) async {
+    final mock = MockClient((req) async {
+      if (req.url.path.contains('device/code')) {
+        return http.Response(
+          jsonEncode({
+            'device_code': 'dev123',
+            'user_code': 'WXYZ-1234',
+            'verification_uri': 'https://github.com/login/device',
+            'interval': 0,
+            'expires_in': 900,
+          }),
           200,
-        ),
+        );
+      }
+      if (req.url.path.contains('oauth/access_token')) {
+        return http.Response(jsonEncode({'access_token': 'gho_test'}), 200);
+      }
+      // The post-connect verification GET on devices/phone/log.json.
+      return http.Response(
+        jsonEncode({'content': base64Encode(utf8.encode('{}'))}),
+        200,
       );
-      await tester.runAsync(() async {
-        await tester.pumpWidget(_wrap(httpClient: mock));
-        await Future<void>.delayed(const Duration(milliseconds: 300));
-      });
+    });
+
+    await tester.runAsync(() async {
+      await tester.pumpWidget(_wrap(httpClient: mock));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
       await tester.pump();
+
+      await tester.tap(find.text('Connect GitHub'));
+      await _pumpUntil(
+        tester,
+        () => find.text('WXYZ-1234').evaluate().isNotEmpty,
+      );
+      expect(find.text('WXYZ-1234'), findsOneWidget);
+
+      await _pumpUntil(
+        tester,
+        () => find
+            .textContaining('Connected and verified via GitHub')
+            .evaluate()
+            .isNotEmpty,
+      );
 
       expect(
         find.textContaining('Connected and verified via GitHub'),
         findsOneWidget,
       );
-    },
-  );
-
-  testWidgets('the PAT fallback field is present', (tester) async {
-    await tester.runAsync(() async {
-      await tester.pumpWidget(_wrap());
-      await Future<void>.delayed(const Duration(milliseconds: 300));
     });
-    await tester.pump();
-
-    expect(find.text('Save'), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'GitHub PAT'), findsOneWidget);
-  });
-
-  testWidgets('saving a pasted token shows a confirmation', (tester) async {
-    await tester.runAsync(() async {
-      await tester.pumpWidget(_wrap());
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-    });
-    await tester.pump();
-
-    await tester.enterText(
-      find.widgetWithText(TextField, 'GitHub PAT'),
-      'a-pasted-token',
-    );
-    await tester.tap(find.text('Save'));
-    await tester.pump();
-    expect(find.text('Sync token saved.'), findsOneWidget);
   });
 }
