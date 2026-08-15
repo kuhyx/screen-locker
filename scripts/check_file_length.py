@@ -4,13 +4,17 @@
 import logging
 import sys
 
-MAX_LINES = 400
+MAX_LINES = 250
 
 _logger = logging.getLogger(__name__)
 
 
 def main() -> int:
     """Return 1 if any file exceeds the line limit, else 0."""
+    # Without this the module relies on logging's last-resort handler, which
+    # drops anything below WARNING and prints no context — a hook that fails
+    # without saying which file is a silent failure.
+    logging.basicConfig(format="%(levelname)s: %(message)s", stream=sys.stderr)
     failed = False
     for filepath in sys.argv[1:]:
         try:
@@ -27,6 +31,15 @@ def main() -> int:
             failed = True
             continue
         if count > MAX_LINES:
+            # A bare non-zero exit tells nobody which file blew the cap, so the
+            # violation has to name itself and the size of the split it needs.
+            _logger.error(
+                "%s is %d lines — %d over the %d-line cap. Split it before committing.",
+                filepath,
+                count,
+                count - MAX_LINES,
+                MAX_LINES,
+            )
             failed = True
     return 1 if failed else 0
 

@@ -184,10 +184,13 @@ repos:
         language: system
         types: [shell]
       - id: max-file-length
-        name: Max file length (400 lines)
+        name: Max file length (250 lines)
         entry: python3 scripts/check_file_length.py
         language: system
-        types_or: [python, shell]
+        # Dart was missing here until 2026-08-15, so the cap had never looked at
+        # a single file in workout_app/ — the whole Flutter app was exempt from
+        # the gate it was being refactored to satisfy.
+        types_or: [python, shell, dart]
       - id: no-silent-failures
         name: Block silent failures (swallowed exceptions must log why)
         entry: python3 scripts/check_silent_failures.py
