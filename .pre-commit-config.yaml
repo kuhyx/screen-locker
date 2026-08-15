@@ -48,7 +48,9 @@ repos:
         types: [python]
       - id: requirements-sync
         name: requirements.txt covers all package imports
-        entry: python3 scripts/check_requirements_sync.py
+        # scripts/ became a real package (it now holds shared helpers), so
+        # auto-detection sees two candidates -- name the one that ships.
+        entry: python3 scripts/check_requirements_sync.py --package screen_locker
         language: system
         pass_filenames: false
         files: ^(screen_locker/.*\.py|requirements\.txt)$

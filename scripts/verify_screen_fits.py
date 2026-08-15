@@ -32,8 +32,6 @@ from dataclasses import dataclass
 import logging
 import os
 from pathlib import Path
-import shutil
-import subprocess
 import sys
 from typing import TYPE_CHECKING
 
@@ -47,6 +45,7 @@ from screen_locker._surface_group import FrameGroup
 from screen_locker._ui_flows import UIFlowsMixin
 from screen_locker._ui_flows_relaxed import UIFlowsRelaxedMixin
 from screen_locker._ui_widgets import UIWidgetsMixin
+from scripts._xvfb_reexec import reexec_under_xvfb
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -72,34 +71,6 @@ LONG_MESSAGE = (
     "Neither StrongLifts nor RunnerUp found a workout today.\n"
     "Go do your workout first!"
 )
-
-
-def reexec_under_xvfb() -> int:
-    """Re-run this script on a throwaway X display, returning its exit code."""
-    xvfb_run = shutil.which("xvfb-run")
-    if xvfb_run is None:
-        _logger.error(
-            "xvfb-run not found. Install it with: sudo pacman -S --needed "
-            "xorg-server-xvfb"
-        )
-        return 1
-    env = dict(os.environ, **{INNER_ENV: "1"})
-    return subprocess.run(
-        [
-            xvfb_run,
-            "-a",
-            # Bigger than every size under test, so each surface is sized by
-            # the geometry this harness sets rather than clamped by the display.
-            "-s",
-            "-screen 0 1600x1200x24",
-            sys.executable,
-            "-m",
-            "scripts.verify_screen_fits",
-        ],
-        check=False,
-        cwd=Path(__file__).resolve().parent.parent,
-        env=env,
-    ).returncode
 
 
 class ScreenHost(
@@ -246,7 +217,9 @@ def main() -> int:
     """Measure every screen and fail if any of them overflows."""
     logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
     if os.environ.get(INNER_ENV) != "1":
-        return reexec_under_xvfb()
+        return reexec_under_xvfb(
+            inner_env=INNER_ENV, module="scripts.verify_screen_fits"
+        )
 
     _logger.info("Measuring every lock screen against every supported panel:")
     results = measure_all()
