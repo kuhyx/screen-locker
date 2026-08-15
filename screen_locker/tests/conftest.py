@@ -44,6 +44,7 @@ _TK_MODULES = (
     "screen_locker.screen_lock",
     "screen_locker._sick_dialog",
     "screen_locker._manual_workout_dialog",
+    "screen_locker._manual_workout_sport_fields",
     "screen_locker._manual_workout_widgets",
     "screen_locker._ui_widgets",
     "screen_locker._window_setup",

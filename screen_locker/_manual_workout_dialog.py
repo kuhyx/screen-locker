@@ -21,9 +21,9 @@ import tkinter as tk
 
 from screen_locker import _manual_workout
 from screen_locker._constants import (
-    MANUAL_WORKOUT_DESCRIPTION_MIN_CHARS,
     MANUAL_WORKOUT_REFLECTION_MIN_CHARS,
 )
+from screen_locker._manual_workout_sport_fields import ManualWorkoutSportFieldsMixin
 from screen_locker._manual_workout_widgets import ManualWorkoutFormWidgetsMixin
 
 _logger = logging.getLogger(__name__)
@@ -33,7 +33,10 @@ _SPORT_LABEL_TO_CODE = {
 }
 
 
-class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
+class ManualWorkoutDialogMixin(
+    ManualWorkoutFormWidgetsMixin,
+    ManualWorkoutSportFieldsMixin,
+):
     """Renders the manual-workout evidence form and handles submission."""
 
     def _show_manual_workout_form(self) -> None:
@@ -65,40 +68,6 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
             pad="xs",
         )
         self._build_manual_workout_form()
-
-    def _mw_scrollable_form(self) -> tk.Frame:
-        """Create the two-column form frame inside the surface's viewport.
-
-        This used to build its *own* ``Canvas`` + ``Scrollbar`` viewport, which
-        had three problems that are all gone by deletion now that the surface
-        container is itself a :class:`~gatelock.ScrollableSurface`:
-
-        1. **Scrolling was pointer-only.** ``tk.Canvas`` has no class-level key
-           bindings, so ``::tk::FocusOK`` rejected it as a focus stop, and the
-           canvas bound no ``<MouseWheel>``, ``<Prior>``/``<Next>`` or arrows.
-           The scrollbar thumb had to be *dragged* -- inside a lock that cannot
-           be dismissed without submitting this form.
-        2. **Focus walked off-screen.** Canvas clipping does not unmap a child,
-           so every below-the-fold field stayed ``winfo viewable`` and stayed in
-           the tab ring while Tk never scrolled to follow focus. Tab led to
-           fields the user could neither see nor bring into view.
-        3. **The height was a magic fraction.** ``height=0.7 * toplevel`` sat
-           above ~230-290px of fixed chrome (title, budget line, error label,
-           and a 24pt button row), so the constraint was ``0.3 * H >= chrome``:
-           satisfied at 1080p, violated at 768p, where SUBMIT/BACK were pushed
-           off the bottom of a centred, unscrollable container.
-
-        Still built on the primary surface only -- an independently scrolled
-        copy per monitor would show two different parts of one form.
-        """
-        form = tk.Frame(self.container.first, bg=self._colors.bg)
-        # No outer gap: the budget line above and the first section heading
-        # below already separate the grid, and on a 1024x600 panel this form
-        # fits by single-digit pixels.
-        form.pack(fill="both", expand=True)
-        form.grid_columnconfigure(0, weight=1, uniform="mw")
-        form.grid_columnconfigure(1, weight=1, uniform="mw")
-        return form
 
     def _build_manual_workout_form(self) -> None:
         """Build the two-column evidence form and submit/back buttons.
@@ -199,114 +168,6 @@ class ManualWorkoutDialogMixin(ManualWorkoutFormWidgetsMixin):
             command=self._on_manual_workout_cancelled,
             width=12,
         ).pack(side="left", padx=self._colors.space("sm"))
-
-    def _mw_sport_row(self, parent: tk.Widget) -> None:
-        """Add the sport-selector radio buttons; swaps the activity section.
-
-        CANONICAL ACCOUNT OF THE 2026-07-26 BUG -- other files point here.
-
-        This was a ``tk.OptionMenu``. A posted Tk menu is a separate
-        override-redirect toplevel that takes the Tk grab for itself, and
-        gatelock's 1 s recovery tick killed it within a second of opening:
-        ``_surfaces.enforce()`` lifts the lock surface over the menu, and
-        ``_reassert_grab()`` saw the grab sitting on the menu rather than the
-        root and yanked it back. The selector stayed stuck on "Table tennis"
-        while locked, and a walk got logged in the table-tennis form.
-
-        Radio buttons are ordinary children of the surface: they lift with it
-        and live inside the root's grab tree, so neither mechanism can reach
-        them. Nothing on a lock surface may open a popup window --
-        ``tests/test_no_popup_widgets.py`` enforces that statically and
-        ``scripts/verify_lock_popup_safety.py`` behaviourally.
-        """
-        self._mw_sport_var = tk.StringVar(
-            value=_manual_workout.SPORT_LABELS[_manual_workout.SPORT_TABLE_TENNIS]
-        )
-        row = tk.Frame(parent, bg=self._colors.bg)
-        tk.Label(
-            row,
-            text="Sport:",
-            font=self._colors.font("body"),
-            fg=self._colors.fg,
-            bg=self._colors.bg,
-        ).pack(side="left", padx=self._colors.space("xs"))
-        for label in _manual_workout.SPORT_LABELS.values():
-            tk.Radiobutton(
-                row,
-                text=label,
-                value=label,
-                variable=self._mw_sport_var,
-                # Radiobutton's command takes no argument -- bind the label.
-                command=lambda chosen=label: self._on_mw_sport_changed(chosen),
-                font=self._colors.font("body"),
-                fg=self._colors.fg,
-                bg=self._colors.bg,
-                activeforeground=self._colors.fg,
-                activebackground=self._colors.bg,
-                # Without selectcolor the indicator is a white blob on the dark
-                # overlay; the OptionMenu was the one unstyled widget in this
-                # form, which likely added to it reading as dead.
-                selectcolor=self._colors.field_bg,
-                highlightthickness=0,
-            ).pack(side="left", padx=self._colors.space("xs"))
-        self._mw_grid(parent, row, full=True)
-
-    def _on_mw_sport_changed(self, selected_label: str) -> None:
-        """Show the fields for the newly-selected sport, hide the other's.
-
-        Both frames share one grid slot; ``grid_remove`` hides a frame while
-        remembering its cell options so ``grid`` restores it in place.
-        """
-        sport = _SPORT_LABEL_TO_CODE.get(
-            selected_label, _manual_workout.SPORT_TABLE_TENNIS
-        )
-        if sport == _manual_workout.SPORT_TABLE_TENNIS:
-            self._mw_other_frame.grid_remove()
-            self._mw_tt_frame.grid()
-        else:
-            self._mw_tt_frame.grid_remove()
-            self._mw_other_frame.grid()
-
-    def _build_table_tennis_fields(self, parent: tk.Widget) -> None:
-        """Build the table-tennis-specific score/equipment fields."""
-        self._mw_int_vars["matches_won"] = self._mw_int_field(parent, "Matches won:")
-        self._mw_int_vars["matches_lost"] = self._mw_int_field(parent, "Matches lost:")
-        self._mw_int_vars["sets_won"] = self._mw_int_field(parent, "Sets won:")
-        self._mw_int_vars["sets_lost"] = self._mw_int_field(parent, "Sets lost:")
-        self._mw_vars["racket"] = self._mw_entry(parent, "Racket used:")
-        self._mw_vars["balls"] = self._mw_entry(parent, "Balls used:")
-
-    def _build_other_sport_fields(self, parent: tk.Widget) -> None:
-        """Build the generic "other sport" fields."""
-        self._mw_vars["activity_type_other"] = self._mw_entry(
-            parent, "What sport/activity:"
-        )
-        self._mw_text_widgets["activity_details"] = self._mw_textbox(
-            parent,
-            f"What was done (min {MANUAL_WORKOUT_DESCRIPTION_MIN_CHARS} chars):",
-        )
-        self._mw_vars["equipment"] = self._mw_entry(
-            parent, "Equipment used (optional):"
-        )
-
-    def _current_mw_sport(self) -> str:
-        """Return the internal sport code for the currently-selected label."""
-        return _SPORT_LABEL_TO_CODE.get(
-            self._mw_sport_var.get(), _manual_workout.SPORT_TABLE_TENNIS
-        )
-
-    def _mw_int_value(self, key: str) -> int:
-        """Read an int Spinbox var, defaulting to 0 on an invalid value."""
-        try:
-            return int(self._mw_int_vars[key].get())
-        except (tk.TclError, ValueError) as exc:
-            _logger.warning(
-                "Manual workout field %r holds a non-integer value (%s) — "
-                "recording it as 0",
-                key,
-                exc,
-            )
-            return 0
 
     def _submit_manual_workout_form(self) -> None:
         """Validate the form and either show an error or save + notify host."""

@@ -208,3 +208,37 @@ class ManualWorkoutFormWidgetsMixin:
             **self._colors.focus_kwargs(),
         ).pack(side="left", padx=self._colors.space("xs"))
         self._mw_grid(parent, row)
+
+    def _mw_scrollable_form(self) -> tk.Frame:
+        """Create the two-column form frame inside the surface's viewport.
+
+        This used to build its *own* ``Canvas`` + ``Scrollbar`` viewport, which
+        had three problems that are all gone by deletion now that the surface
+        container is itself a :class:`~gatelock.ScrollableSurface`:
+
+        1. **Scrolling was pointer-only.** ``tk.Canvas`` has no class-level key
+           bindings, so ``::tk::FocusOK`` rejected it as a focus stop, and the
+           canvas bound no ``<MouseWheel>``, ``<Prior>``/``<Next>`` or arrows.
+           The scrollbar thumb had to be *dragged* -- inside a lock that cannot
+           be dismissed without submitting this form.
+        2. **Focus walked off-screen.** Canvas clipping does not unmap a child,
+           so every below-the-fold field stayed ``winfo viewable`` and stayed in
+           the tab ring while Tk never scrolled to follow focus. Tab led to
+           fields the user could neither see nor bring into view.
+        3. **The height was a magic fraction.** ``height=0.7 * toplevel`` sat
+           above ~230-290px of fixed chrome (title, budget line, error label,
+           and a 24pt button row), so the constraint was ``0.3 * H >= chrome``:
+           satisfied at 1080p, violated at 768p, where SUBMIT/BACK were pushed
+           off the bottom of a centred, unscrollable container.
+
+        Still built on the primary surface only -- an independently scrolled
+        copy per monitor would show two different parts of one form.
+        """
+        form = tk.Frame(self.container.first, bg=self._colors.bg)
+        # No outer gap: the budget line above and the first section heading
+        # below already separate the grid, and on a 1024x600 panel this form
+        # fits by single-digit pixels.
+        form.pack(fill="both", expand=True)
+        form.grid_columnconfigure(0, weight=1, uniform="mw")
+        form.grid_columnconfigure(1, weight=1, uniform="mw")
+        return form
