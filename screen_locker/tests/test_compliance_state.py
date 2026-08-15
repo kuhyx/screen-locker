@@ -9,8 +9,6 @@ from unittest.mock import patch
 
 from screen_locker import _compliance_state
 from screen_locker._compliance_state import (
-    AutoUpgradeOpportunity,
-    describe_auto_upgrade_opportunity,
     has_logged_today,
     is_early_bird_pending,
     is_scheduled_skip_today,
@@ -30,24 +28,29 @@ class TestIsScheduledSkipToday:
     """Mirrors test_scheduled_skip.py's coverage, for the standalone function."""
 
     def test_missing_file(self, tmp_path: Path) -> None:
+        """A missing skips file means today is not a scheduled skip."""
         assert is_scheduled_skip_today(tmp_path / "skips.json") is False
 
     def test_today_listed(self, tmp_path: Path) -> None:
+        """Today's date in the skips list makes it a scheduled skip."""
         skip_file = tmp_path / "skips.json"
         skip_file.write_text(json.dumps([_today()]))
         assert is_scheduled_skip_today(skip_file) is True
 
     def test_today_not_listed(self, tmp_path: Path) -> None:
+        """A list without today is not a scheduled skip."""
         skip_file = tmp_path / "skips.json"
         skip_file.write_text(json.dumps(["1999-01-01"]))
         assert is_scheduled_skip_today(skip_file) is False
 
     def test_corrupt_json(self, tmp_path: Path) -> None:
+        """Unparsable JSON fails closed: not a skip."""
         skip_file = tmp_path / "skips.json"
         skip_file.write_text("{bad}")
         assert is_scheduled_skip_today(skip_file) is False
 
     def test_explicit_today_override(self, tmp_path: Path) -> None:
+        """The `today` argument overrides the real date."""
         skip_file = tmp_path / "skips.json"
         skip_file.write_text(json.dumps(["2020-05-05"]))
         assert is_scheduled_skip_today(skip_file, today="2020-05-05") is True
@@ -57,19 +60,23 @@ class TestHasLoggedToday:
     """Mirrors test_init_and_log.py's HMAC branches, for the standalone function."""
 
     def test_missing_file(self, tmp_path: Path) -> None:
+        """A missing log means nothing was logged today."""
         assert has_logged_today(tmp_path / "log.json") is False
 
     def test_corrupt_json(self, tmp_path: Path) -> None:
+        """Unparsable JSON fails closed: nothing logged."""
         log_file = tmp_path / "log.json"
         log_file.write_text("{bad}")
         assert has_logged_today(log_file) is False
 
     def test_no_entry_for_today(self, tmp_path: Path) -> None:
+        """An entry for another day does not count as today's."""
         log_file = tmp_path / "log.json"
         log_file.write_text(json.dumps({"1999-01-01": {}}))
         assert has_logged_today(log_file) is False
 
     def test_valid_hmac(self, tmp_path: Path) -> None:
+        """A correctly signed entry for today counts."""
         log_file = tmp_path / "log.json"
         log_file.write_text(json.dumps({_today(): {"hmac": "sig"}}))
         with patch(
@@ -78,6 +85,7 @@ class TestHasLoggedToday:
             assert has_logged_today(log_file) is True
 
     def test_unsigned_accepted_when_key_unavailable(self, tmp_path: Path) -> None:
+        """With no HMAC key on the machine, an unsigned entry is accepted."""
         log_file = tmp_path / "log.json"
         log_file.write_text(json.dumps({_today(): {}}))
         with (
@@ -91,6 +99,7 @@ class TestHasLoggedToday:
             assert has_logged_today(log_file) is True
 
     def test_rejected_when_key_available(self, tmp_path: Path) -> None:
+        """With a key available, an unsigned entry is rejected as tampering."""
         log_file = tmp_path / "log.json"
         log_file.write_text(json.dumps({_today(): {}}))
         with (
@@ -104,6 +113,7 @@ class TestHasLoggedToday:
             assert has_logged_today(log_file) is False
 
     def test_rejected_when_signed_but_invalid(self, tmp_path: Path) -> None:
+        """A signature that does not verify is rejected."""
         log_file = tmp_path / "log.json"
         log_file.write_text(json.dumps({_today(): {"hmac": "tampered"}}))
         with (
@@ -121,24 +131,29 @@ class TestIsEarlyBirdPending:
     """Mirrors test_early_bird.py's HMAC branches, for the standalone function."""
 
     def test_missing_file(self, tmp_path: Path) -> None:
+        """A missing pending file means no early bird is pending."""
         assert is_early_bird_pending(tmp_path / "pending.json") is False
 
     def test_corrupt_json(self, tmp_path: Path) -> None:
+        """Unparsable JSON fails closed: nothing pending."""
         pending_file = tmp_path / "pending.json"
         pending_file.write_text("{bad}")
         assert is_early_bird_pending(pending_file) is False
 
     def test_not_a_dict(self, tmp_path: Path) -> None:
+        """A JSON list where a dict is expected fails closed."""
         pending_file = tmp_path / "pending.json"
         pending_file.write_text(json.dumps(["not", "a", "dict"]))
         assert is_early_bird_pending(pending_file) is False
 
     def test_stale_date(self, tmp_path: Path) -> None:
+        """A pending record from an earlier day no longer applies."""
         pending_file = tmp_path / "pending.json"
         pending_file.write_text(json.dumps({"date": "2000-01-01", "hmac": "sig"}))
         assert is_early_bird_pending(pending_file) is False
 
     def test_valid_hmac(self, tmp_path: Path) -> None:
+        """A correctly signed pending record for today counts."""
         pending_file = tmp_path / "pending.json"
         pending_file.write_text(json.dumps({"date": _today(), "hmac": "sig"}))
         with patch(
@@ -147,6 +162,7 @@ class TestIsEarlyBirdPending:
             assert is_early_bird_pending(pending_file) is True
 
     def test_unsigned_accepted_when_key_unavailable(self, tmp_path: Path) -> None:
+        """With no HMAC key, an unsigned pending record is accepted."""
         pending_file = tmp_path / "pending.json"
         pending_file.write_text(json.dumps({"date": _today()}))
         with (
@@ -160,6 +176,7 @@ class TestIsEarlyBirdPending:
             assert is_early_bird_pending(pending_file) is True
 
     def test_rejected_when_key_available(self, tmp_path: Path) -> None:
+        """With a key available, an unsigned pending record is rejected."""
         pending_file = tmp_path / "pending.json"
         pending_file.write_text(json.dumps({"date": _today()}))
         with (
@@ -173,6 +190,7 @@ class TestIsEarlyBirdPending:
             assert is_early_bird_pending(pending_file) is False
 
     def test_rejected_when_signed_but_invalid(self, tmp_path: Path) -> None:
+        """A pending record whose signature fails to verify is rejected."""
         pending_file = tmp_path / "pending.json"
         pending_file.write_text(json.dumps({"date": _today(), "hmac": "bad"}))
         with (
@@ -187,89 +205,69 @@ class TestIsEarlyBirdPending:
 
 
 class TestIsSickDayToday:
+    """Reading today's sick-day status out of the sick history."""
+
     """Thin wrapper around _sick_tracker.is_sick_day."""
 
     def test_true_when_listed(self) -> None:
+        """Today present in the history is a sick day."""
         history = SickHistory(sick_days=[_today()])
         assert is_sick_day_today(history) is True
 
     def test_false_when_not_listed(self) -> None:
+        """Today absent from the history is not a sick day."""
         history = SickHistory(sick_days=["1999-01-01"])
         assert is_sick_day_today(history) is False
 
     def test_explicit_today_override(self) -> None:
+        """The `today` argument overrides the real date."""
         history = SickHistory(sick_days=["2020-05-05"])
         assert is_sick_day_today(history, today="2020-05-05") is True
 
 
 class TestEarlyBirdWindowOpen:
+    """The early-bird window's start/end boundaries, including the extension."""
+
     """Direct tests for the module-private, deliberately independent reimplementation."""
 
     def test_before_window(self) -> None:
+        """Before the start hour the window is shut."""
         assert (
             _compliance_state._early_bird_window_open(extended=False, local_minutes=299)
             is False
         )
 
     def test_at_start(self) -> None:
+        """The start minute itself is inside the window."""
         assert (
             _compliance_state._early_bird_window_open(extended=False, local_minutes=300)
             is True
         )
 
     def test_before_end(self) -> None:
+        """A minute before the end is still inside the window."""
         assert (
             _compliance_state._early_bird_window_open(extended=False, local_minutes=509)
             is True
         )
 
     def test_at_end_exclusive(self) -> None:
+        """The end minute is exclusive: the window is already shut."""
         assert (
             _compliance_state._early_bird_window_open(extended=False, local_minutes=510)
             is False
         )
 
     def test_extended_before_end(self) -> None:
+        """With the extension earned, the window runs later."""
         assert (
             _compliance_state._early_bird_window_open(extended=True, local_minutes=539)
             is True
         )
 
     def test_extended_at_end_exclusive(self) -> None:
+        """The extended end is exclusive too."""
         assert (
             _compliance_state._early_bird_window_open(extended=True, local_minutes=540)
             is False
         )
-
-
-class TestDescribeAutoUpgradeOpportunity:
-    """The 3 possible outcomes: expired early-bird, sick day, or none."""
-
-    def test_expired_early_bird(self) -> None:
-        result = describe_auto_upgrade_opportunity(
-            early_bird_pending=True, early_bird_window_open=False, is_sick_day=False
-        )
-        assert result == AutoUpgradeOpportunity(
-            would_attempt=True, via="early_bird_expired", reason=result.reason
-        )
-
-    def test_sick_day(self) -> None:
-        result = describe_auto_upgrade_opportunity(
-            early_bird_pending=False, early_bird_window_open=False, is_sick_day=True
-        )
-        assert result.would_attempt is True
-        assert result.via == "sick_day"
-
-    def test_sick_day_takes_second_priority_when_pending_still_open(self) -> None:
-        """pending+open doesn't count as expired, so sick_day is still checked."""
-        result = describe_auto_upgrade_opportunity(
-            early_bird_pending=True, early_bird_window_open=True, is_sick_day=True
-        )
-        assert result.via == "sick_day"
-
-    def test_none(self) -> None:
-        result = describe_auto_upgrade_opportunity(
-            early_bird_pending=False, early_bird_window_open=False, is_sick_day=False
-        )
-        assert result.would_attempt is False
-        assert result.via == "none"

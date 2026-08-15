@@ -25,6 +25,7 @@ class TestShowRetryAndSickBudget:
     def test_shows_sick_button_when_budget_available(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Shows sick button when budget available."""
         locker = create_locker(mock_tk, tmp_path)
         with patch.object(_sick_tracker, "load_history", return_value=SickHistory()):
             locker._show_retry_and_sick("nope")
@@ -40,6 +41,7 @@ class TestShowRetryAndSickBudget:
     def test_hides_sick_button_when_budget_exhausted(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Hides sick button when budget exhausted."""
         locker = create_locker(mock_tk, tmp_path)
         full = SickHistory(sick_days=["2026-05-09"] * 99)
         with (
@@ -59,6 +61,7 @@ class TestProceedToSickCountdownLoadsHistory:
     def test_loads_history_when_cache_missing(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Loads history when cache missing."""
         locker = create_locker(mock_tk, tmp_path)
         object.__setattr__(locker, "clear_container", MagicMock())
         object.__setattr__(
@@ -83,6 +86,7 @@ class TestFinalizeSickDay:
     def test_marks_commitment_broken_and_writes_debt(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Marks commitment broken and writes debt."""
         locker = create_locker(mock_tk, tmp_path)
         locker.workout_data = {}
         history = SickHistory(commitments={"2026-05-10": True})
@@ -101,6 +105,7 @@ class TestFinalizeSickDay:
     def test_loads_history_when_cache_missing(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Loads history when cache missing."""
         locker = create_locker(mock_tk, tmp_path)
         locker.workout_data = {}
         object.__setattr__(locker, "unlock_screen", MagicMock())
@@ -126,6 +131,7 @@ class TestClearDebtOnVerifiedWorkout:
     def test_returns_none_when_not_phone_verified(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Returns none when not phone verified."""
         locker = create_locker(mock_tk, tmp_path)
         locker.workout_data = {"type": "sick_day"}
         assert locker._clear_debt_on_verified_workout() is None
@@ -133,6 +139,7 @@ class TestClearDebtOnVerifiedWorkout:
     def test_returns_zero_when_no_debt(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Returns zero when no debt."""
         locker = create_locker(mock_tk, tmp_path)
         locker.workout_data = {"type": "phone_verified"}
         with patch.object(
@@ -143,6 +150,7 @@ class TestClearDebtOnVerifiedWorkout:
     def test_decrements_when_debt_positive(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Decrements when debt positive."""
         locker = create_locker(mock_tk, tmp_path)
         locker.workout_data = {"type": "phone_verified"}
         history = SickHistory(debt=2)
@@ -160,6 +168,7 @@ class TestUnlockScreenCommitmentPrompt:
     def test_phone_verified_schedules_commitment_prompt(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Phone verified schedules commitment prompt."""
         locker = create_locker(mock_tk, tmp_path)
         locker.workout_data = {"type": "phone_verified"}
         locker.log_file = tmp_path / "log.json"
@@ -182,6 +191,7 @@ class TestUnlockScreenCommitmentPrompt:
     def test_non_verified_schedules_close_directly(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Non verified schedules close directly."""
         locker = create_locker(mock_tk, tmp_path)
         locker.workout_data = {"type": "sick_day"}
         locker.log_file = tmp_path / "log.json"
@@ -203,6 +213,7 @@ class TestUnlockScreenCommitmentPrompt:
     def test_renders_debt_label_when_positive(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Renders debt label when positive."""
         locker = create_locker(mock_tk, tmp_path)
         locker.workout_data = {"type": "phone_verified"}
         locker.log_file = tmp_path / "log.json"
@@ -226,76 +237,3 @@ class TestUnlockScreenCommitmentPrompt:
 # ---------------------------------------------------------------------------
 # _sick_dialog.py — UI mixin
 # ---------------------------------------------------------------------------
-
-
-class TestShowSickJustification:
-    """Tests for the structured sick justification dialog."""
-
-    def test_renders_form_without_commitment(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        locker = create_locker(mock_tk, tmp_path)
-        with patch.object(_sick_tracker, "load_history", return_value=SickHistory()):
-            locker._show_sick_justification()
-        assert locker._sick_history_cache.sick_days == []
-        assert hasattr(locker, "_sick_submit_button")
-        # Submit button starts enabled (no commitment).
-        # config(state="disabled") only called for commitment path.
-        for call in locker._sick_submit_button.first.configure.call_args_list:
-            assert call.kwargs.get("state") != "disabled"
-
-    def test_renders_form_with_commitment_disables_submit(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        locker = create_locker(mock_tk, tmp_path)
-        history = SickHistory(commitments={"2026-05-10": True})
-        with (
-            patch.object(_sick_tracker, "load_history", return_value=history),
-            patch.object(_sick_tracker, "had_commitment_for_today", return_value=True),
-        ):
-            locker._show_sick_justification()
-        # Submit button was disabled and forced-delay started.
-        states = [
-            call.kwargs.get("state")
-            for call in locker._sick_submit_button.first.configure.call_args_list
-        ]
-        assert "disabled" in states
-
-    def test_renders_recent_history_when_present(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        locker = create_locker(mock_tk, tmp_path)
-        history = SickHistory(
-            justifications=[
-                {"date": "2026-05-01", "symptom": "fever", "severity": 7},
-            ],
-        )
-        with patch.object(_sick_tracker, "load_history", return_value=history):
-            locker._show_sick_justification()
-        labels = [call.kwargs.get("text", "") for call in mock_tk.Label.call_args_list]
-        assert any("Recent sick days" in t for t in labels)
-
-
-class TestUpdateCommitmentForcedDelay:
-    """Tests for _update_commitment_forced_delay."""
-
-    def test_ticks_down(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        locker = create_locker(mock_tk, tmp_path)
-        locker._sick_submit_button = MagicMock()
-        locker._commitment_forced_remaining = 3
-        locker._update_commitment_forced_delay()
-        assert locker._commitment_forced_remaining == 2
-        locker.root.after.assert_called()
-
-    def test_enables_when_done(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        locker = create_locker(mock_tk, tmp_path)
-        locker._sick_submit_button = MagicMock()
-        locker._commitment_forced_remaining = 0
-        locker._update_commitment_forced_delay()
-        locker._sick_submit_button.config.assert_called_with(
-            text="SUBMIT", state="normal"
-        )

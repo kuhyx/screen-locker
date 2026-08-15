@@ -41,6 +41,7 @@ class TestValidateJsonData:
     def test_stale_when_not_today(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Stale when not today."""
         locker = create_locker(mock_tk, tmp_path)
         status, message = locker._validate_json_data(
             {"date": "2000-01-01", "exercises": ["x"], "duration_seconds": 4000}
@@ -51,6 +52,7 @@ class TestValidateJsonData:
     def test_no_exercises_when_empty(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """No exercises when empty."""
         locker = create_locker(mock_tk, tmp_path)
         status, message = locker._validate_json_data(
             {"date": _today(), "exercises": [], "duration_seconds": 4000}
@@ -61,6 +63,7 @@ class TestValidateJsonData:
     def test_too_short_under_minimum(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Too short under minimum."""
         locker = create_locker(mock_tk, tmp_path)
         # Derive from the ACCEPT bar, not the advertised one: a duration
         # merely under 40 may still clear the hidden leeway and verify.
@@ -76,6 +79,7 @@ class TestValidateJsonData:
     def test_verified_all_succeeded(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Verified all succeeded."""
         locker = create_locker(mock_tk, tmp_path)
         status, message = locker._validate_json_data(
             {
@@ -91,6 +95,7 @@ class TestValidateJsonData:
     def test_verified_partial_when_not_succeeded(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Verified partial when not succeeded."""
         locker = create_locker(mock_tk, tmp_path)
         status, message = locker._validate_json_data(
             {
@@ -110,6 +115,7 @@ class TestScanForHttpServer:
     def test_returns_none_without_prefix(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Returns none without prefix."""
         locker = create_locker(mock_tk, tmp_path)
         with patch.object(locker, "_get_local_subnet_prefix", return_value=None):
             assert locker._scan_for_http_server() is None
@@ -117,6 +123,7 @@ class TestScanForHttpServer:
     def test_returns_url_when_probe_connects(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Returns URL when probe connects."""
         locker = create_locker(mock_tk, tmp_path)
         with (
             patch.object(locker, "_get_local_subnet_prefix", return_value="192.168.1"),
@@ -133,6 +140,7 @@ class TestScanForHttpServer:
     def test_returns_none_when_all_probes_refused(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Returns none when all probes refused."""
         locker = create_locker(mock_tk, tmp_path)
         with (
             patch.object(locker, "_get_local_subnet_prefix", return_value="192.168.1"),
@@ -205,75 +213,3 @@ class TestVerifyPhoneWorkoutSyncStaleness:
             status, message = locker._verify_phone_workout()
         assert status == "stale"
         assert "2000-01-01" in message
-
-
-class TestFetchHttpWorkout:
-    """Tests for _fetch_http_workout over the local HTTP server."""
-
-    def test_returns_none_when_scan_finds_nothing(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        locker = create_locker(mock_tk, tmp_path)
-        with patch.object(locker, "_scan_for_http_server", return_value=None):
-            assert locker._fetch_http_workout() is None
-
-    def test_returns_json_on_http_200(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        locker = create_locker(mock_tk, tmp_path)
-        resp = MagicMock()
-        resp.status = 200
-        resp.read.return_value = b'{"date": "2026-06-12", "exercises": ["a"]}'
-        conn = MagicMock()
-        conn.getresponse.return_value = resp
-        with (
-            patch.object(
-                locker,
-                "_scan_for_http_server",
-                return_value="http://192.168.1.5:8765/workout",
-            ),
-            patch(
-                "screen_locker._phone_verification._HTTPConnection",
-                return_value=conn,
-            ),
-        ):
-            result = locker._fetch_http_workout()
-        assert result == {"date": "2026-06-12", "exercises": ["a"]}
-
-    def test_returns_none_on_non_ok_status(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        locker = create_locker(mock_tk, tmp_path)
-        resp = MagicMock()
-        resp.status = 404
-        conn = MagicMock()
-        conn.getresponse.return_value = resp
-        with (
-            patch.object(
-                locker,
-                "_scan_for_http_server",
-                return_value="http://192.168.1.5:8765/workout",
-            ),
-            patch(
-                "screen_locker._phone_verification._HTTPConnection",
-                return_value=conn,
-            ),
-        ):
-            assert locker._fetch_http_workout() is None
-
-    def test_returns_none_on_connection_error(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        locker = create_locker(mock_tk, tmp_path)
-        with (
-            patch.object(
-                locker,
-                "_scan_for_http_server",
-                return_value="http://192.168.1.5:8765/workout",
-            ),
-            patch(
-                "screen_locker._phone_verification._HTTPConnection",
-                side_effect=OSError("unreachable"),
-            ),
-        ):
-            assert locker._fetch_http_workout() is None

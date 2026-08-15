@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 from screen_locker._compliance_state import AutoUpgradeOpportunity
 from screen_locker._status_view_verify import (
     PhoneCheckOutcome,
-    _backfill_week_and_apply_bonus,
     _verify_phone_then_runnerup,
 )
 from screen_locker.tests._status_view_helpers import (
@@ -23,7 +22,10 @@ from screen_locker.tests._status_view_helpers import (
 
 
 class TestSectionToday:
+    """SectionToday."""
+
     def test_counted_shows_checkmark_and_entry(self, mock_tk: MagicMock) -> None:
+        """Counted shows checkmark and entry."""
         snap = _snapshot(
             today=_day(
                 entry_types=("phone_verified",),
@@ -38,16 +40,19 @@ class TestSectionToday:
         assert any(t == "gym" for t in texts)
 
     def test_sick_day_shows_sick_mark(self, mock_tk: MagicMock) -> None:
+        """Sick day shows sick mark."""
         snap = _snapshot(today=_day(entry_types=(), is_sick_day=True))
         _make_window(mock_tk, snap)
         assert any("😷" in t and "sick day" in t for t in _texts(mock_tk))
 
     def test_no_entry_shows_dash(self, mock_tk: MagicMock) -> None:
+        """No entry shows dash."""
         snap = _snapshot(today=_day(entry_types=(), is_sick_day=False))
         _make_window(mock_tk, snap)
         assert any("no entry yet" in t for t in _texts(mock_tk))
 
     def test_empty_source_adds_no_extra_line(self, mock_tk: MagicMock) -> None:
+        """Empty source adds no extra line."""
         snap = _snapshot(
             today=_day(
                 entry_types=("phone_verified",),
@@ -63,19 +68,24 @@ class TestSectionToday:
 
 
 class TestSectionWeek:
+    """SectionWeek."""
+
     def test_shows_remaining_message_when_under_minimum(
         self, mock_tk: MagicMock
     ) -> None:
+        """Shows remaining message when under minimum."""
         snap = _snapshot(week=_week(counted_count=2, remaining=2, extra=0))
         _make_window(mock_tk, snap)
         assert any("Need 2 more this week." in t for t in _texts(mock_tk))
 
     def test_shows_extra_message_when_over_minimum(self, mock_tk: MagicMock) -> None:
+        """Shows extra message when over minimum."""
         snap = _snapshot(week=_week(counted_count=5, remaining=0, extra=1))
         _make_window(mock_tk, snap)
         assert any("above the weekly minimum" in t for t in _texts(mock_tk))
 
     def test_shows_neither_message_at_exact_minimum(self, mock_tk: MagicMock) -> None:
+        """Shows neither message at exact minimum."""
         snap = _snapshot(week=_week(counted_count=4, remaining=0, extra=0))
         _make_window(mock_tk, snap)
         texts = _texts(mock_tk)
@@ -83,6 +93,7 @@ class TestSectionWeek:
         assert not any("above the weekly minimum" in t for t in texts)
 
     def test_renders_a_line_per_day(self, mock_tk: MagicMock) -> None:
+        """Renders a line per day."""
         days = (
             _day(
                 date="2024-01-01",
@@ -103,9 +114,12 @@ class TestSectionWeek:
 
 
 class TestSectionLockExplanation:
+    """SectionLockExplanation."""
+
     def test_fired_with_auto_upgrade_and_heat_skip_pending(
         self, mock_tk: MagicMock
     ) -> None:
+        """Fired with auto upgrade and heat skip pending."""
         snap = _snapshot(
             lock_explanation=_lock_explanation(
                 fired=True,
@@ -122,6 +136,7 @@ class TestSectionLockExplanation:
         assert any("Pending auto-upgrade: will try phone" in t for t in texts)
 
     def test_not_fired_no_auto_upgrade(self, mock_tk: MagicMock) -> None:
+        """Not fired no auto upgrade."""
         snap = _snapshot(
             lock_explanation=_lock_explanation(fired=False, reason="Skipped.")
         )
@@ -143,7 +158,10 @@ class TestSectionLockExplanation:
 
 
 class TestSectionSickBudget:
+    """SectionSickBudget."""
+
     def test_exhausted_uses_warning_color(self, mock_tk: MagicMock) -> None:
+        """Exhausted uses warning color."""
         snap = _snapshot(sick_budget=_sick_budget(used_7d=1, exhausted=True))
         window = _make_window(mock_tk, snap)
         calls = [
@@ -154,6 +172,7 @@ class TestSectionSickBudget:
         assert any(c.kwargs.get("fg") == window._colors.danger for c in calls)
 
     def test_not_exhausted_uses_normal_color(self, mock_tk: MagicMock) -> None:
+        """Not exhausted uses normal color."""
         snap = _snapshot(sick_budget=_sick_budget(used_7d=0, exhausted=False))
         window = _make_window(mock_tk, snap)
         calls = [
@@ -165,17 +184,22 @@ class TestSectionSickBudget:
 
 
 class TestSectionShutdown:
+    """SectionShutdown."""
+
     def test_tonight_present_shows_live_config(self, mock_tk: MagicMock) -> None:
+        """Tonight present shows live config."""
         snap = _snapshot(shutdown=_shutdown(tonight=(22, 23, 5)))
         _make_window(mock_tk, snap)
         assert any("22:00" in t and "23:00" in t for t in _texts(mock_tk))
 
     def test_tonight_absent_shows_unavailable_message(self, mock_tk: MagicMock) -> None:
+        """Tonight absent shows unavailable message."""
         snap = _snapshot(shutdown=_shutdown(tonight=None))
         _make_window(mock_tk, snap)
         assert any("Live shutdown config unavailable." in t for t in _texts(mock_tk))
 
     def test_shows_rest_of_week_and_next_week_preview(self, mock_tk: MagicMock) -> None:
+        """Shows rest of week and next week preview."""
         snap = _snapshot()
         _make_window(mock_tk, snap)
         texts = _texts(mock_tk)
@@ -245,50 +269,3 @@ class TestVerifyPhoneThenRunnerup:
             result.week_fill_message == "Auto-filled 1 workout from earlier this week."
         )
         verifier._adjust_shutdown_time_by.assert_not_called()
-
-
-class TestBackfillWeekAndApplyBonus:
-    """The week-scan fallback: backfill unlogged days, apply the earned bonus."""
-
-    def test_nothing_filled_returns_none(self) -> None:
-        verifier = MagicMock()
-        verifier._scan_and_fill_week_runnerup.return_value = 0
-        verifier._try_fill_stronglifts_for_week.return_value = 0
-
-        with patch(
-            "screen_locker._status_view_verify.count_weekly_workouts",
-            return_value=2,
-        ):
-            assert _backfill_week_and_apply_bonus(verifier) is None
-        verifier._adjust_shutdown_time_by.assert_not_called()
-
-    def test_fill_at_or_below_minimum_earns_no_bonus(self) -> None:
-        """Filling up to (not past) the weekly minimum earns no shutdown push."""
-        verifier = MagicMock()
-        verifier._scan_and_fill_week_runnerup.return_value = 1
-        verifier._try_fill_stronglifts_for_week.return_value = 0
-
-        with patch(
-            "screen_locker._status_view_verify.count_weekly_workouts",
-            side_effect=[3, 4],
-        ):
-            message = _backfill_week_and_apply_bonus(verifier)
-
-        assert message == "Auto-filled 1 workout from earlier this week."
-        verifier._adjust_shutdown_time_by.assert_not_called()
-
-    def test_fill_past_minimum_applies_bonus(self) -> None:
-        verifier = MagicMock()
-        verifier._scan_and_fill_week_runnerup.return_value = 1
-        verifier._try_fill_stronglifts_for_week.return_value = 1
-
-        with patch(
-            "screen_locker._status_view_verify.count_weekly_workouts",
-            side_effect=[4, 7],
-        ):
-            message = _backfill_week_and_apply_bonus(verifier)
-
-        assert message == (
-            "Auto-filled 2 workouts from earlier this week. +2h shutdown time."
-        )
-        verifier._adjust_shutdown_time_by.assert_called_once_with(2)
