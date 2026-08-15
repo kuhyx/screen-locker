@@ -17,8 +17,36 @@ churn, not size alone — refactoring pays where code is read and changed often
 
 ## Scope in this repo
 
-- **71 files** currently exceed 250 lines (of 220 eligible files).
-- **26,768 lines** sit in violation; longest file is **897 lines**.
+<!-- BEGIN GENERATED VIOLATIONS -->
+
+- **71 files** currently exceed 250 lines.
+- **9,431 lines** over the cap in total (the work left to do); longest file is **897** lines.
+
+ROI = lines x commits in the last year. Work top-down; a long file nobody edits
+has near-zero payoff and should not be first.
+
+| lines | commits/yr | kind | file |
+| ----: | ---------: | :--- | :--- |
+| 771 | 12 | code | `stronglift_replacement/workout_app/lib/screens/settings_screen.dart` |
+| 781 | 10 | code | `stronglift_replacement/workout_app/lib/services/storage_service.dart` |
+| 897 | 8 | code | `stronglift_replacement/workout_app/lib/screens/history_screen.dart` |
+| 323 | 22 | code | `screen_locker/tests/conftest.py` |
+| 480 | 12 | code | `stronglift_replacement/workout_app/test/screens/settings_screen_test.dart` |
+| 633 | 9 | code | `stronglift_replacement/workout_app/lib/screens/workout_screen.dart` |
+| 343 | 16 | code | `screen_locker/tests/test_init_and_log.py` |
+| 740 | 7 | code | `stronglift_replacement/workout_app/test/services/workout_sync_service_test.dart` |
+| 370 | 14 | code | `screen_locker/_ui_flows.py` |
+| 380 | 13 | code | `screen_locker/_phone_verification.py` |
+| 759 | 5 | code | `stronglift_replacement/workout_app/test/services/storage_service_test.dart` |
+| 415 | 9 | code | `stronglift_replacement/workout_app/lib/services/workout_sync_service.dart` |
+| 256 | 13 | code | `screen_locker/tests/test_adb_and_phone.py` |
+| 357 | 9 | code | `screen_locker/_manual_workout_dialog.py` |
+| 384 | 8 | code | `screen_locker/_shutdown.py` |
+
+_(56 further files over 250 lines not listed — re-run `python3 scripts/refresh_refactor_todo.py` for the current set.)_
+
+<!-- END GENERATED VIOLATIONS -->
+
 
 Exempt (do NOT split these):
 
@@ -28,30 +56,6 @@ Exempt (do NOT split these):
 - data files — `.json`, `.yaml`, `.csv`, wordlists and other data-ish `.txt`
   (mean line length under 25 chars)
 
-## Violations, highest ROI first
-
-ROI = lines x commits in the last year. Work top-down; a long file nobody edits
-has near-zero payoff and should not be first.
-
-| lines | commits/yr | kind | file                                                                              |
-| ----: | ---------: | :--- | :-------------------------------------------------------------------------------- |
-|   390 |         48 | code | `screen_locker/screen_lock.py`                                                    |
-|   771 |         12 | code | `stronglift_replacement/workout_app/lib/screens/settings_screen.dart`             |
-|   897 |          8 | code | `stronglift_replacement/workout_app/lib/screens/history_screen.dart`              |
-|   752 |          9 | code | `stronglift_replacement/workout_app/lib/services/storage_service.dart`            |
-|   319 |         21 | code | `screen_locker/tests/conftest.py`                                                 |
-|   480 |         12 | code | `stronglift_replacement/workout_app/test/screens/settings_screen_test.dart`       |
-|   633 |          9 | code | `stronglift_replacement/workout_app/lib/screens/workout_screen.dart`              |
-|   343 |         16 | code | `screen_locker/tests/test_init_and_log.py`                                        |
-|   370 |         14 | code | `screen_locker/_ui_flows.py`                                                      |
-|   377 |         12 | code | `screen_locker/_phone_verification.py`                                            |
-|   590 |          6 | code | `stronglift_replacement/workout_app/test/services/workout_sync_service_test.dart` |
-|   256 |         13 | code | `screen_locker/tests/test_adb_and_phone.py`                                       |
-|   357 |          9 | code | `screen_locker/_manual_workout_dialog.py`                                         |
-|   384 |          8 | code | `screen_locker/_shutdown.py`                                                      |
-|   714 |          4 | code | `stronglift_replacement/workout_app/test/services/storage_service_test.dart`      |
-
-_(56 further files over 250 lines not listed — re-run the survey for the full set.)_
 
 ## How to split
 
