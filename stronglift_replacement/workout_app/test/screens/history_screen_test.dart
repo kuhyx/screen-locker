@@ -12,6 +12,7 @@ import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/ui/theme.dart';
 
 import '../fake_secure_storage.dart';
+import '_history_test_fixtures.dart';
 
 void main() {
   setUpAll(() {
@@ -28,96 +29,13 @@ void main() {
     installFakeSecureStorage();
   });
 
-  Future<void> _pump(WidgetTester tester, Widget w) async {
-    await tester.runAsync(() async {
-      await tester.pumpWidget(w);
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-    });
-    await tester.pump();
-  }
-
-  Widget _wrap({http.Client? httpClient}) => MaterialApp(
-    theme: buildAppTheme(),
-    home: HistoryScreen(httpClient: httpClient),
-  );
-
-  /// A GitHub mock serving one PC device log holding a run and a manual.
-  http.Client _syncMock() {
-    String file(String body) => jsonEncode({
-      'content': base64Encode(utf8.encode(body)),
-      'sha': 'sha',
-    });
-    Record rec(String id, String kind, int ms) => Record(
-      id: id,
-      fields: {
-        'payload': (
-          {
-            'kind': kind,
-            'date': '2026-07-13',
-            'source': 'Running: 9.8 km in 55 min',
-          },
-          Hlc(wallTimeMs: ms, counter: 0, nodeId: 'pc'),
-        ),
-      },
-    );
-    final log = jsonEncode({
-      'runnerup_verified:2026-07-13': rec(
-        'runnerup_verified:2026-07-13',
-        'runnerup_verified',
-        2000,
-      ).toJson(),
-      'manual:2026-07-13T14:00': rec(
-        'manual:2026-07-13T14:00',
-        'manual_workout',
-        1000,
-      ).toJson(),
-    });
-    return MockClient((req) async {
-      final path = req.url.path;
-      if (path.endsWith('screen-locker-sync/devices')) {
-        return http.Response(
-          jsonEncode([
-            {'name': 'pc', 'type': 'dir'},
-          ]),
-          200,
-        );
-      }
-      if (path.contains('pc/log.json')) {
-        return http.Response(file(log), 200);
-      }
-      return http.Response('not found', 404);
-    });
-  }
-
-  // Seed a workout. DB writes must run on the real event loop: the widget-test
-  // zone fakes async, so a sqflite-ffi write in the test body hangs (then the
-  // isolate crashes on shutdown). runAsync gives the write the real loop.
-  Future<void> _seed(
-    WidgetTester tester,
-    String json, {
-    String date = '2024-06-01',
-    String type = 'A',
-    int duration = 1800,
-    bool succeeded = true,
-  }) async {
-    await tester.runAsync(
-      () => StorageService.instance.saveSession(
-        date: date,
-        workoutType: type,
-        durationSeconds: duration,
-        succeeded: succeeded,
-        json: json,
-      ),
-    );
-  }
-
   testWidgets('shows Progress app bar', (tester) async {
-    await _pump(tester, _wrap());
+    await pumpHistory(tester, wrapHistory());
     expect(find.text('Progress'), findsOneWidget);
   });
 
   testWidgets('shows "No workouts yet." when history is empty', (tester) async {
-    await _pump(tester, _wrap());
+    await pumpHistory(tester, wrapHistory());
     expect(find.text('No workouts yet.'), findsOneWidget);
   });
 
@@ -137,8 +55,8 @@ void main() {
         },
       ],
     });
-    await _seed(tester, json);
-    await _pump(tester, _wrap());
+    await seedSession(tester, json);
+    await pumpHistory(tester, wrapHistory());
     expect(find.textContaining('Workout A'), findsWidgets);
   });
 
@@ -158,15 +76,15 @@ void main() {
         },
       ],
     });
-    await _seed(tester, json);
-    await _pump(tester, _wrap());
+    await seedSession(tester, json);
+    await pumpHistory(tester, wrapHistory());
     expect(find.textContaining('Total'), findsOneWidget);
   });
 
   testWidgets('calendar prev/next month navigation works', (tester) async {
     final json = jsonEncode({'exercises': []});
-    await _seed(tester, json);
-    await _pump(tester, _wrap());
+    await seedSession(tester, json);
+    await pumpHistory(tester, wrapHistory());
     await tester.tap(find.byIcon(Icons.chevron_right).first);
     await tester.pump();
     await tester.tap(find.byIcon(Icons.chevron_left).first);
@@ -176,15 +94,15 @@ void main() {
 
   testWidgets('session tile shows succeeded checkmark', (tester) async {
     final json = jsonEncode({'exercises': []});
-    await _seed(tester, json);
-    await _pump(tester, _wrap());
+    await seedSession(tester, json);
+    await pumpHistory(tester, wrapHistory());
     expect(find.byIcon(Icons.check_circle), findsWidgets);
   });
 
   testWidgets('session tile shows cancel icon on failure', (tester) async {
     final json = jsonEncode({'exercises': []});
-    await _seed(tester, json, duration: 900, succeeded: false);
-    await _pump(tester, _wrap());
+    await seedSession(tester, json, duration: 900, succeeded: false);
+    await pumpHistory(tester, wrapHistory());
     expect(find.byIcon(Icons.cancel), findsWidgets);
   });
 
@@ -192,195 +110,8 @@ void main() {
     tester,
   ) async {
     final json = jsonEncode({'exercises': []});
-    await _seed(tester, json, duration: 3700);
-    await _pump(tester, _wrap());
+    await seedSession(tester, json, duration: 3700);
+    await pumpHistory(tester, wrapHistory());
     expect(find.textContaining('1h'), findsOneWidget);
-  });
-
-  testWidgets('chart renders with enough data points', (tester) async {
-    final json = jsonEncode({
-      'exercises': [
-        {
-          'name': 'Squat',
-          'targetSets': 3,
-          'targetReps': 5,
-          'targetWeight': 20.0,
-          'warmupDone': false,
-          'succeeded': true,
-          'sets': [],
-        },
-      ],
-    });
-    for (var i = 1; i <= 3; i++) {
-      await _seed(tester, json, date: '2024-06-0$i');
-    }
-    await _pump(tester, _wrap());
-    expect(find.byType(HistoryScreen), findsOneWidget);
-  });
-
-  // JSON for one session containing [name] at [weight].
-  String _exerciseSessionJson(
-    String name,
-    double weight, {
-    required bool ok,
-    required bool warmup,
-    required bool withSets,
-  }) {
-    return jsonEncode({
-      'exercises': [
-        {
-          'name': name,
-          'targetSets': 3,
-          'targetReps': 5,
-          'targetWeight': weight,
-          'warmupDone': warmup,
-          'succeeded': ok,
-          'sets': withSets
-              ? [
-                  {
-                    'targetReps': 5,
-                    'doneReps': 5,
-                    'weight': weight,
-                    'succeeded': true,
-                  },
-                  {
-                    'targetReps': 5,
-                    'doneReps': 4,
-                    'weight': weight,
-                    'succeeded': false,
-                  },
-                ]
-              : <Map<String, dynamic>>[],
-        },
-      ],
-    });
-  }
-
-  testWidgets('selecting an exercise shows the drill-down view', (
-    tester,
-  ) async {
-    // Use a real progression-tracked exercise so getExerciseState is non-null
-    // and the streak stats card renders. Three distinct weights on three dates
-    // give the weight chart >= 2 points with a real range (painter fully runs).
-    final name = workoutA.first.name;
-    await _seed(
-      tester,
-      _exerciseSessionJson(name, 20, ok: true, warmup: true, withSets: true),
-      date: '2024-06-01',
-    );
-    await _seed(
-      tester,
-      _exerciseSessionJson(
-        name,
-        22.5,
-        ok: false,
-        warmup: false,
-        withSets: false,
-      ),
-      date: '2024-06-08',
-      succeeded: false,
-    );
-    await _seed(
-      tester,
-      _exerciseSessionJson(name, 25, ok: true, warmup: true, withSets: true),
-      date: '2024-06-15',
-    );
-
-    await _pump(tester, _wrap());
-
-    // Open the dropdown and pick the exercise; _pickExercise awaits a DB read,
-    // and the menu open/close animation runs on real timers under runAsync, so
-    // drive the whole interaction on the real loop.
-    await tester.runAsync(() async {
-      await tester.tap(find.byType(DropdownButton<String>));
-      await Future<void>.delayed(const Duration(milliseconds: 400));
-      await tester.pump();
-      await tester.tap(find.text(name).last);
-      await Future<void>.delayed(const Duration(milliseconds: 400));
-      await tester.pump();
-    });
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-
-    // Exercise view rendered: chart + streak stats card near the top.
-    expect(find.text('WEIGHT OVER TIME'), findsOneWidget);
-    expect(find.textContaining('more to'), findsWidgets);
-
-    // Exercise-view calendar month nav (covers its onPrev/onNext closures).
-    await tester.tap(find.byIcon(Icons.chevron_right).first);
-    await tester.pump();
-    await tester.tap(find.byIcon(Icons.chevron_left).first);
-    await tester.pump();
-
-    // The session list + name label sit below the fold; scroll to build them.
-    await tester.scrollUntilVisible(
-      find.text(name.toUpperCase()),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text(name.toUpperCase()), findsOneWidget);
-    // Session tiles: warmup marker and reps summary both present.
-    expect(find.textContaining('warmup'), findsWidgets);
-    expect(find.textContaining('reps:'), findsWidgets);
-  });
-
-  testWidgets('chart handles two points on the same date (tRange == 0)', (
-    tester,
-  ) async {
-    // Two sessions on the SAME date give the total chart two points that share
-    // a timestamp, exercising the painter's tRange == 0 (centre-x) branch.
-    String vol(double w) => jsonEncode({
-      'exercises': [
-        {
-          'name': 'Squat',
-          'targetSets': 3,
-          'targetReps': 5,
-          'targetWeight': w,
-          'warmupDone': false,
-          'succeeded': true,
-          'sets': <Map<String, dynamic>>[],
-        },
-      ],
-    });
-    await _seed(tester, vol(20), date: '2024-06-01');
-    await _seed(tester, vol(40), date: '2024-06-01');
-    await _pump(tester, _wrap());
-    expect(find.byType(HistoryScreen), findsOneWidget);
-    expect(find.text('WEIGHT OVER TIME').evaluate(), isEmpty); // total view
-  });
-
-  testWidgets('shows the PC-synced workouts the phone has no session for', (
-    tester,
-  ) async {
-    // The PC publishes its whole workout_log.json; without this the two
-    // devices show different histories (a RunnerUp run exists only on the PC).
-    installFakeSecureStorage(initial: {'sync.token': 'tok'});
-    await _seed(
-      tester,
-      jsonEncode({
-        'exercises': [
-          {
-            'name': 'Squat',
-            'targetSets': 3,
-            'targetReps': 5,
-            'targetWeight': 40.0,
-            'warmupDone': false,
-            'succeeded': true,
-            'setResults': <Map<String, dynamic>>[],
-          },
-        ],
-      }),
-      date: '2026-07-11',
-    );
-    await _pump(tester, _wrap(httpClient: _syncMock()));
-
-    await tester.scrollUntilVisible(
-      find.text('SYNCED FROM PC'),
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('SYNCED FROM PC'), findsOneWidget);
-    expect(find.textContaining('2026-07-13  ·  Run'), findsOneWidget);
-    expect(find.textContaining('2026-07-13  ·  Manual'), findsOneWidget);
   });
 }
