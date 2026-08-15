@@ -79,93 +79,99 @@ void main() {
     ),
   );
 
-  testWidgets('shows Settings app bar', (tester) async {
+  testWidgets('threshold circles show values 1-5', (tester) async {
     await _pump(tester, _wrap());
-    expect(find.text('Settings'), findsOneWidget);
-  });
-
-  testWidgets('shows WEIGHTS, TARGET REPS and PROGRESSION THRESHOLDS', (
-    tester,
-  ) async {
-    await _pump(tester, _wrap());
-    expect(find.text('WEIGHTS'), findsOneWidget);
-    // TARGET REPS and the thresholds below it are off-screen at the test
-    // viewport height, so scroll them into view rather than asserting on
-    // whatever happens to be built.
-    await tester.scrollUntilVisible(find.text('TARGET REPS'), 200);
-    expect(find.text('TARGET REPS'), findsOneWidget);
+    // The threshold cards sit below WEIGHTS and TARGET REPS, past the test
+    // viewport's fold, so they are not built until scrolled to.
     await tester.scrollUntilVisible(find.text('PROGRESSION THRESHOLDS'), 200);
-    expect(find.text('PROGRESSION THRESHOLDS'), findsOneWidget);
-  });
-
-  testWidgets('increment reps button increases the target reps', (
-    tester,
-  ) async {
-    await _pump(tester, _wrap());
-    await tester.scrollUntilVisible(find.text('TARGET REPS'), 200);
     await tester.pumpAndSettle();
-    // Situp defaults to 30 reps and is the only exercise at that value.
-    expect(find.text('30 reps'), findsOneWidget);
-    final plus = find.descendant(
-      of: find
-          .ancestor(
-            of: find.text('30 reps'),
-            matching: find.byType(Row),
-          )
-          .first,
-      matching: find.byIcon(Icons.add),
-    );
-    await tester.tap(plus);
-    await tester.pumpAndSettle();
-    expect(find.text('31 reps'), findsOneWidget);
-  });
-
-  testWidgets('shows all exercise names from both workout plans', (
-    tester,
-  ) async {
-    await _pump(tester, _wrap());
-    for (final ex in [...workoutA, ...workoutB]) {
-      expect(find.text(ex.name), findsWidgets);
+    for (int i = 1; i <= 5; i++) {
+      expect(find.text('$i'), findsWidgets);
     }
   });
 
-  testWidgets('Reset defaults button is present', (tester) async {
+  testWidgets('Reset dialog shows on tap and cancels', (tester) async {
     await _pump(tester, _wrap());
-    expect(find.text('Reset defaults'), findsOneWidget);
+    await tester.tap(find.text('Reset defaults'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Reset to defaults?'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('Reset to defaults?'), findsNothing);
   });
 
-  testWidgets('increment weight button increases weight', (tester) async {
-    await _pump(tester, _wrap());
-
-    final firstName = workoutA.first.name;
-    // DB reads need the real event loop (the widget-test zone fakes async).
-    final state = await tester.runAsync(
-      () => StorageService.instance.getExerciseState(firstName),
+  testWidgets('Reset dialog confirms and resets data', (tester) async {
+    await tester.runAsync(
+      () =>
+          StorageService.instance.setExerciseWeight(workoutA.first.name, 99.0),
     );
-    final before = state!.weight;
 
-    await tester.tap(find.byIcon(Icons.add).first);
+    await _pump(tester, _wrap());
+    await tester.tap(find.text('Reset defaults'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.text('Reset'));
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
     await tester.pump();
 
-    expect(find.textContaining('${before + kWeightIncrement}kg'), findsWidgets);
+    final state = await tester.runAsync(
+      () => StorageService.instance.getExerciseState(workoutA.first.name),
+    );
+    expect(state!.weight, workoutA.first.weight);
   });
 
-  testWidgets('decrement weight button decreases weight', (tester) async {
-    await _pump(tester, _wrap());
-
-    final firstName = workoutA.first.name;
-    // DB reads need the real event loop (the widget-test zone fakes async).
-    final state = await tester.runAsync(
-      () => StorageService.instance.getExerciseState(firstName),
+  testWidgets('offline backup offers a grant button when not held', (
+    tester,
+  ) async {
+    var asked = false;
+    await _pump(
+      tester,
+      _wrap(
+        storageChecker: () async => false,
+        storageRequester: () async {
+          asked = true;
+          return true;
+        },
+      ),
     );
-    final before = state!.weight;
-
-    await tester.tap(find.byIcon(Icons.remove).first);
-    await tester.pump();
-
+    await tester.scrollUntilVisible(
+      find.text('Grant storage permission'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    // Framed as optional: Firebase restores progression without it.
     expect(
-      find.textContaining('${before - kWeightIncrement}kg'),
-      findsWidgets,
+      find.textContaining('Optional.', skipOffstage: false),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Grant storage permission'));
+    await tester.pumpAndSettle();
+
+    expect(asked, isTrue, reason: 'the grant page is opened on demand only');
+    expect(find.text('Storage permission granted'), findsOneWidget);
+    expect(find.text('Grant storage permission'), findsNothing);
+  });
+
+  testWidgets('offline backup reports an already-granted permission', (
+    tester,
+  ) async {
+    await _pump(tester, _wrap(storageChecker: () async => true));
+    await tester.scrollUntilVisible(
+      find.text('Storage permission granted'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('Storage permission granted'), findsOneWidget);
+    expect(find.text('Grant storage permission'), findsNothing);
+    expect(
+      find.textContaining('Granted.', skipOffstage: false),
+      findsOneWidget,
     );
   });
 }

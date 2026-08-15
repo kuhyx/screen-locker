@@ -79,93 +79,92 @@ void main() {
     ),
   );
 
-  testWidgets('shows Settings app bar', (tester) async {
-    await _pump(tester, _wrap());
-    expect(find.text('Settings'), findsOneWidget);
-  });
-
-  testWidgets('shows WEIGHTS, TARGET REPS and PROGRESSION THRESHOLDS', (
+  testWidgets('shows links to Sync settings and Advanced sync (GitHub)', (
     tester,
   ) async {
     await _pump(tester, _wrap());
-    expect(find.text('WEIGHTS'), findsOneWidget);
-    // TARGET REPS and the thresholds below it are off-screen at the test
-    // viewport height, so scroll them into view rather than asserting on
-    // whatever happens to be built.
-    await tester.scrollUntilVisible(find.text('TARGET REPS'), 200);
-    expect(find.text('TARGET REPS'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('PROGRESSION THRESHOLDS'), 200);
-    expect(find.text('PROGRESSION THRESHOLDS'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Sync settings'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Sync settings'), findsOneWidget);
+    expect(find.text('Advanced sync (GitHub)'), findsOneWidget);
   });
 
-  testWidgets('increment reps button increases the target reps', (
+  testWidgets('opening Sync settings pushes the shared screen', (
     tester,
   ) async {
     await _pump(tester, _wrap());
-    await tester.scrollUntilVisible(find.text('TARGET REPS'), 200);
+    await tester.scrollUntilVisible(
+      find.text('Sync settings'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Sync settings'));
     await tester.pumpAndSettle();
-    // Situp defaults to 30 reps and is the only exercise at that value.
-    expect(find.text('30 reps'), findsOneWidget);
-    final plus = find.descendant(
-      of: find
-          .ancestor(
-            of: find.text('30 reps'),
-            matching: find.byType(Row),
-          )
-          .first,
-      matching: find.byIcon(Icons.add),
-    );
-    await tester.tap(plus);
-    await tester.pumpAndSettle();
-    expect(find.text('31 reps'), findsOneWidget);
+
+    // The shared package's own screen -- its AppBar title, not this app's.
+    expect(find.text('Sync settings'), findsOneWidget);
+    expect(find.text('Firebase sync'), findsWidgets);
   });
 
-  testWidgets('shows all exercise names from both workout plans', (
+  testWidgets('opening Advanced sync (GitHub) pushes the app-local screen', (
     tester,
   ) async {
     await _pump(tester, _wrap());
-    for (final ex in [...workoutA, ...workoutB]) {
-      expect(find.text(ex.name), findsWidgets);
-    }
-  });
-
-  testWidgets('Reset defaults button is present', (tester) async {
-    await _pump(tester, _wrap());
-    expect(find.text('Reset defaults'), findsOneWidget);
-  });
-
-  testWidgets('increment weight button increases weight', (tester) async {
-    await _pump(tester, _wrap());
-
-    final firstName = workoutA.first.name;
-    // DB reads need the real event loop (the widget-test zone fakes async).
-    final state = await tester.runAsync(
-      () => StorageService.instance.getExerciseState(firstName),
+    await tester.scrollUntilVisible(
+      find.text('Advanced sync (GitHub)'),
+      500,
+      scrollable: find.byType(Scrollable).first,
     );
-    final before = state!.weight;
+    await tester.ensureVisible(find.text('Advanced sync (GitHub)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Advanced sync (GitHub)'));
+    await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.add).first);
-    await tester.pump();
-
-    expect(find.textContaining('${before + kWeightIncrement}kg'), findsWidgets);
+    expect(find.text('Connect GitHub'), findsOneWidget);
   });
 
-  testWidgets('decrement weight button decreases weight', (tester) async {
-    await _pump(tester, _wrap());
+  testWidgets(
+    'returning from Sync settings pulls progression and shows a restore banner',
+    (tester) async {
+      // Regression: connecting is the NORMAL path after a reinstall, because
+      // the uninstall wipes the keystore and startup's pull therefore found no
+      // account. Without pulling here the device sits on factory defaults
+      // while holding real remote progression, and its first finished workout
+      // pushes those defaults over the top. Fires on pop rather than inside
+      // the shared screen's connect flow -- see _openSyncSettings's doc.
+      var pulled = false;
+      await _pump(
+        tester,
+        _wrap(
+          progressionPuller: () async {
+            pulled = true;
+            return const ProgressionSyncResult(
+              changed: true,
+              count: 7,
+              reason: 'restored 7 exercise(s) from Firebase',
+            );
+          },
+        ),
+      );
+      await tester.scrollUntilVisible(
+        find.text('Sync settings'),
+        500,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Sync settings'));
+      await tester.pumpAndSettle();
 
-    final firstName = workoutA.first.name;
-    // DB reads need the real event loop (the widget-test zone fakes async).
-    final state = await tester.runAsync(
-      () => StorageService.instance.getExerciseState(firstName),
-    );
-    final before = state!.weight;
+      await tester.pageBack();
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.remove).first);
-    await tester.pump();
-
-    expect(
-      find.textContaining('${before - kWeightIncrement}kg'),
-      findsWidgets,
-    );
-  });
+      expect(pulled, isTrue);
+      expect(
+        find.text('Restored 7 exercise(s) from Firebase.'),
+        findsOneWidget,
+      );
+    },
+  );
 }
