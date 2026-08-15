@@ -6,18 +6,19 @@ from concurrent.futures import ThreadPoolExecutor  # pylint: disable=no-name-in-
 from typing import TYPE_CHECKING
 
 from screen_locker import _manual_workout, _sick_tracker
-from screen_locker._constants import (
-    NO_PHONE_EXTRA_LOCKOUT_SECONDS,
-    PHONE_PENALTY_DELAY_DEMO,
-    PHONE_PENALTY_DELAY_PRODUCTION,
-)
+from screen_locker._ui_flows_lockout import LockoutFlowMixin
+from screen_locker._ui_flows_sick import SickDayFlowMixin
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-class UIFlowsMixin:
-    """Mixin providing UI flow logic for the screen locker."""
+class UIFlowsMixin(SickDayFlowMixin, LockoutFlowMixin):
+    """Mixin providing UI flow logic for the screen locker.
+
+    The sick-day and lockout/penalty flows live in sibling modules and are
+    composed in here, so ``ScreenLocker``'s own mixin list stays as it was.
+    """
 
     def paint_phone_check(self) -> None:
         """Paint the "checking phone" screen, without starting the check.
@@ -198,173 +199,3 @@ class UIFlowsMixin:
                 self._runnerup_on_failure()
         else:
             self.root.after(500, self._poll_runnerup_fallback)
-
-    def ask_if_sick(self) -> None:
-        """Display the structured sick-day justification dialog."""
-        self._show_sick_justification()
-
-    def _get_sick_day_status(self) -> tuple[str, str]:
-        """Determine sick day status text and color."""
-        if self._sick_mode_used_today():
-            return "Shutdown time already adjusted today", self._colors.warning
-        if self._adjust_shutdown_time_earlier():
-            return (
-                "Shutdown time moved 1.5 hours earlier ✓\n(Will revert tomorrow)"
-            ), self._colors.success
-        return (
-            "Could not adjust shutdown time (check permissions)",
-            self._colors.danger,
-        )
-
-    def _proceed_to_sick_countdown(self) -> None:
-        """Start the (escalated) sick day countdown after justification."""
-        history = getattr(
-            self,
-            "_sick_history_cache",
-            None,
-        )
-        if history is None:
-            history = _sick_tracker.load_history()
-            self._sick_history_cache = history
-        countdown = _sick_tracker.compute_lockout_seconds(history)
-        self.clear_container()
-        status_text, status_color = self._get_sick_day_status()
-        self._show_sick_day_ui(status_text, status_color, countdown)
-        self.sick_remaining_time = countdown
-        self._update_sick_countdown()
-
-    def _show_sick_day_ui(
-        self,
-        status_text: str,
-        status_color: str,
-        countdown: int,
-    ) -> None:
-        """Display sick day UI labels and countdown."""
-        self._label("Sick Day Mode", color=self._colors.warning, pad="md")
-        self._text(status_text, color=status_color)
-        minutes = countdown // 60
-        self._text(
-            f"Please wait ~{minutes} min before unlocking...",
-            role="title",
-            pad="md",
-        )
-        self.sick_countdown_label = self._label(
-            str(countdown),
-            role="display",
-            scale=2.5,
-            pad="lg",
-        )
-
-    def _update_sick_countdown(self) -> None:
-        """Update the sick day countdown timer."""
-        if self.sick_remaining_time > 0:
-            self.sick_countdown_label.config(text=str(self.sick_remaining_time))
-            self.sick_remaining_time -= 1
-            self.root.after(1000, self._update_sick_countdown)
-        else:
-            self._finalize_sick_day()
-
-    def _finalize_sick_day(self) -> None:
-        """Persist sick-day history and unlock the screen."""
-        history = getattr(self, "_sick_history_cache", None)
-        if history is None:
-            history = _sick_tracker.load_history()
-        if _sick_tracker.had_commitment_for_today(history):
-            _sick_tracker.mark_commitment_broken(history)
-            self.workout_data["broke_commitment"] = "true"
-        new_debt = _sick_tracker.add_sick_day(history)
-        _sick_tracker.save_history(history)
-        self.workout_data["type"] = "sick_day"
-        self.workout_data["note"] = "Sick day - shutdown moved earlier"
-        self.workout_data["debt"] = str(new_debt)
-        self.unlock_screen()
-
-    # ------------------------------------------------------------------
-    # Lockout flow
-    # ------------------------------------------------------------------
-
-    def lockout(self) -> None:
-        """Display lockout screen with countdown timer."""
-        self.clear_container()
-        self.lockout_label = self._label(
-            f"Go work out!\nLocked for {self.lockout_time} seconds",
-            role="display",
-            scale=1.5,
-            color=self._colors.danger,
-            pad="lg",
-        )
-        self.countdown_label = self._label(
-            str(self.lockout_time),
-            role="display",
-            scale=3.75,
-            pad="lg",
-        )
-        self.remaining_time = self.lockout_time
-        self.update_lockout_countdown()
-
-    def update_lockout_countdown(self) -> None:
-        """Update the lockout countdown timer display."""
-        if self.remaining_time > 0:
-            self.countdown_label.config(text=str(self.remaining_time))
-            self.remaining_time -= 1
-            self.root.after(1000, self.update_lockout_countdown)
-        else:
-            self._start_phone_check()
-
-    # ------------------------------------------------------------------
-    # Phone penalty
-    # ------------------------------------------------------------------
-
-    def _show_phone_penalty(
-        self, message: str, *, on_done: Callable[[], None] | None = None
-    ) -> None:
-        """Show penalty countdown when phone verification is unavailable."""
-        self.clear_container()
-        self._phone_penalty_done_fn: Callable[[], None] = (
-            on_done
-            if on_done is not None
-            else lambda: self._show_retry_and_sick(message)
-        )
-        base_delay = (
-            PHONE_PENALTY_DELAY_DEMO
-            if self.demo_mode
-            else PHONE_PENALTY_DELAY_PRODUCTION
-        )
-        # Disconnecting the phone shouldn't be a fast path into sick mode.
-        delay = (
-            base_delay
-            if self.demo_mode
-            else base_delay + NO_PHONE_EXTRA_LOCKOUT_SECONDS
-        )
-        self._label(
-            "Cannot Verify Workout",
-            role="display",
-            color=self._colors.warning,
-            pad="md",
-        )
-        self._text(message, color=self._colors.warning)
-        self._text(
-            "Connect phone via ADB to skip this wait,\n"
-            "or wait for the penalty timer.\n\n"
-            "Note: Phone must be rooted and StrongLifts installed.",
-            role="body",
-        )
-        self.phone_penalty_remaining = delay
-        self.phone_penalty_label = self._label(
-            str(delay),
-            role="display",
-            scale=2.5,
-            pad="md",
-        )
-        self._update_phone_penalty()
-
-    def _update_phone_penalty(self) -> None:
-        """Update phone penalty countdown."""
-        if self.phone_penalty_remaining > 0:
-            self.phone_penalty_label.config(
-                text=str(self.phone_penalty_remaining),
-            )
-            self.phone_penalty_remaining -= 1
-            self.root.after(1000, self._update_phone_penalty)
-        else:
-            self._phone_penalty_done_fn()

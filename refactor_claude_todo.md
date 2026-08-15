@@ -19,8 +19,8 @@ churn, not size alone — refactoring pays where code is read and changed often
 
 <!-- BEGIN GENERATED VIOLATIONS -->
 
-- **61 files** currently exceed 250 lines.
-- **9,084 lines** over the cap in total (the work left to do); longest file is **897** lines.
+- **41 files** currently exceed 250 lines.
+- **6,753 lines** over the cap in total (the work left to do); longest file is **897** lines.
 
 ROI = lines x commits in the last year. Work top-down; a long file nobody edits
 has near-zero payoff and should not be first.
@@ -33,7 +33,6 @@ has near-zero payoff and should not be first.
 | 323 | 22 | code | `screen_locker/tests/conftest.py` |
 | 480 | 12 | code | `stronglift_replacement/workout_app/test/screens/settings_screen_test.dart` |
 | 633 | 9 | code | `stronglift_replacement/workout_app/lib/screens/workout_screen.dart` |
-| 343 | 16 | code | `screen_locker/tests/test_init_and_log.py` |
 | 740 | 7 | code | `stronglift_replacement/workout_app/test/services/workout_sync_service_test.dart` |
 | 370 | 14 | code | `screen_locker/_ui_flows.py` |
 | 380 | 13 | code | `screen_locker/_phone_verification.py` |
@@ -42,8 +41,9 @@ has near-zero payoff and should not be first.
 | 357 | 9 | code | `screen_locker/_manual_workout_dialog.py` |
 | 384 | 8 | code | `screen_locker/_shutdown.py` |
 | 383 | 8 | code | `stronglift_replacement/workout_app/lib/screens/home_screen.dart` |
+| 396 | 7 | code | `screen_locker/status_view.py` |
 
-_(46 further files over 250 lines not listed — re-run `python3 scripts/refresh_refactor_todo.py` for the current set.)_
+_(26 further files over 250 lines not listed — re-run `python3 scripts/refresh_refactor_todo.py` for the current set.)_
 
 <!-- END GENERATED VIOLATIONS -->
 
