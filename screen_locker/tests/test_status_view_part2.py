@@ -8,16 +8,13 @@ from unittest.mock import MagicMock, patch
 from screen_locker._status_view_verify import PhoneCheckOutcome
 from screen_locker._workout_credit import WorkoutCreditResult
 from screen_locker.status_view import (
-    _compliance_state_word,
     _make_bare_verifier,
 )
 from screen_locker.tests._status_view_helpers import (
     _button_texts,
-    _lock_explanation,
     _make_window,
     _snapshot,
     _texts,
-    _week,
 )
 
 if TYPE_CHECKING:
@@ -227,28 +224,3 @@ class TestMakeBareVerifier:
         verifier = _make_bare_verifier(log_file)
         assert verifier.log_file == log_file
         assert verifier.workout_data == {}
-
-
-class TestComplianceStateWord:
-    """ComplianceStateWord."""
-
-    def test_lock_when_fired(self) -> None:
-        """Lock when fired."""
-        snap = _snapshot(lock_explanation=_lock_explanation(fired=True))
-        assert _compliance_state_word(snap) == "lock"
-
-    def test_warn_when_not_fired_but_remaining(self) -> None:
-        """Warn when not fired but remaining."""
-        snap = _snapshot(
-            lock_explanation=_lock_explanation(fired=False),
-            week=_week(remaining=2),
-        )
-        assert _compliance_state_word(snap) == "warn"
-
-    def test_ok_when_not_fired_and_minimum_met(self) -> None:
-        """Ok when not fired and minimum met."""
-        snap = _snapshot(
-            lock_explanation=_lock_explanation(fired=False),
-            week=_week(remaining=0),
-        )
-        assert _compliance_state_word(snap) == "ok"

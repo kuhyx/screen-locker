@@ -92,11 +92,41 @@ repos:
   - repo: https://github.com/pylint-dev/pylint
     rev: v3.3.2
     hooks:
+      # Two hooks, because the three checks below are not defects in a test
+      # suite -- they are how pytest and unit-testing private mixins work --
+      # while in SOURCE they are real findings that must still fail:
+      #   protected-access  tests drive private mixin methods directly; those
+      #                     methods ARE the unit under test (ruff already
+      #                     exempts the same thing via SLF001 for tests).
+      #   unused-argument   pytest fixtures must be REQUESTED in the signature
+      #                     to take effect but are never referenced in the body.
+      #   duplicate-code    near-identical `with patch(...)` preambles; a test
+      #                     should read top-to-bottom without chasing a fixture.
+      # Splitting also removes the old failure mode where the score depended on
+      # what else happened to be staged alongside. See
+      # todo_fix_pylint_10_prompt.md for raising both to a hard 10.00.
       - id: pylint
+        name: pylint (source)
+        exclude: ^screen_locker/tests/
         args:
           - --rcfile=pyproject.toml
           - --fail-under=8.0
           - --jobs=4
+        additional_dependencies:
+          - pytest
+          - gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.4.0#subdirectory=gatelock
+          - crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.6.0#subdirectory=crdt-sync
+          - mcp>=2,<3
+          - pydantic
+      - id: pylint
+        name: pylint (tests)
+        alias: pylint-tests
+        files: ^screen_locker/tests/
+        args:
+          - --rcfile=pyproject.toml
+          - --fail-under=8.0
+          - --jobs=4
+          - --disable=protected-access,unused-argument,duplicate-code
         additional_dependencies:
           - pytest
           - gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.4.0#subdirectory=gatelock
