@@ -13,6 +13,7 @@ import 'package:workout_app/services/firebase_backend.dart';
 import 'package:workout_app/services/sync_device_id.dart';
 import 'package:workout_app/services/sync_settings.dart';
 import 'package:workout_app/services/sync_state_factory.dart';
+import 'package:workout_app/services/workout_sync_session.dart';
 
 part 'workout_sync_service_read.dart';
 
@@ -118,63 +119,32 @@ class WorkoutSyncService {
       log('WorkoutSyncService.push skipped: $reason', level: 900);
       return const PushResult(pushed: false, reason: reason);
     }
-
-    final github = GitHubClient(
-      owner: owner,
-      repo: repo,
-      token: settings.token,
-      httpClient: _httpClient,
-    );
-    final firebase = await _openFirebase();
-    final client = firebase == null
-        ? github
-        : MirrorStore(primary: firebase, mirror: github);
-    try {
-      final path = '$_pathPrefix/$currentSyncDeviceId/$_logFilename';
-      final existingText = await client.getFileText(path);
-      final existingLog = existingText == null
-          ? <String, Record>{}
-          : _decode(existingText);
-      final record = Record(
+    return _session(settings.token).run(
+      operation: 'push',
+      successReason: 'pushed',
+      failurePrefix: 'push failed',
+      addition: Record(
         id: session.startTime.toIso8601String(),
         fields: {
           'payload': (session.toJson(), Hlc.newTick(currentSyncDeviceId)),
         },
-      );
-      final localLog = mergeLogs(existingLog, {record.id: record});
-      await syncLog(
-        client: client,
-        deviceId: currentSyncDeviceId,
-        legacyDeviceId: legacySyncDeviceId,
-        pathPrefix: _pathPrefix,
-        localLog: localLog,
-        encode: _encode,
-        decode: _decode,
-        // Without this every push re-uploads the whole log and every pull
-        // re-downloads every peer's, regardless of change -- the traffic the
-        // Firebase free tier's monthly budget depends on not happening.
-        stateStore: await _openStateStore(),
-      );
-      return const PushResult(pushed: true, reason: 'pushed');
-    } on Object catch (error, stackTrace) {
-      // Deliberately broad: a GitHubSyncError was the only case handled
-      // before, so a Firebase error, an auth failure or a dropped connection
-      // vanished with no trace at all. Still swallowed rather than rethrown
-      // -- a sync failure must not cost the user their finished workout --
-      // but now it is reported, not hidden.
-      final reason = 'push failed: $error';
-      log(
-        'WorkoutSyncService.push failed',
-        level: 1000,
-        error: error,
-        stackTrace: stackTrace,
-      );
-      return PushResult(pushed: false, reason: reason);
-    } finally {
-      github.close();
-      firebase?.close();
-    }
+      ),
+    );
   }
+
+  /// Builds the collaborator that owns one round-trip's client lifecycle.
+  WorkoutSyncSession _session(String token) => WorkoutSyncSession(
+    owner: owner,
+    repo: repo,
+    token: token,
+    pathPrefix: _pathPrefix,
+    logFilename: _logFilename,
+    encode: _encode,
+    decode: _decode,
+    openFirebaseClient: _openFirebase,
+    openStateStore: _openStateStore,
+    httpClient: _httpClient,
+  );
 
   /// Runs a sync tick with no new record, purely to find out whether sync
   /// works right now.
@@ -193,50 +163,15 @@ class WorkoutSyncService {
       log('WorkoutSyncService.syncNow skipped: $reason', level: 900);
       return const PushResult(pushed: false, reason: reason);
     }
-
-    final github = GitHubClient(
-      owner: owner,
-      repo: repo,
-      token: settings.token,
-      httpClient: _httpClient,
+    // No addition: whatever this device already has, unchanged. The point is
+    // the round trip, not the payload.
+    return _session(settings.token).run(
+      operation: 'syncNow',
+      successReason: 'synced',
+      failurePrefix: 'sync failed',
     );
-    final firebase = await _openFirebase();
-    final client = firebase == null
-        ? github
-        : MirrorStore(primary: firebase, mirror: github);
-    try {
-      final path = '$_pathPrefix/$currentSyncDeviceId/$_logFilename';
-      final existingText = await client.getFileText(path);
-      final existingLog = existingText == null
-          ? <String, Record>{}
-          : _decode(existingText);
-      await syncLog(
-        client: client,
-        deviceId: currentSyncDeviceId,
-        legacyDeviceId: legacySyncDeviceId,
-        pathPrefix: _pathPrefix,
-        // No new record: whatever this device already has, unchanged. The
-        // point is the round trip, not the payload.
-        localLog: existingLog,
-        encode: _encode,
-        decode: _decode,
-        stateStore: await _openStateStore(),
-      );
-      return const PushResult(pushed: true, reason: 'synced');
-    } on Object catch (error, stackTrace) {
-      final reason = 'sync failed: $error';
-      log(
-        'WorkoutSyncService.syncNow failed',
-        level: 1000,
-        error: error,
-        stackTrace: stackTrace,
-      );
-      return PushResult(pushed: false, reason: reason);
-    } finally {
-      github.close();
-      firebase?.close();
-    }
   }
+
 
   /// Pushes a pre-built manual-workout [record] to this device's log.
   ///
@@ -248,51 +183,12 @@ class WorkoutSyncService {
       log('WorkoutSyncService.pushManual skipped: $reason', level: 900);
       return const PushResult(pushed: false, reason: reason);
     }
-
-    final github = GitHubClient(
-      owner: owner,
-      repo: repo,
-      token: settings.token,
-      httpClient: _httpClient,
+    return _session(settings.token).run(
+      operation: 'pushManual',
+      successReason: 'pushed',
+      failurePrefix: 'push failed',
+      addition: record,
     );
-    final firebase = await _openFirebase();
-    final client = firebase == null
-        ? github
-        : MirrorStore(primary: firebase, mirror: github);
-    try {
-      final path = '$_pathPrefix/$currentSyncDeviceId/$_logFilename';
-      final existingText = await client.getFileText(path);
-      final existingLog = existingText == null
-          ? <String, Record>{}
-          : _decode(existingText);
-      final localLog = mergeLogs(existingLog, {record.id: record});
-      await syncLog(
-        client: client,
-        deviceId: currentSyncDeviceId,
-        legacyDeviceId: legacySyncDeviceId,
-        pathPrefix: _pathPrefix,
-        localLog: localLog,
-        encode: _encode,
-        decode: _decode,
-        // Without this every push re-uploads the whole log and every pull
-        // re-downloads every peer's, regardless of change -- the traffic the
-        // Firebase free tier's monthly budget depends on not happening.
-        stateStore: await _openStateStore(),
-      );
-      return const PushResult(pushed: true, reason: 'pushed');
-    } on Object catch (error, stackTrace) {
-      final reason = 'push failed: $error';
-      log(
-        'WorkoutSyncService.pushManual failed',
-        level: 1000,
-        error: error,
-        stackTrace: stackTrace,
-      );
-      return PushResult(pushed: false, reason: reason);
-    } finally {
-      github.close();
-      firebase?.close();
-    }
   }
 
   /// Returns every device's manual-workout payloads, merged and deduped by id
