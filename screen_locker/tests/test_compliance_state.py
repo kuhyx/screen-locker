@@ -79,7 +79,7 @@ class TestHasLoggedToday:
         log_file = tmp_path / "log.json"
         log_file.write_text(json.dumps({_today(): {"hmac": "sig"}}))
         with patch(
-            "screen_locker._compliance_state.verify_entry_hmac", return_value=True
+            "screen_locker._compliance_predicates.verify_entry_hmac", return_value=True
         ):
             assert has_logged_today(log_file) is True
 
@@ -89,10 +89,12 @@ class TestHasLoggedToday:
         log_file.write_text(json.dumps({_today(): {}}))
         with (
             patch(
-                "screen_locker._compliance_state.verify_entry_hmac", return_value=False
+                "screen_locker._compliance_predicates.verify_entry_hmac",
+                return_value=False,
             ),
             patch(
-                "screen_locker._compliance_state.compute_entry_hmac", return_value=None
+                "screen_locker._compliance_predicates.compute_entry_hmac",
+                return_value=None,
             ),
         ):
             assert has_logged_today(log_file) is True
@@ -103,10 +105,12 @@ class TestHasLoggedToday:
         log_file.write_text(json.dumps({_today(): {}}))
         with (
             patch(
-                "screen_locker._compliance_state.verify_entry_hmac", return_value=False
+                "screen_locker._compliance_predicates.verify_entry_hmac",
+                return_value=False,
             ),
             patch(
-                "screen_locker._compliance_state.compute_entry_hmac", return_value="sig"
+                "screen_locker._compliance_predicates.compute_entry_hmac",
+                return_value="sig",
             ),
         ):
             assert has_logged_today(log_file) is False
@@ -117,10 +121,12 @@ class TestHasLoggedToday:
         log_file.write_text(json.dumps({_today(): {"hmac": "tampered"}}))
         with (
             patch(
-                "screen_locker._compliance_state.verify_entry_hmac", return_value=False
+                "screen_locker._compliance_predicates.verify_entry_hmac",
+                return_value=False,
             ),
             patch(
-                "screen_locker._compliance_state.compute_entry_hmac", return_value=None
+                "screen_locker._compliance_predicates.compute_entry_hmac",
+                return_value=None,
             ),
         ):
             assert has_logged_today(log_file) is False
@@ -156,7 +162,7 @@ class TestIsEarlyBirdPending:
         pending_file = tmp_path / "pending.json"
         pending_file.write_text(json.dumps({"date": _today(), "hmac": "sig"}))
         with patch(
-            "screen_locker._compliance_state.verify_entry_hmac", return_value=True
+            "screen_locker._compliance_predicates.verify_entry_hmac", return_value=True
         ):
             assert is_early_bird_pending(pending_file) is True
 
@@ -166,10 +172,12 @@ class TestIsEarlyBirdPending:
         pending_file.write_text(json.dumps({"date": _today()}))
         with (
             patch(
-                "screen_locker._compliance_state.verify_entry_hmac", return_value=False
+                "screen_locker._compliance_predicates.verify_entry_hmac",
+                return_value=False,
             ),
             patch(
-                "screen_locker._compliance_state.compute_entry_hmac", return_value=None
+                "screen_locker._compliance_predicates.compute_entry_hmac",
+                return_value=None,
             ),
         ):
             assert is_early_bird_pending(pending_file) is True
@@ -180,10 +188,12 @@ class TestIsEarlyBirdPending:
         pending_file.write_text(json.dumps({"date": _today()}))
         with (
             patch(
-                "screen_locker._compliance_state.verify_entry_hmac", return_value=False
+                "screen_locker._compliance_predicates.verify_entry_hmac",
+                return_value=False,
             ),
             patch(
-                "screen_locker._compliance_state.compute_entry_hmac", return_value="sig"
+                "screen_locker._compliance_predicates.compute_entry_hmac",
+                return_value="sig",
             ),
         ):
             assert is_early_bird_pending(pending_file) is False
@@ -194,10 +204,12 @@ class TestIsEarlyBirdPending:
         pending_file.write_text(json.dumps({"date": _today(), "hmac": "bad"}))
         with (
             patch(
-                "screen_locker._compliance_state.verify_entry_hmac", return_value=False
+                "screen_locker._compliance_predicates.verify_entry_hmac",
+                return_value=False,
             ),
             patch(
-                "screen_locker._compliance_state.compute_entry_hmac", return_value=None
+                "screen_locker._compliance_predicates.compute_entry_hmac",
+                return_value=None,
             ),
         ):
             assert is_early_bird_pending(pending_file) is False

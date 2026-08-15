@@ -49,7 +49,7 @@ class TestExplainLockDecision:
         )
         now = datetime.now(tz=timezone.utc).astimezone().replace(hour=6, minute=0)
         with patch(
-            "screen_locker._compliance_state.verify_entry_hmac", return_value=True
+            "screen_locker._compliance_predicates.verify_entry_hmac", return_value=True
         ):
             result = explain_lock_decision(
                 **files,
@@ -71,7 +71,7 @@ class TestExplainLockDecision:
         )
         now = datetime.now(tz=timezone.utc).astimezone().replace(hour=10, minute=0)
         with patch(
-            "screen_locker._compliance_state.verify_entry_hmac", return_value=True
+            "screen_locker._compliance_predicates.verify_entry_hmac", return_value=True
         ):
             result = explain_lock_decision(
                 **files,
@@ -106,7 +106,7 @@ class TestExplainLockDecision:
         files = self._files(tmp_path)
         files["log_file"].write_text(json.dumps({_today(): {"hmac": "sig"}}))
         with patch(
-            "screen_locker._compliance_state.verify_entry_hmac", return_value=True
+            "screen_locker._compliance_predicates.verify_entry_hmac", return_value=True
         ):
             result = explain_lock_decision(
                 **files,

@@ -87,10 +87,12 @@ class TestIsEarlyBirdPending:
         with (
             patch("screen_locker._early_bird.EARLY_BIRD_PENDING_FILE", pending_file),
             patch(
-                "screen_locker._compliance_state.verify_entry_hmac", return_value=False
+                "screen_locker._compliance_predicates.verify_entry_hmac",
+                return_value=False,
             ),
             patch(
-                "screen_locker._compliance_state.compute_entry_hmac", return_value="sig"
+                "screen_locker._compliance_predicates.compute_entry_hmac",
+                return_value="sig",
             ),
         ):
             assert locker._is_early_bird_pending() is False
@@ -109,7 +111,8 @@ class TestIsEarlyBirdPending:
         with (
             patch("screen_locker._early_bird.EARLY_BIRD_PENDING_FILE", pending_file),
             patch(
-                "screen_locker._compliance_state.verify_entry_hmac", return_value=True
+                "screen_locker._compliance_predicates.verify_entry_hmac",
+                return_value=True,
             ),
         ):
             assert locker._is_early_bird_pending() is True
@@ -128,10 +131,12 @@ class TestIsEarlyBirdPending:
         with (
             patch("screen_locker._early_bird.EARLY_BIRD_PENDING_FILE", pending_file),
             patch(
-                "screen_locker._compliance_state.verify_entry_hmac", return_value=False
+                "screen_locker._compliance_predicates.verify_entry_hmac",
+                return_value=False,
             ),
             patch(
-                "screen_locker._compliance_state.compute_entry_hmac", return_value=None
+                "screen_locker._compliance_predicates.compute_entry_hmac",
+                return_value=None,
             ),
         ):
             assert locker._is_early_bird_pending() is True

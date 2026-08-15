@@ -75,7 +75,8 @@ class TestGatherStatus:
                 "screen_locker._status_data.has_workout_skip_today", return_value=False
             ),
             patch(
-                "screen_locker._compliance_state.verify_entry_hmac", return_value=True
+                "screen_locker._compliance_predicates.verify_entry_hmac",
+                return_value=True,
             ),
         ):
             snap = gather_status(**files, now=_FRIDAY_NOON_UTC)
