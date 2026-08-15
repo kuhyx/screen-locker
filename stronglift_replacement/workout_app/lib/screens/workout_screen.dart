@@ -20,6 +20,13 @@ import 'package:workout_app/widgets/break_banner.dart';
 import 'package:workout_app/widgets/exercise_tile.dart';
 import 'package:workout_app/widgets/workout_summary_dialog.dart';
 
+part 'workout_screen_appbar.dart';
+part 'workout_screen_body.dart';
+part 'workout_screen_breaks.dart';
+part 'workout_screen_dialogs.dart';
+part 'workout_screen_finish.dart';
+part 'workout_screen_session.dart';
+
 const _successBreakSecs = 180; // 3 min after successful set
 const _failBreakSecs = 300; // 5 min after failed set
 const _warmupBreakSecs = 180; // 3 min after warmup
@@ -100,33 +107,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     _warmupTapped = List.filled(widget.exercises.length, false);
   }
 
-  void _restoreFromSaved(Map<String, dynamic> s) {
-    _startTime = DateTime.fromMillisecondsSinceEpoch(s['startTimeMs'] as int);
-    _tapped = (s['tapped'] as List)
-        .map((row) => (row as List).cast<bool>())
-        .toList();
-    _doneReps = (s['doneReps'] as List)
-        .map((row) => (row as List).cast<int>())
-        .toList();
-    _warmupTapped = (s['warmupTapped'] as List).cast<bool>();
-
-    final breakEndMs = s['breakEndMs'] as int? ?? 0;
-    final breakDur = s['breakDurationSecs'] as int? ?? 0;
-    if (breakEndMs > 0 && breakDur > 0) {
-      final endTime = DateTime.fromMillisecondsSinceEpoch(breakEndMs);
-      final remaining = endTime.difference(DateTime.now()).inSeconds;
-      if (remaining > 0) {
-        _breakForExIdx = s['breakForExIdx'] as int? ?? -1;
-        _breakForSetIdx = s['breakForSetIdx'] as int? ?? -1;
-        _breakLabel = s['breakLabel'] as String? ?? 'Rest';
-        _breakDurationSecs = breakDur;
-        _breakStartTime = endTime.subtract(Duration(seconds: breakDur));
-        _breakRemaining = remaining;
-        _breakTimer = Timer.periodic(const Duration(seconds: 1), _tickBreak);
-      }
-    }
-  }
-
   Future<void> _loadExerciseStates() async {
     final states = await StorageService.instance.getAllExerciseStates();
     if (mounted) {
@@ -150,66 +130,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   /// be ordered after it instead of racing it.
   Future<void> _lastActiveSessionPush = Future.value();
 
-  /// Persists the active session locally, and to Firebase when [toFirebase].
-  ///
-  /// [toFirebase] is false on the per-tap paths (rep decrements, break
-  /// bookkeeping) and true only on set/warmup completion. `saveActiveSession`
-  /// runs on every tap, and a Firebase write per tap is exactly the traffic the
-  /// sync revision cache exists to avoid — so the remote copy is debounced to
-  /// the events that actually change which set the user is standing on.
-  Future<void> _saveActiveSession({bool toFirebase = false}) async {
-    final data = _activeSessionData();
-    await StorageService.instance.saveActiveSession(data);
-    if (!toFirebase) return;
-    _lastActiveSessionPush = ProgressionSyncService()
-        .pushActiveSession(data)
-        .then((result) {
-          if (!result.changed) {
-            debugPrint(
-              'WorkoutScreen: active session not shared — ${result.reason}',
-            );
-          }
-        });
-    await _lastActiveSessionPush;
-  }
-
-  Map<String, dynamic> _activeSessionData() {
-    return {
-      'workoutType': widget.workoutType,
-      'startTimeMs': _startTime.millisecondsSinceEpoch,
-      'tapped': _tapped,
-      'doneReps': _doneReps,
-      'warmupTapped': _warmupTapped,
-      'breakForExIdx': _breakForExIdx,
-      'breakForSetIdx': _breakForSetIdx,
-      'breakLabel': _breakLabel,
-      'breakDurationSecs': _breakDurationSecs,
-      'breakEndMs': _breakStartTime != null
-          ? _breakStartTime!
-                .add(Duration(seconds: _breakDurationSecs))
-                .millisecondsSinceEpoch
-          : 0,
-    };
-  }
-
   // ── Helpers ────────────────────────────────────────────────────────────────
 
-  String _formatDuration(Duration d) {
-    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '${d.inHours > 0 ? '${d.inHours}:' : ''}$m:$s';
-  }
-
   bool get _allSetsCompleted => _tapped.every((row) => row.every((t) => t));
-
-  /// True when [setIdx] is the last untapped set of exercise [exIdx].
-  bool _isLastSetOfExercise(int exIdx, int setIdx) {
-    final sets = widget.exercises[exIdx].sets;
-    for (var s = 0; s < sets; s++) {
-      if (s != setIdx && !_tapped[exIdx][s]) return false;
-    }
-    return true;
-  }
 
   // ── Interaction ────────────────────────────────────────────────────────────
 
@@ -229,18 +152,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     });
 
     if (wasNotTapped) {
-      final isLastSet = _isLastSetOfExercise(exIdx, setIdx);
-      if (!isLastSet) {
-        final succeeded =
-            _doneReps[exIdx][setIdx] >= widget.exercises[exIdx].reps;
-        _startBreak(
-          succeeded ? _successBreakSecs : _failBreakSecs,
-          succeeded
-              ? 'Rest (3 min — well done!)'
-              : 'Rest (5 min — keep going!)',
-          exIdx,
-          setIdx,
-        );
+      final rest = _restAfterSet(exIdx, setIdx);
+      if (rest != null) {
+        _startBreak(rest.seconds, rest.label, exIdx, setIdx);
       }
     }
 
@@ -270,362 +184,59 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     unawaited(_saveActiveSession());
   }
 
-  // ── Break management ───────────────────────────────────────────────────────
-
-  void _startBreak(int secs, String label, int exIdx, int setIdx) {
-    _breakTimer?.cancel();
-    setState(() {
-      _breakDurationSecs = secs;
-      _breakRemaining = secs;
-      _breakLabel = label;
-      _breakForExIdx = exIdx;
-      _breakForSetIdx = setIdx;
-      _breakStartTime = DateTime.now();
-    });
-    _breakTimer = Timer.periodic(const Duration(seconds: 1), _tickBreak);
-  }
-
-  void _tickBreak(Timer t) {
-    setState(() => _breakRemaining--);
-    if (_breakRemaining <= 0) {
-      t.cancel();
-      unawaited(_onBreakFinished());
-    }
-  }
-
-  void _cancelBreak() {
-    _breakTimer?.cancel();
-    setState(() {
-      _breakRemaining = 0;
-      _breakForExIdx = -1;
-      _breakForSetIdx = -1;
-      _breakStartTime = null;
-    });
-  }
-
-  void _skipBreak() {
-    _cancelBreak();
-    unawaited(_saveActiveSession());
-  }
-
-  /// When the user decrements reps on the set that triggered the current break,
-  /// switch between 3-min (success) and 5-min (fail) durations.
-  void _recomputeBreakIfNeeded(int exIdx, int setIdx) {
-    if (!_inBreak) return;
-    if (_breakForExIdx != exIdx || _breakForSetIdx != setIdx) return;
-    if (_breakForSetIdx == -1) return; // warmup break, never recompute
-
-    final succeeded = _doneReps[exIdx][setIdx] >= widget.exercises[exIdx].reps;
-    final newDuration = succeeded ? _successBreakSecs : _failBreakSecs;
-    if (newDuration == _breakDurationSecs) return;
-
-    final elapsed = DateTime.now().difference(_breakStartTime!).inSeconds;
-    final newRemaining = (newDuration - elapsed).clamp(0, newDuration);
-
-    _breakDurationSecs = newDuration;
-    _breakRemaining = newRemaining;
-    _breakLabel = succeeded
-        ? 'Rest (3 min — well done!)'
-        : 'Rest (5 min — keep going!)';
-  }
-
-  Future<void> _onBreakFinished() async {
-    await _audio
-        .play(AssetSource('sounds/break_end.mp3'))
-        .catchError((Object error) {
-          // Never fatal: a missing audio route must not interrupt the workout.
-          // But it is the break-end cue, so a silent failure looks like the
-          // timer itself is broken.
-          debugPrint('WorkoutApp: break-end sound failed to play ($error).');
-        });
-    if (await Vibration.hasVibrator()) {
-      // Android/iOS-only: hasVibrator() returns false on the Linux test host
-      // (no Platform.isAndroid/isIOS), so this body never runs there.
-      // coverage:ignore-start
-      unawaited(Vibration.vibrate(duration: 800));
-      // coverage:ignore-end
-    }
-    setState(() {
-      _breakForExIdx = -1;
-      _breakForSetIdx = -1;
-      _breakStartTime = null;
-    });
-    unawaited(_saveActiveSession());
-  }
-
-  Future<void> _onThresholdChanged(
-    String name,
-    int success,
-    int fail,
-  ) async {
-    await StorageService.instance.setExerciseThresholds(
-      name,
-      successThreshold: success,
-      failThreshold: fail,
-    );
-    if (mounted) {
-      setState(() {
-        final s = _exerciseStates[name];
-        if (s != null) {
-          _exerciseStates[name] = ExerciseState(
-            name: s.name,
-            weight: s.weight,
-            reps: s.reps,
-            successStreak: s.successStreak,
-            failStreak: s.failStreak,
-            maxWeight: s.maxWeight,
-            successThreshold: success,
-            failThreshold: fail,
-          );
-        }
-      });
-    }
-  }
+  /// Runs [fn] inside `setState` on behalf of the break/threshold extensions.
+  ///
+  /// `setState` is `@protected`, so an extension cannot call it directly. This
+  /// shim is the one seam through which `workout_screen_breaks.dart` mutates
+  /// state; keeping it named makes those writes greppable from here.
+  void _applyBreakState(VoidCallback fn) => setState(fn);
 
   // ── Finish / Reset ─────────────────────────────────────────────────────────
 
-  Future<void> _confirmFinish() async {
-    final colorScheme = Theme.of(context).colorScheme;
-    final status = Theme.of(context).extension<AppStatusColors>()!;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: colorScheme.surfaceContainerHigh,
-        title: Text(
-          'Finish workout?',
-          style: TextStyle(color: colorScheme.onSurface),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: colorScheme.onSurfaceVariant),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Finish', style: TextStyle(color: status.success)),
-          ),
-        ],
-      ),
-    );
-    if (ok == true) await _finishWorkout();
-  }
-
-  Future<void> _confirmReset() async {
-    final colorScheme = Theme.of(context).colorScheme;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: colorScheme.surfaceContainerHigh,
-        title: Text(
-          'Reset workout?',
-          style: TextStyle(color: colorScheme.onSurface),
-        ),
-        content: Text(
-          'All progress will be lost.',
-          style: TextStyle(color: colorScheme.onSurfaceVariant),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: colorScheme.onSurfaceVariant),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Reset', style: TextStyle(color: colorScheme.error)),
-          ),
-        ],
-      ),
-    );
-    if (ok == true) {
-      await StorageService.instance.clearActiveSession();
-      if (mounted) Navigator.of(context).pop();
-    }
-  }
-
+  /// Stops the timers, marks the workout finished, and persists everything.
+  ///
+  /// Only the `setState` lives here — `setState` is `@protected` and cannot be
+  /// called from an extension, so the rest is in [_persistFinishedWorkout].
   Future<void> _finishWorkout() async {
     _elapsedTimer.cancel();
     _breakTimer?.cancel();
     setState(() => _finished = true);
-
-    final endTime = DateTime.now();
-    final results = <ExerciseResult>[];
-
-    for (var i = 0; i < widget.exercises.length; i++) {
-      final ex = widget.exercises[i];
-      results.add(
-        ExerciseResult(
-          exercise: ex,
-          warmupDone: _warmupTapped[i],
-          sets: List.generate(
-            ex.sets,
-            (s) => SetResult(
-              targetReps: ex.reps,
-              doneReps: _tapped[i][s] ? _doneReps[i][s] : 0,
-              weight: ex.weight,
-            ),
-          ),
-        ),
-      );
-    }
-
-    final session = WorkoutSession(
-      workoutType: widget.workoutType,
-      startTime: _startTime,
-      endTime: endTime,
-      exercises: results,
-    );
-
-    final storage = StorageService.instance;
-    await storage.saveSession(
-      date: _startTime.toIso8601String().substring(0, 10),
-      workoutType: widget.workoutType,
-      durationSeconds: session.duration.inSeconds,
-      succeeded: session.fullySucceeded,
-      json: session.toJsonString(),
-    );
-
-    final lastDate = await storage.getLastWorkoutDate() ?? _startTime;
-    await storage.applyProgression(
-      succeededExercises: {
-        for (int i = 0; i < widget.exercises.length; i++)
-          widget.exercises[i].name: results[i].succeeded,
-      },
-      lastWorkoutDate: lastDate,
-    );
-    await storage.setLastWorkoutType(widget.workoutType);
-    await storage.clearActiveSession();
-
-    // applyProgression just moved weights/reps/streaks, so this is the moment
-    // the remote copy goes stale. Pushed here (not on every set) because a
-    // finished workout is the only thing that changes progression.
-    unawaited(
-      ProgressionSyncService().pushProgression().then((result) {
-        if (!result.changed) {
-          log('Progression not synced: ${result.reason}', level: 1000);
-        }
-      }),
-    );
-    // The workout is over: retract the shared in-progress session so another
-    // device cannot resume a session that no longer exists.
-    //
-    // Chained onto the in-flight publish rather than fired alongside it: the
-    // last set's `_saveActiveSession(toFirebase: true)` is unawaited, so two
-    // concurrent PUTs to the same path can land out of order and strand a
-    // finished session that the next install would faithfully restore.
-    unawaited(
-      _lastActiveSessionPush.then(
-        (_) => ProgressionSyncService().pushActiveSession(null),
-      ),
-    );
-
-    final syncResult = await _sync.writeWorkoutResult(session);
-    // Not awaited: a slow or unreachable backend must not delay the summary
-    // dialog. But the result is no longer discarded -- a failed push logs at
-    // error level inside push(), so an unpushed workout is diagnosable
-    // instead of silently absent from every other device.
-    unawaited(
-      WorkoutSyncService().push(session).then((result) {
-        if (!result.pushed) {
-          log('Workout not synced: ${result.reason}', level: 1000);
-        }
-      }),
-    );
-
-    if (!mounted) return;
-    unawaited(
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => WorkoutSummaryDialog(
-          session: session,
-          syncResult: syncResult,
-        ),
-      ),
-    );
+    await _persistFinishedWorkout();
   }
 
-  // ── Build ────────────────────────────────────────────────────────────────
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final status = Theme.of(context).extension<AppStatusColors>()!;
     return PopScope(
       // Explicit `canPop: true` makes it clear this scope never blocks the back
       // button — a future reader must not assume the default silently.
       // ignore: avoid_redundant_argument_values
       canPop: true,
       child: Scaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          backgroundColor: colorScheme.surfaceContainerHigh,
-          title: Text(
-            'Workout ${widget.workoutType}  ·  ${_formatDuration(_elapsed)}',
-            style: TextStyle(color: colorScheme.onSurface),
-          ),
-          actions: [
-            if (!_finished)
-              TextButton(
-                onPressed: _confirmReset,
-                child: Text(
-                  'Reset',
-                  style: TextStyle(color: colorScheme.error),
-                ),
-              ),
-            if (!_finished)
-              TextButton(
-                onPressed: _allSetsCompleted ? _confirmFinish : null,
-                child: Text(
-                  'Finish',
-                  style: TextStyle(
-                    color: _allSetsCompleted
-                        ? status.success
-                        : colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-          ],
+        appBar: _WorkoutAppBar(
+          title:
+              'Workout ${widget.workoutType}  ·  ${_formatDuration(_elapsed)}',
+          finished: _finished,
+          allSetsCompleted: _allSetsCompleted,
+          onReset: () => unawaited(_confirmReset()),
+          onFinish: () => unawaited(_confirmFinish()),
         ),
-        body: Column(
-          children: [
-            if (_inBreak)
-              BreakBanner(
-                breakRemaining: _breakRemaining,
-                breakLabel: _breakLabel,
-                onSkip: _skipBreak,
-              ),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.all(12),
-                itemCount: widget.exercises.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 8),
-                itemBuilder: (_, i) {
-                  final exName = widget.exercises[i].name;
-                  final state = _exerciseStates[exName];
-                  return ExerciseTile(
-                    exercise: widget.exercises[i],
-                    tapped: _tapped[i],
-                    doneReps: _doneReps[i],
-                    warmupTapped: _warmupTapped[i],
-                    successThreshold: state?.successThreshold ?? 3,
-                    failThreshold: state?.failThreshold ?? 2,
-                    onTapCircle: (s) => _tapCircle(i, s),
-                    onLongPressCircle: (s) => _resetCircle(i, s),
-                    onTapWarmup: () => _tapWarmup(i),
-                    onThresholdChanged: (success, fail) =>
-                        _onThresholdChanged(exName, success, fail),
-                  );
-                },
-              ),
-            ),
-          ],
+        body: _WorkoutBody(
+          exercises: widget.exercises,
+          exerciseStates: _exerciseStates,
+          tapped: _tapped,
+          doneReps: _doneReps,
+          warmupTapped: _warmupTapped,
+          inBreak: _inBreak,
+          breakRemaining: _breakRemaining,
+          breakLabel: _breakLabel,
+          onSkipBreak: _skipBreak,
+          onTapCircle: _tapCircle,
+          onLongPressCircle: _resetCircle,
+          onTapWarmup: _tapWarmup,
+          onThresholdChanged: (name, success, fail) =>
+              unawaited(_onThresholdChanged(name, success, fail)),
         ),
       ),
     );
