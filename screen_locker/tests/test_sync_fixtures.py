@@ -28,9 +28,13 @@ def isolate_sync_token(tmp_path: Path) -> Iterator[None]:
     file makes ``read_sync_token()`` return None, the same benign "sync not
     configured" state every existing test already assumes.
     """
-    with patch(
-        "screen_locker._workout_sync.SYNC_TOKEN_FILE",
-        tmp_path / "sync_token",
+    # read_sync_token moved to _sync_client when _workout_sync was split;
+    # _workout_sync still re-exports the constant, so both names must be
+    # redirected or a real token on the host leaks into the tests.
+    token = tmp_path / "sync_token"
+    with (
+        patch("screen_locker._sync_client.SYNC_TOKEN_FILE", token),
+        patch("screen_locker._workout_sync.SYNC_TOKEN_FILE", token),
     ):
         yield
 

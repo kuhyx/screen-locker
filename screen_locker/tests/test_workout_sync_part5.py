@@ -15,7 +15,7 @@ from crdt_sync import (
     GitHubSyncError,
 )
 
-from screen_locker import _workout_sync
+from screen_locker import _sync_client, _workout_sync
 from screen_locker.tests._workout_sync_fixtures import (
     _firebase_config,
     _manual_payload,
@@ -36,7 +36,7 @@ class TestPullSyncedWorkout:
 
     def test_returns_none_none_when_no_token_is_configured(self) -> None:
         """Returns none none when no token is configured."""
-        with patch.object(_workout_sync, "GitHubSyncClient") as client_cls:
+        with patch.object(_sync_client, "GitHubSyncClient") as client_cls:
             assert _workout_sync.pull_synced_workout() == (None, None)
         client_cls.assert_not_called()
 
@@ -45,7 +45,7 @@ class TestPullSyncedWorkout:
         _workout_sync.SYNC_TOKEN_FILE.write_text("tok")
         client = MagicMock()
         client.list_directory.side_effect = GitHubSyncError("offline")
-        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+        with patch.object(_sync_client, "GitHubSyncClient", return_value=client):
             assert _workout_sync.pull_synced_workout() == (None, "offline")
 
     def test_does_not_propagate_a_firebase_sync_error(self) -> None:
@@ -58,7 +58,7 @@ class TestPullSyncedWorkout:
         _workout_sync.SYNC_TOKEN_FILE.write_text("tok")
         client = MagicMock()
         client.list_directory.side_effect = FirebaseSyncError("firebase exploded")
-        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+        with patch.object(_sync_client, "GitHubSyncClient", return_value=client):
             data, error = _workout_sync.pull_synced_workout()
         assert data is None
         assert error == "firebase exploded"
@@ -71,10 +71,10 @@ class TestPullSyncedWorkout:
         The configuration the locker actually died in, pinned in its own right
         so a future GitHub-only narrowing of the handler cannot pass.
         """
-        _firebase_config(_workout_sync, tmp_path, monkeypatch)
+        _firebase_config(_sync_client, tmp_path, monkeypatch)
         client = MagicMock()
         client.list_directory.side_effect = FirebaseSyncError("firebase exploded")
-        monkeypatch.setattr(_workout_sync, "firebase_client_for", lambda _app: client)
+        monkeypatch.setattr(_sync_client, "firebase_client_for", lambda _app: client)
         data, error = _workout_sync.pull_synced_workout()
         assert data is None
         assert error == "firebase exploded"
@@ -83,14 +83,14 @@ class TestPullSyncedWorkout:
         """Returns none none when nothing has been pushed yet."""
         _workout_sync.SYNC_TOKEN_FILE.write_text("tok")
         client = _multi_device_client({"phone": None})
-        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+        with patch.object(_sync_client, "GitHubSyncClient", return_value=client):
             assert _workout_sync.pull_synced_workout() == (None, None)
 
     def test_returns_none_none_when_there_are_no_devices_at_all(self) -> None:
         """Returns none none when there are no devices at all."""
         _workout_sync.SYNC_TOKEN_FILE.write_text("tok")
         client = _multi_device_client({})
-        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+        with patch.object(_sync_client, "GitHubSyncClient", return_value=client):
             assert _workout_sync.pull_synced_workout() == (None, None)
 
     def test_returns_the_payload_on_success(self) -> None:
@@ -100,7 +100,7 @@ class TestPullSyncedWorkout:
         client = _multi_device_client(
             {"phone": json.dumps({"a": _session_record_dict("session:a", payload)})}
         )
-        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+        with patch.object(_sync_client, "GitHubSyncClient", return_value=client):
             assert _workout_sync.pull_synced_workout() == (payload, None)
 
     def test_finds_a_session_in_a_uuid_named_device_directory(self) -> None:
@@ -131,7 +131,7 @@ class TestPullSyncedWorkout:
                 ),
             }
         )
-        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+        with patch.object(_sync_client, "GitHubSyncClient", return_value=client):
             assert _workout_sync.pull_synced_workout() == (fresh, None)
 
     def test_returns_the_highest_clock_session_across_devices(self) -> None:
@@ -163,7 +163,7 @@ class TestPullSyncedWorkout:
                 ),
             }
         )
-        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+        with patch.object(_sync_client, "GitHubSyncClient", return_value=client):
             data, error = _workout_sync.pull_synced_workout()
         assert error is None
         assert data == newest
@@ -201,7 +201,7 @@ class TestPullSyncedWorkout:
                 )
             }
         )
-        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+        with patch.object(_sync_client, "GitHubSyncClient", return_value=client):
             data, error = _workout_sync.pull_synced_workout()
         assert error is None
         assert data == session
@@ -216,12 +216,12 @@ class TestPullSyncedWorkout:
                 "phone": json.dumps({"a": _session_record_dict("session:a", payload)}),
             }
         )
-        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+        with patch.object(_sync_client, "GitHubSyncClient", return_value=client):
             assert _workout_sync.pull_synced_workout() == (payload, None)
 
     def test_returns_none_none_when_every_device_log_is_corrupt(self) -> None:
         """Returns none none when every device log is corrupt."""
         _workout_sync.SYNC_TOKEN_FILE.write_text("tok")
         client = _multi_device_client({"corrupt": "{not valid json"})
-        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+        with patch.object(_sync_client, "GitHubSyncClient", return_value=client):
             assert _workout_sync.pull_synced_workout() == (None, None)

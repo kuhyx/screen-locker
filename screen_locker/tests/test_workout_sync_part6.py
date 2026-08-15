@@ -13,7 +13,7 @@ from crdt_sync import (
     GitHubSyncError,
 )
 
-from screen_locker import _workout_sync
+from screen_locker import _sync_client, _workout_sync
 from screen_locker.tests._workout_sync_fixtures import (
     _manual_payload,
     _manual_record_dict,
@@ -33,7 +33,7 @@ class TestPullAllManualRecords:
         _workout_sync.SYNC_TOKEN_FILE.write_text("tok")
         client = MagicMock()
         client.list_directory.side_effect = GitHubSyncError("offline")
-        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+        with patch.object(_sync_client, "GitHubSyncClient", return_value=client):
             assert _workout_sync.pull_all_manual_records() == []
 
     def test_merges_manual_records_across_devices(self) -> None:
@@ -49,7 +49,7 @@ class TestPullAllManualRecords:
                 ),
             }
         )
-        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+        with patch.object(_sync_client, "GitHubSyncClient", return_value=client):
             result = _workout_sync.pull_all_manual_records()
         assert sorted(rid for rid, _ in result) == ["manual:a", "manual:b"]
 
@@ -66,7 +66,7 @@ class TestPullAllManualRecords:
                 "corrupt": "{not json",
             }
         )
-        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+        with patch.object(_sync_client, "GitHubSyncClient", return_value=client):
             result = _workout_sync.pull_all_manual_records()
         assert [rid for rid, _ in result] == ["manual:a"]
 
@@ -95,7 +95,7 @@ class TestPullAllManualRecords:
                 ),
             }
         )
-        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+        with patch.object(_sync_client, "GitHubSyncClient", return_value=client):
             result = _workout_sync.pull_all_manual_records()
         assert len(result) == 1
         assert result[0][1]["cost"] == "NEW"
@@ -125,7 +125,7 @@ class TestPullAllManualRecords:
                 ),
             }
         )
-        with patch.object(_workout_sync, "GitHubSyncClient", return_value=client):
+        with patch.object(_sync_client, "GitHubSyncClient", return_value=client):
             result = _workout_sync.pull_all_manual_records()
         assert len(result) == 1
         assert result[0][1]["cost"] == "NEW"

@@ -10,31 +10,52 @@ not an error -- unlike diet_guard, where sync is core to the app.
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import TYPE_CHECKING
 
 from crdt_sync import (
     CONFIG_FILE,
-    ConfigError,
-    FirebaseAuthError,
-    GitHubSyncClient,
     Hlc,
-    Record,
     RemoteStore,
     RemoteSyncError,
-    firebase_client_for,
-    mirror_client_for,
 )
 
 from screen_locker._constants import (
     SYNC_REPO_NAME,
     SYNC_REPO_OWNER,
-    SYNC_TIMEOUT_SECONDS,
     SYNC_TOKEN_FILE,
 )
-from screen_locker._manual_workout import MANUAL_WORKOUT_SYNC_KIND
+from screen_locker._sync_client import (
+    read_sync_token,
+    remote_client,
+    sync_client,
+)
+from screen_locker._sync_records import (
+    _is_manual_payload,
+    _is_session_payload,
+    _manual_records,
+    _records_matching,
+    _session_records,
+)
 from screen_locker._sync_retry import with_sync_retry
+
+# Re-exported for callers (_manual_push) and for the autouse isolate_sync_token
+# fixture, which redirects SYNC_TOKEN_FILE on this module as well as on
+# _sync_client -- without both, a real token on the host leaks into the tests.
+__all__ = [
+    "CONFIG_FILE",
+    "SYNC_TOKEN_FILE",
+    "_is_manual_payload",
+    "_is_session_payload",
+    "_manual_records",
+    "_records_matching",
+    "_session_records",
+    "pull_all_manual_records",
+    "pull_synced_workout",
+    "read_sync_token",
+    "remote_client",
+    "sync_client",
+]
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -43,40 +64,6 @@ _logger = logging.getLogger(__name__)
 
 _DEVICES_PREFIX = "screen-locker-sync/devices"
 _PAYLOAD_FIELD = "payload"
-
-
-def _is_manual_payload(payload: object) -> bool:
-    """True if a decoded sync payload is a manual-workout record."""
-    return isinstance(payload, dict) and payload.get("kind") == MANUAL_WORKOUT_SYNC_KIND
-
-
-def _is_session_payload(payload: object) -> bool:
-    """True if a decoded sync payload is a completed StrongLifts session.
-
-    Identified by SHAPE -- the presence of ``exercises`` -- not by a ``kind``
-    field, because the phone app's ``WorkoutSession.toJson()`` emits no ``kind``
-    at all. Keying session detection on ``kind`` is what made real sessions
-    invisible to the only reader that walks every device directory.
-
-    Shape-matching also excludes the PC-origin ``runnerup_verified`` /
-    ``phone_verified`` records that share these device logs: they are non-manual
-    too, so "not manual" alone would hand a caller expecting ``exercises`` and
-    ``duration_seconds`` a record that has neither.
-    """
-    return isinstance(payload, dict) and isinstance(payload.get("exercises"), list)
-
-
-def read_sync_token() -> str | None:
-    """Return the saved sync PAT, or None if sync isn't configured.
-
-    Unlike diet_guard's equivalent, an absent or empty token file is a
-    normal state here -- sync is an optional primary channel, not something
-    the app requires to function.
-    """
-    if not SYNC_TOKEN_FILE.exists():
-        return None
-    token = SYNC_TOKEN_FILE.read_text().strip()
-    return token or None
 
 
 def _merge_device_records(
@@ -156,80 +143,6 @@ def _merge_device_records(
     return merged
 
 
-def remote_client(github: RemoteStore) -> RemoteStore:
-    """Return the backend to read the phone's workout log from.
-
-    Firebase when ``~/.config/crdt-sync/`` is set up, with GitHub kept as a
-    mirror so a phone that has not moved yet is still seen; GitHub alone
-    otherwise. Both callers here are read-only pulls -- this side never pushes
-    -- and :class:`MirrorSyncClient` reads the union of both, so a workout
-    logged against either backend still counts.
-
-    The config file is checked before constructing anything, so an
-    unconfigured machine never reaches the network.
-
-    Rolling back is deleting this function and passing ``github`` straight
-    through: no data moves either way.
-    """
-    if not CONFIG_FILE.is_file():
-        return github
-    try:
-        return mirror_client_for("screen_locker", github)
-    except (ConfigError, FirebaseAuthError, RemoteSyncError) as exc:
-        _logger.warning(
-            "Firebase unavailable, reading workouts via GitHub only: %s", exc
-        )
-        return github
-
-
-def sync_client() -> RemoteStore | None:
-    """Return the configured read client, or None if sync is set up nowhere.
-
-    A GitHub token is no longer required: Firebase has been the primary backend
-    since eb4ff01, so a Firebase-only machine must still sync. Previously this
-    module returned early whenever the PAT was missing, reporting "sync is OFF"
-    on a machine whose sync was working perfectly -- a false negative that hid
-    a live backend behind a legacy credential check.
-
-    GitHub is used alone when only the PAT exists, Firebase alone when only
-    ``~/.config/crdt-sync/`` exists, and the mirrored union when both do.
-    ``None`` means neither is configured, which stays a benign, expected state.
-    """
-    token = read_sync_token()
-    github = (
-        GitHubSyncClient(
-            SYNC_REPO_OWNER,
-            SYNC_REPO_NAME,
-            token,
-            timeout_seconds=SYNC_TIMEOUT_SECONDS,
-        )
-        if token is not None
-        else None
-    )
-    if github is not None:
-        return remote_client(github)
-    if not CONFIG_FILE.is_file():
-        _logger.warning(
-            "Cannot pull synced workouts: no sync token at %s and no Firebase "
-            "config at %s — sync is OFF, so only ADB/HTTP can verify a phone "
-            "workout and phone-logged workouts will NOT count here",
-            SYNC_TOKEN_FILE,
-            CONFIG_FILE,
-        )
-        return None
-    try:
-        return firebase_client_for("screen_locker")
-    except (ConfigError, FirebaseAuthError, RemoteSyncError) as exc:
-        _logger.warning(
-            "Firebase is configured at %s but unusable, and there is no GitHub "
-            "token at %s to fall back to: %s — pulling NO synced workouts",
-            CONFIG_FILE,
-            SYNC_TOKEN_FILE,
-            exc,
-        )
-        return None
-
-
 def pull_synced_workout() -> tuple[dict | None, str | None]:
     """Return ``(data, error)``: the last-synced StrongLifts session, if any.
 
@@ -267,51 +180,6 @@ def pull_synced_workout() -> tuple[dict | None, str | None]:
 
     _rid, (payload, _hlc) = max(merged.items(), key=lambda item: item[1][1])
     return payload, None
-
-
-def _session_records(log_json: str) -> dict[str, tuple[dict, Hlc]]:
-    """Return ``{record_id: (payload, hlc)}`` for session records in a log blob.
-
-    Raises the same decode errors as :func:`_manual_records`; callers treat a
-    corrupt device log as "no sessions from that device".
-    """
-    return _records_matching(log_json, _is_session_payload)
-
-
-def _records_matching(
-    log_json: str, predicate: Callable[[object], bool]
-) -> dict[str, tuple[dict, Hlc]]:
-    """Return ``{record_id: (payload, hlc)}`` for payloads passing ``predicate``.
-
-    Raises:
-        TypeError: If the top-level JSON isn't an object or a record's shape
-            doesn't match what :meth:`Record.from_dict` expects.
-        KeyError: If a record is missing an expected key.
-        ValueError: Via ``json.loads`` or :meth:`crdt_sync.Hlc.from_str`.
-    """
-    raw = json.loads(log_json)
-    if not isinstance(raw, dict):
-        msg = f"top-level sync payload is not a JSON object: {raw!r}"
-        raise TypeError(msg)
-    result: dict[str, tuple[dict, Hlc]] = {}
-    for data in raw.values():
-        record = Record.from_dict(data)
-        field = record.fields.get(_PAYLOAD_FIELD)
-        if field is None:
-            continue
-        payload, hlc = field
-        if predicate(payload):
-            result[record.id] = (payload, hlc)
-    return result
-
-
-def _manual_records(log_json: str) -> dict[str, tuple[dict, Hlc]]:
-    """Return ``{record_id: (payload, hlc)}`` for manual records in a log blob.
-
-    Raises the same decode errors as :func:`_records_matching`; callers treat a
-    corrupt device log as "no manual records from that device".
-    """
-    return _records_matching(log_json, _is_manual_payload)
 
 
 def pull_all_manual_records() -> list[tuple[str, dict]]:

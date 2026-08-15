@@ -16,7 +16,7 @@ from crdt_sync import (
 )
 import pytest
 
-from screen_locker import _workout_sync
+from screen_locker import _sync_client, _workout_sync
 from screen_locker.tests._workout_sync_fixtures import (
     _firebase_config,
 )
@@ -44,7 +44,7 @@ class TestSyncClient:
         """Uses github alone when only the token exists."""
         _workout_sync.SYNC_TOKEN_FILE.write_text("tok")
         github = MagicMock()
-        with patch.object(_workout_sync, "GitHubSyncClient", return_value=github):
+        with patch.object(_sync_client, "GitHubSyncClient", return_value=github):
             assert _workout_sync.sync_client() is github
 
     def test_mirrors_when_both_the_token_and_firebase_exist(
@@ -52,21 +52,21 @@ class TestSyncClient:
     ) -> None:
         """Mirrors when both the token and firebase exist."""
         _workout_sync.SYNC_TOKEN_FILE.write_text("tok")
-        _firebase_config(_workout_sync, tmp_path, monkeypatch)
+        _firebase_config(_sync_client, tmp_path, monkeypatch)
         github = MagicMock()
         monkeypatch.setattr(
-            _workout_sync, "mirror_client_for", lambda _app, client: ("mirror", client)
+            _sync_client, "mirror_client_for", lambda _app, client: ("mirror", client)
         )
-        with patch.object(_workout_sync, "GitHubSyncClient", return_value=github):
+        with patch.object(_sync_client, "GitHubSyncClient", return_value=github):
             assert _workout_sync.sync_client() == ("mirror", github)
 
     def test_uses_firebase_alone_when_only_the_config_exists(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """A Firebase-only machine must still sync -- no PAT required."""
-        _firebase_config(_workout_sync, tmp_path, monkeypatch)
+        _firebase_config(_sync_client, tmp_path, monkeypatch)
         firebase = MagicMock()
-        monkeypatch.setattr(_workout_sync, "firebase_client_for", lambda _app: firebase)
+        monkeypatch.setattr(_sync_client, "firebase_client_for", lambda _app: firebase)
         assert _workout_sync.sync_client() is firebase
 
     @pytest.mark.parametrize(
@@ -81,12 +81,12 @@ class TestSyncClient:
         self, error: Exception, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """No PAT to fall back to: report it loudly, do not raise."""
-        _firebase_config(_workout_sync, tmp_path, monkeypatch)
+        _firebase_config(_sync_client, tmp_path, monkeypatch)
 
         def _boom(*_args: object, **_kwargs: object) -> None:
             raise error
 
-        monkeypatch.setattr(_workout_sync, "firebase_client_for", _boom)
+        monkeypatch.setattr(_sync_client, "firebase_client_for", _boom)
         assert _workout_sync.sync_client() is None
 
     def test_warns_when_firebase_only_is_unusable(
@@ -96,13 +96,13 @@ class TestSyncClient:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Warns when firebase only is unusable."""
-        _firebase_config(_workout_sync, tmp_path, monkeypatch)
+        _firebase_config(_sync_client, tmp_path, monkeypatch)
 
         def _boom(*_args: object, **_kwargs: object) -> None:
             message = "backend down"
             raise FirebaseSyncError(message)
 
-        monkeypatch.setattr(_workout_sync, "firebase_client_for", _boom)
+        monkeypatch.setattr(_sync_client, "firebase_client_for", _boom)
         with caplog.at_level("WARNING"):
             _workout_sync.sync_client()
         assert "backend down" in caplog.text

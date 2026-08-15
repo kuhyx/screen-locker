@@ -320,8 +320,9 @@ def _no_real_firebase_config(monkeypatch: pytest.MonkeyPatch) -> None:
     assert against live data instead of their own fakes. Tests that want the
     Firebase path point it back at a file they control.
     """
-    from screen_locker import _workout_sync
+    # CONFIG_FILE is read by remote_client, which lives in _sync_client since
+    # _workout_sync was split. Patching the old module would leave the real
+    # config in play and the sync tests would assert against live data.
+    from screen_locker import _sync_client
 
-    monkeypatch.setattr(
-        _workout_sync, "CONFIG_FILE", Path("/nonexistent/firebase.json")
-    )
+    monkeypatch.setattr(_sync_client, "CONFIG_FILE", Path("/nonexistent/firebase.json"))

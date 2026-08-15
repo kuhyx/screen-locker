@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from crdt_sync import ConfigError
 
-from screen_locker import _workout_sync
+from screen_locker import _sync_client, _workout_sync
 from screen_locker.tests._workout_sync_fixtures import _firebase_config
 
 if TYPE_CHECKING:
@@ -36,9 +36,9 @@ class TestRemoteClient:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Configured: reads union both, so either backend's workout counts."""
-        _firebase_config(_workout_sync, tmp_path, monkeypatch)
+        _firebase_config(_sync_client, tmp_path, monkeypatch)
         monkeypatch.setattr(
-            _workout_sync,
+            _sync_client,
             "mirror_client_for",
             lambda _app, client: ("mirror", client),
         )
@@ -50,13 +50,13 @@ class TestRemoteClient:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """A broken Firebase must degrade to GitHub, never fail the pull."""
-        _firebase_config(_workout_sync, tmp_path, monkeypatch)
+        _firebase_config(_sync_client, tmp_path, monkeypatch)
 
         def _boom(*_args: object, **_kwargs: object) -> None:
             message = "no password"
             raise ConfigError(message)
 
-        monkeypatch.setattr(_workout_sync, "mirror_client_for", _boom)
+        monkeypatch.setattr(_sync_client, "mirror_client_for", _boom)
         github = object()
 
         assert _workout_sync.remote_client(github) is github
