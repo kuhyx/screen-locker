@@ -51,8 +51,12 @@ _LOUD_CALLS = (
     "ScaffoldMessenger",
 )
 
-# `} on Foo catch (e) {`, `} catch (e) {`, `on Foo {`.
-_CATCH_RE = re.compile(r"\bcatch\s*\(|\bon\s+\w+\s*\{")
+# `} on Foo catch (e) {`, `} catch (e) {`, `} on Foo {`.
+#
+# The bare `on Foo {` form requires the preceding `}` of the try block: without
+# it this also matched `extension StorageServiceBackup on StorageService {`,
+# reporting an extension declaration as a swallowed exception.
+_CATCH_RE = re.compile(r"\bcatch\s*\(|\}\s*on\s+\w+\s*\{")
 
 # `.catchError((_) {})` and friends -- an empty body is always silent.
 _EMPTY_CATCH_ERROR_RE = re.compile(r"\.catchError\(\s*\([^)]*\)\s*(?:=>\s*)?\{\s*\}")
