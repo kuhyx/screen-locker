@@ -15,6 +15,7 @@ import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/sync_status_card.dart';
 
 part 'home_screen_cards.dart';
+part 'home_screen_navigation.dart';
 
 /// Home screen: auto-resumes active sessions and shows done-today status.
 class HomeScreen extends StatefulWidget {
@@ -104,13 +105,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   /// Opens settings so the user can connect sync, then re-checks on return.
-  Future<void> _openSyncSettings() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
-    );
-    unawaited(_load());
-  }
-
   /// Runs a sync tick and folds the outcome into the status card.
   ///
   /// Never throws: [WorkoutSyncService.syncNow] reports failures as a
@@ -157,32 +151,6 @@ class _HomeScreenState extends State<HomeScreen> {
     } finally {
       _syncing = false;
     }
-  }
-
-  Future<void> _openWorkout({bool resume = false}) async {
-    final storage = StorageService.instance;
-    Map<String, dynamic>? savedState;
-    var type = _nextType;
-    var exercises = _exercises;
-
-    if (resume && _savedSession != null) {
-      savedState = _savedSession;
-      final savedType = savedState!['workoutType'] as String? ?? _nextType;
-      type = savedType;
-      exercises = await storage.getCurrentExercises(savedType);
-    }
-
-    if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => WorkoutScreen(
-          workoutType: type,
-          exercises: exercises,
-          savedState: savedState,
-        ),
-      ),
-    );
-    unawaited(_load());
   }
 
   @override
