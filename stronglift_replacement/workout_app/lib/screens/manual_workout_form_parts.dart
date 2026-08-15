@@ -47,7 +47,7 @@ extension _ManualWorkoutFormParts on _ManualWorkoutScreenState {
     ),
   );
 
-  /// Reads [key]'s field as an int, treating blank or unparseable as 0.
+  /// Reads [key]'s field as an int, treating blank or unparsable as 0.
   int _int(String key) => int.tryParse(_fields[key]!.text.trim()) ?? 0;
 
   /// Reads [key]'s field verbatim.

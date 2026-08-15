@@ -22,90 +22,12 @@ import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/ui/theme.dart';
 
+part 'settings_screen_actions.dart';
+part 'settings_screen_exercise_sections.dart';
 part 'settings_screen_rows.dart';
+part 'settings_screen_sections.dart';
 part 'settings_screen_thresholds.dart';
-
-/// Screen for editing per-exercise thresholds and manual weight overrides.
-///
-/// No [BackupSlot] is wired into the shared Sync settings screen: unlike the
-/// notes app and home_inventory, workout_app has no user-facing export/import
-/// action to hand it. `BackupService.export`/`readBackup` are called only from
-/// [StorageService]'s automatic paths (on every weight/threshold write, and
-/// once at startup via `restoreFromBackupIfNeeded`) -- there is nothing for a
-/// manual "Export"/"Import" button to trigger that isn't already automatic,
-/// and a blind manual import would risk clobbering current progression with
-/// whatever is on external storage. The storage-permission affordance itself
-/// is a device permission, not a sync action, so it stays here rather than
-/// moving to either sync screen.
-class SettingsScreen extends StatefulWidget {
-  /// Creates a [SettingsScreen].
-  const SettingsScreen({
-    super.key,
-    this.httpClient,
-    this.firebaseFactory,
-    this.googleFirebaseFactory,
-    this.googleAvailable,
-    this.accountLoader,
-    this.accountSaver,
-    this.accountClearer,
-    this.sessionProbe,
-    this.storageChecker,
-    this.storageRequester,
-    this.progressionPuller,
-  });
-
-  /// Injectable HTTP client, passed through to [GitHubMirrorScreen] so its
-  /// device-flow requests never hit the real network in tests.
-  final http.Client? httpClient;
-
-  /// Builds the Firebase client. Injected so tests need no platform channel.
-  final Future<FirebaseRestClient?> Function()? firebaseFactory;
-
-  /// Builds the Firebase backend via Google sign-in. Separate from
-  /// [firebaseFactory] because it reaches the Google plugin's platform
-  /// channel, which `flutter test` has no binding for.
-  final Future<FirebaseRestClient?> Function()? googleFirebaseFactory;
-
-  /// Whether to offer the Google button. Defaults to what the platform
-  /// supports; injected by tests, whose host reports unsupported.
-  final bool? googleAvailable;
-
-  /// Keystore accessors for the Firebase account. Injected as a group so the
-  /// connect/disconnect flows are testable without a platform channel --
-  /// `flutter test` has no binding for one.
-  final Future<FirebaseAccount?> Function()? accountLoader;
-
-  /// Persists the account. See [accountLoader].
-  final Future<void> Function(FirebaseAccount)? accountSaver;
-
-  /// Forgets the account and any cached session. See [accountLoader].
-  final Future<void> Function()? accountClearer;
-
-  /// Whether a Firebase session is stored. See [accountLoader].
-  ///
-  /// Separate from [accountLoader] because the two answer different
-  /// questions: the account marker is bookkeeping, the session is the
-  /// credential. A device can hold the second without the first, and
-  /// reporting only the first is what made a syncing phone read as
-  /// "not connected".
-  final Future<bool> Function()? sessionProbe;
-
-  /// Reads whether storage permission is held. Injected for the same reason as
-  /// [accountLoader]: `permission_handler` is a platform channel, and calling
-  /// it unguarded in `initState` made every settings-screen test throw.
-  final Future<bool> Function()? storageChecker;
-
-  /// Opens the system grant page. See [storageChecker].
-  final Future<bool> Function()? storageRequester;
-
-  /// Pulls progression after returning from Sync settings. See
-  /// [_openSyncSettings] for why this fires on pop rather than being hooked
-  /// into the shared screen's connect flow.
-  final Future<ProgressionSyncResult> Function()? progressionPuller;
-
-  @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
+part 'settings_screen_widget.dart';
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _loading = true;
@@ -197,20 +119,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// immediately instead of waiting for the next app launch, which also
   /// pulls unconditionally at startup.
   Future<void> _openSyncSettings() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => SyncSettingsScreen(
-          accountLoader: widget.accountLoader ?? loadAccount,
-          accountSaver: widget.accountSaver ?? saveAccount,
-          accountClearer: widget.accountClearer ?? clearAccount,
-          sessionProbe: widget.sessionProbe ?? isFirebaseConfigured,
-          firebaseFactory: widget.firebaseFactory ?? openFirebase,
-          googleFirebaseFactory:
-              widget.googleFirebaseFactory ?? openFirebaseWithGoogle,
-          googleAvailable: widget.googleAvailable ?? googleSignInSupported,
-        ),
-      ),
-    );
+    await _pushSyncSettingsScreen();
     if (!mounted) return;
     final restored =
         await (widget.progressionPuller ??
@@ -223,14 +132,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
       await _load();
     }
-  }
-
-  Future<void> _openGitHubMirror() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => GitHubMirrorScreen(httpClient: widget.httpClient),
-      ),
-    );
   }
 
   void _onWeightChanged(String name, double value) {
@@ -261,241 +162,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _resetToDefaults() async {
-    final colorScheme = Theme.of(context).colorScheme;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: colorScheme.surfaceContainerHigh,
-        title: Text(
-          'Reset to defaults?',
-          style: TextStyle(color: colorScheme.onSurface),
-        ),
-        content: Text(
-          'All weights and thresholds will be reset. '
-          'Streak counters will be cleared.',
-          style: TextStyle(color: colorScheme.onSurfaceVariant),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: colorScheme.onSurfaceVariant),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Reset', style: TextStyle(color: colorScheme.error)),
-          ),
-        ],
-      ),
-    );
-    if (ok == true) {
-      for (final name in _orderedNames) {
-        await StorageService.instance.resetExerciseToDefaults(name);
-      }
-      await _load();
-    }
-  }
-
-  List<String> get _orderedNames {
-    final seen = <String>{};
-    return [
-      ...workoutA,
-      ...workoutB,
-    ].map((e) => e.name).where(seen.add).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: colorScheme.surfaceContainerHigh,
-        title: Text(
-          'Settings',
-          style: TextStyle(color: colorScheme.onSurface),
-        ),
-        iconTheme: IconThemeData(color: colorScheme.onSurface),
-        actions: [
-          TextButton(
-            onPressed: _loading ? null : _resetToDefaults,
-            child: Text(
-              'Reset defaults',
-              style: TextStyle(color: colorScheme.error),
-            ),
-          ),
-        ],
+      appBar: _SettingsAppBar(
+        loading: _loading,
+        onReset: () => unawaited(_resetToDefaults()),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                const _SectionHeader('WEIGHTS'),
-                const SizedBox(height: 4),
-                Text(
-                  'Override current working weight. '
-                  'Resets streak counters. Rounded to 2.5 kg.',
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: AppTextSize.caption,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ..._orderedNames.map((name) {
-                  final w = _weights[name];
-                  if (w == null) return const SizedBox.shrink();
-                  return _WeightRow(
-                    name: name,
-                    weight: w,
-                    onChanged: (v) => _onWeightChanged(name, v),
-                  );
-                }),
-                const SizedBox(height: 20),
-                const _SectionHeader('TARGET REPS'),
-                const SizedBox(height: 4),
-                Text(
-                  'Override target reps per set. Resets streak counters. '
-                  'Progression only ever raises reps, so this is the only way '
-                  'to lower one.',
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: AppTextSize.caption,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ..._orderedNames.map((name) {
-                  final r = _reps[name];
-                  if (r == null) return const SizedBox.shrink();
-                  return _RepsRow(
-                    name: name,
-                    reps: r,
-                    onChanged: (v) => _onRepsChanged(name, v),
-                  );
-                }),
-                const SizedBox(height: 20),
-                const _SectionHeader('PROGRESSION THRESHOLDS'),
-                const SizedBox(height: 4),
-                Text(
-                  'Consecutive successes (↑) or failures (↓) '
-                  'before weight changes.',
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: AppTextSize.caption,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ..._orderedNames.map((name) {
-                  final sThresh = _successThresholds[name] ?? 3;
-                  final fThresh = _failThresholds[name] ?? 2;
-                  return _ExerciseThresholdCard(
-                    name: name,
-                    successThreshold: sThresh,
-                    failThreshold: fThresh,
-                    onSuccessChanged: (v) =>
-                        _onThresholdChanged(name, v, _failThresholds[name]!),
-                    onFailChanged: (v) =>
-                        _onThresholdChanged(name, _successThresholds[name]!, v),
-                  );
-                }),
-                const SizedBox(height: 20),
-                const _SectionHeader('SYNC'),
-                const SizedBox(height: 4),
-                if (_progressionStatus != null) ...[
-                  Text(
-                    _progressionStatus!,
-                    style: TextStyle(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: AppTextSize.caption,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                Card(
-                  margin: EdgeInsets.zero,
-                  color: colorScheme.surfaceContainerHigh,
-                  child: Column(
-                    children: [
-                      ListTile(
-                        title: Text(
-                          'Sync settings',
-                          style: TextStyle(color: colorScheme.onSurface),
-                        ),
-                        subtitle: Text(
-                          'Firebase sync',
-                          style: TextStyle(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        trailing: Icon(
-                          Icons.chevron_right,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        onTap: () => unawaited(_openSyncSettings()),
-                      ),
-                      Divider(
-                        height: 1,
-                        color: colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.2,
-                        ),
-                      ),
-                      ListTile(
-                        title: Text(
-                          'Advanced sync (GitHub)',
-                          style: TextStyle(color: colorScheme.onSurface),
-                        ),
-                        subtitle: Text(
-                          'Cutover mirror — not recommended',
-                          style: TextStyle(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        trailing: Icon(
-                          Icons.chevron_right,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        onTap: () => unawaited(_openGitHubMirror()),
-                      ),
-                    ],
-                  ),
+                _WeightsSection(
+                  orderedNames: _orderedNames,
+                  weights: _weights,
+                  onWeightChanged: _onWeightChanged,
                 ),
                 const SizedBox(height: 20),
-                const _SectionHeader('OFFLINE BACKUP'),
-                const SizedBox(height: 4),
-                Text(
-                  _storageGranted
-                      ? 'Granted. Progression is also written to '
-                            '$kBackupPath, so it survives a reinstall even '
-                            'with no network.'
-                      : 'Optional. Progression is restored from Firebase on '
-                            'a fresh install, so this is a second, offline '
-                            'copy — not a requirement. Granting it also keeps '
-                            'a readable snapshot at $kBackupPath.',
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: AppTextSize.caption,
-                  ),
+                _RepsSection(
+                  orderedNames: _orderedNames,
+                  reps: _reps,
+                  onRepsChanged: _onRepsChanged,
                 ),
-                const SizedBox(height: 12),
-                if (_storageGranted)
-                  const Row(
-                    children: [
-                      Icon(Icons.check_circle, size: 20),
-                      SizedBox(width: 8),
-                      Expanded(child: Text('Storage permission granted')),
-                    ],
-                  )
-                else
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: ElevatedButton.icon(
-                      onPressed: _grantStorage,
-                      icon: const Icon(Icons.sd_storage),
-                      label: const Text('Grant storage permission'),
-                    ),
-                  ),
+                const SizedBox(height: 20),
+                _ThresholdsSection(
+                  orderedNames: _orderedNames,
+                  successThresholds: _successThresholds,
+                  failThresholds: _failThresholds,
+                  onThresholdChanged: (name, success, fail) =>
+                      unawaited(_onThresholdChanged(name, success, fail)),
+                ),
+                const SizedBox(height: 20),
+                _SyncSection(
+                  progressionStatus: _progressionStatus,
+                  onOpenSyncSettings: () => unawaited(_openSyncSettings()),
+                  onOpenGitHubMirror: () => unawaited(_openGitHubMirror()),
+                ),
+                const SizedBox(height: 20),
+                _OfflineBackupSection(
+                  storageGranted: _storageGranted,
+                  onGrantStorage: _grantStorage,
+                ),
               ],
             ),
     );
