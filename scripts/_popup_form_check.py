@@ -43,6 +43,13 @@ class HostileLock:
         # A RecoveryLoop built only to borrow gatelock's real grab predicate;
         # this harness drives the ticks itself, so the collaborators are never
         # called -- the same MagicMock stand-ins gatelock's own tests use.
+        #
+        # This is the gatelock 0.4.0 signature, which is what requirements.txt
+        # pins. gatelock 0.5.0 regroups these into a RecoveryCollaborators
+        # object, so running against a locally-installed 0.5.0 raises
+        # "takes 3 positional arguments but 6 were given" -- that is an
+        # environment drift, not a bug here. Fix it by matching the pin:
+        #   pip install -e . && pip install -r requirements.txt
         self._loop = RecoveryLoop(
             root, LockConfig(mode="hard"), MagicMock(), MagicMock(), MagicMock()
         )
