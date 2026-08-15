@@ -14,6 +14,8 @@ import 'package:workout_app/services/sync_device_id.dart';
 import 'package:workout_app/services/sync_settings.dart';
 import 'package:workout_app/services/sync_state_factory.dart';
 
+part 'workout_sync_service_read.dart';
+
 const _pathPrefix = 'screen-locker-sync/devices';
 const _logFilename = 'log.json';
 
@@ -174,17 +176,6 @@ class WorkoutSyncService {
     }
   }
 
-  /// Whether this device has ANY sync credentials -- a GitHub token or a
-  /// Firebase account.
-  ///
-  /// Mirrors the gate every push already applies internally, exposed so the
-  /// home screen can tell "not set up" (the user must act) apart from "set
-  /// up but broken" (retrying might help) without duplicating the rule.
-  Future<bool> isConfigured() async {
-    final settings = await SyncSettings.load();
-    return settings.isConfigured || await _hasFirebaseAccount();
-  }
-
   /// Runs a sync tick with no new record, purely to find out whether sync
   /// works right now.
   ///
@@ -310,7 +301,6 @@ class WorkoutSyncService {
   /// Returns an empty list if sync isn't configured or the repo is unreachable.
   Future<List<Map<String, dynamic>>> readMergedManualPayloads() =>
       _readMergedPayloads(kind: kManualWorkoutSyncKind);
-
   /// Every synced workout, whatever kind — manual, StrongLifts or RunnerUp.
   ///
   /// The PC publishes its whole `workout_log.json` (including verified runs),
@@ -319,97 +309,14 @@ class WorkoutSyncService {
   /// uses [readMergedManualPayloads] instead.
   Future<List<Map<String, dynamic>>> readMergedWorkoutPayloads() =>
       _readMergedPayloads();
-
-  Future<List<Map<String, dynamic>>> _readMergedPayloads({String? kind}) async {
-    final settings = await SyncSettings.load();
-    if (!settings.isConfigured && !await _hasFirebaseAccount()) {
-      debugPrint(
-        'WorkoutSyncService: NOT reading synced workouts — no sync backend '
-        'configured in Settings, so this phone cannot see the PC history.',
-      );
-      return const [];
-    }
-
-    try {
-      return await _fetchPayloads(settings.token, kind);
-    } on GitHubSyncError catch (error) {
-      var failure = error;
-      // A stale keystore token shadows a good backup (SyncSettings.load only
-      // falls back when the keystore is EMPTY), so retry once from the backup
-      // rather than leaving history silently incomplete.
-      final recovered = await SyncSettings.recoverFromBackup(settings.token);
-      if (recovered != null) {
-        try {
-          final payloads = await _fetchPayloads(recovered, kind);
-          debugPrint(
-            'WorkoutSyncService: recovered the sync token from backup after '
-            'the stored one was rejected ($failure).',
-          );
-          return payloads;
-        } on GitHubSyncError catch (retryError) {
-          failure = retryError;
-        }
-      }
-      final which = kind ?? 'any';
-      debugPrint(
-        'WorkoutSyncService: FAILED reading synced workouts '
-        '(kind=$which) from $owner/$repo: $failure — history may be incomplete.',
-      );
-      return const [];
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> _fetchPayloads(
-    String token,
-    String? kind,
-  ) async {
-    final github = GitHubClient(
-      owner: owner,
-      repo: repo,
-      token: token,
-      httpClient: _httpClient,
-    );
-    // Read-only: MirrorStore reads the union of both, so a workout logged
-    // against either backend still shows up during the cutover.
-    final firebase = await _openFirebase();
-    final client = firebase == null
-        ? github
-        : MirrorStore(primary: firebase, mirror: github);
-    try {
-      final merged = <String, Record>{};
-      for (final device in await client.listDirectory(_pathPrefix)) {
-        final text = await client.getFileText(
-          '$_pathPrefix/$device/$_logFilename',
-        );
-        if (text == null) continue;
-        _mergeRecords(_decode(text), merged, kind: kind);
-      }
-      return merged.values
-          .map((r) => (r.fields['payload']!.$1! as Map).cast<String, dynamic>())
-          .toList();
-    } finally {
-      github.close();
-      firebase?.close();
-    }
-  }
-
-  /// Merges records into [into], keeping the highest-HLC copy of each id.
+  /// Whether this device has ANY sync credentials -- a GitHub token or a
+  /// Firebase account.
   ///
-  /// [kind] filters on the payload's `kind` discriminator; pass null to keep
-  /// every workout kind. The manual-workout budget must only ever see manual
-  /// self-reports (a verified run must not consume that budget), while the
-  /// history view wants everything — hence the filter rather than two merges.
-  static void _mergeRecords(Log log, Map<String, Record> into, {String? kind}) {
-    for (final entry in log.entries) {
-      final field = entry.value.fields['payload'];
-      if (field == null) continue;
-      final payload = field.$1;
-      if (payload is! Map) continue;
-      if (kind != null && payload['kind'] != kind) continue;
-      final existing = into[entry.key];
-      if (existing == null || existing.fields['payload']!.$2 < field.$2) {
-        into[entry.key] = entry.value;
-      }
-    }
+  /// Mirrors the gate every push already applies internally, exposed so the
+  /// home screen can tell "not set up" (the user must act) apart from "set
+  /// up but broken" (retrying might help) without duplicating the rule.
+  Future<bool> isConfigured() async {
+    final settings = await SyncSettings.load();
+    return settings.isConfigured || await _hasFirebaseAccount();
   }
 }
