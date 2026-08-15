@@ -17,10 +17,11 @@ import xml.etree.ElementTree as ET
 
 from screen_locker._constants import (
     MIN_RUN_DISTANCE_KM,
-    MIN_RUN_DURATION_MINUTES,
+    MIN_WORKOUT_DURATION_MINUTES,
     RUNNERUP_ACCEPTED_SPORTS,
     RUNNERUP_DISTANCE_TOLERANCE,
     RUNNERUP_EXPORT_DIRS,
+    WORKOUT_DURATION_ACCEPT_MINUTES,
 )
 from screen_locker._log_mixin import write_signed_entry
 from screen_locker._runnerup_db import RunnerUpDbMixin
@@ -248,16 +249,17 @@ class RunnerUpVerificationMixin(RunnerUpDbMixin):
         distance_km = data["distance_m"] / 1000
 
         # Either criterion qualifies the run on its own (see _constants.py).
-        # Distance gets the GPS tolerance; duration, from the device clock,
-        # does not.
+        # Distance gets the GPS tolerance (a measurement correction); duration
+        # gets the shared hidden leeway (a deliberate concession). Different
+        # reasons, so they stay separate constants.
         distance_ok = (
             distance_km * (1 + RUNNERUP_DISTANCE_TOLERANCE) >= MIN_RUN_DISTANCE_KM
         )
-        duration_ok = duration_min > MIN_RUN_DURATION_MINUTES
+        duration_ok = duration_min >= WORKOUT_DURATION_ACCEPT_MINUTES
         if not distance_ok and not duration_ok:
             msg = (
                 f"Run was {distance_km:.1f} km / {duration_min:.0f} min — need "
-                f"{MIN_RUN_DISTANCE_KM:g}+ km or {MIN_RUN_DURATION_MINUTES}+ min"
+                f"{MIN_RUN_DISTANCE_KM:g}+ km or {MIN_WORKOUT_DURATION_MINUTES}+ min"
             )
             return "too_short", msg
         if distance_ok and distance_km < MIN_RUN_DISTANCE_KM:

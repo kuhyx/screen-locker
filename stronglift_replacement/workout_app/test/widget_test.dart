@@ -5,6 +5,8 @@ import 'package:workout_app/main.dart';
 import 'package:workout_app/services/http_server_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 
+import 'fake_secure_storage.dart';
+
 void main() {
   setUpAll(() {
     sqfliteFfiInit();
@@ -12,6 +14,12 @@ void main() {
   });
 
   setUp(() async {
+    // These tests build the whole WorkoutApp, so they cannot inject a sync
+    // probe the way home_screen_test does. The home screen now syncs in the
+    // background on open, which reaches FlutterSecureStorage -- whose real
+    // platform channel throws under `flutter test`. Install the fake instead
+    // of letting an unrelated MissingPluginException fail these.
+    installFakeSecureStorage();
     StorageService.resetForTesting();
     await StorageService.init();
   });

@@ -36,8 +36,8 @@ COMMITMENT_PROMPT_TIMEOUT_SECONDS = 15
 # window is exhausted the "Log Manual Workout" option disappears entirely.
 MANUAL_WORKOUT_BUDGET_PER_7_DAYS = 2
 MANUAL_WORKOUT_BUDGET_PER_30_DAYS = 10
-# Minimum start-to-end duration for a manual entry to be accepted.
-MANUAL_WORKOUT_MIN_DURATION_MINUTES = 20
+# Manual entries use the shared MIN_WORKOUT_DURATION_MINUTES bar below —
+# every workout type answers to the same minimum, whatever the sport.
 # Minimum chars for the "what was done" activity-details field.
 MANUAL_WORKOUT_DESCRIPTION_MIN_CHARS = 40
 # Minimum chars for each reflection field (what went well / to improve / feeling).
@@ -55,19 +55,37 @@ WORKOUT_APP_JSON_REMOTES = (
 )
 # Port the workout app's HTTP server listens on (no ADB/developer-options needed).
 WORKOUT_HTTP_PORT = 8765
-MIN_WORKOUT_DURATION_MINUTES = 60
+# The ONE duration bar every workout type answers to — weightlifting, manual
+# entries and runs alike. This is the ADVERTISED number: it is the only one
+# that may ever appear in a message the user reads.
+MIN_WORKOUT_DURATION_MINUTES = 40
+# ...and this is the leeway that is deliberately INVISIBLE. A session is
+# actually accepted at MIN_WORKOUT_DURATION_MINUTES - this, so 35 minutes
+# passes while every string still says 40. That gap is intentional (the user
+# asked for it explicitly): do NOT "fix" the inconsistency by advertising the
+# real cutoff, and never interpolate WORKOUT_DURATION_ACCEPT_MINUTES into an
+# f-string.
+WORKOUT_DURATION_LEEWAY_MINUTES = 5
+# Derived so the advertised bar and the accept bar cannot drift apart.
+# Comparisons use this; messages use MIN_WORKOUT_DURATION_MINUTES. Every
+# caller compares with `>=` — one operator across all workout types, so a
+# 35.0-minute session cannot pass one gate and fail another.
+WORKOUT_DURATION_ACCEPT_MINUTES = (
+    MIN_WORKOUT_DURATION_MINUTES - WORKOUT_DURATION_LEEWAY_MINUTES
+)
 RUNNERUP_PACKAGES = ("org.runnerup", "org.runnerup.free")
 RUNNERUP_DB_SDCARD_TMP = "/sdcard/.runnerup_tmp_verification.db"
 # A run qualifies on EITHER criterion — they are an OR, not an AND. A short
-# but long-lasting run counts, and so does a fast 5 km that takes under 40 min.
-# Do not reinstate an AND here: it would reject exactly the slow-run case this
-# pair exists to allow.
-MIN_RUN_DURATION_MINUTES = 40  # strict: "over 40 minutes"
+# but long-lasting run counts, and so does a fast 5 km that takes under the
+# duration bar. Do not reinstate an AND here: it would reject exactly the
+# slow-run case this pair exists to allow. The duration arm is the shared
+# MIN_WORKOUT_DURATION_MINUTES above; only the distance arm is run-specific.
 MIN_RUN_DISTANCE_KM = 3.5  # inclusive: "as low as 3.5 km"
 # GPS distance tracking undershoots on tight turns/tree cover/urban canyons;
 # a run within 5% of the minimum is accepted rather than rejected on
-# measurement noise. Duration comes from the device clock, not GPS, so it
-# gets no such leeway.
+# measurement noise. This is SEPARATE from WORKOUT_DURATION_LEEWAY_MINUTES:
+# that one is a deliberate concession to the user, this one corrects a
+# measurement error. Duration now gets a leeway too, but for the other reason.
 RUNNERUP_DISTANCE_TOLERANCE = 0.05
 RUNNERUP_ACCEPTED_SPORTS: frozenset[int] = frozenset({0, 3, 5})
 # 0=RUNNING, 3=ORIENTEERING, 5=TREADMILL

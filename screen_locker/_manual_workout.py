@@ -24,10 +24,11 @@ from screen_locker._constants import (
     MANUAL_WORKOUT_BUDGET_PER_7_DAYS,
     MANUAL_WORKOUT_BUDGET_PER_30_DAYS,
     MANUAL_WORKOUT_DESCRIPTION_MIN_CHARS,
-    MANUAL_WORKOUT_MIN_DURATION_MINUTES,
     MANUAL_WORKOUT_REFLECTION_MIN_CHARS,
     MANUAL_WORKOUT_RPE_MAX,
     MANUAL_WORKOUT_RPE_MIN,
+    MIN_WORKOUT_DURATION_MINUTES,
+    WORKOUT_DURATION_ACCEPT_MINUTES,
 )
 from screen_locker._log_io import load_workout_log
 
@@ -203,9 +204,11 @@ def validate_manual_workout(draft: ManualWorkoutDraft) -> str | None:
     duration = _duration_minutes(draft)
     if duration is None:
         return "Start/end time must be valid HH:MM, with end after start"
-    if duration < MANUAL_WORKOUT_MIN_DURATION_MINUTES:
+    # Accept bar carries the hidden leeway; the message advertises the round
+    # number only (see _constants.py).
+    if duration < WORKOUT_DURATION_ACCEPT_MINUTES:
         return (
-            f"Session must be at least {MANUAL_WORKOUT_MIN_DURATION_MINUTES} "
+            f"Session must be at least {MIN_WORKOUT_DURATION_MINUTES} "
             f"minutes (currently {duration:.0f})"
         )
 

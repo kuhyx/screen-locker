@@ -704,6 +704,35 @@ class StorageService {
 
   static const _progressionSyncedKey = 'progression_synced_at';
 
+  /// When a workout sync last SUCCEEDED, or null if one never has.
+  ///
+  /// Drives the home screen's "Out of date" card. Nothing persisted a
+  /// last-sync time before — which is why the app could sit disconnected for
+  /// days with nothing on screen saying so.
+  Future<DateTime?> getLastSyncedAt() async {
+    final raw = await _getSetting(_lastSyncedAtKey);
+    if (raw == null) return null;
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) {
+      // Never silently treat a corrupt timestamp as "never synced": that
+      // would show the nag card forever with no clue why.
+      debugPrint(
+        'WorkoutApp: last_synced_at is not a valid timestamp ($raw) — '
+        'treating this device as never synced until the next success.',
+      );
+      return null;
+    }
+    return parsed;
+  }
+
+  /// Records that a sync just succeeded.
+  Future<void> markSyncedNow([DateTime? at]) => _setSetting(
+    _lastSyncedAtKey,
+    (at ?? DateTime.now()).toIso8601String(),
+  );
+
+  static const _lastSyncedAtKey = 'last_synced_at';
+
   /// Restores from backup if the local DB is empty (fresh install).
   ///
   /// "Empty" means no workout history and no [last_workout_type] setting.

@@ -174,6 +174,79 @@ class WorkoutSyncService {
     }
   }
 
+  /// Whether this device has ANY sync credentials -- a GitHub token or a
+  /// Firebase account.
+  ///
+  /// Mirrors the gate every push already applies internally, exposed so the
+  /// home screen can tell "not set up" (the user must act) apart from "set
+  /// up but broken" (retrying might help) without duplicating the rule.
+  Future<bool> isConfigured() async {
+    final settings = await SyncSettings.load();
+    return settings.isConfigured || await _hasFirebaseAccount();
+  }
+
+  /// Runs a sync tick with no new record, purely to find out whether sync
+  /// works right now.
+  ///
+  /// [push] and [pushManual] both need something to push, and
+  /// [readMergedWorkoutPayloads] returns `const []` on failure -- it
+  /// swallows the reason, so neither can answer "is this device actually
+  /// talking to Firebase?". The home screen's status card needs exactly that
+  /// answer, with a reason a human can act on, which is why this exists.
+  ///
+  /// Same never-throw, always-report contract as [push].
+  Future<PushResult> syncNow() async {
+    final settings = await SyncSettings.load();
+    if (!settings.isConfigured && !await _hasFirebaseAccount()) {
+      const reason = 'sync not configured (no Firebase account, no token)';
+      log('WorkoutSyncService.syncNow skipped: $reason', level: 900);
+      return const PushResult(pushed: false, reason: reason);
+    }
+
+    final github = GitHubClient(
+      owner: owner,
+      repo: repo,
+      token: settings.token,
+      httpClient: _httpClient,
+    );
+    final firebase = await _openFirebase();
+    final client = firebase == null
+        ? github
+        : MirrorStore(primary: firebase, mirror: github);
+    try {
+      final path = '$_pathPrefix/$currentSyncDeviceId/$_logFilename';
+      final existingText = await client.getFileText(path);
+      final existingLog = existingText == null
+          ? <String, Record>{}
+          : _decode(existingText);
+      await syncLog(
+        client: client,
+        deviceId: currentSyncDeviceId,
+        legacyDeviceId: legacySyncDeviceId,
+        pathPrefix: _pathPrefix,
+        // No new record: whatever this device already has, unchanged. The
+        // point is the round trip, not the payload.
+        localLog: existingLog,
+        encode: _encode,
+        decode: _decode,
+        stateStore: await _openStateStore(),
+      );
+      return const PushResult(pushed: true, reason: 'synced');
+    } on Object catch (error, stackTrace) {
+      final reason = 'sync failed: $error';
+      log(
+        'WorkoutSyncService.syncNow failed',
+        level: 1000,
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return PushResult(pushed: false, reason: reason);
+    } finally {
+      github.close();
+      firebase?.close();
+    }
+  }
+
   /// Pushes a pre-built manual-workout [record] to this device's log.
   ///
   /// Same never-throw, always-report contract as [push].

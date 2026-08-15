@@ -12,7 +12,10 @@ import time
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-from screen_locker._constants import MIN_WORKOUT_DURATION_MINUTES
+from screen_locker._constants import (
+    MIN_WORKOUT_DURATION_MINUTES,
+    WORKOUT_DURATION_ACCEPT_MINUTES,
+)
 from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
@@ -59,12 +62,16 @@ class TestValidateJsonData:
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
         locker = create_locker(mock_tk, tmp_path)
-        short_seconds = int((MIN_WORKOUT_DURATION_MINUTES - 10) * 60)
+        # Derive from the ACCEPT bar, not the advertised one: a duration
+        # merely under 40 may still clear the hidden leeway and verify.
+        short_seconds = int((WORKOUT_DURATION_ACCEPT_MINUTES - 5) * 60)
         status, message = locker._validate_json_data(
             {"date": _today(), "exercises": ["x"], "duration_seconds": short_seconds}
         )
         assert status == "too_short"
+        # ...but the message still advertises 40, never the real cutoff.
         assert f"{MIN_WORKOUT_DURATION_MINUTES}" in message
+        assert f"{WORKOUT_DURATION_ACCEPT_MINUTES}" not in message
 
     def test_verified_all_succeeded(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path

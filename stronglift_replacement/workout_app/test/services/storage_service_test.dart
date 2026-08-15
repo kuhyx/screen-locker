@@ -711,4 +711,49 @@ void main() {
       expect(await _svc.getWorkoutHistory(), isEmpty);
     });
   });
+
+  // ── Last-sync timestamp (drives the home screen's status card) ─────────────
+
+  group('last synced at', () {
+    test('is null before a sync has ever succeeded', () async {
+      expect(await _svc.getLastSyncedAt(), isNull);
+    });
+
+    test('round-trips the time a sync succeeded', () async {
+      final at = DateTime(2026, 8, 15, 18, 30);
+      await _svc.markSyncedNow(at);
+      expect(await _svc.getLastSyncedAt(), at);
+    });
+
+    test('defaults to now when no time is given', () async {
+      final before = DateTime.now().subtract(const Duration(seconds: 1));
+      await _svc.markSyncedNow();
+      final stored = await _svc.getLastSyncedAt();
+      expect(stored, isNotNull);
+      expect(stored!.isAfter(before), isTrue);
+    });
+
+    test('a corrupt stored value reads as never-synced, loudly', () async {
+      // Seed a garbage timestamp directly: getLastSyncedAt must not throw,
+      // and must say why rather than silently showing the nag card forever.
+      final dir = await Directory.systemTemp.createTemp('mw_badstamp');
+      final dbFile = p.join(dir.path, 'bad.db');
+      StorageService.resetForTesting(dbPath: dbFile);
+      await StorageService.init();
+      await _svc.markSyncedNow(DateTime(2026, 8, 15));
+
+      final db = await databaseFactory.openDatabase(dbFile);
+      await db.update(
+        'settings',
+        {'value': 'not-a-timestamp'},
+        where: 'key = ?',
+        whereArgs: ['last_synced_at'],
+      );
+      await db.close();
+
+      StorageService.resetForTesting(dbPath: dbFile);
+      await StorageService.init();
+      expect(await _svc.getLastSyncedAt(), isNull);
+    });
+  });
 }

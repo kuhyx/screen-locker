@@ -22,6 +22,7 @@ from screen_locker._constants import (
     ADB_TIMEOUT,
     MIN_WORKOUT_DURATION_MINUTES,
     WORKOUT_APP_JSON_REMOTES,
+    WORKOUT_DURATION_ACCEPT_MINUTES,
     WORKOUT_HTTP_PORT,
 )
 from screen_locker._log_mixin import write_signed_entry
@@ -187,7 +188,9 @@ class PhoneVerificationMixin:
         if not data.get("exercises"):
             return "no_exercises", "No exercises found in the workout JSON"
         duration_min = data.get("duration_seconds", 0) / 60.0
-        if duration_min < MIN_WORKOUT_DURATION_MINUTES:
+        # Accept bar carries the hidden leeway; the message advertises the
+        # round number only (see _constants.py).
+        if duration_min < WORKOUT_DURATION_ACCEPT_MINUTES:
             return (
                 "too_short",
                 f"Workout too short! {duration_min:.0f} min logged, "

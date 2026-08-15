@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
+from screen_locker._constants import (
+    MIN_WORKOUT_DURATION_MINUTES,
+    WORKOUT_DURATION_ACCEPT_MINUTES,
+)
 from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
@@ -194,22 +198,40 @@ class TestValidateRunnerupDataOrCriteria:
         )
         assert status == "verified"
 
-    def test_duration_boundary_is_strict(
+    def test_duration_boundary_uses_the_hidden_leeway(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Exactly 40 min does not qualify, but 40.1 min does ("over 40")."""
+        """Runs answer to the shared accept bar (35), not the advertised 40.
+
+        The distance stays at 1 km throughout so the OR distance arm cannot
+        rescue the run — this pins the duration arm alone.
+        """
         locker = create_locker(mock_tk, tmp_path)
-        at_boundary, _ = locker._validate_runnerup_data(
-            {"sport": 0, "duration_seconds": 2400, "distance_m": 1000}
+        just_under, _ = locker._validate_runnerup_data(
+            {"sport": 0, "duration_seconds": 2094, "distance_m": 1000}
         )
-        assert at_boundary == "too_short"
-        just_over, _ = locker._validate_runnerup_data(
-            {"sport": 0, "duration_seconds": 2406, "distance_m": 1000}
+        assert just_under == "too_short"
+        at_accept_bar, _ = locker._validate_runnerup_data(
+            {"sport": 0, "duration_seconds": 2100, "distance_m": 1000}
         )
-        assert just_over == "verified"
+        assert at_accept_bar == "verified"
+
+    def test_too_short_message_advertises_40_not_the_real_cutoff(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """The hidden accept bar must never reach the user's eyes."""
+        locker = create_locker(mock_tk, tmp_path)
+        _, message = locker._validate_runnerup_data(
+            {"sport": 0, "duration_seconds": 600, "distance_m": 1000}
+        )
+        assert str(MIN_WORKOUT_DURATION_MINUTES) in message
+        assert str(WORKOUT_DURATION_ACCEPT_MINUTES) not in message
 
     def test_real_2026_08_14_run_is_verified(
         self,

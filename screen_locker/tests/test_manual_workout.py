@@ -14,8 +14,8 @@ from screen_locker._constants import (
     MANUAL_WORKOUT_BUDGET_PER_7_DAYS,
     MANUAL_WORKOUT_BUDGET_PER_30_DAYS,
     MANUAL_WORKOUT_DESCRIPTION_MIN_CHARS,
-    MANUAL_WORKOUT_MIN_DURATION_MINUTES,
     MANUAL_WORKOUT_REFLECTION_MIN_CHARS,
+    WORKOUT_DURATION_ACCEPT_MINUTES,
 )
 from screen_locker._manual_workout import (
     SPORT_OTHER,
@@ -239,7 +239,7 @@ class TestValidateManualWorkout:
 
     def test_rejects_too_short_duration(self) -> None:
         draft = _tt_draft(start_time="12:00", end_time="12:05")
-        assert MANUAL_WORKOUT_MIN_DURATION_MINUTES > 5
+        assert WORKOUT_DURATION_ACCEPT_MINUTES > 5
         assert validate_manual_workout(draft) is not None
 
     @pytest.mark.parametrize("rpe", [0, 11, -1])

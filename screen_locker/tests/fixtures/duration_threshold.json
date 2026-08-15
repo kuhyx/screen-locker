@@ -1,0 +1,23 @@
+{
+  "_comment": [
+    "Shared literal fixture for the unified workout-duration gate.",
+    "Read by BOTH the Python locker (test_duration_threshold_fixture.py) and",
+    "the Flutter app (test/models/duration_threshold_fixture_test.dart).",
+    "Each language's own round-trip test cannot catch a drift between the two",
+    "sides -- only a shared literal like this one can. If you change the",
+    "threshold, change it here and watch both suites fail together.",
+    "",
+    "advertised_minutes is the ONLY number that may appear in a user-facing",
+    "message. accept_minutes is deliberately invisible: a 35-minute session",
+    "passes while every string still says 40. Do not advertise accept_minutes."
+  ],
+  "advertised_minutes": 40,
+  "leeway_minutes": 5,
+  "accept_minutes": 35,
+  "cases": [
+    { "duration_minutes": 34, "accepted": false },
+    { "duration_minutes": 35, "accepted": true },
+    { "duration_minutes": 40, "accepted": true },
+    { "duration_minutes": 60, "accepted": true }
+  ]
+}
