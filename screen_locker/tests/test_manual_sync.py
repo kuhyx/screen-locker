@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from screen_locker import _manual_sync
-from screen_locker._log_mixin import RecordResult
 from screen_locker._manual_sync import (
     ingest_manual_records,
     reconstruct_draft,
@@ -187,69 +186,6 @@ class TestIngestManualRecords:
             ingest_manual_records(log_file, [record], today=_DATE)
         stored = json.loads(log_file.read_text())
         assert "hmac" not in stored[_DATE][0]
-
-
-class TestIngestManualRecordsCallback:
-    """Tests for the ``on_ingested`` callback that drives shutdown/debt credit."""
-
-    def test_on_ingested_called_with_entry_and_prior_entries(
-        self, tmp_path: Path
-    ) -> None:
-        """On ingested called with entry and prior entries."""
-        log_file = tmp_path / "workout_log.json"
-        log_file.write_text(
-            json.dumps({_DATE: [{"workout_data": {"type": "phone_verified"}}]})
-        )
-        record = _manual_record(_TT_DRAFT)
-        calls: list[tuple[dict, list[dict]]] = []
-        ingest_manual_records(
-            log_file,
-            [record],
-            today=_DATE,
-            on_ingested=lambda entry, prior: calls.append((entry, prior)),
-        )
-        assert len(calls) == 1
-        entry, prior = calls[0]
-        assert entry["type"] == "manual_workout"
-        assert entry["sync_record_id"] == record[0]
-        assert prior == [{"workout_data": {"type": "phone_verified"}}]
-
-    def test_on_ingested_not_called_when_budget_exhausted(self, tmp_path: Path) -> None:
-        """On ingested not called when budget exhausted."""
-        log_file = tmp_path / "workout_log.json"
-        record = _manual_record(_TT_DRAFT)
-        calls: list[tuple[dict, list[dict]]] = []
-        with patch.object(_manual_sync, "is_budget_exhausted", return_value=True):
-            ingest_manual_records(
-                log_file,
-                [record],
-                today=_DATE,
-                on_ingested=lambda entry, prior: calls.append((entry, prior)),
-            )
-        assert calls == []
-
-    def test_write_chokepoint_collision_is_not_credited_or_returned(
-        self, tmp_path: Path
-    ) -> None:
-        """If the write chokepoint's own workout_id dedup no-ops the write
-        (``appended=False``), the record must not be reported as ingested or
-        handed to ``on_ingested`` — crediting a write that never happened
-        would be a real correctness bug, not just a missed optimization."""
-        log_file = tmp_path / "workout_log.json"
-        record = _manual_record(_TT_DRAFT)
-        calls: list[tuple[dict, list[dict]]] = []
-        with patch(
-            "screen_locker._manual_sync.write_signed_entry",
-            return_value=RecordResult(appended=False, prior_entries=[]),
-        ):
-            ingested = ingest_manual_records(
-                log_file,
-                [record],
-                today=_DATE,
-                on_ingested=lambda entry, prior: calls.append((entry, prior)),
-            )
-        assert ingested == []
-        assert calls == []
 
 
 def _dt(date: str) -> object:

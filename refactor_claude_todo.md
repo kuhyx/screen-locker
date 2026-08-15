@@ -19,8 +19,8 @@ churn, not size alone — refactoring pays where code is read and changed often
 
 <!-- BEGIN GENERATED VIOLATIONS -->
 
-- **71 files** currently exceed 250 lines.
-- **9,431 lines** over the cap in total (the work left to do); longest file is **897** lines.
+- **61 files** currently exceed 250 lines.
+- **9,084 lines** over the cap in total (the work left to do); longest file is **897** lines.
 
 ROI = lines x commits in the last year. Work top-down; a long file nobody edits
 has near-zero payoff and should not be first.
@@ -39,11 +39,11 @@ has near-zero payoff and should not be first.
 | 380 | 13 | code | `screen_locker/_phone_verification.py` |
 | 759 | 5 | code | `stronglift_replacement/workout_app/test/services/storage_service_test.dart` |
 | 415 | 9 | code | `stronglift_replacement/workout_app/lib/services/workout_sync_service.dart` |
-| 256 | 13 | code | `screen_locker/tests/test_adb_and_phone.py` |
 | 357 | 9 | code | `screen_locker/_manual_workout_dialog.py` |
 | 384 | 8 | code | `screen_locker/_shutdown.py` |
+| 383 | 8 | code | `stronglift_replacement/workout_app/lib/screens/home_screen.dart` |
 
-_(56 further files over 250 lines not listed — re-run `python3 scripts/refresh_refactor_todo.py` for the current set.)_
+_(46 further files over 250 lines not listed — re-run `python3 scripts/refresh_refactor_todo.py` for the current set.)_
 
 <!-- END GENERATED VIOLATIONS -->
 
