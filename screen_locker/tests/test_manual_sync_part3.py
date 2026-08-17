@@ -22,6 +22,8 @@ from screen_locker.tests.test_manual_sync import _manual_record
 if TYPE_CHECKING:
     from pathlib import Path
 
+    import pytest
+
 _DATE = "2026-07-13"
 
 _TT_DRAFT = ManualWorkoutDraft(
@@ -120,3 +122,51 @@ class TestIngestManualRecordsCallback:
             )
         assert ingested == []
         assert calls == []
+
+
+class TestEmptyStubRecords:
+    """A payload with no workout content is skipped quietly, not as a fault.
+
+    Observed in the wild as ``{"type", "kind", "date"}`` -- the phone created
+    the record but never attached the workout. It replayed as a WARNING on
+    every 15-minute sync cycle forever, which is how genuinely actionable
+    lines from this logger got tuned out.
+    """
+
+    def test_is_empty_stub_detects_a_metadata_only_payload(self) -> None:
+        """No substantive field present → stub."""
+        assert _manual_sync.is_empty_stub(
+            {"type": "manual_workout", "kind": "manual_workout", "date": _DATE}
+        )
+
+    def test_is_empty_stub_is_false_when_any_workout_field_exists(self) -> None:
+        """One real field is enough to make it a (possibly broken) workout."""
+        assert not _manual_sync.is_empty_stub(
+            {"kind": "manual_workout", "sport": "run"}
+        )
+
+    def test_stub_is_skipped_without_a_warning(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """The stub is reported at info, so it stops polluting the warnings."""
+        log_file = tmp_path / "workout_log.json"
+        log_file.write_text(json.dumps({}))
+        with caplog.at_level("INFO"):
+            ingested = ingest_manual_records(
+                log_file,
+                [
+                    (
+                        "manual_workout:2026-08-15",
+                        {
+                            "kind": "manual_workout",
+                            "type": "manual_workout",
+                            "date": _DATE,
+                        },
+                    )
+                ],
+            )
+        assert ingested == []
+        stub_records = [r for r in caplog.records if "empty stub" in r.message]
+        assert stub_records, "the stub must still be reported"
+        assert all(r.levelname == "INFO" for r in stub_records)
+        assert not [r for r in caplog.records if r.levelname == "WARNING"]

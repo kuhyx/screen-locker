@@ -162,6 +162,10 @@ _ISOLATED_STATE: tuple[tuple[str, tuple[str, ...]], ...] = (
         ),
     ),
     ("scheduled_skips.json", ("_log_mixin.SCHEDULED_SKIPS_FILE",)),
+    # The durable lock-decision trail. Written on EVERY locker run, so without
+    # this the suite would append test decisions to the user's real
+    # enforcement history in ~/.local/share/screen_locker/.
+    ("decisions.jsonl", ("_decision_log.DECISION_LOG_FILE",)),
 )
 
 

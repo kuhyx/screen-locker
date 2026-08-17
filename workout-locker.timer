@@ -1,0 +1,28 @@
+[Unit]
+Description=Periodically re-evaluate the workout lock decision
+# Deliberately no After=graphical-session.target: this timer is
+# WantedBy=timers.target, and ordering it after a target that itself comes
+# after timers.target closes a cycle systemd breaks by deleting the job.
+# See early-bird-workout-check.timer for the outage that taught us this.
+
+[Timer]
+# workout-locker.service is WantedBy=graphical-session.target, i.e. it runs
+# ONCE per graphical login. That meant a day boundary or an ISO-week rollover
+# crossed inside a long session was never re-evaluated: on 2026-08-16 the
+# locker correctly exited (weekly minimum met), the new week began on 08-17,
+# and nothing re-checked it because the session never ended.
+#
+# This timer closes that hole. Every run is idempotent -- the service's own
+# early-exit ladder handles "already logged", "window still active",
+# "weekly minimum met" and "relaxed day" -- so a re-check costs nothing when
+# there is nothing to do.
+OnCalendar=*-*-* *:00,30:00
+# Catch up after suspend/downtime rather than waiting for the next half hour.
+Persistent=true
+# A lock that appears at a hard-predictable second feels like a glitch; a small
+# spread also avoids stacking with workout-sync.timer on the same tick.
+RandomizedDelaySec=60
+Unit=workout-locker.service
+
+[Install]
+WantedBy=timers.target

@@ -13,3 +13,10 @@ Type=oneshot
 # did once per process start -- so a workout finished after login was invisible
 # until the next login.
 ExecStart=/usr/bin/python3 -m screen_locker.screen_lock --sync-only
+# Piggyback the arming check on this already-healthy 15-minute timer rather
+# than adding another timer that could itself be silently disabled -- which is
+# the exact failure this check exists to catch (2026-08-04: an ordering cycle
+# disabled early-bird-workout-check.timer and nothing noticed for 13 days).
+# ExecStartPost without "-" means a disarmed locker marks this unit failed, so
+# it surfaces in `systemctl --user --failed` instead of scrolling past.
+ExecStartPost=/usr/bin/python3 %h/screen-locker/scripts/check_enforcement_armed.py --quiet

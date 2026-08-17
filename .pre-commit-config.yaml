@@ -192,7 +192,7 @@ repos:
         # the gate it was being refactored to satisfy.
         types_or: [python, shell, dart]
       - id: no-silent-failures
-        name: Block silent failures (swallowed exceptions must log why)
+        name: Block silent failures (swallowed exceptions and silent sys.exit(0) must say why)
         entry: python3 scripts/check_silent_failures.py
         language: system
         types: [python]

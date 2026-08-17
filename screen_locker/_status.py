@@ -9,6 +9,7 @@ import sys
 from typing import TYPE_CHECKING
 
 from screen_locker._constants import EXTRA_BENEFITS_FILE
+from screen_locker._decision_log import record_no_decision
 from screen_locker._extra_benefits import (
     current_streak,
     has_extended_early_bird,
@@ -162,4 +163,7 @@ def run_status(locker: ScreenLocker) -> None:
         _mw, _ts, _morning = cfg
         print(f"  Shutdown tonight    : {_mw:02d}:00")
 
+    # --status is a read-out, not an enforcement run; make that explicit so the
+    # journal never reads as though the locker evaluated and declined to lock.
+    record_no_decision("--status")
     sys.exit(0)

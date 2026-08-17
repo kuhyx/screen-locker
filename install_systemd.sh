@@ -4,11 +4,13 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE_FILE="$SCRIPT_DIR/workout-locker.service"
 EARLY_BIRD_TIMER_FILE="$SCRIPT_DIR/early-bird-workout-check.timer"
+LOCKER_TIMER_FILE="$SCRIPT_DIR/workout-locker.timer"
 SYNC_SERVICE_FILE="$SCRIPT_DIR/workout-sync.service"
 SYNC_TIMER_FILE="$SCRIPT_DIR/workout-sync.timer"
 USER_SERVICE_DIR="$HOME/.config/systemd/user"
 SERVICE_NAME="workout-locker.service"
 EARLY_BIRD_TIMER_NAME="early-bird-workout-check.timer"
+LOCKER_TIMER_NAME="workout-locker.timer"
 SYNC_SERVICE_NAME="workout-sync.service"
 SYNC_TIMER_NAME="workout-sync.timer"
 
@@ -48,6 +50,11 @@ cp "$SERVICE_FILE" "$USER_SERVICE_DIR/$SERVICE_NAME"
 # Copy early bird timer
 cp "$EARLY_BIRD_TIMER_FILE" "$USER_SERVICE_DIR/$EARLY_BIRD_TIMER_NAME"
 
+# Copy the periodic re-check timer. Without it the locker only ever decides at
+# login and at 08:30/09:05, so a day or ISO-week boundary crossed inside a long
+# session is never re-evaluated.
+cp "$LOCKER_TIMER_FILE" "$USER_SERVICE_DIR/$LOCKER_TIMER_NAME"
+
 # Copy the periodic workout-sync units. Without these, syncing happens only
 # once per locker start, so a workout finished after login is not seen until
 # the next login.
@@ -69,11 +76,23 @@ systemctl --user enable "$SERVICE_NAME"
 # Enable the early bird re-check timer
 systemctl --user enable --now "$EARLY_BIRD_TIMER_NAME"
 
+# Enable the periodic re-check timer
+systemctl --user enable --now "$LOCKER_TIMER_NAME"
+
 # Enable the periodic workout sync
 systemctl --user enable --now "$SYNC_TIMER_NAME"
 
+# Verify enforcement is actually armed. enable can silently no-op when systemd
+# breaks an ordering cycle by deleting the timer's job -- exactly what happened
+# on 2026-08-04 -- so a successful `enable` is NOT proof the locker will run.
+if ! python3 "$SCRIPT_DIR/scripts/check_enforcement_armed.py"; then
+	echo "✗ Enforcement is NOT armed after install — see the errors above" >&2
+	exit 1
+fi
+
 echo "✓ Workout locker service installed"
 echo "✓ Early bird re-check timer installed (fires daily at 08:30)"
+echo "✓ Periodic re-check timer installed (every 30 min)"
 echo "✓ Service will start automatically on next login"
 echo ""
 echo "To start now: systemctl --user start workout-locker"

@@ -21,12 +21,17 @@ from screen_locker._constants import (
     SHUTDOWN_BASE_FILE,
     SICK_DAY_STATE_FILE,
 )
+from screen_locker._decision_log import (
+    LockDecision,
+    record_decision,
+)
 from screen_locker._extra_benefits import process_week_transition
 from screen_locker._shutdown_base import reset_to_base_if_new_day
 from screen_locker._sync_mixin import SyncMixin
 from screen_locker._temperature import fetch_current_temp_with_status
 from screen_locker._weekly_check import (
     WEEKLY_WORKOUT_MINIMUM,
+    count_weekly_workouts,
     has_weekly_minimum,
     is_relaxed_day,
 )
@@ -45,11 +50,36 @@ class StartupChecksMixin(SyncMixin):
     and this keeps the god-class's ancestor count from growing.
     """
 
+    def _record_decision(
+        self, *, locked: bool, reason: str, detail: str, **extra: object
+    ) -> None:
+        """Record one lock decision, annotated with this week's progress.
+
+        The weekly count is attached to every decision because "was it right to
+        skip?" is unanswerable without it -- during the 2026-08 outage the
+        journal could not distinguish "5/5, correctly skipped" from "0/5, should
+        have locked".
+        """
+        record_decision(
+            LockDecision(
+                locked=locked,
+                reason=reason,
+                detail=detail,
+                weekly_count=count_weekly_workouts(self.log_file),
+                weekly_required=WEEKLY_WORKOUT_MINIMUM,
+                extra=extra,
+            )
+        )
+
+    def _record_skip(self, reason: str, detail: str, **extra: object) -> None:
+        """Record a decision not to enforce, then exit the process."""
+        self._record_decision(locked=False, reason=reason, detail=detail, **extra)
+        sys.exit(0)
+
     def _check_non_verify_exits(self) -> None:
         """Check all normal (non-verify) startup early-exit conditions."""
         if self._is_scheduled_skip_today():
-            _logger.info("Today is a scheduled skip day. Skipping screen lock.")
-            sys.exit(0)
+            self._record_skip("scheduled_skip_day", "Today is a scheduled skip day.")
             return
         # Award streak / shutdown-bonus / EB-extension rewards from last week
         # before the daily reset, so a Monday transition's bonus is recorded
@@ -74,16 +104,19 @@ class StartupChecksMixin(SyncMixin):
             return
         # Day-of-week routing: Tue/Wed/Thu relaxed (optional), Fri-Mon enforced.
         if is_relaxed_day():
-            _logger.info("Relaxed day (Tue-Thu) - showing optional workout prompt.")
+            self._record_decision(
+                locked=False,
+                reason="relaxed_day",
+                detail="Relaxed day (Tue-Thu) — showing the optional prompt.",
+            )
             self._relaxed_day_mode = True
             return
         # Fri-Mon: skip lock when weekly minimum is already met.
         if has_weekly_minimum(self.log_file):
-            _logger.info(
-                "Weekly minimum of %d workouts met. Skipping screen lock.",
-                WEEKLY_WORKOUT_MINIMUM,
+            self._record_skip(
+                "weekly_minimum_met",
+                f"Weekly minimum of {WEEKLY_WORKOUT_MINIMUM} workouts met.",
             )
-            sys.exit(0)
             return
         # Only remaining same-day skip: genuine extreme heat. Sick days go
         # through the justification flow instead; there is no banked
@@ -91,6 +124,15 @@ class StartupChecksMixin(SyncMixin):
         # maximizing weekly workouts, so it was removed in favor of a
         # shutdown-time-only reward (see _apply_weekly_shutdown_bonus).
         self._check_heat_skip_exit()
+        # Nothing excused today: falling through here means the lock WILL be
+        # built. Recorded explicitly so the trail shows enforcement happening,
+        # not merely the absence of a skip -- "no line at all" was precisely
+        # the signature of the 2026-08 outage.
+        self._record_decision(
+            locked=True,
+            reason="enforced",
+            detail="No exemption applied — building the lock screen.",
+        )
 
     def _check_heat_skip_exit(self) -> None:
         """Exit early if today qualifies for the extreme-heat skip dialog.
@@ -120,7 +162,8 @@ class StartupChecksMixin(SyncMixin):
         )
         if self._show_heat_skip_dialog(check.temp_celsius):
             self._save_heat_skip_log(check.temp_celsius)
-            _logger.info(
-                "User skipped workout due to heat (%.0f°C).", check.temp_celsius
+            self._record_skip(
+                "heat_skip",
+                f"User skipped the workout due to heat ({check.temp_celsius:.0f}°C).",
+                temp_celsius=round(check.temp_celsius, 1),
             )
-            sys.exit(0)

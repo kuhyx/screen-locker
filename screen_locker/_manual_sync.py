@@ -44,6 +44,36 @@ _logger = logging.getLogger(__name__)
 # ``workout_data`` — makes re-ingestion of the same record idempotent.
 _SYNC_ID_FIELD = "sync_record_id"
 
+# The raw user inputs every real manual workout carries. A payload holding none
+# of them is a metadata stub, not a damaged workout: there is nothing to
+# recover and no amount of retrying will change that.
+_SUBSTANTIVE_FIELDS = frozenset(
+    {
+        "sport",
+        "start_time",
+        "end_time",
+        "location_name",
+        "transport_method",
+        "cost",
+        "rpe",
+        "went_well",
+        "to_improve",
+        "overall_feeling",
+    }
+)
+
+
+def is_empty_stub(payload: Mapping[str, object]) -> bool:
+    """True when ``payload`` carries no workout content at all.
+
+    Observed in the wild as ``{"type", "kind", "date"}`` and nothing else --
+    a record the phone created without ever attaching the workout. Every sync
+    cycle re-reported it as malformed, so a permanent, unfixable condition
+    produced an unbounded stream of identical warnings (four every 15 minutes),
+    which is how the genuinely actionable lines got lost in the noise.
+    """
+    return not (_SUBSTANTIVE_FIELDS & set(payload))
+
 
 def _coerce_int(value: object) -> int:
     """Coerce a JSON scalar to int; raise for a non-numeric (skips the record)."""
@@ -100,6 +130,39 @@ def reconstruct_draft(payload: Mapping[str, object]) -> ManualWorkoutDraft | Non
         return None
 
 
+def _draft_or_report(
+    record_id: str, payload: Mapping[str, object]
+) -> ManualWorkoutDraft | None:
+    """Rebuild the draft, or report why it cannot be rebuilt and return None.
+
+    The two failure modes are deliberately reported at different levels, because
+    only one of them is actionable:
+
+    * an **empty stub** carries no workout at all (seen as ``{type, kind,
+      date}``) -- nothing to recover, nothing to fix, so re-reporting it at
+      ``warning`` on every 15-minute sync cycle only teaches the reader to
+      ignore this logger;
+    * a **malformed** payload has real workout fields that would not parse,
+      which means genuine credit may be going missing -- that stays loud.
+    """
+    if is_empty_stub(payload):
+        _logger.info(
+            "Manual record %s is an empty stub (keys: %s) — no workout data to "
+            "ingest; skipping permanently, no credit is being lost",
+            record_id,
+            sorted(payload),
+        )
+        return None
+    draft = reconstruct_draft(payload)
+    if draft is None:
+        _logger.warning(
+            "Manual record %s is malformed — it HAS workout fields but they "
+            "could not be parsed, so real credit may be lost",
+            record_id,
+        )
+    return draft
+
+
 def _already_ingested(logs: dict[str, list[dict]], record_id: str) -> bool:
     """True if any logged entry already carries this sync record id.
 
@@ -154,9 +217,8 @@ def ingest_manual_records(
             continue
         if _already_ingested(load_workout_log(log_file), record_id):
             continue
-        draft = reconstruct_draft(payload)
+        draft = _draft_or_report(record_id, payload)
         if draft is None:
-            _logger.warning("Manual record %s is malformed — skipped", record_id)
             continue
         error = validate_manual_workout(draft)
         if error is not None:
@@ -169,9 +231,13 @@ def ingest_manual_records(
         entry[_SYNC_ID_FIELD] = record_id
         result = write_signed_entry(log_file, date, entry)
         if not result.appended:
-            _logger.warning(
-                "Manual record %s collided with an existing workout_id — "
-                "skipped without credit",
+            # This is dedup working, not credit being lost: the workout is
+            # already in the log under this same workout_id. It was logged at
+            # warning and re-reported on every 15-minute cycle, which read like
+            # a recurring fault and buried the lines that did need attention.
+            _logger.info(
+                "Manual record %s is already logged under the same workout_id "
+                "— skipped as a duplicate (its credit is already counted)",
                 record_id,
             )
             continue

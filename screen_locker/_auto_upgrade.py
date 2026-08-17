@@ -12,9 +12,24 @@ import logging
 import sys
 
 from screen_locker import _sick_tracker
+from screen_locker._decision_log import LockDecision, record_decision
 from screen_locker._wake_state import has_workout_skip_today
 
 _logger = logging.getLogger(__name__)
+
+
+def _skip(reason: str, detail: str, **extra: object) -> None:
+    """Record a decision NOT to enforce, then exit.
+
+    Every branch that abandons enforcement goes through here. Before this
+    existed each one just logged at INFO and called ``sys.exit(0)``, which is
+    how the locker managed to stop enforcing for thirteen days without leaving
+    a single line saying so.
+    """
+    record_decision(
+        LockDecision(locked=False, reason=reason, detail=detail, extra=extra)
+    )
+    sys.exit(0)
 
 
 class AutoUpgradeMixin:
@@ -32,8 +47,7 @@ class AutoUpgradeMixin:
         """Check startup conditions and exit early when appropriate."""
         if verify_only:
             if not self._is_sick_day_today():
-                _logger.info("No sick day logged today. Nothing to verify.")
-                sys.exit(0)
+                _skip("no_sick_day_to_verify", "No sick day logged today.")
             return
         self._check_non_verify_exits()
 
@@ -41,27 +55,45 @@ class AutoUpgradeMixin:
         """Handle early-bird and today's log states. Return True to stop startup."""
         if self._is_early_bird_pending() and not self._is_early_bird_time():
             if self._try_auto_upgrade_early_bird():
-                _logger.info("Auto-upgraded early_bird entry to phone_verified.")
-                sys.exit(0)
+                _skip(
+                    "early_bird_auto_upgraded",
+                    "Auto-upgraded early_bird entry to phone_verified.",
+                )
                 return True
             return False  # Expired early bird, upgrade unavailable — full lock.
         if self._is_early_bird_pending():
-            _logger.info("Early bird window still active — skipping lock.")
+            # The ONLY thing that closes this window is
+            # early-bird-workout-check.timer. When that timer was disabled by an
+            # ordering cycle (2026-08-04) this branch silently deferred the lock
+            # every single day, forever.
+            _skip(
+                "early_bird_window_active",
+                "Early bird window still active — deferring to the 08:30/09:05 "
+                "re-check timer.",
+                recheck_by="early-bird-workout-check.timer",
+            )
         elif self._is_sick_day_today():
             if self._try_auto_upgrade_sick_day():
-                _logger.info("Auto-upgraded today's sick_day entry to phone_verified.")
+                _skip(
+                    "sick_day_auto_upgraded",
+                    "Auto-upgraded today's sick_day entry to phone_verified.",
+                )
             else:
-                _logger.info("Sick day already logged today.")
+                _skip("sick_day", "Sick day already logged today.")
         elif self.has_logged_today():
-            _logger.info("Workout already logged today. Skipping screen lock.")
+            _skip("workout_logged_today", "Workout already logged today.")
         elif has_workout_skip_today():
-            _logger.info("Wake alarm earned workout skip. Skipping screen lock.")
+            _skip("wake_alarm_skip", "Wake alarm earned a workout skip.")
         elif self._is_early_bird_time():
             self._save_early_bird_pending()
-            _logger.info("Early bird time — skipping lock, will re-check at 08:30.")
+            _skip(
+                "early_bird_banked",
+                "Early bird time — banked the pending marker, will re-check "
+                "at 08:30/09:05.",
+                recheck_by="early-bird-workout-check.timer",
+            )
         else:
             return False
-        sys.exit(0)
         return True
 
     def _try_auto_upgrade_sick_day(self) -> bool:

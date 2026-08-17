@@ -169,6 +169,10 @@ class ScreenLocker(
             self._lock.close()
         else:
             self.root.destroy()
+        # The lock screen coming down is the end of enforcement for this run,
+        # so it belongs in the journal next to the decision that raised it —
+        # otherwise "the lock closed" and "the lock never opened" look alike.
+        _logger.warning("Lock window closed — enforcement for this run is over.")
         sys.exit(0)
 
     def run(self) -> None:

@@ -1,6 +1,13 @@
 [Unit]
 Description=Re-check workout after early bird grace period expires (08:30 normal, 09:05 extended)
-After=graphical-session.target
+# NO After=graphical-session.target here. This timer is WantedBy=timers.target,
+# and timers.target is ordered before basic.target before
+# graphical-session.target -- so that After= closes a dependency cycle.
+# systemd resolves such a cycle by DELETING this timer's job, which is exactly
+# what happened on 2026-08-04 ("Job early-bird-workout-check.timer/start deleted
+# to break ordering cycle"). The timer went disabled and the locker silently
+# stopped enforcing for days. The service it triggers keeps its own
+# After=graphical-session.target, which is where that ordering belongs.
 
 [Timer]
 # Fires at 08:30 for the normal early-bird window (5:00–8:30).
@@ -9,7 +16,10 @@ After=graphical-session.target
 OnCalendar=*-*-* 08:30:00
 OnCalendar=*-*-* 09:05:00
 Unit=workout-locker.service
-Persistent=false
+# Persistent=true: a machine asleep or off at 08:30 would otherwise skip the
+# re-check entirely, leaving the early-bird marker banked and the day
+# unenforced. Both runs are idempotent (see above), so a catch-up run is safe.
+Persistent=true
 AccuracySec=1s
 RandomizedDelaySec=0
 
