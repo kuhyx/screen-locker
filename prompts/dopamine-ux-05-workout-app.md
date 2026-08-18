@@ -224,7 +224,7 @@ state what you felt and heard; do not infer them from the code.
   `workout_screen_session.dart` ~:37 — 1s), settings debounces
   (`settings_screen.dart` ~:140, :148 — 600ms), `main.dart` ~:56 (20s).
 - The app syncs to the screen-locker Python side, which treats
-  `screen_locker/workout_log.json` as the single source of truth. **Do not change
+  `screen_locker/log.json` as the single source of truth. **Do not change
   what counts as a workout** — enforcement depends on it, and it is out of scope.
 - The repo enforces a 250-line file cap and bans `# noqa`; ruff runs
   `select = ["ALL"]` on the Python side.

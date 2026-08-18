@@ -127,7 +127,7 @@ Set<String> _allWorkoutDates(
 
 /// Workouts the PC published that this phone has no local record of.
 ///
-/// The PC pushes its whole `workout_log.json` (RunnerUp runs and manual
+/// The PC pushes its whole `log.json` (RunnerUp runs and manual
 /// entries included), so pulling them here is what makes both devices show
 /// the SAME history. Sorted newest-first to match the local session list.
 /// StrongLifts sessions are deliberately excluded: they are restored into

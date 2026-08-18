@@ -79,7 +79,7 @@ _READS_ONLY = ToolAnnotations(
 # The workout log lives beside the package, same default as
 # ``_status_data._DEFAULT_LOG_FILE``; declared here to avoid importing a
 # private name across modules.
-_LOG_FILE = Path(__file__).resolve().parent / "workout_log.json"
+_LOG_FILE = Path(__file__).resolve().parent / "log.json"
 
 
 # ──────────────────────────────────────────────────────────────

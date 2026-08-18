@@ -44,6 +44,11 @@ MANUAL_WORKOUT_TYPE: str = "manual_workout"
 # of truth instead of duplicating the type check.
 COUNTED_WORKOUT_TYPES: frozenset[str] = VERIFIED_WORKOUT_TYPES | {MANUAL_WORKOUT_TYPE}
 
+# Marks a relaxed day (Tue/Wed/Thu) as dismissed via "Skip — No Penalty" for
+# the rest of the calendar day. Deliberately NOT in COUNTED_WORKOUT_TYPES —
+# it's a UI-dismissal marker, not a workout, same treatment as heat_skip.
+RELAXED_DAY_SKIP_TYPE: str = "relaxed_day_skip"
+
 
 def is_relaxed_day(*, today: datetime | None = None) -> bool:
     """Return True if today is a relaxed day (Tue, Wed, or Thu).
@@ -73,7 +78,7 @@ def count_weekly_workouts(
     the banked bonus.
 
     Args:
-        log_file: Path to ``workout_log.json``.
+        log_file: Path to ``log.json``.
         today: Override for the current local datetime (for testing).
 
     Returns:
@@ -116,7 +121,7 @@ def has_weekly_minimum(
     """Return True if the weekly workout minimum has already been reached.
 
     Args:
-        log_file: Path to ``workout_log.json``.
+        log_file: Path to ``log.json``.
         today: Override for the current local datetime (for testing).
 
     Returns:

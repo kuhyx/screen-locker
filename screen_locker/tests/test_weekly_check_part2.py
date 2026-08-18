@@ -23,12 +23,12 @@ class TestHasWeeklyMinimum:
 
     def test_zero_workouts_is_false(self, tmp_path: Path) -> None:
         """An empty log does not meet the weekly minimum."""
-        log = tmp_path / "workout_log.json"
+        log = tmp_path / "log.json"
         assert has_weekly_minimum(log, today=_dt(4)) is False
 
     def test_three_workouts_is_false(self, tmp_path: Path) -> None:
         """Three workouts is short of the five-workout bar."""
-        log = tmp_path / "workout_log.json"
+        log = tmp_path / "log.json"
         _make_log(
             {
                 "2025-05-19": "phone_verified",
@@ -41,7 +41,7 @@ class TestHasWeeklyMinimum:
 
     def test_four_workouts_is_false(self, tmp_path: Path) -> None:
         """Four workouts is still one short of the bar."""
-        log = tmp_path / "workout_log.json"
+        log = tmp_path / "log.json"
         _make_log(
             {
                 "2025-05-19": "phone_verified",
@@ -55,7 +55,7 @@ class TestHasWeeklyMinimum:
 
     def test_five_workouts_is_true(self, tmp_path: Path) -> None:
         """Five workouts meets the bar exactly."""
-        log = tmp_path / "workout_log.json"
+        log = tmp_path / "log.json"
         _make_log(
             {
                 "2025-05-19": "phone_verified",

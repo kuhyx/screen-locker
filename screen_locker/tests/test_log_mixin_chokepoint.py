@@ -17,7 +17,7 @@ class TestWriteChokepoint:
 
     def test_explicit_workout_id_wins(self, tmp_path: Path) -> None:
         """An explicit workout_id in workout_data is used verbatim."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         result = write_signed_entry(
             log_file,
             "2026-07-13",
@@ -30,7 +30,7 @@ class TestWriteChokepoint:
         self, tmp_path: Path
     ) -> None:
         """A manual entry lacking start_time keys on ``{type}:{date}``."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         write_signed_entry(log_file, "2026-07-13", {"type": "manual_workout"})
         entry = load_workout_log(log_file)["2026-07-13"][0]
         assert entry["workout_id"] == "manual_workout:2026-07-13"
@@ -39,7 +39,7 @@ class TestWriteChokepoint:
         self, tmp_path: Path
     ) -> None:
         """A manual entry reuses the sync record id so local+synced dedup."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         write_signed_entry(
             log_file,
             "2026-07-13",
@@ -50,13 +50,13 @@ class TestWriteChokepoint:
 
     def test_workout_data_without_type_gets_no_id(self, tmp_path: Path) -> None:
         """No type → no derivable id; the entry still appends."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         assert write_signed_entry(log_file, "2026-07-13", {}).appended is True
         assert "workout_id" not in load_workout_log(log_file)["2026-07-13"][0]
 
     def test_duplicate_workout_id_is_not_appended(self, tmp_path: Path) -> None:
         """Re-writing the same workout is a no-op — idempotent by workout_id."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         data = {"type": "runnerup_verified", "source": "run"}
         assert write_signed_entry(log_file, "2026-07-13", data).appended is True
 
@@ -73,7 +73,7 @@ class TestWriteChokepoint:
         a legacy manual workout back, and it appended a SECOND copy because the
         stored id was None. The id is now derived for comparison.
         """
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         legacy = {
             "timestamp": "2026-07-13T07:25:12+00:00",
             "workout_data": {
@@ -102,7 +102,7 @@ class TestWriteChokepoint:
         self, tmp_path: Path
     ) -> None:
         """An existing entry with junk workout_data has no id, so it can't match."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         log_file.write_text(
             json.dumps({"2026-07-13": [{"timestamp": "t", "workout_data": "junk"}]})
         )
@@ -114,7 +114,7 @@ class TestWriteChokepoint:
 
     def test_distinct_workouts_same_day_both_append(self, tmp_path: Path) -> None:
         """Different workout_ids on one day stack (multiple workouts/day)."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         write_signed_entry(log_file, "2026-07-13", {"type": "manual_workout"})
         result = write_signed_entry(
             log_file, "2026-07-13", {"type": "runnerup_verified"}

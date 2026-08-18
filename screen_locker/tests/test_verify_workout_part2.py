@@ -22,7 +22,7 @@ class TestHandleVerifyWorkoutResult:
     ) -> None:
         """On verified: adjust shutdown, save log, show success."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = tmp_path / "workout_log.json"
+        locker.log_file = tmp_path / "log.json"
         object.__setattr__(
             locker,
             "_adjust_shutdown_time_later",
@@ -44,7 +44,7 @@ class TestHandleVerifyWorkoutResult:
     ) -> None:
         """On verified but adjustment fails: still saves and shows success."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = tmp_path / "workout_log.json"
+        locker.log_file = tmp_path / "log.json"
         object.__setattr__(
             locker,
             "_adjust_shutdown_time_later",

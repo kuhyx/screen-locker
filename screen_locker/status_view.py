@@ -8,7 +8,7 @@ in its own background thread, bounded to ``_temperature.HARD_TIMEOUT_SECONDS``
 — the same call the real locker's heat-skip check makes, so the window shows
 what the lock actually sees. That fetch is display-only and never writes.
 
-Two user-initiated buttons *do* write to ``workout_log.json`` (never a silent
+Two user-initiated buttons *do* write to ``log.json`` (never a silent
 log):
 
 * "Check Phone" runs ``PhoneVerificationMixin._verify_phone_workout`` and, when
@@ -54,7 +54,7 @@ if TYPE_CHECKING:
     from screen_locker._temperature import TemperatureCheck
     from screen_locker.screen_lock import ScreenLocker
 
-_DEFAULT_LOG_FILE = Path(__file__).resolve().parent / "workout_log.json"
+_DEFAULT_LOG_FILE = Path(__file__).resolve().parent / "log.json"
 _STATUS_COLORS = LockConfig()
 
 
@@ -177,7 +177,7 @@ class StatusWindow(
         """Persist the manual-workout entry via a bare verifier, then refresh.
 
         Unlike the phone check, this one deliberate path does write to
-        ``workout_log.json`` — the user just explicitly filled out and
+        ``log.json`` — the user just explicitly filled out and
         submitted the evidence form, so this is not a silent log. Uses the
         same ``_apply_workout_credit`` the locked screen's ``unlock_screen``
         uses, so this voluntary path earns the identical shutdown-later

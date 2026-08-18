@@ -5,6 +5,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor  # pylint: disable=no-name-in-module
 
 from screen_locker._weekly_check import (
+    RELAXED_DAY_SKIP_TYPE,
     WEEKLY_WORKOUT_MINIMUM,
     count_weekly_workouts,
 )
@@ -130,7 +131,7 @@ class UIFlowsRelaxedMixin:
             frame,
             "Skip — No Penalty",
             bg=self._colors.success,
-            command=self.close,
+            command=self._skip_relaxed_day,
             width=18,
         ).pack(side="left", padx=self._colors.space("sm"))
         self._button(
@@ -140,6 +141,18 @@ class UIFlowsRelaxedMixin:
             command=self._start_relaxed_phone_check,
             width=20,
         ).pack(side="left", padx=self._colors.space("sm"))
+
+    def _skip_relaxed_day(self) -> None:
+        """Dismiss today's relaxed-day prompt for the rest of the calendar day.
+
+        Without a persisted marker here, the recurring 30-minute
+        ``workout-locker.timer`` re-derives ``relaxed_day`` from scratch every
+        tick and rebuilds this same prompt, since the underlying date check
+        has no memory of its own of an earlier same-day dismissal.
+        """
+        self.workout_data = {"type": RELAXED_DAY_SKIP_TYPE}
+        self.save_workout_log()
+        self.close()
 
     def _start_relaxed_phone_check(self) -> None:
         """Run Stronglift check in relaxed mode (no screen grab, no sick option)."""

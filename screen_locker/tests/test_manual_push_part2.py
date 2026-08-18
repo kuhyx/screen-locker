@@ -42,7 +42,7 @@ class TestPushPcWorkouts:
 
     def test_no_token_reports_why(self, tmp_path: Path) -> None:
         """No token reports why."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _write_log(
             log_file, {"2026-07-13": [_entry(_RUN, "2026-07-13T10:00:00+00:00")]}
         )
@@ -53,7 +53,7 @@ class TestPushPcWorkouts:
 
     def test_empty_log_reports_why(self, tmp_path: Path) -> None:
         """Empty log reports why."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _write_log(log_file, {})
         with patch.object(_manual_push, "read_sync_token", return_value="t"):
             result = push_pc_workouts(log_file)
@@ -63,7 +63,7 @@ class TestPushPcWorkouts:
 
     def test_sync_error_reports_why(self, tmp_path: Path) -> None:
         """Sync error reports why."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _write_log(
             log_file, {"2026-07-13": [_entry(_RUN, "2026-07-13T10:00:00+00:00")]}
         )
@@ -89,7 +89,7 @@ class TestPushPcWorkouts:
         log asserted "a 403 here means the token lacks contents:write", which
         sent an investigation chasing a permissions bug that did not exist.
         """
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _write_log(
             log_file, {"2026-07-13": [_entry(_RUN, "2026-07-13T10:00:00+00:00")]}
         )
@@ -112,7 +112,7 @@ class TestPushPcWorkouts:
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
         """The permission hint survives for the error that actually implies it."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _write_log(
             log_file, {"2026-07-13": [_entry(_RUN, "2026-07-13T10:00:00+00:00")]}
         )
@@ -132,7 +132,7 @@ class TestPushPcWorkouts:
 
     def test_successful_push_reports_count(self, tmp_path: Path) -> None:
         """Successful push reports count."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _write_log(
             log_file,
             {
@@ -154,7 +154,7 @@ class TestPushPcWorkouts:
 
     def test_pushes_runs_not_just_manuals(self, tmp_path: Path) -> None:
         """Regression: the phone must converge on the PC's runs too."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _write_log(
             log_file, {"2026-07-12": [_entry(_RUN, "2026-07-12T10:00:00+00:00")]}
         )

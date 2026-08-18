@@ -187,7 +187,7 @@ void main() {
   testWidgets('shows the PC-synced workouts the phone has no session for', (
     tester,
   ) async {
-    // The PC publishes its whole workout_log.json; without this the two
+    // The PC publishes its whole log.json; without this the two
     // devices show different histories (a RunnerUp run exists only on the PC).
     installFakeSecureStorage(initial: {'sync.token': 'tok'});
     await seedSession(

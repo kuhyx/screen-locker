@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import sys
 
+from screen_locker._compliance_predicates import is_relaxed_day_skipped_today
 from screen_locker._constants import (
     EXTRA_BENEFITS_FILE,
     HEAT_SKIP_CITY,
@@ -104,6 +105,16 @@ class StartupChecksMixin(SyncMixin):
             return
         # Day-of-week routing: Tue/Wed/Thu relaxed (optional), Fri-Mon enforced.
         if is_relaxed_day():
+            # The recurring 30-minute workout-locker.timer re-derives
+            # relaxed_day from scratch every tick, so without this check a
+            # dismissal via "Skip — No Penalty" would be forgotten by the very
+            # next run and the prompt would reappear.
+            if is_relaxed_day_skipped_today(self.log_file):
+                self._record_skip(
+                    "relaxed_day_already_skipped",
+                    "Relaxed day already dismissed via Skip — No Penalty today.",
+                )
+                return
             self._record_decision(
                 locked=False,
                 reason="relaxed_day",

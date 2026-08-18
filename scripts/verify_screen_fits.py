@@ -96,9 +96,7 @@ class ScreenHost(
         self.demo_mode = False
         self.verify_only = False
         self.log_file = (
-            Path(__file__).resolve().parent.parent
-            / "screen_locker"
-            / "workout_log.json"
+            Path(__file__).resolve().parent.parent / "screen_locker" / "log.json"
         )
         self._colors = LockConfig()
         self.container = FrameGroup([surface.content])

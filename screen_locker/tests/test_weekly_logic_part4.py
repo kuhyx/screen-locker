@@ -46,13 +46,13 @@ class TestStartRelaxedDayFlow:
         assert "2" in all_text
         assert "5" in all_text
 
-    def test_skip_button_wires_close(
+    def test_skip_button_wires_skip_relaxed_day(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Skip button wires close."""
+        """Skip button wires _skip_relaxed_day (persists the dismissal, then closes)."""
         locker = self._make_locker(mock_tk, tmp_path)
         with (
             patch(
@@ -72,7 +72,30 @@ class TestStartRelaxedDayFlow:
             for c in mock_button.call_args_list
             if "Skip" in str(c.args)
         ]
-        assert any(cmd == locker.close for cmd in skip_cmds)
+        assert any(cmd == locker._skip_relaxed_day for cmd in skip_cmds)
+
+    def test_skip_relaxed_day_persists_then_closes(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """_skip_relaxed_day writes a relaxed_day_skip entry, then closes.
+
+        Without this persisted entry the recurring 30-minute
+        workout-locker.timer re-derives relaxed_day from scratch on the next
+        tick and rebuilds the same prompt the user just dismissed.
+        """
+        locker = self._make_locker(mock_tk, tmp_path)
+        with patch.object(locker, "close") as mock_close:
+            locker._skip_relaxed_day()
+
+        assert locker.workout_data["type"] == "relaxed_day_skip"
+        mock_close.assert_called_once()
+
+        from screen_locker._compliance_predicates import is_relaxed_day_skipped_today
+
+        assert is_relaxed_day_skipped_today(locker.log_file) is True
 
     def test_log_button_wires_relaxed_phone_check(
         self,

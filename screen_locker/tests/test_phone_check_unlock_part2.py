@@ -113,7 +113,7 @@ class TestUnlockScreenShutdownAdjustment:
     ) -> None:
         """Test unlock_screen adjusts shutdown for phone-verified workout."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = tmp_path / "workout_log.json"
+        locker.log_file = tmp_path / "log.json"
         locker.workout_data = {"type": "phone_verified"}
         object.__setattr__(
             locker, "_adjust_shutdown_time_later", MagicMock(return_value=True)
@@ -131,7 +131,7 @@ class TestUnlockScreenShutdownAdjustment:
     ) -> None:
         """Test unlock_screen does not adjust for sick day."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = tmp_path / "workout_log.json"
+        locker.log_file = tmp_path / "log.json"
         locker.workout_data = {"type": "sick_day"}
         object.__setattr__(
             locker, "_adjust_shutdown_time_later", MagicMock(return_value=True)
@@ -149,7 +149,7 @@ class TestUnlockScreenShutdownAdjustment:
     ) -> None:
         """Test unlock_screen does not adjust when no workout type."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = tmp_path / "workout_log.json"
+        locker.log_file = tmp_path / "log.json"
         locker.workout_data = {}
         object.__setattr__(
             locker, "_adjust_shutdown_time_later", MagicMock(return_value=True)
@@ -167,7 +167,7 @@ class TestUnlockScreenShutdownAdjustment:
     ) -> None:
         """Test unlock_screen continues when adjustment fails."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = tmp_path / "workout_log.json"
+        locker.log_file = tmp_path / "log.json"
         locker.workout_data = {"type": "phone_verified"}
         object.__setattr__(
             locker, "_adjust_shutdown_time_later", MagicMock(return_value=False)

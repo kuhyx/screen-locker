@@ -130,7 +130,7 @@
 </p>
 
 <p>
-  It decides using <code>screen_locker/workout_log.json</code> — a gitignored,
+  It decides using <code>screen_locker/log.json</code> — a gitignored,
   HMAC-signed file. Each entry is signed with a key shared across screen-locker,
   diet_guard and wake_alarm, so the log can't be quietly hand-edited to fake a
   workout. Two things read it constantly: <code>has_weekly_minimum()</code>
@@ -158,7 +158,7 @@
 <h3>The shape that caused everything</h3>
 
 <p>
-  <code>workout_log.json</code> was <strong>keyed by date, one entry per day</strong>.
+  <code>log.json</code> was <strong>keyed by date, one entry per day</strong>.
   The writer said so in as many words, and did exactly that:
 </p>
 
@@ -301,7 +301,7 @@ logs[date] = entry          <span class="del"># a second workout that day OVERWR
 
 <p>
   The fix for (2) also fixes a category error: <em>derive the push from
-  <code>workout_log.json</code> itself</em>. The log is the truth; the sync is a
+  <code>log.json</code> itself</em>. The log is the truth; the sync is a
   projection of it. Then history publishes automatically, forever, with no
   second place to fall out of date.
 </p>

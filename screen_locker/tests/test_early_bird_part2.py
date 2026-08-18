@@ -27,7 +27,7 @@ class TestTryAutoUpgradeEarlyBird:
         tmp_path: Path,
     ) -> None:
         """Returns True, saves phone_verified entry, adjusts shutdown."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         object.__setattr__(

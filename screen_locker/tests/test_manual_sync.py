@@ -1,4 +1,4 @@
-"""Tests for ingesting synced manual workouts into workout_log.json."""
+"""Tests for ingesting synced manual workouts into log.json."""
 # pylint: disable=protected-access
 
 from __future__ import annotations
@@ -103,7 +103,7 @@ class TestIngestManualRecords:
 
     def test_ingests_a_valid_record(self, tmp_path: Path) -> None:
         """Ingests a valid record."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         record = _manual_record(_TT_DRAFT)
         ingested = ingest_manual_records(log_file, [record], today=_DATE)
         assert ingested == [record[0]]
@@ -116,7 +116,7 @@ class TestIngestManualRecords:
 
     def test_is_idempotent(self, tmp_path: Path) -> None:
         """Is idempotent."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         record = _manual_record(_TT_DRAFT)
         ingest_manual_records(log_file, [record], today=_DATE)
         again = ingest_manual_records(log_file, [record], today=_DATE)
@@ -124,7 +124,7 @@ class TestIngestManualRecords:
 
     def test_skips_a_non_manual_payload(self, tmp_path: Path) -> None:
         """Skips a non manual payload."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         assert (
             ingest_manual_records(log_file, [("s", {"succeeded": True})], today=_DATE)
             == []
@@ -132,7 +132,7 @@ class TestIngestManualRecords:
 
     def test_skips_a_record_without_a_date(self, tmp_path: Path) -> None:
         """Skips a record without a date."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _, payload = _manual_record(_TT_DRAFT)
         del payload["date"]
         assert ingest_manual_records(log_file, [("m", payload)], today=_DATE) == []
@@ -141,7 +141,7 @@ class TestIngestManualRecords:
         """A day may hold several workouts: a synced manual is appended next to
         an existing verified entry rather than being skipped (the old
         one-per-day skip is gone)."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         log_file.write_text(
             json.dumps(
                 {_DATE: {"workout_data": {"type": "phone_verified"}}},
@@ -157,21 +157,21 @@ class TestIngestManualRecords:
 
     def test_skips_a_malformed_payload(self, tmp_path: Path) -> None:
         """Skips a malformed payload."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _, payload = _manual_record(_TT_DRAFT)
         payload["rpe"] = None  # reconstruct_draft -> None
         assert ingest_manual_records(log_file, [("m", payload)], today=_DATE) == []
 
     def test_skips_an_invalid_draft(self, tmp_path: Path) -> None:
         """Skips an invalid draft."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _, payload = _manual_record(_TT_DRAFT)
         payload["location_name"] = "   "  # fails validate_manual_workout
         assert ingest_manual_records(log_file, [("m", payload)], today=_DATE) == []
 
     def test_skips_when_budget_exhausted(self, tmp_path: Path) -> None:
         """Skips when budget exhausted."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         record = _manual_record(_TT_DRAFT)
         with patch.object(_manual_sync, "is_budget_exhausted", return_value=True):
             assert ingest_manual_records(log_file, [record], today=_DATE) == []
@@ -180,7 +180,7 @@ class TestIngestManualRecords:
         self, tmp_path: Path
     ) -> None:
         """Writes unsigned entry when HMAC key unavailable."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         record = _manual_record(_TT_DRAFT)
         with patch("screen_locker._log_mixin.compute_entry_hmac", return_value=None):
             ingest_manual_records(log_file, [record], today=_DATE)

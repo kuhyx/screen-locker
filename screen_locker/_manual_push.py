@@ -1,6 +1,6 @@
 """Push the PC's workouts to the shared sync repo.
 
-``workout_log.json`` is the single source of truth: this module derives the
+``log.json`` is the single source of truth: this module derives the
 crdt-sync log directly from it and pushes to ``devices/pc/log.json``, so the
 phone converges on the SAME history the PC has — manual workouts *and*
 machine-verified ones (StrongLifts sessions, RunnerUp runs).
@@ -118,7 +118,7 @@ def _entry_wall_ms(entry: dict, date: str) -> int:
 
 
 def records_from_workout_log(log_file: Path) -> dict[str, Record]:
-    """Derive the crdt-sync log from ``workout_log.json``.
+    """Derive the crdt-sync log from ``log.json``.
 
     Every counted workout becomes one record keyed by its ``workout_id`` — the
     same id the phone mints for its own records, so the two sides dedup to one

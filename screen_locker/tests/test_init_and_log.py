@@ -78,7 +78,7 @@ class TestHasLoggedToday:
         tmp_path: Path,
     ) -> None:
         """Test when log file doesn't exist."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         locker = create_locker(mock_tk, tmp_path)
 
         locker.log_file = log_file
@@ -91,7 +91,7 @@ class TestHasLoggedToday:
         tmp_path: Path,
     ) -> None:
         """Test when log file is empty/invalid JSON."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         log_file.write_text("")
 
         locker = create_locker(mock_tk, tmp_path)
@@ -105,7 +105,7 @@ class TestHasLoggedToday:
         tmp_path: Path,
     ) -> None:
         """Test when log file contains invalid JSON."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         log_file.write_text("{invalid json}")
 
         locker = create_locker(mock_tk, tmp_path)
@@ -119,7 +119,7 @@ class TestHasLoggedToday:
         tmp_path: Path,
     ) -> None:
         """Test when today's workout is logged with valid HMAC."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
         log_file.write_text(
             json.dumps({today: {"workout": "data", "hmac": "valid"}}),
@@ -140,7 +140,7 @@ class TestHasLoggedToday:
         tmp_path: Path,
     ) -> None:
         """Test rejects entry when HMAC verification fails."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
         log_file.write_text(
             json.dumps({today: {"workout": "data", "hmac": "tampered"}}),
@@ -161,7 +161,7 @@ class TestHasLoggedToday:
         tmp_path: Path,
     ) -> None:
         """Accept unsigned entry when HMAC key is unavailable."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
         log_file.write_text(
             json.dumps({today: {"workout": "data"}}),
@@ -188,7 +188,7 @@ class TestHasLoggedToday:
         tmp_path: Path,
     ) -> None:
         """Reject unsigned entry when HMAC key IS available."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
         log_file.write_text(
             json.dumps({today: {"workout": "data"}}),
@@ -215,7 +215,7 @@ class TestHasLoggedToday:
         tmp_path: Path,
     ) -> None:
         """Test when only other days are logged."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         log_file.write_text(json.dumps({"2020-01-01": {"workout": "data"}}))
 
         locker = create_locker(mock_tk, tmp_path)

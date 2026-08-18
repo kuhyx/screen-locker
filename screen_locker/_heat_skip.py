@@ -153,7 +153,7 @@ class HeatSkipMixin:
         return result[0]
 
     def _save_heat_skip_log(self, temp: float) -> None:
-        """Append a heat_skip entry to workout_log.json."""
+        """Append a heat_skip entry to log.json."""
         self.workout_data = {
             "type": "heat_skip",
             "temperature_celsius": str(round(temp)),

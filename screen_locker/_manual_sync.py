@@ -1,10 +1,10 @@
-"""Ingest phone-/PC-synced manual workouts into ``workout_log.json``.
+"""Ingest phone-/PC-synced manual workouts into ``log.json``.
 
 A manual workout logged on another device (phone form, or the PC form pushed
 from elsewhere) arrives via crdt-sync as a ``kind="manual_workout"`` payload
 (see :func:`screen_locker._manual_workout.build_sync_payload`). This module
 turns those synced payloads into ordinary signed ``manual_workout`` entries in
-``workout_log.json`` so they count toward the weekly minimum and — via the
+``log.json`` so they count toward the weekly minimum and — via the
 optional ``on_ingested`` callback — earn the same shutdown/debt reward a
 live-logged workout would.
 
@@ -188,7 +188,7 @@ def ingest_manual_records(
     today: str | None = None,
     on_ingested: OnIngestedCallback | None = None,
 ) -> list[str]:
-    """Ingest synced manual workouts into ``workout_log.json``.
+    """Ingest synced manual workouts into ``log.json``.
 
     For each ``(record_id, payload)`` tagged ``kind="manual_workout"``:
     reconstruct + re-validate the draft on the PC, enforce the rate budget, then

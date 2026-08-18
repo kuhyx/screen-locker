@@ -18,7 +18,7 @@ _MONDAY_NOON_UTC = datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
 
 def _files(tmp_path: Path) -> dict[str, Path]:
     return {
-        "log_file": tmp_path / "workout_log.json",
+        "log_file": tmp_path / "log.json",
         "extra_benefits_file": tmp_path / "extra_benefits_state.json",
         "shutdown_base_file": tmp_path / "shutdown_base.json",
         "shutdown_config_file": tmp_path / "shutdown_config.conf",

@@ -19,7 +19,7 @@ class TestIsSickDayToday:
     """Tests for _is_sick_day_today method.
 
     sick_day is tracked in sick_history.json (via _sick_tracker.py) as the
-    sole source of truth -- not in workout_log.json. The autouse
+    sole source of truth -- not in log.json. The autouse
     _isolate_sick_history fixture redirects SICK_HISTORY_FILE to
     tmp_path/sick_history.json for every test.
     """

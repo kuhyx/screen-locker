@@ -23,7 +23,7 @@ class TestSaveWorkoutLog:
         tmp_path: Path,
     ) -> None:
         """Test saving to a new log file includes HMAC."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         locker.workout_data = {"type": "running"}
@@ -49,7 +49,7 @@ class TestSaveWorkoutLog:
         tmp_path: Path,
     ) -> None:
         """Test saving without HMAC key produces unsigned entry."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         locker.workout_data = {"type": "running"}
@@ -71,7 +71,7 @@ class TestSaveWorkoutLog:
         tmp_path: Path,
     ) -> None:
         """Test saving appends to existing log file."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         log_file.write_text(json.dumps({"2020-01-01": {"old": "data"}}))
 
         locker = create_locker(mock_tk, tmp_path)
@@ -96,7 +96,7 @@ class TestSaveWorkoutLog:
         tmp_path: Path,
     ) -> None:
         """Test saving when existing file is corrupted."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         log_file.write_text("not valid json")
 
         locker = create_locker(mock_tk, tmp_path)
@@ -120,7 +120,7 @@ class TestSaveWorkoutLog:
         tmp_path: Path,
     ) -> None:
         """Test saving handles write errors gracefully."""
-        log_file = tmp_path / "nonexistent_dir" / "workout_log.json"
+        log_file = tmp_path / "nonexistent_dir" / "log.json"
 
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file

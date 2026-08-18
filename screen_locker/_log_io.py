@@ -1,4 +1,4 @@
-"""Single normalization point for reading ``workout_log.json``.
+"""Single normalization point for reading ``log.json``.
 
 The log is day-keyed and now holds MULTIPLE workouts per day. This module is
 the one place that reads the raw file and normalizes both shapes into a
@@ -27,7 +27,7 @@ _logger = logging.getLogger(__name__)
 
 
 def read_raw_log(log_file: Path) -> dict:
-    """Load ``workout_log.json`` verbatim (values may be dict or list), or ``{}``.
+    """Load ``log.json`` verbatim (values may be dict or list), or ``{}``.
 
     Returns the on-disk shape unchanged. Prefer :func:`load_workout_log` for
     reading; this raw form exists for the writer, which rewrites the file, and
@@ -58,7 +58,7 @@ def read_raw_log(log_file: Path) -> dict:
 
 
 def load_workout_log(log_file: Path) -> dict[str, list[dict]]:
-    """Load ``workout_log.json`` normalized to ``{date: [entry, ...]}``.
+    """Load ``log.json`` normalized to ``{date: [entry, ...]}``.
 
     Accepts BOTH the legacy day-keyed shape (``{date: entry}``) and the new
     multi-entry shape so old files, rolled-back writers, and mid-migration

@@ -199,7 +199,7 @@ class WorkoutSyncService {
       _readMergedPayloads(kind: kManualWorkoutSyncKind);
   /// Every synced workout, whatever kind — manual, StrongLifts or RunnerUp.
   ///
-  /// The PC publishes its whole `workout_log.json` (including verified runs),
+  /// The PC publishes its whole `log.json` (including verified runs),
   /// so this is what the history view needs to show the SAME workouts both
   /// devices know about. Deliberately unfiltered: the manual-workout budget
   /// uses [readMergedManualPayloads] instead.

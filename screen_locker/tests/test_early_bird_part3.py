@@ -19,7 +19,7 @@ class TestIsEarlyBirdPending:
     """Tests for _is_early_bird_pending method.
 
     early_bird is a same-day pending marker stored in its own HMAC-signed
-    file (EARLY_BIRD_PENDING_FILE), not in workout_log.json — see
+    file (EARLY_BIRD_PENDING_FILE), not in log.json — see
     _early_bird.py's module docstring for why.
     """
 
@@ -151,7 +151,7 @@ class TestSaveEarlyBirdPending:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Saves a date-stamped marker to the pending file, not workout_log.json."""
+        """Saves a date-stamped marker to the pending file, not log.json."""
         locker = create_locker(mock_tk, tmp_path)
         pending_file = tmp_path / "early_bird_pending.json"
         with (

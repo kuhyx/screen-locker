@@ -44,7 +44,7 @@ class TestAutoUpgradeSickDay:
         tmp_path: Path,
     ) -> None:
         """Verified phone workout overwrites today's sick_day entry."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         with (

@@ -1,12 +1,12 @@
 """Manual (unverified) workout rate-limiting, validation, and entry-building.
 
 Pure logic — no Tk imports. Unlike sick days, manual-workout entries live
-directly in ``workout_log.json`` (not a separate history file): a manual
+directly in ``log.json`` (not a separate history file): a manual
 entry is just another ``workout_data`` dict with ``type="manual_workout"``,
 so ``LogMixin.save_workout_log`` already HMAC-signs it for free and the
 weekly-minimum/bonus logic already counts it once wired into
 ``COUNTED_WORKOUT_TYPES``. This module only adds the rate-budget check (by
-scanning ``workout_log.json`` itself) and the evidence-form validation.
+scanning ``log.json`` itself) and the evidence-form validation.
 
 Each sport has its own structured fields (e.g. table tennis tracks
 matches/sets won-lost and racket/balls, rather than one free-text blob) —
@@ -238,8 +238,8 @@ def build_sync_payload(draft: ManualWorkoutDraft, date: str) -> dict[str, object
     """Build the cross-device sync payload for a manual workout.
 
     This is the wire contract shared with the phone app: the same fields as
-    :func:`build_entry` (what lands in ``workout_log.json``), plus a ``kind``
-    discriminator and the workout's own ``date``. ``workout_log.json`` is
+    :func:`build_entry` (what lands in ``log.json``), plus a ``kind``
+    discriminator and the workout's own ``date``. ``log.json`` is
     day-keyed on the PC, but the synced payload must carry its date so the
     shared budget can be windowed and the entry filed in the right ISO week on
     ingest.

@@ -59,7 +59,7 @@ def describe_auto_upgrade_opportunity(
 
     Read-only stand-in for ``AutoUpgradeMixin._check_today_state_exits``'s
     branching — never calls phone/RunnerUp verification and never writes to
-    ``workout_log.json``.
+    ``log.json``.
     """
     if early_bird_pending and not early_bird_window_open:
         return AutoUpgradeOpportunity(

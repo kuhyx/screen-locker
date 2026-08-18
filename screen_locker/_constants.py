@@ -110,7 +110,7 @@ EXTRA_BENEFITS_FILE = Path(__file__).resolve().parent / "extra_benefits_state.js
 # State file storing the base (pre-bonus) shutdown hours and last reset date.
 SHUTDOWN_BASE_FILE = Path(__file__).resolve().parent / "shutdown_base.json"
 # Self-expiring marker: "logged in during today's early-bird window, still
-# waiting to see if a real workout shows up." Not a workout_log.json entry —
+# waiting to see if a real workout shows up." Not a log.json entry —
 # it's a same-day pending flag, checked against its own "date" field.
 EARLY_BIRD_PENDING_FILE = Path(__file__).resolve().parent / "early_bird_pending.json"
 

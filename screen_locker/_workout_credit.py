@@ -133,7 +133,7 @@ class WorkoutCreditMixin:
         credit).
         """
         # sick_day is already persisted to sick_history.json by
-        # _finalize_sick_day — workout_log.json is reserved for real outcomes.
+        # _finalize_sick_day — log.json is reserved for real outcomes.
         if self.workout_data.get("type") == "sick_day":
             return WorkoutCreditResult(
                 shutdown_adjusted=False,

@@ -76,7 +76,7 @@ from screen_locker._weekly_check import (
 if TYPE_CHECKING:
     from screen_locker._sick_tracker import SickHistory
 
-_DEFAULT_LOG_FILE = Path(__file__).resolve().parent / "workout_log.json"
+_DEFAULT_LOG_FILE = Path(__file__).resolve().parent / "log.json"
 
 
 def _day_status(day_date: date, entries: list[dict], sick_days: set[str]) -> DayStatus:

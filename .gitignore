@@ -16,7 +16,7 @@ htmlcov/
 .DS_Store
 
 # Runtime state files — personal workout/health data, never public.
-screen_locker/workout_log.json
+screen_locker/log.json
 # ...including the timestamped backups a correction script leaves behind.
 screen_locker/*.json.bak-*
 screen_locker/sick_history.json

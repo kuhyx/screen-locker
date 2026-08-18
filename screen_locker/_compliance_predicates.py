@@ -28,6 +28,7 @@ from screen_locker._constants import (
 )
 from screen_locker._log_io import load_workout_log
 from screen_locker._sick_tracker import is_sick_day as _is_sick_day
+from screen_locker._weekly_check import RELAXED_DAY_SKIP_TYPE
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -67,8 +68,16 @@ def has_logged_today(log_file: Path, *, today: str | None = None) -> bool:
 
     The day may hold multiple workouts; return True if ANY of today's entries
     verifies (or is acceptably unsigned when no HMAC key is configured).
+    A ``relaxed_day_skip`` entry does NOT count — it is a UI-dismissal marker,
+    not a workout, and must not be mistaken for one by ``workout_logged_today``
+    (which would otherwise mask the more accurate
+    ``relaxed_day_already_skipped`` reason in the decision trail).
     """
-    entries = load_workout_log(log_file).get(today or _today_str(), [])
+    entries = [
+        entry
+        for entry in load_workout_log(log_file).get(today or _today_str(), [])
+        if entry.get("workout_data", {}).get("type") != RELAXED_DAY_SKIP_TYPE
+    ]
     if not entries:
         return False
     key_unavailable = compute_entry_hmac({"_probe": True}) is None
@@ -80,6 +89,22 @@ def has_logged_today(log_file: Path, *, today: str | None = None) -> bool:
             return True
     _logger.warning("HMAC verification failed for today's log entries")
     return False
+
+
+def is_relaxed_day_skipped_today(log_file: Path, *, today: str | None = None) -> bool:
+    """Return True if today's relaxed-day prompt was already dismissed.
+
+    Written by ``UIFlowsRelaxedMixin._skip_relaxed_day`` when the user clicks
+    "Skip — No Penalty". Without this, the recurring 30-minute
+    ``workout-locker.timer`` re-derives ``relaxed_day`` from scratch every
+    tick and re-shows the popup, since ``is_relaxed_day`` is a pure date
+    check with no memory of a same-day dismissal on its own.
+    """
+    entries = load_workout_log(log_file).get(today or _today_str(), [])
+    return any(
+        entry.get("workout_data", {}).get("type") == RELAXED_DAY_SKIP_TYPE
+        for entry in entries
+    )
 
 
 def is_early_bird_pending(pending_file: Path, *, today: str | None = None) -> bool:

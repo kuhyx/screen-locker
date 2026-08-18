@@ -1,4 +1,4 @@
-"""Mixin: workout log persistence (read/write workout_log.json)."""
+"""Mixin: workout log persistence (read/write log.json)."""
 
 from __future__ import annotations
 
@@ -127,7 +127,7 @@ def write_signed_entry(
 
 
 class LogMixin:
-    """Handles reading and writing workout_log.json for the ScreenLocker.
+    """Handles reading and writing log.json for the ScreenLocker.
 
     ``log_file``/``workout_data`` are declared here (not assigned) so mypy
     knows their types on any composing class without needing

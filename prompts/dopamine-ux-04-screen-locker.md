@@ -165,7 +165,7 @@ Paste both outputs. The CLI already prints `streak`/`bonus_hours` (`_status.py`
 If they disagree, the renderer is wrong, not the data.
 
 Current real state for comparison: `screen_locker/extra_benefits_state.json` and
-`screen_locker/workout_log.json` (12 days of entries, 2026-07-12 → 2026-08-15).
+`screen_locker/log.json` (12 days of entries, 2026-07-12 → 2026-08-15).
 
 ## read first
 
@@ -180,7 +180,7 @@ Current real state for comparison: `screen_locker/extra_benefits_state.json` and
 
 ## context you would otherwise rediscover
 
-- **`workout_log.json` is the single source of truth**, written only through
+- **`log.json` is the single source of truth**, written only through
   `_log_mixin.py` `write_signed_entry()` (~:82), HMAC-signed via
   `gatelock.log_integrity`, deduped on `workout_id`. The Flutter app converges on
   it via `_manual_push.py`. There is no second history — a streak computed from

@@ -115,7 +115,7 @@ class ScreenLocker(
         """Initialize screen locker with optional demo mode."""
         _assert_not_under_pytest()
         script_dir = Path(__file__).resolve().parent
-        self.log_file = script_dir / "workout_log.json"
+        self.log_file = script_dir / "log.json"
         self.verify_only = verify_only
         self.workout_data: dict[str, str] = {}
         self._relaxed_day_mode: bool = False

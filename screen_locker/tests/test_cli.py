@@ -61,7 +61,7 @@ class TestHeadlessLocker:
         assert not hasattr(locker, "demo_mode")
         assert not _FakeLocker.instances
         assert not locker.workout_data
-        assert locker.log_file.name == "workout_log.json"
+        assert locker.log_file.name == "log.json"
 
     def test_log_file_sits_beside_the_package(self) -> None:
         """The workout log is resolved relative to the package directory."""

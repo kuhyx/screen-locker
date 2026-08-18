@@ -23,7 +23,7 @@ class TestExplainLockDecision:
 
     def _files(self, tmp_path: Path) -> dict[str, Path]:
         return {
-            "log_file": tmp_path / "workout_log.json",
+            "log_file": tmp_path / "log.json",
             "scheduled_skips_file": tmp_path / "scheduled_skips.json",
             "early_bird_pending_file": tmp_path / "early_bird_pending.json",
         }
@@ -182,6 +182,30 @@ class TestExplainLockDecision:
         )
         assert result.fired is False
         assert result.stage == "relaxed_day"
+
+    def test_relaxed_day_already_skipped_short_circuits_before_relaxed_day(
+        self, tmp_path: Path
+    ) -> None:
+        """A same-day relaxed_day_skip entry reports its own accurate stage.
+
+        Without this, the trace would report the generic "relaxed_day" stage
+        even after the user already dismissed today's prompt, which is
+        misleading — the popup is not about to be shown again.
+        """
+        from screen_locker._log_mixin import write_signed_entry
+
+        files = self._files(tmp_path)
+        write_signed_entry(files["log_file"], _today(), {"type": "relaxed_day_skip"})
+        result = explain_lock_decision(
+            **files,
+            sick_history=SickHistory(),
+            extended_early_bird=False,
+            weekly_minimum_met=False,
+            relaxed_day=True,
+            now=datetime.now(tz=timezone.utc).astimezone().replace(hour=12, minute=0),
+        )
+        assert result.fired is False
+        assert result.stage == "relaxed_day_already_skipped"
 
     def test_weekly_minimum_met_skips(self, tmp_path: Path) -> None:
         files = self._files(tmp_path)

@@ -1,4 +1,4 @@
-"""Tests for ingesting synced manual workouts into workout_log.json."""
+"""Tests for ingesting synced manual workouts into log.json."""
 # pylint: disable=protected-access
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ class TestIngestManualRecordsCallback:
         self, tmp_path: Path
     ) -> None:
         """On ingested called with entry and prior entries."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         log_file.write_text(
             json.dumps({_DATE: [{"workout_data": {"type": "phone_verified"}}]})
         )
@@ -88,7 +88,7 @@ class TestIngestManualRecordsCallback:
 
     def test_on_ingested_not_called_when_budget_exhausted(self, tmp_path: Path) -> None:
         """On ingested not called when budget exhausted."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         record = _manual_record(_TT_DRAFT)
         calls: list[tuple[dict, list[dict]]] = []
         with patch.object(_manual_sync, "is_budget_exhausted", return_value=True):
@@ -107,7 +107,7 @@ class TestIngestManualRecordsCallback:
         (``appended=False``), the record must not be reported as ingested or
         handed to ``on_ingested`` — crediting a write that never happened
         would be a real correctness bug, not just a missed optimization."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         record = _manual_record(_TT_DRAFT)
         calls: list[tuple[dict, list[dict]]] = []
         with patch(
@@ -149,7 +149,7 @@ class TestEmptyStubRecords:
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
         """The stub is reported at info, so it stops polluting the warnings."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         log_file.write_text(json.dumps({}))
         with caplog.at_level("INFO"):
             ingested = ingest_manual_records(

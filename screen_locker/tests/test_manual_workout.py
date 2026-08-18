@@ -30,7 +30,7 @@ _TODAY = "2026-07-05"
 
 
 def _write_logs(log_file: Path, entries: dict[str, str]) -> None:
-    """Write a workout_log.json with one entry per {date: type} pair."""
+    """Write a log.json with one entry per {date: type} pair."""
     logs = {
         date: {"timestamp": f"{date}T12:00:00+00:00", "workout_data": {"type": wtype}}
         for date, wtype in entries.items()
@@ -43,7 +43,7 @@ class TestCountInWindow:
 
     def test_counts_only_manual_workout_type(self, tmp_path: Path) -> None:
         """Counts only manual workout type."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _write_logs(
             log_file,
             {
@@ -56,7 +56,7 @@ class TestCountInWindow:
 
     def test_respects_window_cutoff(self, tmp_path: Path) -> None:
         """Respects window cutoff."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _write_logs(
             log_file,
             {
@@ -75,13 +75,13 @@ class TestCountInWindow:
 
     def test_corrupt_json_returns_zero(self, tmp_path: Path) -> None:
         """Corrupt JSON returns zero."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         log_file.write_text("not json")
         assert count_in_window(log_file, 7, today=_TODAY) == 0
 
     def test_skips_invalid_date_keys(self, tmp_path: Path) -> None:
         """Skips invalid date keys."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         log_file.write_text(
             json.dumps(
                 {
@@ -94,20 +94,20 @@ class TestCountInWindow:
 
     def test_returns_zero_when_today_invalid(self, tmp_path: Path) -> None:
         """Returns zero when today invalid."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _write_logs(log_file, {"2026-07-04": "manual_workout"})
         assert count_in_window(log_file, 7, today="bogus") == 0
 
     def test_uses_today_default_when_none(self, tmp_path: Path) -> None:
         """Uses today default when none."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         assert count_in_window(log_file, 7) == 0
 
     def test_multiple_same_day_entries_each_count(self, tmp_path: Path) -> None:
         """Per-entry counting: same-day manual workouts no longer collapse to
         one slot — each consumes its own, matching the new weekly-count
         parity with verified workouts."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         log_file.write_text(
             json.dumps(
                 {
@@ -126,12 +126,12 @@ class TestIsBudgetExhausted:
 
     def test_false_when_under_budget(self, tmp_path: Path) -> None:
         """False when under budget."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         assert is_budget_exhausted(log_file, today=_TODAY) is False
 
     def test_true_when_weekly_exhausted(self, tmp_path: Path) -> None:
         """True when weekly exhausted."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         entries = {
             f"2026-07-0{4 - i}": "manual_workout"
             for i in range(MANUAL_WORKOUT_BUDGET_PER_7_DAYS)
@@ -141,7 +141,7 @@ class TestIsBudgetExhausted:
 
     def test_true_when_monthly_exhausted(self, tmp_path: Path) -> None:
         """True when monthly exhausted."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         # MANUAL_WORKOUT_BUDGET_PER_30_DAYS distinct dates, all strictly after
         # the 30d cutoff (2026-06-05) but at/before the 7d cutoff (2026-06-28),
         # so only the 30d window sees them.
@@ -161,7 +161,7 @@ class TestBudgetSummary:
 
     def test_renders_both_windows(self, tmp_path: Path) -> None:
         """Renders both windows."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _write_logs(log_file, {"2026-07-04": "manual_workout"})
         summary = budget_summary(log_file, today=_TODAY)
         assert "Manual:" in summary

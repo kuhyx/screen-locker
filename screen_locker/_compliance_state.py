@@ -25,6 +25,7 @@ from screen_locker._compliance_predicates import (
     _early_bird_window_open,
     has_logged_today,
     is_early_bird_pending,
+    is_relaxed_day_skipped_today,
     is_scheduled_skip_today,
     is_sick_day_today,
 )
@@ -49,6 +50,7 @@ __all__ = [
     "explain_lock_decision",
     "has_logged_today",
     "is_early_bird_pending",
+    "is_relaxed_day_skipped_today",
     "is_scheduled_skip_today",
     "is_sick_day_today",
 ]
@@ -87,6 +89,9 @@ def explain_lock_decision(
     window_end_label = "09:00" if extended_early_bird else "08:30"
     sick_today = is_sick_day_today(sick_history, today=today_str)
     logged = has_logged_today(log_file, today=today_str)
+    relaxed_day_already_skipped = relaxed_day and is_relaxed_day_skipped_today(
+        log_file, today=today_str
+    )
 
     auto_upgrade = describe_auto_upgrade_opportunity(
         early_bird_pending=pending,
@@ -190,6 +195,17 @@ def explain_lock_decision(
         reason_false="Not currently inside the early-bird window.",
         terminal_reason="Inside the early-bird window — lock skipped, pending marker "
         f"would be saved for the {window_end_label} re-check.",
+    )
+    if result is not None:
+        return result
+
+    result = _check(
+        "relaxed_day_already_skipped",
+        fired=relaxed_day_already_skipped,
+        reason_true="Relaxed day already dismissed via Skip — No Penalty today.",
+        reason_false="No same-day relaxed-day dismissal on record.",
+        terminal_reason="Relaxed day already skipped today — lock skipped, "
+        "prompt not shown again.",
     )
     if result is not None:
         return result

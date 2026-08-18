@@ -46,7 +46,7 @@ from screen_locker._log_io import read_raw_log
 _logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-LOG_FILE = REPO_ROOT / "screen_locker" / "workout_log.json"
+LOG_FILE = REPO_ROOT / "screen_locker" / "log.json"
 TARGET_DATE = "2026-07-26"
 TARGET_START = "03:30"
 TARGET_WORKOUT_ID = _manual_workout.manual_sync_record_id(TARGET_DATE, TARGET_START)

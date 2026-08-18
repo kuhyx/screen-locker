@@ -81,7 +81,7 @@ void main() {
   });
 
   test('readMergedWorkoutPayloads returns the PC runs too', () async {
-    // The PC publishes its whole workout_log.json, so the phone must be able
+    // The PC publishes its whole log.json, so the phone must be able
     // to see verified runs — not just manual self-reports — or the two
     // devices never show the same history.
     installFakeSecureStorage(initial: {'sync.token': 'tok'});

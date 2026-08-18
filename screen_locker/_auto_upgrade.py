@@ -2,7 +2,7 @@
 
 Neither early_bird (a same-day pending marker, see ``_early_bird.py``) nor
 sick_day (tracked in ``sick_history.json`` via ``_sick_tracker.py``) live in
-workout_log.json — this module only checks their pending state and, on
+log.json — this module only checks their pending state and, on
 success, writes the *real* outcome (phone_verified/runnerup_verified) there.
 """
 

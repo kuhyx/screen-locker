@@ -25,7 +25,7 @@ class TestUpdateSickCountdownAtZero:
         locker.sick_remaining_time = 0
         locker.sick_countdown_label = MagicMock()
         locker.workout_data = {}
-        locker.log_file = tmp_path / "workout_log.json"
+        locker.log_file = tmp_path / "log.json"
         object.__setattr__(locker, "unlock_screen", MagicMock())
 
         locker._update_sick_countdown()

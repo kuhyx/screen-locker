@@ -122,9 +122,7 @@ class FormHost(UIWidgetsMixin, ManualWorkoutDialogMixin):
         self.root = root
         self.demo_mode = False
         self.log_file = (
-            Path(__file__).resolve().parent.parent
-            / "screen_locker"
-            / "workout_log.json"
+            Path(__file__).resolve().parent.parent / "screen_locker" / "log.json"
         )
         self._colors = LockConfig()
         self.container = FrameGroup.single(root, bg=self._colors.bg)

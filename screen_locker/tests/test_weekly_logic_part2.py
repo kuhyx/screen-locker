@@ -98,7 +98,7 @@ class TestCheckTodayStateExits:
     ) -> None:
         """A sick day already marked today halts startup even when no real
         workout is found to upgrade it - sick_day no longer lives in
-        workout_log.json, so this halt must be explicit (see
+        log.json, so this halt must be explicit (see
         _auto_upgrade.py's _check_today_state_exits), not an accidental
         side effect of has_logged_today() catching a leftover log entry."""
         locker = self._make_locker(mock_tk, tmp_path)

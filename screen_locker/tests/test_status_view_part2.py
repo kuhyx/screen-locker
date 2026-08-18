@@ -220,7 +220,7 @@ class TestMakeBareVerifier:
 
     def test_builds_locker_without_running_init(self, tmp_path: Path) -> None:
         """Builds locker without running init."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         verifier = _make_bare_verifier(log_file)
         assert verifier.log_file == log_file
         assert verifier.workout_data == {}

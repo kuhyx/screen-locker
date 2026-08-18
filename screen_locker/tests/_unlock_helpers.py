@@ -32,7 +32,7 @@ def setup_unlock(
     different ``workout_id``, so the unlock's own verified workout is an
     ADDITIONAL same-day one — the case that now earns the +1h bonus.
     """
-    log_file = tmp_path / "workout_log.json"
+    log_file = tmp_path / "log.json"
     if seed_today_type is None:
         log_file.write_text("{}")
     else:

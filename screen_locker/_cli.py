@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 __all__ = ["main"]
 
-_LOG_FILE_NAME = "workout_log.json"
+_LOG_FILE_NAME = "log.json"
 
 
 def _headless_locker(locker_cls: type[ScreenLocker]) -> ScreenLocker:

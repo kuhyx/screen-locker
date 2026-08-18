@@ -3,7 +3,7 @@
 Fetches the same reading the real locker's heat-skip check would see
 (``_temperature.fetch_current_temp_with_status``), in a background thread,
 bounded to ``_temperature.HARD_TIMEOUT_SECONDS`` — display-only, never
-writes to ``workout_log.json``. Host class must provide:
+writes to ``log.json``. Host class must provide:
 
 - ``self.root`` — the Tk root, for ``root.after`` polling.
 - ``self.temperature_fetcher`` — injected fetch callable (tests override it).

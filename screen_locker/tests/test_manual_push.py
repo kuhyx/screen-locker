@@ -1,4 +1,4 @@
-"""Tests for pushing the PC's workouts (from workout_log.json) to the sync repo."""
+"""Tests for pushing the PC's workouts (from log.json) to the sync repo."""
 # pylint: disable=protected-access
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ class TestEncodeDecodeLog:
 
     def test_round_trips(self, tmp_path: Path) -> None:
         """Round trips."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _write_log(
             log_file, {"2026-07-13": [_entry(_RUN, "2026-07-13T10:00:00+00:00")]}
         )
@@ -83,11 +83,11 @@ class TestEntryWallMs:
 
 
 class TestRecordsFromWorkoutLog:
-    """workout_log.json is the single source of truth for what gets pushed."""
+    """log.json is the single source of truth for what gets pushed."""
 
     def test_derives_a_record_per_counted_workout(self, tmp_path: Path) -> None:
         """Derives a record per counted workout."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _write_log(
             log_file,
             {
@@ -106,7 +106,7 @@ class TestRecordsFromWorkoutLog:
 
     def test_payload_carries_kind_and_date(self, tmp_path: Path) -> None:
         """Payload carries kind and date."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _write_log(
             log_file, {"2026-07-13": [_entry(_RUN, "2026-07-13T10:00:00+00:00")]}
         )
@@ -121,7 +121,7 @@ class TestRecordsFromWorkoutLog:
         self, tmp_path: Path
     ) -> None:
         """Entries predating workout_id get the id they would have had."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _write_log(
             log_file, {"2026-07-13": [_entry(_MANUAL, "2026-07-13T07:25+00:00")]}
         )
@@ -129,7 +129,7 @@ class TestRecordsFromWorkoutLog:
 
     def test_uncounted_types_are_not_pushed(self, tmp_path: Path) -> None:
         """Uncounted types are not pushed."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _write_log(
             log_file,
             {"2026-07-13": [_entry({"type": "sick_day"}, "2026-07-13T07:00:00+00:00")]},
@@ -138,7 +138,7 @@ class TestRecordsFromWorkoutLog:
 
     def test_non_dict_workout_data_is_skipped(self, tmp_path: Path) -> None:
         """Non dict workout data is skipped."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _write_log(
             log_file,
             {
@@ -151,7 +151,7 @@ class TestRecordsFromWorkoutLog:
 
     def test_entry_without_derivable_id_is_skipped(self, tmp_path: Path) -> None:
         """A counted type with no id can't be deduped, so it isn't synced."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _write_log(
             log_file, {"2026-07-13": [_entry(_MANUAL, "2026-07-13T07:00:00+00:00")]}
         )
@@ -160,7 +160,7 @@ class TestRecordsFromWorkoutLog:
 
     def test_is_deterministic_across_calls(self, tmp_path: Path) -> None:
         """Same log → identical records+HLCs, so a re-push is a no-op."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         _write_log(
             log_file, {"2026-07-13": [_entry(_RUN, "2026-07-13T10:00:00+00:00")]}
         )

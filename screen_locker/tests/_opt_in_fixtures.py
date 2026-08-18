@@ -61,4 +61,4 @@ def _mock_sys_exit(mock_sys_exit: MagicMock) -> MagicMock:
 @pytest.fixture
 def temp_log_file(tmp_path: Path) -> Path:
     """Create a temporary log file path."""
-    return tmp_path / "workout_log.json"
+    return tmp_path / "log.json"

@@ -44,7 +44,7 @@ class TestUITransitions:
     ) -> None:
         """Test unlock_screen saves log and schedules close."""
         locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = tmp_path / "workout_log.json"
+        locker.log_file = tmp_path / "log.json"
         locker.workout_data = {"type": "phone_verified"}
 
         locker.unlock_screen()

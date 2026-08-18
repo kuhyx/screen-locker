@@ -43,7 +43,7 @@ class TestTryAutoUpgradeSickDayRunnerUp:
         tmp_path: Path,
     ) -> None:
         """RunnerUp returns verified → saves runnerup_verified entry (lines 281-286)."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         locker.workout_data = {}
@@ -120,7 +120,7 @@ class TestTryAutoUpgradeEarlyBirdRunnerUp:
         tmp_path: Path,
     ) -> None:
         """RunnerUp returns verified → saves runnerup_verified entry (lines 313-318)."""
-        log_file = tmp_path / "workout_log.json"
+        log_file = tmp_path / "log.json"
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = log_file
         locker.workout_data = {}
