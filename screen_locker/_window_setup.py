@@ -17,6 +17,7 @@ from gatelock import (
     Arbiter,
     LockWindow,
     ScrollableSurface,
+    wait_for_turn,
 )
 
 from screen_locker._surface_group import FrameGroup
@@ -86,6 +87,13 @@ class WindowSetupMixin:
             disable_vt=self._colors.resolved_disable_vt(),
         )
         arbiter.publish()
+        # Published first so anything lower-ranked queues behind us in turn,
+        # then wait with nothing on screen. Never exits here: a higher-ranked
+        # locker (wake_alarm) means "later", never "skip" -- mirrors
+        # leetcode_guard's own fix for the same grab race (gatelock's own
+        # module docstring: 2026-07-25, and again with diet_guard on
+        # 2026-08-21).
+        wait_for_turn(arbiter)
         arbiter.acquire_holder()
         lock = LockWindow(self.root, self._colors, hooks=self, arbiter=arbiter)
         lock.setup()

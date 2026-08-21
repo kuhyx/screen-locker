@@ -18,12 +18,14 @@ from gatelock import (
     LockWindow,
 )
 
+from screen_locker import _instance
 from screen_locker._auto_upgrade import AutoUpgradeMixin
 from screen_locker._constants import (
     EARLY_BIRD_END_HOUR,
     EARLY_BIRD_END_MINUTE,
     EARLY_BIRD_START_HOUR,
     HMAC_KEY_FILE,
+    INSTANCE_LOCK_FILE,
     MAX_CLOCK_SKEW_SECONDS,
     MIN_WORKOUT_DURATION_MINUTES,
     PHONE_PENALTY_DELAY_DEMO,
@@ -114,6 +116,23 @@ class ScreenLocker(
     ) -> None:
         """Initialize screen locker with optional demo mode."""
         _assert_not_under_pytest()
+        # Guards against a stray re-arm racing a second process into building
+        # a competing lock window (the actual mechanism behind "unlocked, then
+        # locked again seconds later" -- see 2026-08-21 incident notes). Not
+        # released in a try/finally: standing down here calls sys.exit(0)
+        # immediately, and process exit already drops the flock for free.
+        instance_lock = _instance.acquire(INSTANCE_LOCK_FILE)
+        if instance_lock is None:
+            # _instance.acquire already logged who holds it; standing down
+            # here (rather than building a second competing window) is the
+            # fix for the actual mechanism behind "unlocked, then locked
+            # again seconds later".
+            _logger.warning(
+                "standing down: another workout-locker instance already holds %s",
+                INSTANCE_LOCK_FILE,
+            )
+            sys.exit(0)
+        self._instance_lock: _instance.InstanceLock = instance_lock
         script_dir = Path(__file__).resolve().parent
         self.log_file = script_dir / "log.json"
         self.verify_only = verify_only
@@ -169,6 +188,7 @@ class ScreenLocker(
             self._lock.close()
         else:
             self.root.destroy()
+        self._instance_lock.release()
         # The lock screen coming down is the end of enforcement for this run,
         # so it belongs in the journal next to the decision that raised it —
         # otherwise "the lock closed" and "the lock never opened" look alike.

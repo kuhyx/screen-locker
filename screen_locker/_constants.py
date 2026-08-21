@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from gatelock import default_runtime_dir
 from gatelock.log_integrity import DEFAULT_HMAC_KEY_FILE
+
+# Ephemeral runtime state (self-clears on reboot, same directory gatelock's
+# own Arbiter uses) -- not repo-tracked data, so it does not belong next to
+# log.json/sick_history.json below.
+INSTANCE_LOCK_FILE = default_runtime_dir() / "screen_locker-instance.lock"
 
 # Single-sourced from gatelock so the literal key path can't drift.
 HMAC_KEY_FILE = DEFAULT_HMAC_KEY_FILE
@@ -87,8 +93,6 @@ MIN_RUN_DISTANCE_KM = 3.5  # inclusive: "as low as 3.5 km"
 # that one is a deliberate concession to the user, this one corrects a
 # measurement error. Duration now gets a leeway too, but for the other reason.
 RUNNERUP_DISTANCE_TOLERANCE = 0.05
-RUNNERUP_ACCEPTED_SPORTS: frozenset[int] = frozenset({0, 3, 5})
-# 0=RUNNING, 3=ORIENTEERING, 5=TREADMILL
 MAX_CLOCK_SKEW_SECONDS = 300  # 5 minutes max time skew from NTP
 EARLY_BIRD_START_HOUR = 5
 EARLY_BIRD_END_HOUR = 8

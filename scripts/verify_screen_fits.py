@@ -95,8 +95,18 @@ class ScreenHost(
         self.root = surface.content.winfo_toplevel()
         self.demo_mode = False
         self.verify_only = False
+        # Deliberately NOT the real log.json: is_budget_exhausted() reads it,
+        # and the real file's content depends on today's actual usage --
+        # exhausting the manual-workout budget in production made this crash
+        # (paint_manual_form_with_error touches _mw_error_label, which the
+        # budget-exhausted branch of _show_manual_workout_form never sets).
+        # A path that can never exist keeps every measured screen's shape
+        # independent of live data, which is the same guarantee every other
+        # attribute on this class already gives (see class docstring).
         self.log_file = (
-            Path(__file__).resolve().parent.parent / "screen_locker" / "log.json"
+            Path(__file__).resolve().parent.parent
+            / "screen_locker"
+            / "fit_check_never_exists.json"
         )
         self._colors = LockConfig()
         self.container = FrameGroup([surface.content])
