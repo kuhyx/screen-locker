@@ -14,7 +14,6 @@ from typing import Any
 from screen_locker._constants import (
     MIN_RUN_DISTANCE_KM,
     MIN_WORKOUT_DURATION_MINUTES,
-    RUNNERUP_ACCEPTED_SPORTS,
     RUNNERUP_DISTANCE_TOLERANCE,
     RUNNERUP_EXPORT_DIRS,
     WORKOUT_DURATION_ACCEPT_MINUTES,
@@ -78,7 +77,7 @@ class RunnerUpVerificationMixin(
         fails validation), or ``None`` if no today's file exists at all
         (caller should try the root DB path instead).
         """
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=timezone.utc).astimezone().strftime("%Y-%m-%d")
         exports = self._find_runnerup_exports_for_date(today)
         if not exports:
             _logger.warning(
@@ -116,12 +115,6 @@ class RunnerUpVerificationMixin(
         ``PhoneVerificationMixin._verify_phone_workout``.
         """
         sport = data["sport"]
-        if sport not in RUNNERUP_ACCEPTED_SPORTS:
-            sport_name = _SPORT_NAMES.get(sport, f"unknown({sport})")
-            return (
-                "wrong_sport",
-                f"Activity type '{sport_name}' doesn't count as a qualifying run",
-            )
 
         duration_min = data["duration_seconds"] / 60
         distance_km = data["distance_m"] / 1000
@@ -166,7 +159,7 @@ class RunnerUpVerificationMixin(
         root DB pull if no today's files are found.
 
         Status values: ``verified | not_verified | no_phone | too_short |
-        wrong_sport | clock_tampered``.
+        clock_tampered``.
         """
         skew_ok, skew_msg = check_clock_skew()
         if not skew_ok:

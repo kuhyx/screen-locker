@@ -26,7 +26,7 @@ _TCX_RUNNING = """\
 </TrainingCenterDatabase>
 """
 
-# TCX with an unrecognised sport tag (not in RUNNERUP_ACCEPTED_SPORTS).
+# TCX with a non-running sport tag (Gym).
 _TCX_GYM = """\
 <?xml version="1.0" encoding="UTF-8"?>
 <TrainingCenterDatabase
@@ -83,20 +83,38 @@ def _write_tcx(tmp_path: Path, content: str, name: str = "activity.tcx") -> str:
 class TestValidateRunnerupData:
     """Tests for _validate_runnerup_data (lines 388-411)."""
 
-    def test_wrong_sport_returns_wrong_sport_status(
+    def test_gym_sport_judged_only_on_distance_duration(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Sport not in RUNNERUP_ACCEPTED_SPORTS → wrong_sport."""
+        """Any sport (e.g. Gym) is verified purely by distance/duration.
+
+        There is no sport allowlist — a qualifying activity of any RunnerUp
+        sport type counts, matching the workout-locker requirement that
+        RunnerUp entries all be judged the same way.
+        """
         locker = create_locker(mock_tk, tmp_path)
-        # Sport 6 = Gym, not accepted
         status, msg = locker._validate_runnerup_data(
             {"sport": 6, "duration_seconds": 3600, "distance_m": 6000}
         )
-        assert status == "wrong_sport"
+        assert status == "verified"
         assert "Gym" in msg
+
+    def test_walking_sport_judged_only_on_distance_duration(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """A qualifying walk (sport 4) is verified, not rejected as wrong_sport."""
+        locker = create_locker(mock_tk, tmp_path)
+        status, msg = locker._validate_runnerup_data(
+            {"sport": 4, "duration_seconds": 3000, "distance_m": 4000}
+        )
+        assert status == "verified"
+        assert "Walking" in msg
 
     def test_unknown_sport_number_shown_in_message(
         self,
@@ -104,13 +122,13 @@ class TestValidateRunnerupData:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Unknown sport integer falls back to 'unknown(N)' label."""
+        """Unknown sport integer falls back to its raw number in the message."""
         locker = create_locker(mock_tk, tmp_path)
         status, msg = locker._validate_runnerup_data(
             {"sport": 99, "duration_seconds": 3600, "distance_m": 6000}
         )
-        assert status == "wrong_sport"
-        assert "unknown(99)" in msg
+        assert status == "verified"
+        assert "99" in msg
 
     def test_short_duration_alone_still_verified_on_distance(
         self,
@@ -169,7 +187,7 @@ class TestValidateRunnerupData:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Sport 3 (Orienteering) is in RUNNERUP_ACCEPTED_SPORTS."""
+        """Sport 3 (Orienteering) is verified like any other sport."""
         locker = create_locker(mock_tk, tmp_path)
         status, _ = locker._validate_runnerup_data(
             {"sport": 3, "duration_seconds": 2400, "distance_m": 6000}

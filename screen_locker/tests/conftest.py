@@ -25,6 +25,7 @@ from screen_locker.tests._gatelock_fixtures import (
     _hermetic_gatelock,
     dual_output,
 )
+from screen_locker.tests._isolated_state import ISOLATED_STATE
 from screen_locker.tests._locker_factories import (
     _make_locker,
     create_locker,
@@ -128,57 +129,18 @@ def _block_real_network() -> Iterator[None]:
         yield
 
 
-# Each on-disk state path, and every module that bound it by value at import
-# time. All of them need patching, not just the _constants source -- a missed
-# binding lets a test write to the real file.
-_ISOLATED_STATE: tuple[tuple[str, tuple[str, ...]], ...] = (
-    (
-        "sick_history.json",
-        ("_sick_tracker.SICK_HISTORY_FILE", "_constants.SICK_HISTORY_FILE"),
-    ),
-    (
-        "early_bird_pending.json",
-        (
-            "_early_bird.EARLY_BIRD_PENDING_FILE",
-            "_constants.EARLY_BIRD_PENDING_FILE",
-        ),
-    ),
-    (
-        "extra_benefits_state.json",
-        (
-            "_constants.EXTRA_BENEFITS_FILE",
-            "_startup_checks.EXTRA_BENEFITS_FILE",
-            "_sync_mixin.EXTRA_BENEFITS_FILE",
-            "_early_bird.EXTRA_BENEFITS_FILE",
-            "_status.EXTRA_BENEFITS_FILE",
-        ),
-    ),
-    (
-        "sick_day_state.json",
-        (
-            "_constants.SICK_DAY_STATE_FILE",
-            "_startup_checks.SICK_DAY_STATE_FILE",
-            "_shutdown_sick_state.SICK_DAY_STATE_FILE",
-        ),
-    ),
-    ("scheduled_skips.json", ("_log_mixin.SCHEDULED_SKIPS_FILE",)),
-    # The durable lock-decision trail. Written on EVERY locker run, so without
-    # this the suite would append test decisions to the user's real
-    # enforcement history in ~/.local/share/screen_locker/.
-    ("decisions.jsonl", ("_decision_log.DECISION_LOG_FILE",)),
-)
-
-
 @pytest.fixture(autouse=True)
 def _isolate_state_files(tmp_path: Path) -> Iterator[None]:
     """Redirect every on-disk state path to tmp_path for every test.
 
     Stays in conftest.py and stays autouse: pytest only applies autouse
     fixtures declared here, so moving this to a sibling module would leave
-    tests writing to the user's real state files while still passing.
+    tests writing to the user's real state files while still passing. The
+    table itself (ISOLATED_STATE) has no such constraint -- see
+    _isolated_state.py.
     """
     with ExitStack() as stack:
-        for filename, bindings in _ISOLATED_STATE:
+        for filename, bindings in ISOLATED_STATE:
             target = tmp_path / filename
             for binding in bindings:
                 stack.enter_context(patch(f"screen_locker.{binding}", target))

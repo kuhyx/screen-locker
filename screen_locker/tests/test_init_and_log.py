@@ -67,6 +67,28 @@ class TestScreenLockerInit:
 
         mock_sys_exit.assert_called_once_with(0)
 
+    def test_init_stands_down_when_instance_lock_already_held(
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
+    ) -> None:
+        """A second concurrent process must not build a competing window.
+
+        This is the actual fix for "unlocked, then locked again seconds
+        later" -- see the 2026-08-21 incident notes in screen_lock.py.
+        """
+        from screen_locker import _instance
+        from screen_locker._constants import INSTANCE_LOCK_FILE
+
+        mock_sys_exit.side_effect = SystemExit(0)
+        held = _instance.acquire(INSTANCE_LOCK_FILE)
+        assert held is not None
+        try:
+            with pytest.raises(SystemExit):
+                create_locker(mock_tk, tmp_path)
+        finally:
+            held.release()
+
+        mock_sys_exit.assert_called_once_with(0)
+
 
 class TestHasLoggedToday:
     """Tests for has_logged_today method."""

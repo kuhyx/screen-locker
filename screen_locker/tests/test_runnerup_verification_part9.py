@@ -27,7 +27,7 @@ _TCX_RUNNING = """\
 </TrainingCenterDatabase>
 """
 
-# TCX with an unrecognised sport tag (not in RUNNERUP_ACCEPTED_SPORTS).
+# TCX with a non-running sport tag (Gym).
 _TCX_GYM = """\
 <?xml version="1.0" encoding="UTF-8"?>
 <TrainingCenterDatabase
