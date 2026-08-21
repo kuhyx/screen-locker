@@ -55,6 +55,27 @@ def _session_records(log_json: str) -> dict[str, tuple[dict, Hlc]]:
     return _records_matching(log_json, _is_session_payload)
 
 
+def _tombstoned_ids(log_json: str) -> set[str]:
+    """Return the ids this device log marks deleted.
+
+    Collected separately from :func:`_records_matching` because suppression has
+    to be applied across the whole device union, not per file: one device
+    tombstoning a record while another still holds it live must delete it, and
+    a per-file skip would just let the live copy win the merge.
+
+    Raises the same decode errors as :func:`_records_matching`.
+    """
+    raw = json.loads(log_json)
+    if not isinstance(raw, dict):
+        msg = f"top-level sync payload is not a JSON object: {raw!r}"
+        raise TypeError(msg)
+    return {
+        record.id
+        for record in (Record.from_dict(data) for data in raw.values())
+        if record.deleted
+    }
+
+
 def _records_matching(
     log_json: str, predicate: Callable[[object], bool]
 ) -> dict[str, tuple[dict, Hlc]]:

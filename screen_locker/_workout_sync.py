@@ -36,6 +36,7 @@ from screen_locker._sync_records import (
     _manual_records,
     _records_matching,
     _session_records,
+    _tombstoned_ids,
 )
 from screen_locker._sync_retry import with_sync_retry
 
@@ -115,6 +116,7 @@ def _merge_device_records(
         return {}
 
     merged: dict[str, tuple[dict, Hlc]] = {}
+    tombstoned: set[str] = set()
     for device in devices:
         path = f"{_DEVICES_PREFIX}/{device}/log.json"
         try:
@@ -132,6 +134,7 @@ def _merge_device_records(
             continue
         try:
             records = extract(text)
+            tombstoned |= _tombstoned_ids(text)
         except (ValueError, KeyError, TypeError) as exc:
             _logger.warning("Corrupt sync data at %s: %s", path, exc)
             continue
@@ -139,6 +142,19 @@ def _merge_device_records(
             existing = merged.get(rid)
             if existing is None or existing[1] < hlc:
                 merged[rid] = (payload, hlc)
+
+    # Applied after the union, not per device: one device deleting a record
+    # while another still holds it live must delete it. crdt-sync's own merge
+    # makes deletion monotonic for exactly this reason, and this reader rolls
+    # its own merge, so it has to honour the same rule itself.
+    for rid in tombstoned & merged.keys():
+        _logger.info(
+            "Synced record %s is tombstoned on another device — dropping it, "
+            "so a deleted %s stops counting here too",
+            rid,
+            what,
+        )
+        del merged[rid]
 
     return merged
 

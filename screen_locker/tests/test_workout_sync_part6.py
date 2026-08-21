@@ -85,6 +85,36 @@ class TestPullAllManualRecords:
             result = _workout_sync.pull_all_manual_records()
         assert [rid for rid, _ in result] == ["manual:kept"]
 
+    def test_a_tombstone_on_one_device_beats_a_live_copy_on_another(self) -> None:
+        """Suppression must apply across the union, not per device log.
+
+        The per-file skip alone was not enough: the tombstone was merely
+        absent from one device's dict while the live copy won the merge from
+        the other, so the record was ingested exactly as before.
+        """
+        _workout_sync.SYNC_TOKEN_FILE.write_text("tok")
+        hlc = Hlc(wall_time_ms=1000, counter=0, node_id="phone")
+        tombstoned = Record(
+            id="manual:dup",
+            fields={"payload": (_manual_payload(), hlc)},
+            deleted=True,
+            deleted_hlc=hlc,
+        ).to_dict()
+        client = _multi_device_client(
+            {
+                "phone": json.dumps({"x": tombstoned}),
+                "pc": json.dumps(
+                    {
+                        "y": _manual_record_dict("manual:dup", _manual_payload()),
+                        "z": _manual_record_dict("manual:keep", _manual_payload()),
+                    }
+                ),
+            }
+        )
+        with patch.object(_sync_client, "GitHubSyncClient", return_value=client):
+            result = _workout_sync.pull_all_manual_records()
+        assert [rid for rid, _ in result] == ["manual:keep"]
+
     def test_skips_missing_and_corrupt_device_logs(self) -> None:
         """Skips missing and corrupt device logs."""
         _workout_sync.SYNC_TOKEN_FILE.write_text("tok")
