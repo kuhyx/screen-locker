@@ -164,5 +164,6 @@ class TestPushPcWorkouts:
             patch.object(_manual_push, "sync_log", MagicMock()) as fake_sync,
         ):
             push_pc_workouts(log_file)
-        pushed = fake_sync.call_args.kwargs["local_log"]
+        # local_log is the second positional arg since crdt-sync v0.9.0.
+        pushed = fake_sync.call_args.args[1]
         assert "runnerup_verified:2026-07-12" in pushed

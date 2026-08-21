@@ -32,9 +32,12 @@ from crdt_sync import (
     GitHubSyncClient,
     GitHubSyncError,
     Hlc,
+    LogCodec,
     Record,
     RemoteSyncError,
     RepoNotFoundError,
+    RevisionTracking,
+    SyncTarget,
     sync_log,
 )
 
@@ -193,14 +196,20 @@ def push_pc_workouts(log_file: Path) -> PushResult:
     try:
         with_sync_retry(
             lambda: sync_log(
-                client=client,
-                device_id=identity.device_id,
-                legacy_device_id=identity.legacy_id,
-                path_prefix=_DEVICES_PREFIX,
-                local_log=log,
-                encode=_encode_log,
-                decode=_decode_log,
-                state_store=FileSyncStateStore(SYNC_STATE_FILE),
+                SyncTarget(
+                    client=client,
+                    device_id=identity.device_id,
+                    legacy_device_id=identity.legacy_id,
+                    path_prefix=_DEVICES_PREFIX,
+                ),
+                log,
+                LogCodec(
+                    decode=_decode_log,
+                    encode=_encode_log,
+                ),
+                RevisionTracking(
+                    state_store=FileSyncStateStore(SYNC_STATE_FILE),
+                ),
             ),
             description="push PC workouts",
         )
