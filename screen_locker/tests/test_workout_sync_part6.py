@@ -11,6 +11,8 @@ from unittest.mock import MagicMock, patch
 
 from crdt_sync import (
     GitHubSyncError,
+    Hlc,
+    Record,
 )
 
 from screen_locker import _sync_client, _workout_sync
@@ -52,6 +54,36 @@ class TestPullAllManualRecords:
         with patch.object(_sync_client, "GitHubSyncClient", return_value=client):
             result = _workout_sync.pull_all_manual_records()
         assert sorted(rid for rid, _ in result) == ["manual:a", "manual:b"]
+
+    def test_skips_a_tombstoned_record(self) -> None:
+        """A workout deleted on another device must stop counting here.
+
+        crdt-sync deletion is monotonic, so the tombstone is the only durable
+        way to retract a synced workout. Ingesting it anyway made a delete in
+        the phone app look like it worked and then silently come back on the
+        next 15-minute sync.
+        """
+        _workout_sync.SYNC_TOKEN_FILE.write_text("tok")
+        hlc = Hlc(wall_time_ms=1000, counter=0, node_id="phone")
+        tombstoned = Record(
+            id="manual:gone",
+            fields={"payload": (_manual_payload(), hlc)},
+            deleted=True,
+            deleted_hlc=hlc,
+        ).to_dict()
+        client = _multi_device_client(
+            {
+                "phone": json.dumps(
+                    {
+                        "a": _manual_record_dict("manual:kept", _manual_payload()),
+                        "b": tombstoned,
+                    }
+                ),
+            }
+        )
+        with patch.object(_sync_client, "GitHubSyncClient", return_value=client):
+            result = _workout_sync.pull_all_manual_records()
+        assert [rid for rid, _ in result] == ["manual:kept"]
 
     def test_skips_missing_and_corrupt_device_logs(self) -> None:
         """Skips missing and corrupt device logs."""

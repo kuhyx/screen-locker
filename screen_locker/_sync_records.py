@@ -60,6 +60,12 @@ def _records_matching(
 ) -> dict[str, tuple[dict, Hlc]]:
     """Return ``{record_id: (payload, hlc)}`` for payloads passing ``predicate``.
 
+    Tombstoned records are skipped. crdt-sync deletion is monotonic -- a
+    tombstone can never be resurrected by merging an older, non-deleted copy --
+    so ``deleted`` is the only way a workout removed on one device can stop
+    counting on another. Without this check, deleting a workout in the phone
+    app looked like it worked and then the next 15-minute sync re-ingested it.
+
     Raises:
         TypeError: If the top-level JSON isn't an object or a record's shape
             doesn't match what :meth:`Record.from_dict` expects.
@@ -73,6 +79,13 @@ def _records_matching(
     result: dict[str, tuple[dict, Hlc]] = {}
     for data in raw.values():
         record = Record.from_dict(data)
+        if record.deleted:
+            _logger.info(
+                "Sync record %s is tombstoned — skipping it, so a workout "
+                "deleted on another device stops counting here too",
+                record.id,
+            )
+            continue
         field = record.fields.get(_PAYLOAD_FIELD)
         if field is None:
             continue
