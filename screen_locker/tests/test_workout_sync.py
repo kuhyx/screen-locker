@@ -12,7 +12,7 @@ import json
 from crdt_sync import Hlc, Record
 import pytest
 
-from screen_locker import _workout_sync
+from screen_locker import _sync_records, _workout_sync
 from screen_locker.tests._workout_sync_fixtures import (
     _manual_payload,
     _manual_record_dict,
@@ -155,3 +155,25 @@ class TestManualRecords:
         """Raises type error when top level is not an object."""
         with pytest.raises(TypeError, match="not a JSON object"):
             _workout_sync._manual_records(json.dumps([1, 2, 3]))
+
+
+class TestTombstonedIds:
+    """TombstonedIds."""
+
+    def test_returns_only_the_deleted_ids(self) -> None:
+        """Returns only the deleted ids."""
+        hlc = Hlc(wall_time_ms=1, counter=0, node_id="phone")
+        live = Record(id="live", fields={"payload": ({"a": 1}, hlc)})
+        gone = Record(
+            id="gone",
+            fields={"payload": ({"a": 1}, hlc)},
+            deleted=True,
+            deleted_hlc=hlc,
+        )
+        log = {"x": live.to_dict(), "y": gone.to_dict()}
+        assert _sync_records._tombstoned_ids(json.dumps(log)) == {"gone"}
+
+    def test_raises_type_error_when_top_level_is_not_an_object(self) -> None:
+        """Raises type error when top level is not an object."""
+        with pytest.raises(TypeError, match="not a JSON object"):
+            _sync_records._tombstoned_ids(json.dumps([1, 2, 3]))
