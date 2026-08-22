@@ -14,6 +14,12 @@ LOCKER_TIMER_NAME="workout-locker.timer"
 SYNC_SERVICE_NAME="workout-sync.service"
 SYNC_TIMER_NAME="workout-sync.timer"
 
+# shellcheck source=scripts/disarm_guard.sh
+source "$SCRIPT_DIR/scripts/disarm_guard.sh"
+# Installing units here would overwrite the systemd mask symlinks, so this
+# path has to respect the disarm marker too. Re-arm via: ./arm.sh --rearm
+refuse_if_disarmed
+
 # Check if service is already installed
 if [ -f "$USER_SERVICE_DIR/$SERVICE_NAME" ]; then
 	echo "Screen locker systemd service is already installed."

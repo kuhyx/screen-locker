@@ -87,6 +87,12 @@ else
 fi
 
 # 3. systemd units ------------------------------------------------------------
+# This step installs *and enables* every unit in the repo, which would clobber
+# the systemd mask symlinks. Respect the disarm marker; ./arm.sh --rearm undoes.
+# shellcheck source=scripts/disarm_guard.sh
+source "$SCRIPT_DIR/scripts/disarm_guard.sh"
+refuse_if_disarmed
+
 echo "[3/4] Installing systemd user units..."
 mkdir -p "$SYSTEMD_USER_DIR"
 shopt -s nullglob

@@ -23,6 +23,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 readonly USER_UNIT_DIR="$HOME/.config/systemd/user"
 
+# shellcheck source=scripts/disarm_guard.sh
+source "$SCRIPT_DIR/scripts/disarm_guard.sh"
+
 # Units that must be on disk for enforcement to be schedulable.
 readonly UNITS=(
 	"workout-locker.service"
@@ -41,11 +44,13 @@ readonly TIMERS=(
 
 SKIP_TODAY=0
 STATUS_ONLY=0
+REARM=0
 
 usage() {
-	echo "Usage: $(basename "$0") [--skip-today] [--status]"
+	echo "Usage: $(basename "$0") [--skip-today] [--status] [--rearm]"
 	echo "  --skip-today  Arm the locker but exempt today (no lock until tomorrow)"
 	echo "  --status      Report whether enforcement is armed; change nothing"
+	echo "  --rearm       Clear the disarm marker + unmask units, then arm"
 	exit 0
 }
 
@@ -62,8 +67,19 @@ add_skip_for_today() {
 
 main() {
 	if ((STATUS_ONLY)); then
+		# --status changes nothing, so it stays usable while disarmed - but it
+		# must say so loudly, or "armed: no" reads like a bug instead of intent.
+		if report_disarmed; then
+			return
+		fi
 		verify_armed
 		return
+	fi
+
+	if ((REARM)); then
+		clear_disarm_marker
+	else
+		refuse_if_disarmed
 	fi
 
 	echo "Installing units into $USER_UNIT_DIR"
@@ -101,6 +117,10 @@ while [[ $# -gt 0 ]]; do
 		;;
 	--status)
 		STATUS_ONLY=1
+		shift
+		;;
+	--rearm)
+		REARM=1
 		shift
 		;;
 	-h | --help)
