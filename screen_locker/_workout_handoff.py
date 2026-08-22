@@ -65,13 +65,15 @@ def start_workout(lock: LockWindow) -> str:
     so a failure has to come back as a message rather than a traceback that
     would leave the grab in an unknown state.
 
-    Blocks until the app exits, which stops the Tk event loop for the whole
-    workout. That is deliberate rather than merely tolerated: the Flutter
-    window is covering the screen, and the alternative -- pumping Tk
-    underneath -- is what would let the watchdog tick and take the screen back
-    mid-set. The cost is that a monitor hotplug during the workout is not
-    handled until the app exits, when ``reacquire`` re-runs ``grab_input()``
-    and the watchdog re-covers every live output.
+    Blocks until the app exits, so it is only safe for a caller with no event
+    loop to starve. Behind a Tk button use :class:`WorkoutSession` instead:
+    blocking there freezes the loop, which makes every binding on the lock --
+    including the escapes -- inert until the app exits.
+
+    An earlier version of this docstring claimed the blocking was deliberate,
+    to stop the recovery watchdog ticking mid-workout. That was wrong:
+    ``release`` stops the watchdog first, and ``stop()`` cancels its timers
+    outright, so there are no ticks to race with either way.
     """
     result = launch_workout_app(lock_grab_handoff(lock))
     if not result.launched:

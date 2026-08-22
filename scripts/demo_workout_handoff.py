@@ -1,15 +1,35 @@
 """Try the workout-app handoff by hand, on a lock you can always escape.
 
-Deliberately NOT the production lock screen. This builds a demo-mode lock --
-``grab="local"``, VT switching left enabled -- so a wedged Flutter app can
-never trap you: Ctrl+Alt+F2, the window manager, and the Escape binding below
-all still work. Production uses a global grab and disables VT switching, which
-is exactly what makes it unsafe to poke at by hand.
+Deliberately NOT the production lock screen: ``grab="local"`` and VT switching
+left enabled, so nothing here can outlive a Ctrl+Alt+F2.
 
-One consequence worth knowing before you read anything into a green run: under
-a local grab gatelock's watchdog early-returns and never re-takes the grab, so
-this exercises the launch, the ready handshake and the reacquire, but NOT the
-1000ms steal-back that the global grab makes possible.
+The escapes are the point, and the first version of this script got them
+wrong in two independent ways -- it promised three and delivered none, and the
+only way out was a hard reboot. Both are fixed here, and both are worth
+knowing about because only one of them was a demo-only problem:
+
+1. ``launch_workout_app`` blocks until the app exits. Called straight from a
+   button, it froze the Tk event loop, so the Escape binding and the close
+   button could not fire. The run is driven by :class:`WorkoutSession` now,
+   which uses ``after`` and keeps the loop pumping.
+2. The Flutter app takes its OWN seat grab (``gdk_seat_grab`` with
+   ``GDK_SEAT_CAPABILITY_ALL``) and never releases it. That is correct for
+   production and fatal for a demo: while the app is up, X delivers keyboard
+   input to it, so no Tk binding of ours can fire no matter how healthy the
+   event loop is. So the escape hatch below is deliberately NOT a key binding
+   -- it is a file the app cannot intercept.
+
+While the workout app is on screen, escape it from any other terminal or VT:
+
+    touch ~/.cache/stop-workout-demo
+
+A watchdog polls that path and terminates the app, which hands the screen
+back. Ctrl+Alt+F2 also still works, because neither this script nor
+``enter_lock_mode`` disables VT switching.
+
+One thing a green run here does NOT prove: under a local grab gatelock's
+watchdog early-returns and never re-takes the grab, so the 1000ms steal-back
+that makes ``_recovery.stop()`` load-bearing in production is not exercised.
 
     python3 scripts/demo_workout_handoff.py
 """
@@ -26,7 +46,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from gatelock import LockConfig, LockWindow
 
 from screen_locker._workout_app import workout_app_binary
-from screen_locker._workout_handoff import start_workout
+from screen_locker._workout_handoff import lock_grab_handoff
+from screen_locker._workout_session import WorkoutSession
+
+# Polled while the app holds the seat grab; the one escape X cannot swallow.
+# Under $HOME rather than /tmp: predictable for the user, and not world-writable.
+ESCAPE_FILE = Path.home() / ".cache" / "stop-workout-demo"
 
 
 class _DemoHooks:
@@ -35,6 +60,7 @@ class _DemoHooks:
     def __init__(self) -> None:
         self.status: tk.Label | None = None
         self.lock: LockWindow | None = None
+        self.session: WorkoutSession | None = None
 
     def build_surface(self, parent: tk.Misc, _surface: object) -> None:
         tk.Label(
@@ -46,7 +72,10 @@ class _DemoHooks:
         ).pack(pady=(120, 8))
         self.status = tk.Label(
             parent,
-            text="Press “Start workout” to hand this screen to the app.",
+            text=(
+                "Press “Start workout”. To escape while the app holds the "
+                f"screen, run:  touch {ESCAPE_FILE}"
+            ),
             font=("TkDefaultFont", 12),
             bg="#1B1D21",
             fg="#9AA0A6",
@@ -73,11 +102,29 @@ class _DemoHooks:
     def _start(self) -> None:
         if self.lock is None or self.status is None:  # pragma: no cover
             return
-        self.status.config(text="Launching… the screen is handed over shortly.")
-        self.status.update_idletasks()
-        # Blocks for the whole workout, by design -- see start_workout's
-        # docstring. The demo window stops repainting until the app exits.
-        self.status.config(text=start_workout(self.lock))
+        ESCAPE_FILE.unlink(missing_ok=True)
+        self.session = WorkoutSession(
+            lock_grab_handoff(self.lock),
+            after=self.lock.root.after,
+            on_status=self._set_status,
+        )
+        self.session.start()
+        self._poll_escape_file()
+
+    def _set_status(self, text: str) -> None:
+        if self.status is not None:  # pragma: no branch
+            self.status.config(text=text)
+
+    def _poll_escape_file(self) -> None:
+        """The escape the Flutter app's seat grab cannot intercept."""
+        if self.session is None or self.lock is None:  # pragma: no cover
+            return
+        if ESCAPE_FILE.exists():
+            ESCAPE_FILE.unlink(missing_ok=True)
+            self.session.abort()
+            self.session = None
+            return
+        self.lock.root.after(200, self._poll_escape_file)
 
     def _close(self) -> None:
         if self.lock is not None:  # pragma: no cover
