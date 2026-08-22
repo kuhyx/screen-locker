@@ -27,6 +27,9 @@ dependencies:
   permission_handler: ^12.0.0
   shared_preferences: ^2.5.3
   sqflite: ^2.4.2
+  # Linux desktop has no sqflite plugin; the FFI factory drives the same
+  # schema (and already backed the test suite before the desktop target).
+  sqflite_common_ffi: ^2.4.1
   sync_settings_ui:
     git:
       url: https://github.com/kuhyx/utils
@@ -44,7 +47,6 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
-  sqflite_common_ffi: ^2.4.1
   very_good_analysis: ^10.2.0
 
 flutter:

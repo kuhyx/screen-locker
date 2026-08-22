@@ -1,9 +1,12 @@
 
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/screens/home_screen.dart';
 import 'package:workout_app/services/backup_service.dart';
 import 'package:workout_app/services/http_server_service.dart';
+import 'package:workout_app/services/lock_mode.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_device_id.dart';
@@ -13,8 +16,18 @@ import 'package:workout_app/ui/theme.dart';
 // App bootstrap: permission request, DB init, and a real listening socket —
 // platform-channel work that can't run on the CI test host. The pieces it wires
 // up are unit-tested individually; the entry point itself is not.
-void main() async {
+void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Must precede runApp: the UI reads this to decide whether to offer
+  // any way out of the workout.
+  lockModeEnabled = parseLockMode(args);
+  // Linux desktop has no sqflite plugin. The FFI factory runs the same
+  // schema and migrations against the same SQL, so this is a transport
+  // swap, not a second storage implementation. Must precede any DB open.
+  if (Platform.isLinux) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
   // Before anything that stamps an Hlc or syncs: until this resolves, the
   // device id falls back to the pre-migration constant.
   await initSyncDeviceId();
@@ -62,7 +75,12 @@ void main() async {
         ),
       );
   debugPrint('WorkoutApp: ${restored.reason}');
-  await HttpServerService.instance.start();
+  // Android-only transport: it exists so the PC can pull today's workout off
+  // the phone over LAN. On the PC itself it would bind the very port the PC
+  // scans, so it is skipped rather than serving the machine to itself.
+  if (!Platform.isLinux) {
+    await HttpServerService.instance.start();
+  }
   runApp(const WorkoutApp());
 }
 // coverage:ignore-end
@@ -95,6 +113,9 @@ class _WorkoutAppState extends State<WorkoutApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // The socket is never started on Linux (see main()), so there is nothing
+    // to stop or restart here either.
+    if (Platform.isLinux) return;
     switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:

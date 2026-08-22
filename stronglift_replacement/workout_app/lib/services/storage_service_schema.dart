@@ -93,6 +93,19 @@ extension StorageServiceSchema on StorageService {
     }
   }
 
+  // coverage:ignore-start
+  // Platform-channel / filesystem edge: Android answers from the sqflite
+  // plugin, Linux desktop has no such plugin and uses an XDG directory under
+  // the FFI factory wired up in main().
+  Future<String> _databaseDirectory() async {
+    if (Platform.isLinux) {
+      final dir = await getApplicationSupportDirectory();
+      return dir.path;
+    }
+    return getDatabasesPath();
+  }
+  // coverage:ignore-end
+
   // ── Settings ───────────────────────────────────────────────────────────────
 
 }

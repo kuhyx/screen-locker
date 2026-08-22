@@ -12,12 +12,18 @@
 /// half. On Android there is no such file.
 library;
 
+import 'dart:convert';
 import 'dart:developer';
+import 'dart:io';
 
 import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
 import 'package:workout_app/services/google_sign_in_backend.dart';
+
+part 'firebase_backend_desktop.dart';
+part 'firebase_backend_google.dart';
 
 /// The shared `kuhy-syncs` project.
 ///
@@ -42,14 +48,45 @@ const _secure = FlutterSecureStorage();
 // coverage:ignore-start
 
 /// The keystore-backed home for the Firebase refresh token.
-SecureCredentialStore credentialStore() => SecureCredentialStore(
-  read: (key) => _secure.read(key: key),
-  write: (key, value) => _secure.write(key: key, value: value),
-  delete: (key) => _secure.delete(key: key),
-);
+///
+/// On Linux the "keystore" is the shared 0600 file above rather than
+/// libsecret, so the desktop build signs in with the same durable refresh
+/// token the Python side already holds — the account password on this fleet
+/// is stale, and only the refresh token still authenticates.
+SecureCredentialStore credentialStore() {
+  if (Platform.isLinux) {
+    return SecureCredentialStore(
+      read: (key) async {
+        final file = _desktopCredentialFile();
+        if (!file.existsSync()) return null;
+        return file.readAsString();
+      },
+      write: (key, value) async {
+        final file = _desktopCredentialFile();
+        await file.parent.create(recursive: true);
+        await file.writeAsString(value);
+        // The refresh token is the secret worth protecting; keep it 0600 the
+        // way the Python half writes it.
+        await Process.run('chmod', ['600', file.path]);
+      },
+      delete: (key) async {
+        final file = _desktopCredentialFile();
+        if (file.existsSync()) await file.delete();
+      },
+    );
+  }
+  return SecureCredentialStore(
+    read: (key) => _secure.read(key: key),
+    write: (key, value) => _secure.write(key: key, value: value),
+    delete: (key) => _secure.delete(key: key),
+  );
+}
 
 /// Reads the per-device account, or null when sync has not been set up.
 Future<FirebaseAccount?> loadAccount() async {
+  // Linux desktop reads the shared PC credential instead of the keystore,
+  // so a fresh desktop install is connected the moment it starts.
+  if (Platform.isLinux) return _accountFromDesktopConfig();
   try {
     return FirebaseAccount.tryParse(
       await _secure.read(key: kFirebaseAccountKey),
@@ -121,7 +158,15 @@ Future<FirebaseRestClient?> openFirebase() async {
     // Passing '' would make firebaseClientFor treat it as a usable
     // credential and sign in with it, which fails; null correctly
     // means "no password on this device".
-    password: account.password.isEmpty ? null : account.password,
+    //
+    // On Linux the shared refresh token in ~/.config/screen_locker is the
+    // real credential and short-circuits sign-in before any password is
+    // consulted. The password in ~/.config/crdt-sync no longer authenticates
+    // on this fleet, so offering it would only turn a working token into an
+    // INVALID_LOGIN_CREDENTIALS failure.
+    password: (Platform.isLinux || account.password.isEmpty)
+        ? null
+        : account.password,
     // Deliberately NOT offering Google here. This path runs from background
     // timers and, in some apps, before runApp -- offering it would let a
     // non-interactive tick raise the OS account picker with no user action
@@ -130,54 +175,6 @@ Future<FirebaseRestClient?> openFirebase() async {
   );
 }
 
-/// Signs in with Google alone, for a device that has no account stored yet.
-///
-/// This is the one-tap path: [openFirebase] needs an account in the keystore
-/// to know which email to use, but a fresh install has none. The Google token
-/// carries the identity, so nothing needs to be typed.
-///
-/// The account is stored under the email **Firebase reports**, never one read
-/// from the UI: a fresh install has no email anywhere on the device, so taking
-/// it from a text field would persist an empty account and send the next
-/// launch down the password path with ''.
-///
-/// Returns null when the user dismisses the picker; throws [FirebaseAuthError]
-/// when Google succeeds but resolves to a uid the security rules do not pin,
-/// which would otherwise authenticate fine and then be denied every read and
-/// write with no other symptom.
-Future<FirebaseRestClient?> openFirebaseWithGoogle({
-  Future<String?> Function()? tokenFetcher,
-  Future<void> Function(FirebaseAccount)? accountSaver,
-  http.Client? httpClient,
-}) async {
-  final token = await (tokenFetcher ?? googleIdToken)();
-  if (token == null) return null;
-  final auth = FirebaseTokenProvider(
-    apiKey: kProject.apiKey,
-    store: credentialStore(),
-    httpClient: httpClient,
-  );
-  final email = await auth.signInWithGoogle(
-    idToken: token,
-    expectedUid: kSyncUid,
-  );
-  // Saved unconditionally, and deliberately not gated on `email`:
-  // `signInWithIdp` omits that field whenever the Google account hides it, and
-  // gating the write on it returned a working client while persisting nothing,
-  // so the next launch looked unconfigured and fell back to GitHub-only.
-  // The session itself is already durable here -- signInWithGoogle stored the
-  // refresh token -- and that token, not the address, is the credential.
-  await (accountSaver ?? saveAccount)(
-    FirebaseAccount(email: email ?? '', password: ''),
-  );
-  return FirebaseRestClient(databaseUrl: kProject.databaseUrl, auth: auth);
-}
-
-/// Whether this device can actually authenticate against Firebase.
-///
-/// True when either half of the state is present: the account marker
-/// [loadAccount] reads, or a stored refresh token. The token is the half that
-/// matters -- it is what signs requests -- so reporting the marker alone calls
 /// a working device "not connected", which is exactly how a phone that was in
 /// fact syncing looked broken.
 Future<bool> isFirebaseConfigured() async {

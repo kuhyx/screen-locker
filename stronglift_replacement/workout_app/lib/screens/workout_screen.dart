@@ -11,6 +11,7 @@ import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/exercise_result.dart';
 import 'package:workout_app/models/set_result.dart';
 import 'package:workout_app/models/workout_session.dart';
+import 'package:workout_app/services/lock_mode.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_service.dart';
@@ -209,10 +210,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      // Explicit `canPop: true` makes it clear this scope never blocks the back
-      // button — a future reader must not assume the default silently.
-      // ignore: avoid_redundant_argument_values
-      canPop: true,
+      // In lock mode the workout IS the lock: popping back to the home screen
+      // would leave a fullscreen window holding the X grab with no way to
+      // finish, so the route is pinned until the workout is finished or reset.
+      // Outside lock mode the back button behaves exactly as it always has.
+      canPop: !lockModeEnabled,
       child: Scaffold(
         appBar: _WorkoutAppBar(
           title:

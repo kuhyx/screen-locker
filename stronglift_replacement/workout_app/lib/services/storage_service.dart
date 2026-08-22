@@ -3,8 +3,10 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/workout_plan.dart';
@@ -103,7 +105,7 @@ class StorageService {
     final dbPath =
         _testDbPath ??
         // coverage:ignore-start
-        p.join(await getDatabasesPath(), 'workout_app.db');
+        p.join(await _databaseDirectory(), 'workout_app.db');
     // coverage:ignore-end
     _db = await openDatabase(
       dbPath,
