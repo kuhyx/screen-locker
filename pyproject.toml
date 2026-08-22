@@ -90,6 +90,16 @@ unfixable = []
 # -truth reuse status_view.py above is exempted for — and _make_bare_verifier
 # imports ScreenLocker inside the function to avoid an import cycle.
 "screen_locker/_status_view_verify.py" = ["PLC0415", "SLF001"]
+# _workout_handoff.py must pause gatelock's recovery watchdog while the Flutter
+# app holds the screen. The loop re-takes any grab it finds missing every
+# 1000ms -- by design, so that pulling a cable is not an escape -- and
+# holds_grab() is `grab_current() is not None`, which is False once another X
+# client holds it. Left running it would steal the screen back from the workout
+# app within a second. gatelock exposes no public pause (only close(), which
+# also restores VT switching and would hand the user Ctrl+Alt+F2), and adding
+# one there would contradict _recovery.py's monotonicity proof that no
+# transition ever decreases the grab.
+"screen_locker/_workout_handoff.py" = ["SLF001"]
 # explain_lock_decision takes one arg per real file path + sick history, and
 # returns early per lock-decision-chain stage (see module docstring) — both
 # are the deliberate design, not something to collapse into a config object.
