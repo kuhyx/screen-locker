@@ -27,11 +27,19 @@ WEEKLY_WORKOUT_MINIMUM: int = 5
 # Python weekday(): Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
 _RELAXED_WEEKDAYS: frozenset[int] = frozenset({1, 2, 3})  # Tue, Wed, Thu
 
+# A StrongLifts session performed on the PC itself (the Linux build of
+# workout_app). Machine-checked exactly like ``phone_verified`` -- same
+# WorkoutSession payload, same set/rep validation -- but named separately
+# because there is no phone involved: writing "phone_verified" into an
+# HMAC-signed log for a workout done on the desktop would make the log lie
+# about its own provenance.
+PC_WORKOUT_TYPE: str = "pc_workout_verified"
+
 # VERIFIED workouts are machine-checked (a real StrongLifts session or a real
 # RunnerUp run). They count toward the weekly total INDIVIDUALLY — multiple
 # per day are allowed — because they can't be faked.
 VERIFIED_WORKOUT_TYPES: frozenset[str] = frozenset(
-    {"phone_verified", "runnerup_verified"},
+    {"phone_verified", "runnerup_verified", PC_WORKOUT_TYPE},
 )
 # The single self-reported type. It counts toward the weekly total
 # INDIVIDUALLY, same as a verified workout — the manual-workout rate budget

@@ -131,3 +131,68 @@ class TestIngestSyncedManualWorkouts:
             locker._credit_ingested_manual_workout(entry, prior)
         assert locker.workout_data == entry
         apply_credit.assert_called_once_with(prior)
+
+
+class TestIngestSyncedSessions:
+    """Tests for _ingest_synced_sessions (StrongLifts-session wiring).
+
+    The headless ``--sync-only`` path had no session ingest at all, so a
+    workout finished on the PC earned nothing until a lock screen opened.
+    """
+
+    def test_logs_each_ingested_session(
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
+    ) -> None:
+        """Logs each ingested session."""
+        locker = create_locker(mock_tk, tmp_path)
+        with (
+            patch(
+                "screen_locker._sync_mixin.pull_all_session_records",
+                return_value=[("2026-08-21T10:39:24", {})],
+            ),
+            patch(
+                "screen_locker._sync_mixin.ingest_session_records",
+                return_value=["2026-08-21T10:39:24"],
+            ) as ingest,
+        ):
+            locker._ingest_synced_sessions()
+        ingest.assert_called_once()
+
+    def test_no_sessions_ingests_nothing(
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
+    ) -> None:
+        """No sessions ingests nothing."""
+        locker = create_locker(mock_tk, tmp_path)
+        with (
+            patch(
+                "screen_locker._sync_mixin.pull_all_session_records",
+                return_value=[],
+            ),
+            patch(
+                "screen_locker._sync_mixin.ingest_session_records",
+                return_value=[],
+            ),
+        ):
+            locker._ingest_synced_sessions()
+
+    def test_credits_a_session_like_a_live_workout(
+        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
+    ) -> None:
+        """A synced session earns the same reward a live workout would."""
+        locker = create_locker(mock_tk, tmp_path)
+        with (
+            patch(
+                "screen_locker._sync_mixin.pull_all_session_records",
+                return_value=[],
+            ),
+            patch(
+                "screen_locker._sync_mixin.ingest_session_records",
+                return_value=[],
+            ) as ingest,
+        ):
+            locker._ingest_synced_sessions()
+        assert (
+            ingest.call_args.kwargs["on_ingested"]
+            == locker._credit_ingested_manual_workout
+        )
+        assert locker.workout_data == {}

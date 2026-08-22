@@ -52,6 +52,7 @@ __all__ = [
     "_records_matching",
     "_session_records",
     "pull_all_manual_records",
+    "pull_all_session_records",
     "pull_synced_workout",
     "read_sync_token",
     "remote_client",
@@ -196,6 +197,30 @@ def pull_synced_workout() -> tuple[dict | None, str | None]:
 
     _rid, (payload, _hlc) = max(merged.items(), key=lambda item: item[1][1])
     return payload, None
+
+
+def pull_all_session_records() -> list[tuple[str, dict]]:
+    """Return all synced StrongLifts sessions across every device log.
+
+    The session counterpart to :func:`pull_all_manual_records`, and the reason
+    a workout finished on the PC reaches ``log.json`` without a lock screen
+    being open: ``pull_synced_workout`` returns only the single newest session
+    for the live unlock check, which cannot backfill a week.
+
+    Best-effort in the same way -- an unconfigured token or a corrupt device
+    log yields fewer records rather than raising.
+    """
+    client = sync_client()
+    if client is None:
+        _logger.warning(
+            "No sync client (neither a GitHub token nor a Firebase config) — "
+            "synced StrongLifts sessions cannot be pulled, so a workout done "
+            "on another device will NOT count toward the weekly minimum.",
+        )
+        return []
+
+    merged = _merge_device_records(client, _session_records, "sessions")
+    return [(rid, payload) for rid, (payload, _hlc) in merged.items()]
 
 
 def pull_all_manual_records() -> list[tuple[str, dict]]:

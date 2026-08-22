@@ -14,11 +14,15 @@ from screen_locker._constants import EXTRA_BENEFITS_FILE
 from screen_locker._extra_benefits import weekly_shutdown_bonus_hours
 from screen_locker._manual_push import push_pc_workouts
 from screen_locker._manual_sync import ingest_manual_records
+from screen_locker._session_sync import ingest_session_records
 from screen_locker._weekly_check import (
     WEEKLY_WORKOUT_MINIMUM,
     count_weekly_workouts,
 )
-from screen_locker._workout_sync import pull_all_manual_records
+from screen_locker._workout_sync import (
+    pull_all_manual_records,
+    pull_all_session_records,
+)
 
 __all__ = ["SyncMixin"]
 
@@ -43,6 +47,7 @@ class SyncMixin:
         Repeating it every 15 minutes closes that gap.
         """
         self._ingest_synced_manual_workouts()
+        self._ingest_synced_sessions()
         self._auto_fill_week_runnerup_bonus()
 
     def _ingest_synced_manual_workouts(self) -> None:
@@ -62,6 +67,27 @@ class SyncMixin:
         )
         for record_id in ingested:
             _logger.info("Ingested synced manual workout: %s", record_id)
+        self.workout_data = {}
+
+    def _ingest_synced_sessions(self) -> None:
+        """Ingest StrongLifts sessions other devices (or this PC) finished.
+
+        The desktop build of workout_app writes a session to its own device
+        log and nothing else; without this the record would only ever be seen
+        by the interactive verification flow, so a workout finished on the PC
+        earned nothing until a lock screen happened to open.
+
+        Each newly-ingested session earns the identical reward a live-logged
+        workout would, and re-running is a no-op (the write chokepoint dedups
+        by workout_id).
+        """
+        ingested = ingest_session_records(
+            self.log_file,
+            pull_all_session_records(),
+            on_ingested=self._credit_ingested_manual_workout,
+        )
+        for record_id in ingested:
+            _logger.info("Ingested synced StrongLifts session: %s", record_id)
         self.workout_data = {}
 
     def _credit_ingested_manual_workout(

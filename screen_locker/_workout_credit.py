@@ -14,7 +14,11 @@ import logging
 from typing import TYPE_CHECKING
 
 from screen_locker import _sick_tracker
-from screen_locker._weekly_check import COUNTED_WORKOUT_TYPES, count_weekly_workouts
+from screen_locker._weekly_check import (
+    COUNTED_WORKOUT_TYPES,
+    PC_WORKOUT_TYPE,
+    count_weekly_workouts,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -62,6 +66,7 @@ class WorkoutCreditMixin:
         if self.workout_data.get("type") not in (
             "phone_verified",
             "runnerup_verified",
+            PC_WORKOUT_TYPE,
             "manual_workout",
         ):
             return None
