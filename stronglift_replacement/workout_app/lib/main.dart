@@ -111,6 +111,12 @@ class _WorkoutAppState extends State<WorkoutApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  // coverage:ignore-start
+  // Platform edge, same shape as storage_service_schema's: the suite runs on
+  // Linux, where this returns on the first line, so the switch below is
+  // unreachable from any test this repo can run. Covering it would mean
+  // threading a platform seam through the nine Platform.isLinux checks in
+  // this app purely for test reachability.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // The socket is never started on Linux (see main()), so there is nothing
@@ -127,6 +133,7 @@ class _WorkoutAppState extends State<WorkoutApp> with WidgetsBindingObserver {
         break;
     }
   }
+  // coverage:ignore-end
 
   @override
   Widget build(BuildContext context) {
