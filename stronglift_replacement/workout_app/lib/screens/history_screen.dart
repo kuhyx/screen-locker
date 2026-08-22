@@ -8,6 +8,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:workout_app/models/exercise.dart';
@@ -29,10 +30,19 @@ class HistoryScreen extends StatefulWidget {
   ///
   /// [httpClient] is injected only by tests, so the synced-workout fetch can
   /// be driven without real network — same pattern as `SettingsScreen`.
-  const HistoryScreen({super.key, this.httpClient});
+  ///
+  /// [firebaseFactory] is likewise tests-only, and is NOT redundant with
+  /// [httpClient]: the sync guard short-circuits on "no backend configured",
+  /// and it asks Firebase that question directly. On a desktop that has a
+  /// cached refresh token the real factory answers yes, so the guard opens and
+  /// the fetch goes to the network even with the sync token faked away.
+  const HistoryScreen({super.key, this.httpClient, this.firebaseFactory});
 
   /// Overrides the HTTP client used to read synced workouts (tests only).
   final http.Client? httpClient;
+
+  /// Overrides how a Firebase account is discovered (tests only).
+  final Future<FirebaseRestClient?> Function()? firebaseFactory;
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -106,6 +116,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Future<List<Map<String, dynamic>>> _readSyncedPayloads() =>
       WorkoutSyncService(
         httpClient: widget.httpClient,
+        firebaseFactory: widget.firebaseFactory,
       ).readMergedWorkoutPayloads();
 
   Future<void> _pickExercise(String name) async {

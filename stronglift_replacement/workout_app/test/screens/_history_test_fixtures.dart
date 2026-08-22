@@ -23,9 +23,23 @@ Future<void> pumpHistory(WidgetTester tester, Widget w) async {
   await tester.pump();
 }
 
-Widget wrapHistory({http.Client? httpClient}) => MaterialApp(
+/// Wraps the history screen with sync pinned to a known state.
+///
+/// [firebaseFactory] defaults to "no account", which is what makes these
+/// tests independent of the machine they run on. Faking the sync token is not
+/// enough on its own: the guard also asks Firebase whether an account exists,
+/// and on a desktop holding a cached refresh token the real factory says yes,
+/// so the fetch escapes to the network and the test fails with a
+/// RemoteSyncError that has nothing to do with the screen.
+Widget wrapHistory({
+  http.Client? httpClient,
+  Future<FirebaseRestClient?> Function()? firebaseFactory,
+}) => MaterialApp(
   theme: buildAppTheme(),
-  home: HistoryScreen(httpClient: httpClient),
+  home: HistoryScreen(
+    httpClient: httpClient,
+    firebaseFactory: firebaseFactory ?? () async => null,
+  ),
 );
 
 /// A GitHub mock serving one PC device log holding a run and a manual.

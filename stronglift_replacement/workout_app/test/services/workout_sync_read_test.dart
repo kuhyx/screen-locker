@@ -75,6 +75,7 @@ void main() {
     );
     final payloads = await WorkoutSyncService(
       httpClient: httpClient,
+      firebaseFactory: () async => null,
     ).readMergedManualPayloads();
     expect(payloads, hasLength(1));
     expect(payloads.single['cost'], 'NEW');
@@ -148,6 +149,7 @@ void main() {
       );
       final manuals = await WorkoutSyncService(
         httpClient: httpClient,
+        firebaseFactory: () async => null,
       ).readMergedManualPayloads();
       expect(manuals, hasLength(1));
       expect(manuals.single['kind'], 'manual_workout');
@@ -207,6 +209,7 @@ void main() {
 
     final payloads = await WorkoutSyncService(
       httpClient: httpClient,
+      firebaseFactory: () async => null,
     ).readMergedManualPayloads();
 
     expect(payloads, hasLength(1));
