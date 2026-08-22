@@ -1,33 +1,33 @@
-"""Try the workout-app handoff by hand, on a lock you can always escape.
+"""Try the workout-app handoff by hand, with one deliberate way out.
 
-Deliberately NOT the production lock screen: ``grab="local"`` and VT switching
-left enabled, so nothing here can outlive a Ctrl+Alt+F2.
+The lock itself is the real one: the demo builds the same lock window and the
+workout app takes the same exclusive seat grab it takes in production, so what
+is under test is the actual locking mechanism, not a softened copy.
 
-The escapes are the point, and the first version of this script got them
-wrong in two independent ways -- it promised three and delivered none, and the
-only way out was a hard reboot. Both are fixed here, and both are worth
-knowing about because only one of them was a demo-only problem:
+Getting the escape right took two wrong tries, both worth recording because
+they are the obvious ideas:
 
-1. ``launch_workout_app`` blocks until the app exits. Called straight from a
-   button, it froze the Tk event loop, so the Escape binding and the close
-   button could not fire. The run is driven by :class:`WorkoutSession` now,
-   which uses ``after`` and keeps the loop pumping.
-2. The Flutter app takes its OWN seat grab (``gdk_seat_grab`` with
-   ``GDK_SEAT_CAPABILITY_ALL``) and never releases it. That is correct for
-   production and fatal for a demo: while the app is up, X delivers keyboard
-   input to it, so no Tk binding of ours can fire no matter how healthy the
-   event loop is. So the escape hatch below is deliberately NOT a key binding
-   -- it is a file the app cannot intercept.
+1. A Tk key binding cannot work. Once the workout app takes its seat grab
+   (``gdk_seat_grab`` with ``GDK_SEAT_CAPABILITY_ALL``) X delivers every
+   keystroke to that app and to nothing else, so no binding in this process
+   can fire -- no matter how healthy its event loop is.
+2. "Escape from another terminal" cannot work either. The app covers the
+   screen with an override-redirect fullscreen window, so there is no other
+   terminal to reach and no way to raise one.
 
-While the workout app is on screen, escape it from any other terminal or VT:
+An escape therefore has to be handled INSIDE the app, by the app, or it cannot
+be reached at all. ``--demo-escape`` (passed here, never by the production
+supervisor) arms a key handler in the runner that drops the grab and quits:
 
-    touch ~/.cache/stop-workout-demo
+    Ctrl+Shift+Q
 
-A watchdog polls that path and terminates the app, which hands the screen
-back. Ctrl+Alt+F2 also still works, because neither this script nor
-``enter_lock_mode`` disables VT switching.
+Verified in both directions: with the flag the real app exits on that
+keystroke while holding the grab; without it the same keystroke does nothing.
 
-One thing a green run here does NOT prove: under a local grab gatelock's
+VT switching is left enabled here as a second line of defence, so Ctrl+Alt+F2
+also still works -- but the hatch above is the one this demo is testing.
+
+One thing a green run does NOT prove: under the demo's local grab gatelock's
 watchdog early-returns and never re-takes the grab, so the 1000ms steal-back
 that makes ``_recovery.stop()`` load-bearing in production is not exercised.
 
@@ -45,13 +45,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from gatelock import LockConfig, LockWindow
 
-from screen_locker._workout_app import workout_app_binary
+from screen_locker._workout_app import ProcessHooks, workout_app_binary
 from screen_locker._workout_handoff import lock_grab_handoff
 from screen_locker._workout_session import WorkoutSession
-
-# Polled while the app holds the seat grab; the one escape X cannot swallow.
-# Under $HOME rather than /tmp: predictable for the user, and not world-writable.
-ESCAPE_FILE = Path.home() / ".cache" / "stop-workout-demo"
 
 
 class _DemoHooks:
@@ -73,8 +69,8 @@ class _DemoHooks:
         self.status = tk.Label(
             parent,
             text=(
-                "Press “Start workout”. To escape while the app holds the "
-                f"screen, run:  touch {ESCAPE_FILE}"
+                "Press “Start workout”. While the app holds the screen, "
+                "press Ctrl+Shift+Q to escape."
             ),
             font=("TkDefaultFont", 12),
             bg="#1B1D21",
@@ -102,29 +98,18 @@ class _DemoHooks:
     def _start(self) -> None:
         if self.lock is None or self.status is None:  # pragma: no cover
             return
-        ESCAPE_FILE.unlink(missing_ok=True)
         self.session = WorkoutSession(
             lock_grab_handoff(self.lock),
             after=self.lock.root.after,
             on_status=self._set_status,
+            # The only escape that can be RECEIVED once the app grabs the seat.
+            hooks=ProcessHooks(demo_escape=True),
         )
         self.session.start()
-        self._poll_escape_file()
 
     def _set_status(self, text: str) -> None:
         if self.status is not None:  # pragma: no branch
             self.status.config(text=text)
-
-    def _poll_escape_file(self) -> None:
-        """The escape the Flutter app's seat grab cannot intercept."""
-        if self.session is None or self.lock is None:  # pragma: no cover
-            return
-        if ESCAPE_FILE.exists():
-            ESCAPE_FILE.unlink(missing_ok=True)
-            self.session.abort()
-            self.session = None
-            return
-        self.lock.root.after(200, self._poll_escape_file)
 
     def _close(self) -> None:
         if self.lock is not None:  # pragma: no cover

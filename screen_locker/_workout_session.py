@@ -87,8 +87,11 @@ class WorkoutSession:
         if app is None:
             self._fail("the desktop workout app is not built; run flutter build linux")
             return
+        argv = [str(app), "--lock-mode"]
+        if self._hooks.demo_escape:
+            argv.append("--demo-escape")
         self._child = self._hooks.popen(
-            [str(app), "--lock-mode"],
+            argv,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,

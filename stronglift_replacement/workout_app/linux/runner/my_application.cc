@@ -1,5 +1,7 @@
 #include "my_application.h"
 
+#include "demo_escape.h"
+
 #include <flutter_linux/flutter_linux.h>
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
@@ -34,6 +36,8 @@ static const guint kGrabRetryMs = 200;
 
 static gboolean lock_mode_enabled = FALSE;
 static gboolean lock_grab_held = FALSE;
+// Demo harness only; the production supervisor never passes it.
+static gboolean demo_escape_enabled = FALSE;
 
 // Takes the exclusive seat grab. Returns TRUE while it should keep retrying.
 static gboolean try_seat_grab(gpointer data) {
@@ -101,6 +105,9 @@ static void first_frame_cb(MyApplication* self, FlView* view) {
     // that is already mapped leaves it mapped but never repainting (a blank
     // grey rectangle that still holds the grab -- the worst possible lock).
     enter_lock_mode(GTK_WINDOW(toplevel));
+    // Installed before the window is shown, so the hatch is live for every
+    // keystroke the grab will deliver -- including the first.
+    demo_escape_install(toplevel, demo_escape_enabled);
     gtk_widget_show(toplevel);
     // The supervisor releases its own grab only after seeing this line, so the
     // screen is already covered by us when it does. Flushed because stdout to
@@ -184,7 +191,8 @@ static gboolean my_application_local_command_line(GApplication* application,
   for (gchar** arg = self->dart_entrypoint_arguments; *arg != nullptr; arg++) {
     if (g_strcmp0(*arg, "--lock-mode") == 0) {
       lock_mode_enabled = TRUE;
-      break;
+    } else if (g_strcmp0(*arg, "--demo-escape") == 0) {
+      demo_escape_enabled = TRUE;
     }
   }
 

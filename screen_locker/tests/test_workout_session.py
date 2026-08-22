@@ -207,3 +207,32 @@ class TestSessionEdges:
             writer.write("WORKOUT_")
             writer.flush()
             assert _read_available(reader) == "WORKOUT_"
+
+
+class TestDemoEscapeFlag:
+    """The flag that arms the app's own escape hatch."""
+
+    def _argv_for(self, *, demo_escape: bool) -> list[str]:
+        seen: list[list[str]] = []
+
+        def _popen(argv: list[str], **_kwargs: object) -> _FakeChild:
+            seen.append(argv)
+            return _FakeChild([])
+
+        WorkoutSession(
+            GrabHandoff(release=lambda: None, reacquire=lambda: None),
+            after=_FakeAfter(),
+            on_status=lambda _t: None,
+            binary=Path("/nonexistent/workout_app"),
+            hooks=ProcessHooks(popen=_popen, demo_escape=demo_escape),
+        ).start()
+        return seen[0]
+
+    def test_production_never_arms_the_hatch(self) -> None:
+        """The default must not hand the user a way out of a real lock."""
+        assert "--demo-escape" not in self._argv_for(demo_escape=False)
+
+    def test_demo_arms_the_hatch(self) -> None:
+        argv = self._argv_for(demo_escape=True)
+        assert argv[-1] == "--demo-escape"
+        assert "--lock-mode" in argv

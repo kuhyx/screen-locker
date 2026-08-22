@@ -109,6 +109,10 @@ class ProcessHooks:
 
     popen: _Spawner = subprocess.Popen
     selector: _Selector = default_selector
+    # Arms an in-app key handler that drops the grab and quits. Only the demo
+    # harness sets it: inside the app's own seat grab is the only place an
+    # escape can be received, because X delivers keystrokes nowhere else.
+    demo_escape: bool = False
 
 
 class WorkoutAppResult:
