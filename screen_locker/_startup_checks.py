@@ -68,7 +68,10 @@ class StartupChecksMixin(SyncMixin):
                 detail=detail,
                 weekly_count=count_weekly_workouts(self.log_file),
                 weekly_required=WEEKLY_WORKOUT_MINIMUM,
-                extra=extra,
+                # Annotate with the conditions this first-match-wins ladder
+                # never reached, so "why not lock?" is answerable from the one
+                # line rather than by re-deriving the ladder by hand.
+                extra={**self._other_conditions(reason), **extra},
             )
         )
 

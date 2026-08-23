@@ -13,7 +13,9 @@ import sys
 
 from screen_locker import _sick_tracker
 from screen_locker._decision_log import LockDecision, record_decision
+from screen_locker._decision_reasons import reasons_extra
 from screen_locker._wake_state import has_workout_skip_today
+from screen_locker._weekly_check import has_weekly_minimum, is_relaxed_day
 
 _logger = logging.getLogger(__name__)
 
@@ -32,7 +34,37 @@ def _skip(reason: str, detail: str, **extra: object) -> None:
     sys.exit(0)
 
 
-class AutoUpgradeMixin:
+class _ReasonsMixin:
+    """Supplies the side-effect-free conditions that annotate a decision.
+
+    The ladder below is first-match-wins, so only the acting reason was ever
+    recorded. These predicates let a line also name the conditions that held
+    but were never reached -- notably "the workout is already logged" hiding
+    behind "the early-bird window is open".
+    """
+
+    def _other_conditions(self, acting: str) -> dict[str, object]:
+        """Return the ``also=`` extra naming every other condition that holds.
+
+        Strictly read-only. ``_try_auto_upgrade_*`` and
+        ``_save_early_bird_pending`` are deliberately absent: they write log
+        entries and state, and must never run to produce a log line.
+        """
+        return reasons_extra(
+            acting,
+            {
+                "scheduled_skip_day": self._is_scheduled_skip_today,
+                "early_bird_window_active": self._is_early_bird_pending,
+                "sick_day": self._is_sick_day_today,
+                "workout_logged_today": self.has_logged_today,
+                "wake_alarm_skip": has_workout_skip_today,
+                "relaxed_day": is_relaxed_day,
+                "weekly_minimum_met": lambda: has_weekly_minimum(self.log_file),
+            },
+        )
+
+
+class AutoUpgradeMixin(_ReasonsMixin):
     """Handles today-state detection and silent log-entry upgrading.
 
     Relies on methods from EarlyBirdMixin, PhoneVerificationMixin,
@@ -71,6 +103,7 @@ class AutoUpgradeMixin:
                 "Early bird window still active — deferring to the 08:30/09:05 "
                 "re-check timer.",
                 recheck_by="early-bird-workout-check.timer",
+                **self._other_conditions("early_bird_window_active"),
             )
         elif self._is_sick_day_today():
             if self._try_auto_upgrade_sick_day():
@@ -79,11 +112,23 @@ class AutoUpgradeMixin:
                     "Auto-upgraded today's sick_day entry to phone_verified.",
                 )
             else:
-                _skip("sick_day", "Sick day already logged today.")
+                _skip(
+                    "sick_day",
+                    "Sick day already logged today.",
+                    **self._other_conditions("sick_day"),
+                )
         elif self.has_logged_today():
-            _skip("workout_logged_today", "Workout already logged today.")
+            _skip(
+                "workout_logged_today",
+                "Workout already logged today.",
+                **self._other_conditions("workout_logged_today"),
+            )
         elif has_workout_skip_today():
-            _skip("wake_alarm_skip", "Wake alarm earned a workout skip.")
+            _skip(
+                "wake_alarm_skip",
+                "Wake alarm earned a workout skip.",
+                **self._other_conditions("wake_alarm_skip"),
+            )
         elif self._is_early_bird_time():
             self._save_early_bird_pending()
             _skip(
