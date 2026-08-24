@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from pathlib import Path
 import sys
 
@@ -36,6 +37,12 @@ COUNTED_WORKOUT_TYPES = frozenset(
         "manual_workout",
     }
 )
+
+
+# This script is a gate: it decides whether the rest of the recovery may
+# proceed. A read failure that only reaches stdout can be mistaken for a plain
+# "not credited" verdict, so it is logged loudly as well.
+_logger = logging.getLogger(__name__)
 
 
 def _report(message: str) -> None:
@@ -58,6 +65,11 @@ def main() -> int:
     try:
         log = json.loads(log_path.read_text())
     except (OSError, json.JSONDecodeError) as exc:
+        _logger.exception(
+            "Could not read %s — cannot tell whether the workout was "
+            "credited, so this gate fails closed",
+            log_path,
+        )
         _report(f"FAIL: could not read {log_path}: {exc}")
         return 1
 

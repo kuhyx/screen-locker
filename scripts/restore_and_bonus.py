@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime
 import json
+import logging
 from pathlib import Path
 import sys
 
@@ -36,6 +37,12 @@ SICK_DAY_STATE_FILE = REPO_ROOT / "screen_locker" / "sick_day_state.json"
 EXTRA_BENEFITS_FILE = REPO_ROOT / "screen_locker" / "extra_benefits_state.json"
 
 DEFAULT_BONUS_HOURS = 2
+
+# Failures go to the log (stderr) as well as stdout: this script runs as one
+# step of finish_2026_08_24.sh, where a bare stdout line scrolls past in a wall
+# of other output, and it mutates benefit state — the exact case where a quiet
+# failure looks like success.
+_logger = logging.getLogger(__name__)
 
 
 def _report(message: str) -> None:
@@ -57,6 +64,7 @@ def _load(path: Path) -> dict:
     try:
         return json.loads(path.read_text())
     except (OSError, json.JSONDecodeError) as exc:
+        _logger.warning("Could not read %s: %s — treating as empty", path, exc)
         _report(f"WARN: could not read {path}: {exc} — treating as empty")
         return {}
 
@@ -119,6 +127,10 @@ def main() -> int:
     try:
         Path(args.benefits_file).write_text(json.dumps(benefits, indent=2) + "\n")
     except OSError as exc:
+        _logger.exception(
+            "Could not write %s — the bonus was NOT banked",
+            args.benefits_file,
+        )
         _report(f"FAIL: could not write {args.benefits_file}: {exc}")
         return 1
 
