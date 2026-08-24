@@ -85,6 +85,41 @@ class TestFindSiblingRefreshToken:
         """No source is a real outcome; the caller must hear it, not guess."""
         assert find_sibling_refresh_token(tmp_path, skip="screen_locker") is None
 
+    def test_missing_config_root_is_not_an_error(self, tmp_path: Path) -> None:
+        """A machine with no ~/.config yet has no donor -- and must not crash.
+
+        Recovery runs unattended inside a lock decision, so an exception here
+        would take the screen for a reason that has nothing to do with
+        working out.
+        """
+        assert (
+            find_sibling_refresh_token(tmp_path / "nope", skip="screen_locker") is None
+        )
+
+    def test_cache_without_a_usable_token_is_skipped(self, tmp_path: Path) -> None:
+        """Readable JSON is not the same as a usable credential.
+
+        A sibling mid-logout leaves a well-formed cache whose refresh_token is
+        missing or empty. Returning that would mint nothing and report success.
+        """
+        for app, payload in (
+            ("no_token_app", {"expires_at": "2026-08-24T12:00:00+00:00"}),
+            ("empty_token_app", {"refresh_token": ""}),
+            ("wrong_type_app", {"refresh_token": 12345}),
+        ):
+            cache = tmp_path / app / "firebase_auth.json"
+            cache.parent.mkdir(parents=True)
+            cache.write_text(json.dumps(payload))
+        _write_cache(
+            tmp_path / "zz_healthy" / "firebase_auth.json",
+            "refresh-good",
+            expires_at="2026-08-24T12:00:00+00:00",
+        )
+
+        found = find_sibling_refresh_token(tmp_path, skip="screen_locker")
+
+        assert found == ("zz_healthy", "refresh-good")
+
 
 class TestRecoverSession:
     """Turning a borrowed refresh token into our own cached session."""

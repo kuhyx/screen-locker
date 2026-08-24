@@ -9,13 +9,34 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+from screen_locker import _sync_client
 from screen_locker._source_health import (
     SourceFinding,
+    collect_source_findings,
     describe_staleness,
     explain_findings,
 )
 
 _NOW = datetime(2026, 8, 24, 12, 0, tzinfo=timezone.utc)
+
+
+class TestCollectSourceFindings:
+    """The healthy machine must produce no findings at all.
+
+    An always-on warning is one nobody reads. If a fresh, working sync still
+    printed "this may be wrong", the panel added for 2026-08-24 would become
+    background noise and stop carrying information.
+    """
+
+    def test_healthy_and_fresh_reports_nothing(self) -> None:
+        """No dead backend and recent data means silence."""
+        _sync_client.clear_degraded_sources()
+
+        findings = collect_source_findings(
+            newest_synced=_NOW - timedelta(hours=3), now=_NOW
+        )
+
+        assert findings == []
 
 
 class TestDescribeStaleness:

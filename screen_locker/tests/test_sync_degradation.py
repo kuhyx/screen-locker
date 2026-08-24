@@ -21,6 +21,7 @@ from crdt_sync import FirebaseAuthError
 
 from screen_locker import _sync_client, _workout_sync
 from screen_locker._compliance_state import explain_lock_decision
+from screen_locker._credential_recovery import RecoveryResult
 from screen_locker._sick_tracker import SickHistory
 from screen_locker.tests._workout_sync_fixtures import _firebase_config
 
@@ -115,6 +116,101 @@ class TestFirebaseDegradationIsVisible:
         _workout_sync.remote_client(object())
 
         assert _sync_client.degraded_sources() == []
+
+    def test_successful_recovery_returns_a_working_client(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Healing must actually hand back Firebase, not a degraded fallback.
+
+        This is the path that ran for real on 2026-08-24: the cached
+        credential was dead, a sibling app's refresh token rebuilt the
+        session, and the retry succeeded. Nothing may be recorded as
+        degraded -- the source ended up readable.
+        """
+        _firebase_config(_sync_client, tmp_path, monkeypatch)
+        attempts: list[int] = []
+
+        def _dead_then_alive(_app: object, client: object) -> object:
+            attempts.append(1)
+            if len(attempts) == 1:
+                message = "failed to sign in: HTTP 400 (INVALID_LOGIN_CREDENTIALS)"
+                raise FirebaseAuthError(message)
+            return ("mirror", client)
+
+        monkeypatch.setattr(_sync_client, "mirror_client_for", _dead_then_alive)
+        monkeypatch.setattr(
+            _sync_client,
+            "try_recover_firebase_session",
+            lambda: RecoveryResult(recovered=True, reason="rebuilt from a sibling"),
+        )
+        _sync_client.clear_degraded_sources()
+        github = object()
+
+        assert _workout_sync.remote_client(github) == ("mirror", github)
+        assert _sync_client.degraded_sources() == [], (
+            "a source that recovered is not degraded"
+        )
+
+    def test_recovery_that_still_cannot_sign_in_is_degraded(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A token that mints but still fails must degrade, not pretend.
+
+        Recovery reporting success is not proof the backend is readable, so
+        the retry is what decides. If it raises too, this is the same lockout
+        as before and must be recorded -- silently returning the GitHub
+        mirror is exactly how 2026-08-24 stayed invisible.
+        """
+        _firebase_config(_sync_client, tmp_path, monkeypatch)
+
+        def _always_dead(*_args: object, **_kwargs: object) -> None:
+            msg = "still 400 after refresh"
+            raise FirebaseAuthError(msg)
+
+        monkeypatch.setattr(_sync_client, "mirror_client_for", _always_dead)
+        monkeypatch.setattr(
+            _sync_client,
+            "try_recover_firebase_session",
+            lambda: RecoveryResult(recovered=True, reason="rebuilt from a sibling"),
+        )
+        _sync_client.clear_degraded_sources()
+        github = object()
+
+        assert _workout_sync.remote_client(github) is github
+        degraded = _sync_client.degraded_sources()
+        assert degraded, "a retry that still fails must be recorded"
+        assert "still 400 after refresh" in degraded[0].reason
+
+    def test_failed_recovery_records_both_the_cause_and_the_attempt(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When healing fails, say why it failed as well as why it was needed.
+
+        This is 2026-08-24 on a machine with no sibling to borrow from. The
+        recorded reason has to carry both halves, because "Firebase is dead"
+        and "and I could not fix it myself" prompt different actions.
+        """
+        _firebase_config(_sync_client, tmp_path, monkeypatch)
+
+        def _boom(*_args: object, **_kwargs: object) -> None:
+            msg = "HTTP 400 (INVALID_LOGIN_CREDENTIALS)"
+            raise FirebaseAuthError(msg)
+
+        monkeypatch.setattr(_sync_client, "mirror_client_for", _boom)
+        monkeypatch.setattr(
+            _sync_client,
+            "try_recover_firebase_session",
+            lambda: RecoveryResult(
+                recovered=False, reason="no sibling app has a cached refresh token"
+            ),
+        )
+        _sync_client.clear_degraded_sources()
+        github = object()
+
+        assert _workout_sync.remote_client(github) is github
+        reason = _sync_client.degraded_sources()[0].reason
+        assert "INVALID_LOGIN_CREDENTIALS" in reason
+        assert "no sibling app" in reason
 
     def test_unconfigured_machine_is_not_degraded(
         self, monkeypatch: pytest.MonkeyPatch

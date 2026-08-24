@@ -5,10 +5,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
+from screen_locker import _sync_client, _ui_flows
 from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    import pytest
 
 
 class TestUITransitions:
@@ -192,3 +195,33 @@ class TestShowRetryAndSick:
         locker.clear_container.assert_called_once()
         mock_tk.Label.assert_called()
         mock_tk.Button.assert_called()
+
+    def test_healthy_sources_add_no_diagnosis_block(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """With every source healthy the screen must not hedge.
+
+        The "why this may be wrong" panel exists for 2026-08-24, when the
+        machine genuinely could not see the workout. When it *can* see, an
+        unconditional caveat would teach the user to ignore the one message
+        that matters.
+        """
+        _sync_client.clear_degraded_sources()
+        # A healthy machine has a readable backend AND a non-empty log, which
+        # this tmp_path fixture cannot provide -- an empty sync is itself a
+        # finding. Stub the collector so the branch under test is "nothing to
+        # report", not "no workouts synced".
+        monkeypatch.setattr(_ui_flows, "collect_source_findings", list)
+        locker = create_locker(mock_tk, tmp_path)
+        object.__setattr__(locker, "clear_container", MagicMock())
+
+        locker._show_retry_and_sick("Test message")
+
+        shown = " ".join(
+            str(call.kwargs.get("text", "")) for call in mock_tk.Label.call_args_list
+        )
+        assert "may be wrong" not in shown
