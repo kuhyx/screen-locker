@@ -139,3 +139,5 @@ is exactly the change that can cause one.
   another class's private attribute is a real finding.
 - Do not touch `refactor_claude_todo.md`'s 250-line work; that is a separate,
   in-progress task with its own prompt file.
+
+REMOVE ME AFTER FINISH

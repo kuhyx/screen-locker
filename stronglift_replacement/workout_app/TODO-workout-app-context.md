@@ -18,3 +18,5 @@ Implementing design_v2.md improvements.
 ## Next Steps
 - Clarify user intent on "no break between sets" (contradicts design_v2.md which
   explicitly requested per-set breaks)
+
+REMOVE ME AFTER FINISH

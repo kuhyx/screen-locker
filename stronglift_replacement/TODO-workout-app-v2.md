@@ -28,3 +28,5 @@ Technical Requirements:
 App should work on rooted and unrooted phones with minimum android version of at least 12
 Full test coverage (100%) (but first check the functionality and if the functionality fully works and is approved by user THEN start writing ANY tests at all please)
 I connected an unrooted phone with adb on to the pc use it for testing
+
+REMOVE ME AFTER FINISH

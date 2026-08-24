@@ -174,3 +174,5 @@ The code matches the pinned gatelock 0.4.0; this machine has 0.5.0 installed.
 Resync with `pip install -r requirements.txt`. **Do not "fix" the code to
 match the installed version** — that would break CI. See the comment in
 `scripts/_popup_form_check.py`.
+
+REMOVE ME AFTER FINISH

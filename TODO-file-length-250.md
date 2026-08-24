@@ -91,3 +91,5 @@ A refactor without a gate silently regrows. Before this task is done:
 ## Verify
 
 Run the suite, then actually run the locker entry point — this repo deploys from the working tree, so a broken import is a live outage.
+
+REMOVE ME AFTER FINISH
