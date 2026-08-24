@@ -69,6 +69,7 @@ def load_history() -> SickHistory:
         commitments=dict(data.get("commitments", {})),
         broken_commitments=list(data.get("broken_commitments", [])),
         justifications=list(data.get("justifications", [])),
+        revocations=list(data.get("revocations", [])),
     )
 
 
@@ -80,6 +81,7 @@ def save_history(history: SickHistory) -> bool:
         "commitments": history.commitments,
         "broken_commitments": history.broken_commitments,
         "justifications": history.justifications,
+        "revocations": history.revocations,
     }
     try:
         with SICK_HISTORY_FILE.open("w") as f:

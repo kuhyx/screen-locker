@@ -28,6 +28,7 @@ from screen_locker._decision_log import (
 )
 from screen_locker._extra_benefits import process_week_transition
 from screen_locker._shutdown_base import reset_to_base_if_new_day
+from screen_locker._sync_client import degraded_sources
 from screen_locker._sync_mixin import SyncMixin
 from screen_locker._temperature import fetch_current_temp_with_status
 from screen_locker._weekly_check import (
@@ -61,6 +62,16 @@ class StartupChecksMixin(SyncMixin):
         journal could not distinguish "5/5, correctly skipped" from "0/5, should
         have locked".
         """
+        # A backend that could not be read makes weekly_count a floor, not a
+        # count. Say so on the decision line itself: on 2026-08-24 the only
+        # trace of a dead Firebase was a warning 90 seconds earlier, and the
+        # DECISION line read "weekly=0/5" as if that zero were a measurement.
+        unreadable = degraded_sources()
+        if unreadable:
+            extra = {
+                **extra,
+                "unreadable_sources": ",".join(src.name for src in unreadable),
+            }
         record_decision(
             LockDecision(
                 locked=locked,

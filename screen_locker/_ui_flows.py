@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor  # pylint: disable=no-name-in-
 from typing import TYPE_CHECKING
 
 from screen_locker import _manual_workout, _sick_tracker
+from screen_locker._source_health import collect_source_findings, explain_findings
 from screen_locker._ui_flows_lockout import LockoutFlowMixin
 from screen_locker._ui_flows_sick import SickDayFlowMixin
 
@@ -56,6 +57,13 @@ class UIFlowsMixin(SickDayFlowMixin, LockoutFlowMixin):
             "No Workout Found", role="display", color=self._colors.danger, pad="md"
         )
         self._text(message, color=self._colors.warning)
+        # Never accuse the user of skipping a workout the machine simply could
+        # not see. On 2026-08-24 this screen said "No Workout Found" after a
+        # 1h57m session, because Firebase was unreadable and the GitHub mirror
+        # had been stale for nine days -- neither of which was shown here.
+        diagnosis = explain_findings(collect_source_findings())
+        if diagnosis:
+            self._text(diagnosis, color=self._colors.muted)
         history = _sick_tracker.load_history()
         self._text(_sick_tracker.budget_summary(history), color=self._colors.muted)
         self._text(

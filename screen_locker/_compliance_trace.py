@@ -10,6 +10,12 @@ Nothing here touches ADB, sudo, subprocess, the network or the disk.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from screen_locker._sync_client import DegradedSource
 
 
 @dataclass(frozen=True)
@@ -40,6 +46,10 @@ class LockExplanation:
     trace: tuple[PredicateResult, ...]
     auto_upgrade: AutoUpgradeOpportunity
     heat_skip_evaluated: bool
+    # True when a workout backend could not be read on this run, so "no
+    # workout logged" is an absence of evidence rather than evidence of
+    # absence. Defaulted so every existing construction site stays valid.
+    sources_degraded: bool = False
 
 
 _NO_UPGRADE = AutoUpgradeOpportunity(
@@ -83,20 +93,52 @@ def describe_auto_upgrade_opportunity(
     return _NO_UPGRADE
 
 
+def describe_degraded_sources(sources: Sequence[DegradedSource]) -> str:
+    """Return a clause naming the backends that could not be read, or "".
+
+    "No workout logged" is only trustworthy when every backend answered. On
+    2026-08-24 Firebase was unreadable and the phone had already stopped
+    writing to the GitHub mirror, so an empty log was reported as though the
+    user had simply not trained -- and a screen was locked after a two-hour
+    session. Naming the dark source turns that verdict into a question.
+    """
+    if not sources:
+        return ""
+    named = ", ".join(f"{src.name} ({src.reason})" for src in sources)
+    return (
+        f" Could not read: {named} — a workout logged there would be "
+        "invisible here, so this is 'unverified', not 'no workout'."
+    )
+
+
+@dataclass(frozen=True)
+class StageContext:
+    """The parts of a terminal stage that outlive a single predicate.
+
+    Bundled into one object rather than passed as loose keywords: the trace
+    and the two run-wide flags travel together through every call site, and
+    threading them separately pushed ``_stage`` past the argument limit.
+    """
+
+    trace: list[PredicateResult]
+    auto_upgrade: AutoUpgradeOpportunity
+    sources_degraded: bool = False
+
+
 def _stage(
     *,
     fired: bool,
     stage: str,
     reason: str,
-    trace: list[PredicateResult],
-    auto_upgrade: AutoUpgradeOpportunity,
+    context: StageContext,
 ) -> LockExplanation:
     """Build a terminal :class:`LockExplanation` from the trace so far."""
     return LockExplanation(
         fired=fired,
         stage=stage,
         reason=reason,
-        trace=tuple(trace),
-        auto_upgrade=auto_upgrade,
+        trace=tuple(context.trace),
+        auto_upgrade=context.auto_upgrade,
         heat_skip_evaluated=False,
+        sources_degraded=context.sources_degraded,
     )

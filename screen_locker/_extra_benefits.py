@@ -139,15 +139,21 @@ def process_week_transition(log_file: Path, state_file: Path) -> list[str]:
             rewards.append(f"Streak reset (was {streak} weeks of 5+ workouts)")
         streak = 0
 
-    _save_state(
-        state_file,
+    # Merge onto the loaded state rather than rebuilding it from these four
+    # keys: sibling fields written by the recovery scripts (e.g.
+    # ``shutdown_bonus_granted_for``, the guard that stops a compensation
+    # bonus being granted twice) live in this file too, and rebuilding would
+    # drop them at the next weekly rollover — silently re-arming a double-grant.
+    updated = dict(state)
+    updated.update(
         {
             "consecutive_5plus_weeks": streak,
             "last_processed_iso_week": current_week_str,
             "weekly_shutdown_bonus_hours": weekly_bonus_hours,
             "extended_early_bird_iso_weeks": eb_weeks,
-        },
+        }
     )
+    _save_state(state_file, updated)
     return rewards
 
 

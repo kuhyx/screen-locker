@@ -33,14 +33,18 @@ from screen_locker._compliance_trace import (
     AutoUpgradeOpportunity,
     LockExplanation,
     PredicateResult,
+    StageContext,
     _stage,
     describe_auto_upgrade_opportunity,
+    describe_degraded_sources,
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from pathlib import Path
 
     from screen_locker._sick_tracker import SickHistory
+    from screen_locker._sync_client import DegradedSource
 
 __all__ = [
     "AutoUpgradeOpportunity",
@@ -67,6 +71,7 @@ def explain_lock_decision(
     relaxed_day: bool,
     wake_skip: bool = False,
     now: datetime | None = None,
+    degraded_sources: Sequence[DegradedSource] = (),
 ) -> LockExplanation:
     """Re-derive the lock-decision chain without ADB, sudo, or writes.
 
@@ -100,6 +105,7 @@ def explain_lock_decision(
     )
 
     trace: list[PredicateResult] = []
+    stage_context = StageContext(trace, auto_upgrade, bool(degraded_sources))
 
     def _check(
         name: str,
@@ -117,8 +123,7 @@ def explain_lock_decision(
                 fired=False,
                 stage=name,
                 reason=terminal_reason,
-                trace=trace,
-                auto_upgrade=auto_upgrade,
+                context=stage_context,
             )
         return None
 
@@ -166,11 +171,12 @@ def explain_lock_decision(
     if result is not None:
         return result
 
+    degraded_note = describe_degraded_sources(degraded_sources)
     result = _check(
         "already_logged",
         fired=logged,
         reason_true="A validly-signed workout is already logged for today.",
-        reason_false="No workout logged for today yet.",
+        reason_false="No workout logged for today yet." + degraded_note,
         terminal_reason="Workout already logged today — lock skipped.",
     )
     if result is not None:
@@ -236,8 +242,7 @@ def explain_lock_decision(
         reason=(
             "No skip condition applies. The real locker still checks live "
             "Warsaw temperature before showing the full lock — not "
-            "evaluated here."
+            "evaluated here." + degraded_note
         ),
-        trace=trace,
-        auto_upgrade=auto_upgrade,
+        context=stage_context,
     )

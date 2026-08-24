@@ -14,4 +14,9 @@ pytest-cov>=4.1.0
 pytest-randomly>=3.15.0
 pytest-sugar>=1.0.0
 pytest-xdist>=3.5.0
+# Direct dependency since the Firebase session recovery exchanges a refresh
+# token over the REST endpoint; crdt-sync already pulls requests in, but this
+# module imports it itself, so it is declared rather than assumed.
+requests>=2.31.0
 ruff>=0.8.0
+types-requests>=2.31.0

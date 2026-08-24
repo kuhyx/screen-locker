@@ -23,6 +23,7 @@ screen_locker/sick_history.json
 screen_locker/extra_benefits_state.json
 screen_locker/scheduled_skips.json
 screen_locker/shutdown_base.json
+screen_locker/sick_day_state.json
 screen_locker/early_bird_pending.json
 
 # ci_mirror.sh cached requirements.txt venv (rebuilt on demand)

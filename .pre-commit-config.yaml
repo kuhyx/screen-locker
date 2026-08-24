@@ -90,6 +90,12 @@ repos:
           - --disable-error-code=redundant-cast
           - --disable-error-code=empty-body
           - --disable-error-code=list-item
+        # The hook runs in its own isolated venv, so stubs installed into the
+        # project venv are invisible to it. Without this, the Firebase session
+        # recovery's `import requests` fails as import-untyped here while
+        # type-checking cleanly everywhere else.
+        additional_dependencies:
+          - types-requests>=2.31.0
 
   - repo: https://github.com/pylint-dev/pylint
     rev: v3.3.2

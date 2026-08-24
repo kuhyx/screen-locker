@@ -35,6 +35,11 @@ class SickHistory:
     commitments: dict[str, bool] = field(default_factory=dict)
     broken_commitments: list[str] = field(default_factory=list)
     justifications: list[dict[str, Any]] = field(default_factory=list)
+    # Sick days later disproved by a workout the locker could not read at the
+    # time. Kept beside the justifications rather than folded into them: those
+    # entries are HMAC-signed over the whole dict, so annotating one in place
+    # would break verification and look like tampering.
+    revocations: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _today_iso() -> str:
