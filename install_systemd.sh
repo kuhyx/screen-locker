@@ -14,6 +14,51 @@ LOCKER_TIMER_NAME="workout-locker.timer"
 SYNC_SERVICE_NAME="workout-sync.service"
 SYNC_TIMER_NAME="workout-sync.timer"
 
+# Runtime dependencies. screen_lock.py imports tkinter at module scope. On Arch
+# the tkinter MODULE ships inside the `python` package, but the shared library
+# it dlopens does not: without `tk` the import dies with
+# "ImportError: libtk8.6.so: cannot open shared object file" and this installer
+# exits 1. That is exactly how a fresh Arch box behaves, since `tk` is only an
+# optional dependency of python. Install it rather than documenting it: a fresh
+# install must not require the user to know this.
+ensure_runtime_deps() {
+	if ! python3 -c 'import tkinter' 2>/dev/null; then
+		if command -v pacman >/dev/null 2>&1; then
+			echo "Installing missing system dependency: tk"
+			if [ "$(id -u)" -eq 0 ]; then
+				pacman -S --needed --noconfirm tk
+			else
+				sudo pacman -S --needed --noconfirm tk
+			fi
+		else
+			echo "WARNING: tkinter missing and pacman unavailable - install tk manually" >&2
+		fi
+	fi
+
+	# The two shared RUNTIME dependencies, both pinned git deps in
+	# pyproject.toml: gatelock (lock-window/HMAC backend) and crdt-sync (the
+	# workout-sync transport). Nothing here used to install either, so a fresh
+	# checkout died with "ModuleNotFoundError: No module named 'gatelock'" the
+	# first time the post-install workout check ran, and with crdt_sync right
+	# after that. requirements.txt is NOT used here on purpose: it also pins the
+	# dev toolchain (pytest, mypy, ruff...), which a fresh install does not need.
+	#
+	# Arch marks its system Python externally-managed, so a plain `pip install`
+	# refuses; --break-system-packages is what the sibling installers already use.
+	_pip_runtime_dep() { # <import-name> <pip-spec>
+		python3 -c "import $1" 2>/dev/null && return 0
+		echo "Installing missing Python dependency: $1"
+		pip3 install --user --quiet "$2" 2>/dev/null ||
+			pip3 install --user --break-system-packages --quiet "$2" ||
+			echo "WARNING: could not install $1 automatically" >&2
+	}
+	_pip_runtime_dep gatelock \
+		"gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.7.1#subdirectory=gatelock"
+	_pip_runtime_dep crdt_sync \
+		"crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.9.0#subdirectory=crdt-sync"
+}
+ensure_runtime_deps
+
 # shellcheck source=scripts/disarm_guard.sh
 source "$SCRIPT_DIR/scripts/disarm_guard.sh"
 # Installing units here would overwrite the systemd mask symlinks, so this
@@ -135,7 +180,21 @@ else
 	echo "  exec --no-startup-id /usr/bin/python3 -m screen_locker.screen_lock --production"
 fi
 
-# Immediately check if today's workout is done; block if not
+# Immediately check if today's workout is done; block if not.
+#
+# --production builds the real Tk UI and, when today is non-compliant, GRABS
+# THE SCREEN and waits for a workout to be logged. That is correct for an
+# interactive install, but it never returns on its own -- so when this script
+# is driven non-interactively (install_core_system.sh, CI, `vm run`) the whole
+# installer hangs forever on its last line. Only take the blocking path when
+# there is a terminal to answer it; otherwise report status and exit.
+# SCREEN_LOCKER_ENFORCE_AFTER_INSTALL=1 forces the blocking check.
 echo ""
 echo "=== Checking today's workout status ==="
-PYTHONPATH="$SCRIPT_DIR" python3 -m screen_locker.screen_lock --production
+if [ -t 0 ] || [ "${SCREEN_LOCKER_ENFORCE_AFTER_INSTALL:-0}" = "1" ]; then
+	PYTHONPATH="$SCRIPT_DIR" python3 -m screen_locker.screen_lock --production
+else
+	echo "(non-interactive install: reporting status instead of enforcing)"
+	PYTHONPATH="$SCRIPT_DIR" python3 -m screen_locker.screen_lock --status || true
+	echo "Enforcement is armed via the systemd units installed above."
+fi
