@@ -13,11 +13,18 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from tempfile import TemporaryDirectory
 import tkinter as tk
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 from gatelock import LockConfig, RecoveryLoop
+
+# Not re-exported at the package top level, but it is the only way to
+# build a RecoveryLoop on the pinned version. This harness already
+# borrows gatelock's real grab predicate on purpose, so reaching for the
+# collaborators type it requires is the same deliberate coupling.
+from gatelock._recovery import RecoveryCollaborators
 
 from screen_locker import _manual_workout
 from screen_locker._manual_workout_dialog import ManualWorkoutDialogMixin
@@ -44,14 +51,20 @@ class HostileLock:
         # this harness drives the ticks itself, so the collaborators are never
         # called -- the same MagicMock stand-ins gatelock's own tests use.
         #
-        # This is the gatelock 0.4.0 signature, which is what requirements.txt
-        # pins. gatelock 0.5.0 regroups these into a RecoveryCollaborators
-        # object, so running against a locally-installed 0.5.0 raises
-        # "takes 3 positional arguments but 6 were given" -- that is an
-        # environment drift, not a bug here. Fix it by matching the pin:
-        #   pip install -e . && pip install -r requirements.txt
+        # Matches the RecoveryCollaborators signature that requirements.txt
+        # actually pins (gatelock-v0.7.1). The old five-positional call was
+        # gatelock 0.4.0's, and the comment here claimed that was the pin --
+        # it had not been true for several releases, so this failed in CI on
+        # every push while reading as "environment drift, not a bug here".
         self._loop = RecoveryLoop(
-            root, LockConfig(mode="hard"), MagicMock(), MagicMock(), MagicMock()
+            root,
+            RecoveryCollaborators(
+                config=LockConfig(mode="hard"),
+                surfaces=MagicMock(),
+                enumerator=MagicMock(),
+                detector=MagicMock(),
+                hooks=MagicMock(),
+            ),
         )
         root.grab_set_global()
         root.after(TICK_MS, self._tick)
@@ -121,9 +134,14 @@ class FormHost(UIWidgetsMixin, ManualWorkoutDialogMixin):
         """Set only the attributes the form actually reads."""
         self.root = root
         self.demo_mode = False
-        self.log_file = (
-            Path(__file__).resolve().parent.parent / "screen_locker" / "log.json"
-        )
+        # An empty throwaway log, NOT the real one. The form renders a
+        # "budget exhausted" note instead of the sport selector once the
+        # week's manual workouts are used up, so pointing at the live log made
+        # this check pass or fail on how much the user had exercised that
+        # week rather than on whether the widgets survive a recovery tick.
+        self._log_dir = TemporaryDirectory()
+        self.log_file = Path(self._log_dir.name) / "log.json"
+        self.log_file.write_text("{}")
         self._colors = LockConfig()
         self.container = FrameGroup.single(root, bg=self._colors.bg)
 
