@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from typing import TYPE_CHECKING
+from unittest.mock import patch
 
 import pytest
 
@@ -64,10 +65,22 @@ def _entries(log_file: Path) -> list[dict]:
 
 
 def test_logs_a_valid_workout(tmp_path: Path) -> None:
-    """A complete draft is signed, filed under its date and reported."""
+    """A complete draft is signed, filed under its date and reported.
+
+    The signature is stubbed rather than taken from the real key: it lives at
+    ``/etc/workout-locker/hmac.key``, which exists on the machine that runs
+    the locker and not on a CI runner. Without this the assertion below was a
+    ``KeyError`` on CI and a pass locally -- the test was measuring the host,
+    not the code. Saving an entry UNSIGNED when no key is available is
+    deliberate behaviour, covered separately by
+    ``test_manual_sync.test_writes_unsigned_entry_when_hmac_key_unavailable``.
+    """
     log_file = tmp_path / "log.json"
 
-    assert run_manual_log(log_file, _args()) == 0
+    with patch(
+        "screen_locker._log_mixin.compute_entry_hmac", return_value="test-signature"
+    ):
+        assert run_manual_log(log_file, _args()) == 0
 
     (entry,) = _entries(log_file)
     data = entry["workout_data"]
