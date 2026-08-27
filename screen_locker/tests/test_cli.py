@@ -173,3 +173,51 @@ class TestScreenLockDelegation:
         """main is the module's public entry point."""
         assert _cli.__all__ == ["main"]
         assert callable(_cli.main)
+
+
+class TestLogManualWorkoutMode:
+    """--log-manual-workout hands everything after the flag to the logger.
+
+    Dispatch only: the field rules themselves are covered by
+    ``test_manual_cli.py`` against the real validator.
+    """
+
+    def test_forwards_the_remaining_args_and_exits_with_its_code(self) -> None:
+        """The flag's own name is not passed on, and the exit code is used."""
+        seen: list[tuple[object, list[str]]] = []
+
+        def _fake_run(log_file: object, argv: list[str]) -> int:
+            """Record the call and report a refusal."""
+            seen.append((log_file, list(argv)))
+            return 1
+
+        with (
+            patch.object(_cli.logging, "basicConfig"),
+            patch.object(_cli, "run_manual_log", _fake_run),
+            patch.object(_cli.sys, "exit") as sys_exit,
+        ):
+            _cli.main(
+                _FakeLocker,
+                ["screen_lock.py", "--log-manual-workout", "--sport", "other"],
+            )
+
+        (log_file, argv) = seen[0]
+        assert argv == ["--sport", "other"]
+        assert log_file.name == "log.json"
+        sys_exit.assert_called_once_with(1)
+
+    def test_exits_before_reaching_the_lock_screen(self) -> None:
+        """A successful log exits 0 rather than falling through to the UI.
+
+        ``sys.exit`` is a no-op under the suite-wide fixture, so this asserts
+        on the exit call: in the real process that call is what stops the
+        headless path from continuing on to build a lock screen.
+        """
+        with (
+            patch.object(_cli.logging, "basicConfig"),
+            patch.object(_cli, "run_manual_log", lambda *_: 0),
+            patch.object(_cli.sys, "exit") as sys_exit,
+        ):
+            _cli.main(_FakeLocker, ["screen_lock.py", "--log-manual-workout"])
+
+        assert sys_exit.call_args_list[0].args == (0,)
