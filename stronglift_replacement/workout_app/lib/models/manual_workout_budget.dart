@@ -24,6 +24,12 @@ ManualBudget countManualBudget(
   var week = 0;
   var month = 0;
   for (final payload in payloads) {
+    // Skip evidence-less `{type, kind, date}` stubs. The PC refuses to ingest
+    // these ("no workout data to ingest; skipping permanently"), so counting
+    // them made the phone's budget stricter than the PC's for a workout that
+    // neither device ever accepted. `start_time` is the discriminator: every
+    // real self-report has one, and no stub does.
+    if (payload['start_time'] is! String) continue;
     final dateStr = payload['date'];
     if (dateStr is! String) continue;
     final date = DateTime.tryParse(dateStr);

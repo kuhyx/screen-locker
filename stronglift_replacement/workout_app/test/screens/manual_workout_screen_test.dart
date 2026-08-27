@@ -67,9 +67,22 @@ void main() {
   });
 
   testWidgets('hides the form when the budget is exhausted', (tester) async {
+    // Real self-reports, not bare {kind, date} stubs: the counter ignores
+    // payloads with no `start_time`, because the PC refuses to ingest those
+    // and a budget must not be spent on a workout neither device accepted.
     final payloads = [
-      {'kind': 'manual_workout', 'date': '2026-07-12'},
-      {'kind': 'manual_workout', 'date': '2026-07-13'},
+      {
+        'kind': 'manual_workout',
+        'date': '2026-07-12',
+        'start_time': '18:00',
+        'end_time': '19:00',
+      },
+      {
+        'kind': 'manual_workout',
+        'date': '2026-07-13',
+        'start_time': '18:00',
+        'end_time': '19:00',
+      },
     ];
     await _pump(
       tester,

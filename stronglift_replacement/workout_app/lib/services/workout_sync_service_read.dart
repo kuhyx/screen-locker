@@ -64,19 +64,38 @@ extension WorkoutSyncServiceRead on WorkoutSyncService {
         : MirrorStore(primary: firebase, mirror: github);
     try {
       final merged = <String, Record>{};
+      final tombstoned = <String>{};
       for (final device in await client.listDirectory(_pathPrefix)) {
         final text = await client.getFileText(
           '$_pathPrefix/$device/$_logFilename',
         );
         if (text == null) continue;
-        _mergeRecords(_decode(text), merged, kind: kind);
+        final log = _decode(text);
+        _collectTombstones(log, tombstoned);
+        _mergeRecords(log, merged, kind: kind);
       }
+      // Suppression is applied across the whole device union, never per file:
+      // one device tombstoning a record while another still holds it live must
+      // delete it, and a per-file skip would just let the live copy win the
+      // merge. Mirrors the PC's `_tombstoned_ids` (screen_locker/_sync_records.py).
+      tombstoned.forEach(merged.remove);
       return merged.values
           .map((r) => (r.fields['payload']!.$1! as Map).cast<String, dynamic>())
           .toList();
     } finally {
       github.close();
       firebase?.close();
+    }
+  }
+
+  /// Collects the ids this device log marks deleted, into [into].
+  ///
+  /// Gathered before the kind filter runs, because a tombstone carries no
+  /// payload to match on: filtering first would drop the deletion and let the
+  /// live copy from another device survive the merge.
+  static void _collectTombstones(Log log, Set<String> into) {
+    for (final entry in log.entries) {
+      if (entry.value.deleted) into.add(entry.key);
     }
   }
 

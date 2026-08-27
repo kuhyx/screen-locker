@@ -1,0 +1,64 @@
+{
+  "_comment": [
+    "Shared cross-language fixture for manual-workout budget counting.",
+    "Derived from a real divergence on 2026-08-27: the phone showed",
+    "'Manual: 2/2w 4/10m -- budget exhausted' while the PC read 1/2w 2/10m.",
+    "Two Dart-only defects caused it, both represented below:",
+    "  1. the phone's merge ignored tombstones, so the deleted duplicate",
+    "     manual:2026-08-21T21:00 still consumed a weekly slot;",
+    "  2. the phone counted the evidence-less stub manual_workout:2026-08-15,",
+    "     which the PC refuses to ingest, costing an extra monthly slot.",
+    "Each side's own round-trip test passed while the pair disagreed, so this",
+    "literal -- read by both -- is the only thing that catches the drift."
+  ],
+  "today": "2026-08-27",
+  "records": [
+    {
+      "id": "manual:2026-08-11T18:00",
+      "deleted": false,
+      "payload": {
+        "kind": "manual_workout",
+        "type": "manual_workout",
+        "date": "2026-08-11",
+        "start_time": "18:00",
+        "end_time": "19:00"
+      }
+    },
+    {
+      "id": "manual_workout:2026-08-15",
+      "deleted": false,
+      "payload": {
+        "kind": "manual_workout",
+        "type": "manual_workout",
+        "date": "2026-08-15"
+      }
+    },
+    {
+      "id": "manual:2026-08-21T20:00",
+      "deleted": false,
+      "payload": {
+        "kind": "manual_workout",
+        "type": "manual_workout",
+        "date": "2026-08-21",
+        "start_time": "20:00",
+        "end_time": "21:00"
+      }
+    },
+    {
+      "id": "manual:2026-08-21T21:00",
+      "deleted": true,
+      "payload": {
+        "kind": "manual_workout",
+        "type": "manual_workout",
+        "date": "2026-08-21",
+        "start_time": "21:00",
+        "end_time": "22:00"
+      }
+    }
+  ],
+  "expected": {
+    "week": 1,
+    "month": 2,
+    "exhausted": false
+  }
+}
