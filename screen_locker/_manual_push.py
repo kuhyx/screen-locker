@@ -51,6 +51,7 @@ from screen_locker._constants import (
 from screen_locker._device import device_identity
 from screen_locker._log_io import load_workout_log
 from screen_locker._log_mixin import _derive_workout_id
+from screen_locker._push_outcome import describe_push
 from screen_locker._sync_retry import with_sync_retry
 from screen_locker._weekly_check import COUNTED_WORKOUT_TYPES
 from screen_locker._workout_sync import _DEVICES_PREFIX, read_sync_token, remote_client
@@ -238,7 +239,7 @@ def push_pc_workouts(log_file: Path) -> PushResult:
             )
         return PushResult(pushed=False, record_count=len(log), reason=reason)
 
-    _logger.info(
-        "Synced %d workout(s) to %s/%s", len(log), SYNC_REPO_OWNER, SYNC_REPO_NAME
-    )
-    return PushResult(pushed=True, record_count=len(log), reason="pushed")
+    # Delegated so a half-landed push can never be logged as a clean one;
+    # see _push_outcome for why that distinction is load-bearing.
+    _, reason = describe_push(len(log))
+    return PushResult(pushed=True, record_count=len(log), reason=reason)

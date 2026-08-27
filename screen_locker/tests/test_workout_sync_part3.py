@@ -12,7 +12,10 @@ from typing import TYPE_CHECKING
 from crdt_sync import ConfigError
 
 from screen_locker import _sync_client, _workout_sync
-from screen_locker.tests._workout_sync_fixtures import _firebase_config
+from screen_locker.tests._workout_sync_fixtures import (
+    ReachableClient,
+    _firebase_config,
+)
 
 if TYPE_CHECKING:
     import pytest
@@ -40,11 +43,11 @@ class TestRemoteClient:
         monkeypatch.setattr(
             _sync_client,
             "mirror_client_for",
-            lambda _app, client: ("mirror", client),
+            lambda _app, client: ReachableClient(("mirror", client)),
         )
         github = object()
 
-        assert _workout_sync.remote_client(github) == ("mirror", github)
+        assert _workout_sync.remote_client(github).identity == ("mirror", github)
 
     def test_falls_back_when_firebase_is_unusable(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

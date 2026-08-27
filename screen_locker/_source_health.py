@@ -21,7 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from screen_locker._sync_client import degraded_sources
+from screen_locker._degraded_sources import degraded_sources
 
 # A phone that has synced nothing for this long is not "quiet", it is broken.
 # Two days spans a rest day plus a travel day without crying wolf, while still

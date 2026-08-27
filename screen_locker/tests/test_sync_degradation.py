@@ -23,7 +23,10 @@ from screen_locker import _sync_client, _workout_sync
 from screen_locker._compliance_state import explain_lock_decision
 from screen_locker._credential_recovery import RecoveryResult
 from screen_locker._sick_tracker import SickHistory
-from screen_locker.tests._workout_sync_fixtures import _firebase_config
+from screen_locker.tests._workout_sync_fixtures import (
+    ReachableClient,
+    _firebase_config,
+)
 
 if TYPE_CHECKING:
     import pytest
@@ -109,7 +112,7 @@ class TestFirebaseDegradationIsVisible:
         monkeypatch.setattr(
             _sync_client,
             "mirror_client_for",
-            lambda _app, client: ("mirror", client),
+            lambda _app, client: ReachableClient(("mirror", client)),
         )
         _sync_client.clear_degraded_sources()
 
@@ -135,7 +138,7 @@ class TestFirebaseDegradationIsVisible:
             if len(attempts) == 1:
                 message = "failed to sign in: HTTP 400 (INVALID_LOGIN_CREDENTIALS)"
                 raise FirebaseAuthError(message)
-            return ("mirror", client)
+            return ReachableClient(("mirror", client))
 
         monkeypatch.setattr(_sync_client, "mirror_client_for", _dead_then_alive)
         monkeypatch.setattr(
@@ -146,7 +149,8 @@ class TestFirebaseDegradationIsVisible:
         _sync_client.clear_degraded_sources()
         github = object()
 
-        assert _workout_sync.remote_client(github) == ("mirror", github)
+        recovered = _workout_sync.remote_client(github)
+        assert recovered.identity == ("mirror", github)
         assert _sync_client.degraded_sources() == [], (
             "a source that recovered is not degraded"
         )

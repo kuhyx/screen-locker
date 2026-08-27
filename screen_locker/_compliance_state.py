@@ -43,8 +43,8 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
 
+    from screen_locker._degraded_sources import DegradedSource
     from screen_locker._sick_tracker import SickHistory
-    from screen_locker._sync_client import DegradedSource
 
 __all__ = [
     "AutoUpgradeOpportunity",

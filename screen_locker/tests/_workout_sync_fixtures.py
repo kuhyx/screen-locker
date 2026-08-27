@@ -95,3 +95,40 @@ def _firebase_config(
     config.write_text("{}", encoding="utf-8")
     monkeypatch.setattr(module, "CONFIG_FILE", config)
     return config
+
+
+class ReachableClient:
+    """A built client whose authenticated probe succeeds.
+
+    ``remote_client`` no longer trusts a client just because it constructed:
+    it probes with ``can_access_remote`` first, because a credential that is
+    present but server-rejected builds fine and then 401s on every operation.
+    Fakes therefore have to answer that probe. ``identity`` carries whatever
+    the test wants to assert it got back.
+    """
+
+    def __init__(self, identity: object = "mirror") -> None:
+        """Stand in for a usable backend identified by ``identity``."""
+        self.identity = identity
+
+    def can_access_remote(self) -> bool:
+        """Report the backend as usable."""
+        return True
+
+
+class RejectedClient:
+    """A client that BUILDS fine but is refused by the server.
+
+    The shape that caused 2026-08-27: ``has_session()`` only reads the cached
+    JSON off disk, so a credential the server no longer accepts constructs
+    without error and then 401s on every operation. Only an authenticated
+    probe tells the two apart.
+    """
+
+    def __init__(self, identity: object = "rejected") -> None:
+        """Stand in for a backend that refuses this credential."""
+        self.identity = identity
+
+    def can_access_remote(self) -> bool:
+        """Report the backend as refusing us."""
+        return False

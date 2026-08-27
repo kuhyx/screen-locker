@@ -46,20 +46,28 @@ class RecoveryResult:
     donor: str | None = None
 
 
-def find_sibling_refresh_token(
+def find_sibling_refresh_tokens(
     config_root: Path, *, skip: str
-) -> tuple[str, str] | None:
-    """Return ``(app_name, refresh_token)`` from a sibling app's cache.
+) -> list[tuple[str, str]]:
+    """Return every ``(app_name, refresh_token)`` a sibling app has cached.
+
+    All of them, not just the first: the caches on this machine are of mixed
+    vintages (some minted weeks apart), so the alphabetically-first donor is
+    not necessarily a live one. Returning the whole list lets
+    :func:`recover_session` try the next one instead of giving up on a single
+    stale token -- the same "one dead source blocks the healthy ones" bug this
+    module exists to fix, one level down.
 
     Args:
         config_root: The directory holding per-app config dirs (``~/.config``).
         skip: Our own app name, whose cache is the thing being replaced.
 
     Returns:
-        The first usable sibling credential, or ``None`` when none exists.
+        Every usable sibling credential, in a stable order.
     """
     if not config_root.is_dir():
-        return None
+        return []
+    found: list[tuple[str, str]] = []
     for cache in sorted(config_root.glob(f"*/{_CACHE_NAME}")):
         app_name = cache.parent.name
         if app_name == skip:
@@ -77,8 +85,8 @@ def find_sibling_refresh_token(
             continue
         token = data.get("refresh_token")
         if isinstance(token, str) and token:
-            return app_name, token
-    return None
+            found.append((app_name, token))
+    return found
 
 
 def recover_session(
@@ -97,8 +105,8 @@ def recover_session(
         app_name: Our app name, both the skip target and the cache we write.
         mint: Exchanges a refresh token for a session and persists it.
     """
-    found = find_sibling_refresh_token(config_root, skip=app_name)
-    if found is None:
+    candidates = find_sibling_refresh_tokens(config_root, skip=app_name)
+    if not candidates:
         reason = (
             f"no sibling app under {config_root} holds a Firebase refresh "
             "token, so the session cannot be rebuilt locally — sign in once "
@@ -107,14 +115,40 @@ def recover_session(
         _logger.warning("Firebase recovery failed: %s", reason)
         return RecoveryResult(recovered=False, reason=reason)
 
-    donor, refresh_token = found
-    try:
-        mint(refresh_token)
-    except (OSError, ValueError, RuntimeError, ConfigError, RemoteSyncError) as exc:
-        reason = f"borrowed {donor}'s refresh token but it was rejected: {exc}"
+    rejections: list[str] = []
+    donor = ""
+    for candidate, refresh_token in candidates:
+        try:
+            mint(refresh_token)
+        except (OSError, ValueError, RuntimeError, ConfigError, RemoteSyncError) as exc:
+            # Keep going: a stale donor says nothing about the next one, and
+            # stopping here is how a single expired sibling blocked a recovery
+            # that several live credentials could have completed. Each
+            # rejection is logged as it happens, so a donor that has quietly
+            # gone stale is visible even on the runs that recover anyway.
+            _logger.warning(
+                "Sibling %s's refresh token was rejected (%s) — trying the "
+                "next donor; %s should be reseeded",
+                candidate,
+                exc,
+                candidate,
+            )
+            rejections.append(f"{candidate} ({exc})")
+            continue
+        donor = candidate
+        break
+    else:
+        reason = "every sibling refresh token was rejected: " + ", ".join(rejections)
         _logger.warning("Firebase recovery failed: %s", reason)
         return RecoveryResult(recovered=False, reason=reason)
 
+    if rejections:
+        _logger.warning(
+            "Firebase recovery fell through to %s after %s was rejected — the "
+            "earlier credential is stale and should be reseeded",
+            donor,
+            ", ".join(rejections),
+        )
     _logger.info(
         "Firebase session rebuilt for %s from %s's cached refresh token — no "
         "password or human step was needed",

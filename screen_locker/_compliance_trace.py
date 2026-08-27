@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from screen_locker._sync_client import DegradedSource
+    from screen_locker._degraded_sources import DegradedSource
 
 
 @dataclass(frozen=True)

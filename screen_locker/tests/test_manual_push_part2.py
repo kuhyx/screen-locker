@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 from crdt_sync import GitHubSyncError, RepoNotFoundError
 
-from screen_locker import _manual_push
+from screen_locker import _manual_push, _sync_client
 from screen_locker._manual_push import (
     PushResult,
     push_pc_workouts,
@@ -167,3 +167,59 @@ class TestPushPcWorkouts:
         # local_log is the second positional arg since crdt-sync v0.9.0.
         pushed = fake_sync.call_args.args[1]
         assert "runnerup_verified:2026-07-12" in pushed
+
+
+class TestIncompletePushIsNotReportedAsClean:
+    """A push that reached only some backends must not look like a full one."""
+
+    def test_a_degraded_backend_makes_the_push_incomplete(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Firebase missing the records must be said out loud, at warning.
+
+        Before this, a dead Firebase produced the identical
+        ``INFO Synced N workout(s)`` line as a fully mirrored push, so a
+        half-landed push was indistinguishable from a healthy one for weeks.
+        """
+        log_file = tmp_path / "log.json"
+        _write_log(
+            log_file, {"2026-07-13": [_entry(_RUN, "2026-07-13T10:00:00+00:00")]}
+        )
+        _sync_client.clear_degraded_sources()
+        _sync_client._record_degraded("firebase", "HTTP 401")
+
+        with (
+            patch.object(_manual_push, "read_sync_token", return_value="t"),
+            patch.object(_manual_push, "remote_client", MagicMock()),
+            patch.object(_manual_push, "with_sync_retry", MagicMock()),
+            caplog.at_level("WARNING"),
+        ):
+            result = push_pc_workouts(log_file)
+
+        _sync_client.clear_degraded_sources()
+        assert result.pushed is True, "the records DID land on GitHub"
+        assert "firebase" in result.reason
+        assert "did NOT receive" in result.reason
+        assert "INCOMPLETE" in caplog.text
+
+    def test_a_healthy_push_stays_quiet(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """The happy path must stay clean, or the warning means nothing."""
+        log_file = tmp_path / "log.json"
+        _write_log(
+            log_file, {"2026-07-13": [_entry(_RUN, "2026-07-13T10:00:00+00:00")]}
+        )
+        _sync_client.clear_degraded_sources()
+
+        with (
+            patch.object(_manual_push, "read_sync_token", return_value="t"),
+            patch.object(_manual_push, "remote_client", MagicMock()),
+            patch.object(_manual_push, "with_sync_retry", MagicMock()),
+            caplog.at_level("WARNING"),
+        ):
+            result = push_pc_workouts(log_file)
+
+        assert result.pushed is True
+        assert result.reason == "pushed"
+        assert "INCOMPLETE" not in caplog.text

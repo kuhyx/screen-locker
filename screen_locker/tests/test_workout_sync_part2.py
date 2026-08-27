@@ -18,6 +18,7 @@ import pytest
 
 from screen_locker import _sync_client, _workout_sync
 from screen_locker.tests._workout_sync_fixtures import (
+    ReachableClient,
     _firebase_config,
 )
 
@@ -55,10 +56,12 @@ class TestSyncClient:
         _firebase_config(_sync_client, tmp_path, monkeypatch)
         github = MagicMock()
         monkeypatch.setattr(
-            _sync_client, "mirror_client_for", lambda _app, client: ("mirror", client)
+            _sync_client,
+            "mirror_client_for",
+            lambda _app, client: ReachableClient(("mirror", client)),
         )
         with patch.object(_sync_client, "GitHubSyncClient", return_value=github):
-            assert _workout_sync.sync_client() == ("mirror", github)
+            assert _workout_sync.sync_client().identity == ("mirror", github)
 
     def test_uses_firebase_alone_when_only_the_config_exists(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

@@ -10,7 +10,6 @@ because a silent None here is exactly how the PC stopped syncing for weeks.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import logging
 from pathlib import Path
@@ -37,48 +36,28 @@ from screen_locker._constants import (
     SYNC_TOKEN_FILE,
 )
 from screen_locker._credential_recovery import RecoveryResult, recover_session
+from screen_locker._degraded_sources import (
+    DegradedSource,
+    _record_degraded,
+    clear_degraded_sources,
+    degraded_sources,
+)
 
 _logger = logging.getLogger(__name__)
 
-
-@dataclass(frozen=True)
-class DegradedSource:
-    """A workout backend that could not be read on this run.
-
-    ``reason`` is the backend's own error text, kept verbatim so the status
-    view and the lock decision can quote something actionable rather than a
-    generic "sync problem".
-    """
-
-    name: str
-    reason: str
-
-
-# Process-scoped rather than persisted: it describes THIS run's ability to
-# read, and a stale marker from an earlier run would be worse than none. The
-# lock chain and the pull both happen in one process, so this survives exactly
-# as long as it is true.
-_degraded: list[DegradedSource] = []
-
-
-def degraded_sources() -> list[DegradedSource]:
-    """Return the backends that failed to answer during this run."""
-    return list(_degraded)
-
-
-def clear_degraded_sources() -> None:
-    """Forget recorded failures (called at the start of a fresh check)."""
-    _degraded.clear()
-
-
-def _record_degraded(name: str, reason: str) -> None:
-    """Note that *name* could not be read, so callers can stop guessing.
-
-    Logging alone was not enough: on 2026-08-24 the warning was emitted, the
-    Firebase read was skipped, and the lock decision still reported
-    "0 workouts this week" as though the source had answered "none".
-    """
-    _degraded.append(DegradedSource(name, reason))
+# Re-exported: these moved to _degraded_sources for the 250-line cap, but
+# callers and tests still reach them as ``_sync_client.<name>``. __all__ keeps
+# ruff from pruning the imports as unused -- same pattern the tests' conftest
+# uses for its re-exported fixtures.
+__all__ = [
+    "DegradedSource",
+    "clear_degraded_sources",
+    "degraded_sources",
+    "read_sync_token",
+    "remote_client",
+    "sync_client",
+    "try_recover_firebase_session",
+]
 
 
 def try_recover_firebase_session() -> RecoveryResult:
@@ -130,14 +109,55 @@ def read_sync_token() -> str | None:
     return token or None
 
 
+def _live_mirror_client(github: RemoteStore) -> tuple[RemoteStore | None, str]:
+    """Build the mirrored client, but only return one that actually answers.
+
+    Constructing is not proving. ``mirror_client_for`` only asks
+    ``has_session()``, which reads the cached JSON off disk and never touches
+    the network, so a credential that is *present but rejected* builds
+    perfectly and then 401s on every single read and write. That is exactly
+    what happened on 2026-08-27: the recovery below was wired to construction
+    failures, the construction succeeded, and so the self-heal never fired
+    while every operation was being refused.
+
+    ``can_access_remote`` closes that gap with one authenticated round trip.
+    It is documented never to raise -- a rejected token, a missing session, a
+    bad URL and a dead network all report ``False`` -- so a probe failure is
+    reported as a reason string rather than an exception.
+
+    Returns:
+        ``(client, "")`` when Firebase answered, else ``(None, reason)``.
+    """
+    try:
+        client = mirror_client_for("screen_locker", github)
+    except (ConfigError, FirebaseAuthError, RemoteSyncError) as exc:
+        # The reason travels back to the caller, which decides whether to heal
+        # or degrade -- but it is logged here too, so the originating failure
+        # is on the record even when a later recovery masks it.
+        _logger.warning("Could not build the Firebase client: %s", exc)
+        return None, str(exc)
+    if not client.can_access_remote():
+        return None, (
+            "the cached Firebase credential was rejected by the server — it "
+            "exists on disk, so nothing failed while connecting, but every "
+            "read and write is being refused"
+        )
+    return client, ""
+
+
 def remote_client(github: RemoteStore) -> RemoteStore:
     """Return the backend to read the phone's workout log from.
 
     Firebase when ``~/.config/crdt-sync/`` is set up, with GitHub kept as a
     mirror so a phone that has not moved yet is still seen; GitHub alone
-    otherwise. Both callers here are read-only pulls -- this side never pushes
-    -- and :class:`MirrorSyncClient` reads the union of both, so a workout
+    otherwise. :class:`MirrorSyncClient` reads the union of both, so a workout
     logged against either backend still counts.
+
+    Not read-only: ``_manual_push.push_pc_workouts`` writes this machine's log
+    through the client this returns. That matters for the degraded path --
+    when Firebase is dropped here the push still lands on GitHub, which the
+    phone also reads, so records are not lost; ``_manual_push`` reports the
+    push as INCOMPLETE rather than letting a half-landed push look clean.
 
     The config file is checked before constructing anything, so an
     unconfigured machine never reaches the network.
@@ -147,35 +167,34 @@ def remote_client(github: RemoteStore) -> RemoteStore:
     """
     if not CONFIG_FILE.is_file():
         return github
-    try:
-        return mirror_client_for("screen_locker", github)
-    except (ConfigError, FirebaseAuthError, RemoteSyncError) as exc:
-        # Before degrading, try to heal: a sibling app on this machine almost
-        # certainly holds a live refresh token for the same account. Waiting
-        # for a human to copy a JSON file is what cost 2026-06-12 and
-        # 2026-08-24 -- two workouts done, two lockouts anyway.
-        recovery = try_recover_firebase_session()
-        if recovery.recovered:
-            try:
-                client = mirror_client_for("screen_locker", github)
-            except (ConfigError, FirebaseAuthError, RemoteSyncError) as retry_exc:
-                _logger.warning(
-                    "Firebase still unusable after %s: %s", recovery.reason, retry_exc
-                )
-                _record_degraded("firebase", str(retry_exc))
-                return github
+    usable, reason = _live_mirror_client(github)
+    if usable is not None:
+        return usable
+    # Before degrading, try to heal: a sibling app on this machine almost
+    # certainly holds a live refresh token for the same account. Waiting
+    # for a human to copy a JSON file is what cost 2026-06-12 and
+    # 2026-08-24 -- two workouts done, two lockouts anyway.
+    recovery = try_recover_firebase_session()
+    if recovery.recovered:
+        retried, retry_reason = _live_mirror_client(github)
+        if retried is not None:
             _logger.info("Firebase recovered automatically: %s", recovery.reason)
-            return client
+            return retried
         _logger.warning(
-            "Firebase unavailable, reading workouts via GitHub only: %s — the "
-            "phone syncs to Firebase, so a workout logged there is INVISIBLE "
-            "on this machine until this is fixed. Automatic recovery also "
-            "failed: %s",
-            exc,
-            recovery.reason,
+            "Firebase still unusable after %s: %s", recovery.reason, retry_reason
         )
-        _record_degraded("firebase", f"{exc}; recovery: {recovery.reason}")
+        _record_degraded("firebase", retry_reason)
         return github
+    _logger.warning(
+        "Firebase unavailable, reading workouts via GitHub only: %s — the "
+        "phone syncs to Firebase, so a workout logged there is INVISIBLE "
+        "on this machine until this is fixed. Automatic recovery also "
+        "failed: %s",
+        reason,
+        recovery.reason,
+    )
+    _record_degraded("firebase", f"{reason}; recovery: {recovery.reason}")
+    return github
 
 
 def sync_client() -> RemoteStore | None:

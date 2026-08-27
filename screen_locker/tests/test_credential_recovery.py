@@ -16,29 +16,15 @@ import json
 from typing import TYPE_CHECKING
 
 from screen_locker._credential_recovery import (
-    find_sibling_refresh_token,
+    find_sibling_refresh_tokens,
     recover_session,
 )
+from screen_locker.tests._credential_fixtures import write_cache as _write_cache
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     import pytest
-
-
-def _write_cache(path: Path, refresh_token: str, *, expires_at: str) -> None:
-    """Write a credential cache shaped like ``FileCredentialStore``'s."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(
-            {
-                "id_token": "stale-id-token",
-                "refresh_token": refresh_token,
-                "expires_at": expires_at,
-                "local_id": "uid-1",
-            }
-        )
-    )
 
 
 class TestFindSiblingRefreshToken:
@@ -52,9 +38,9 @@ class TestFindSiblingRefreshToken:
             expires_at="2026-08-24T12:00:00+00:00",
         )
 
-        found = find_sibling_refresh_token(tmp_path, skip="screen_locker")
+        found = find_sibling_refresh_tokens(tmp_path, skip="screen_locker")
 
-        assert found == ("diet_guard", "refresh-abc")
+        assert found == [("diet_guard", "refresh-abc")]
 
     def test_ignores_our_own_stale_cache(self, tmp_path: Path) -> None:
         """Our own dead cache is the thing being replaced, never the source."""
@@ -64,7 +50,7 @@ class TestFindSiblingRefreshToken:
             expires_at="2026-08-24T12:00:00+00:00",
         )
 
-        assert find_sibling_refresh_token(tmp_path, skip="screen_locker") is None
+        assert find_sibling_refresh_tokens(tmp_path, skip="screen_locker") == []
 
     def test_skips_unreadable_and_malformed_caches(self, tmp_path: Path) -> None:
         """A corrupt sibling must not abort the search over the healthy ones."""
@@ -77,13 +63,13 @@ class TestFindSiblingRefreshToken:
             expires_at="2026-08-24T12:00:00+00:00",
         )
 
-        found = find_sibling_refresh_token(tmp_path, skip="screen_locker")
+        found = find_sibling_refresh_tokens(tmp_path, skip="screen_locker")
 
-        assert found == ("wake_alarm", "refresh-xyz")
+        assert found == [("wake_alarm", "refresh-xyz")]
 
     def test_reports_nothing_when_no_sibling_has_one(self, tmp_path: Path) -> None:
         """No source is a real outcome; the caller must hear it, not guess."""
-        assert find_sibling_refresh_token(tmp_path, skip="screen_locker") is None
+        assert find_sibling_refresh_tokens(tmp_path, skip="screen_locker") == []
 
     def test_missing_config_root_is_not_an_error(self, tmp_path: Path) -> None:
         """A machine with no ~/.config yet has no donor -- and must not crash.
@@ -93,7 +79,7 @@ class TestFindSiblingRefreshToken:
         working out.
         """
         assert (
-            find_sibling_refresh_token(tmp_path / "nope", skip="screen_locker") is None
+            find_sibling_refresh_tokens(tmp_path / "nope", skip="screen_locker") == []
         )
 
     def test_cache_without_a_usable_token_is_skipped(self, tmp_path: Path) -> None:
@@ -116,9 +102,9 @@ class TestFindSiblingRefreshToken:
             expires_at="2026-08-24T12:00:00+00:00",
         )
 
-        found = find_sibling_refresh_token(tmp_path, skip="screen_locker")
+        found = find_sibling_refresh_tokens(tmp_path, skip="screen_locker")
 
-        assert found == ("zz_healthy", "refresh-good")
+        assert found == [("zz_healthy", "refresh-good")]
 
 
 class TestRecoverSession:

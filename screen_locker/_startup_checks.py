@@ -26,9 +26,9 @@ from screen_locker._decision_log import (
     LockDecision,
     record_decision,
 )
+from screen_locker._degraded_sources import degraded_sources
 from screen_locker._extra_benefits import process_week_transition
 from screen_locker._shutdown_base import reset_to_base_if_new_day
-from screen_locker._sync_client import degraded_sources
 from screen_locker._sync_mixin import SyncMixin
 from screen_locker._temperature import fetch_current_temp_with_status
 from screen_locker._weekly_check import (

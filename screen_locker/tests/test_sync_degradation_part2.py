@@ -1,15 +1,25 @@
-"""The DECISION line must name a backend it could not read.
+"""A Firebase credential that BUILDS but is refused must still self-heal.
 
-Split from ``test_sync_degradation.py`` to keep both files under the 250-line
-cap; same subject, which is that "could not check" and "did not train" are
-different claims and only one of them justifies locking the screen.
+Split from ``test_sync_degradation.py`` (250-line cap).
+
+``mirror_client_for`` only checks ``has_session()``, which reads the cached
+JSON off disk and never reaches the network. So on 2026-08-27 a credential the
+server had stopped accepting constructed perfectly, the recovery -- wired only
+to construction failures -- never ran, and every read and write was refused
+with HTTP 401 for weeks behind a warning nobody read.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from screen_locker import _startup_checks, _sync_client
+from screen_locker import _sync_client, _workout_sync
+from screen_locker._credential_recovery import RecoveryResult
+from screen_locker.tests._workout_sync_fixtures import (
+    ReachableClient,
+    RejectedClient,
+    _firebase_config,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -17,57 +27,65 @@ if TYPE_CHECKING:
     import pytest
 
 
-class TestDecisionLineNamesTheDeadBackend:
-    """A degraded read must be named on the DECISION line itself.
+class TestRejectedCredentialTriggersRecovery:
+    """A credential that builds but is refused must heal, not 401 forever."""
 
-    A warning logged 90 seconds earlier is not enough: the line that says
-    ``weekly=0/5`` has to say whether that zero was measured or merely
-    unreadable, or a reader tracing the journal draws the wrong conclusion
-    about the user (see this module's docstring).
-    """
-
-    def _locker(self, tmp_path: Path) -> object:
-        """A StartupChecksMixin with __init__ bypassed, as the CLI builds it."""
-        locker = object.__new__(_startup_checks.StartupChecksMixin)
-        locker.log_file = tmp_path / "log.json"
-        # Stubbed: the ladder annotation is its own concern, tested elsewhere.
-        locker._other_conditions = lambda _reason: {}
-        return locker
-
-    def test_annotates_the_decision_with_the_unreadable_source(
+    def test_a_rejected_credential_is_recovered(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """The dead backend's name reaches the recorded decision."""
-        recorded: list[object] = []
+        """This is 2026-08-27: present on disk, rejected by the server.
+
+        ``mirror_client_for`` only checks ``has_session()``, which reads the
+        cached JSON and never reaches the network, so construction SUCCEEDED
+        and the recovery -- wired only to construction failures -- never ran
+        while every read and write was being refused with HTTP 401.
+        """
+        _firebase_config(_sync_client, tmp_path, monkeypatch)
+        built: list[int] = []
+
+        def _rejected_then_live(_app: object, _client: object) -> object:
+            built.append(1)
+            return RejectedClient() if len(built) == 1 else ReachableClient()
+
+        monkeypatch.setattr(_sync_client, "mirror_client_for", _rejected_then_live)
         monkeypatch.setattr(
-            _startup_checks,
-            "degraded_sources",
-            lambda: (_sync_client.DegradedSource("firebase", "HTTP 401"),),
+            _sync_client,
+            "try_recover_firebase_session",
+            lambda: RecoveryResult(recovered=True, reason="rebuilt from a sibling"),
         )
-        monkeypatch.setattr(_startup_checks, "count_weekly_workouts", lambda _: 0)
-        monkeypatch.setattr(
-            _startup_checks, "record_decision", lambda d, **_: recorded.append(d)
+        _sync_client.clear_degraded_sources()
+
+        client = _workout_sync.remote_client(object())
+
+        assert isinstance(client, ReachableClient), (
+            "a rejected credential must trigger the same self-heal as a "
+            "failed construction"
         )
+        assert _sync_client.degraded_sources() == []
 
-        self._locker(tmp_path)._record_decision(
-            locked=False, reason="weekly_minimum_met", detail=""
-        )
-
-        assert recorded[0].extra["unreadable_sources"] == "firebase"
-
-    def test_healthy_sources_add_no_annotation(
+    def test_a_still_rejected_credential_is_degraded_loudly(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """With every backend answering, the line stays unannotated."""
-        recorded: list[object] = []
-        monkeypatch.setattr(_startup_checks, "degraded_sources", tuple)
-        monkeypatch.setattr(_startup_checks, "count_weekly_workouts", lambda _: 0)
+        """If it is still refused after healing, say so on the lock screen.
+
+        Falling back to GitHub silently is what let weeks of 401s scroll past
+        in a journal nobody reads.
+        """
+        _firebase_config(_sync_client, tmp_path, monkeypatch)
         monkeypatch.setattr(
-            _startup_checks, "record_decision", lambda d, **_: recorded.append(d)
+            _sync_client,
+            "mirror_client_for",
+            lambda _app, _client: RejectedClient(),
         )
-
-        self._locker(tmp_path)._record_decision(
-            locked=False, reason="weekly_minimum_met", detail=""
+        monkeypatch.setattr(
+            _sync_client,
+            "try_recover_firebase_session",
+            lambda: RecoveryResult(recovered=True, reason="rebuilt from a sibling"),
         )
+        _sync_client.clear_degraded_sources()
+        github = object()
 
-        assert "unreadable_sources" not in recorded[0].extra
+        assert _workout_sync.remote_client(github) is github
+        degraded = _sync_client.degraded_sources()
+        assert degraded, "a credential the server refuses must be recorded"
+        assert "rejected" in degraded[0].reason
