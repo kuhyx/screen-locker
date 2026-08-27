@@ -14,6 +14,7 @@ import sys
 from typing import TYPE_CHECKING
 
 from screen_locker._decision_log import record_no_decision
+from screen_locker._manual_cli import run_manual_log
 from screen_locker._status import run_status
 
 if TYPE_CHECKING:
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
 __all__ = ["main"]
 
 _LOG_FILE_NAME = "log.json"
+_LOG_MANUAL_FLAG = "--log-manual-workout"
 
 
 def _headless_locker(locker_cls: type[ScreenLocker]) -> ScreenLocker:
@@ -51,6 +53,13 @@ def main(locker_cls: type[ScreenLocker], argv: list[str]) -> None:
     )
     if "--status" in argv:
         run_status(_headless_locker(locker_cls))
+
+    if _LOG_MANUAL_FLAG in argv:
+        # Headless manual logging: no Tk, no phone, no app in the foreground.
+        # Everything after the flag is the workout's evidence, validated by
+        # the same rules the phone form applies.
+        rest = argv[argv.index(_LOG_MANUAL_FLAG) + 1 :]
+        sys.exit(run_manual_log(_headless_locker(locker_cls).log_file, rest))
 
     if "--sync-only" in argv:
         # Headless sync for the timer unit: pull other devices' workouts and
