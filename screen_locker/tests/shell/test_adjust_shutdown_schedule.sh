@@ -50,6 +50,15 @@ _t_blocks() {
 	fi
 }
 
+_t_eq() {
+	local want="$1" got="$2" what="$3"
+	if [[ "$got" == "$want" ]]; then
+		_t_pass "$what"
+	else
+		_t_fail "$what (want '${want}', got '${got}')"
+	fi
+}
+
 _t_has() {
 	local haystack="$1" needle="$2" what="$3"
 	if [[ "$haystack" == *"$needle"* ]]; then
@@ -76,6 +85,7 @@ chmod +x "$TMP/bin/chattr" "$TMP/bin/guardctl"
 export PATH="$TMP/bin:$PATH"
 
 export SHUTDOWN_CONFIG_FILE="$TMP/shutdown-schedule.conf"
+export SHUTDOWN_RESTORE_LOG="$TMP/restore.log"
 export FAKE_CANONICAL="$TMP/canonical"
 
 write_config() {
@@ -91,8 +101,6 @@ source "$TARGET"
 
 echo "validate_hours"
 _t_allows "accepts 0 and 23" validate_hours 0 23 5
-_t_blocks "rejects 24 (the message says 0-23, and now so does the check)" \
-	validate_hours 24 23 5
 _t_blocks "rejects a non-integer" validate_hours 21 abc 5
 _t_blocks "rejects a negative (the minus makes it non-numeric)" \
 	validate_hours -1 21 5
@@ -155,6 +163,37 @@ if (main --restore 23 23 5 >/dev/null 2>&1); then
 else
 	_t_fail "--restore still loosens (deliberately unchanged)"
 fi
+
+echo "validate_hours: 24 means midnight"
+# _shutdown.py's extra-workout bonus caps at 24 deliberately, and
+# day-specific-shutdown-check.sh catches it via the morning window. Rejecting
+# 24 would break that path; the old 0-23 error message was what was wrong.
+_t_allows "accepts 24 (midnight), which the bonus path relies on" \
+	validate_hours 24 24 5
+_t_blocks "still rejects 25" validate_hours 25 21 5
+
+echo "--restore ceiling"
+_t_eq "23" "$(clamp_restore 24 Mon-Wed)" "clamps 24 down to the ceiling"
+_t_eq "23" "$(clamp_restore 23 Mon-Wed)" "leaves the ceiling itself alone"
+_t_eq "21" "$(clamp_restore 21 Mon-Wed)" "leaves an earlier hour alone"
+out="$(clamp_restore 24 Mon-Wed 2>&1 >/dev/null)"
+_t_has "$out" "clamped" "says so rather than clamping silently"
+
+write_config 21 21 5
+if (main --restore 24 24 5 >/dev/null 2>&1); then
+	_t_pass "a restore above the ceiling still succeeds"
+else
+	_t_fail "a restore above the ceiling still succeeds"
+fi
+_t_has "$(cat "$SHUTDOWN_CONFIG_FILE")" "MON_WED_HOUR=23" \
+	"the written value is the ceiling, not 24"
+_t_has "$(cat "$SHUTDOWN_RESTORE_LOG")" "RESTORE" "the restore was recorded"
+
+# The overrides CONF is parsed by day-specific-shutdown-check.sh as
+# start|end|created|reason, and a matching line makes it exit 0 and skip the
+# shutdown. Audit lines must never go there.
+_t_eq "0" "$(grep -c . "$TMP/shutdown-schedule-overrides.conf" 2>/dev/null || echo 0)" \
+	"nothing was written to the overrides conf"
 
 echo
 printf 'passed: %d, failed: %d\n' "$PASS" "$FAIL"

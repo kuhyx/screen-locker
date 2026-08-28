@@ -15,6 +15,11 @@
 # shutdown window. Comparing it with `-gt`, as the two evening hours do, would
 # ratchet it backwards and quietly allow the window to be shortened.
 #
+# With --restore the schedule may be loosened -- that is how the workout reward
+# pushes shutdown later -- but never past RESTORE_CEILING, and every restore is
+# recorded. Without the ceiling, `--restore 24 24 0` is an off switch for the
+# whole ratchet.
+#
 # Add to /etc/sudoers.d/workout-locker:
 #   <username> ALL=(root) NOPASSWD: /home/kuhy/screen-locker/screen_locker/adjust_shutdown_schedule.sh
 
@@ -27,19 +32,32 @@ CONFIG_FILE="${SHUTDOWN_CONFIG_FILE:-/etc/shutdown-schedule.conf}"
 GUARD_NAME="${SHUTDOWN_GUARD_NAME:-shutdown-schedule}"
 readonly CONFIG_FILE GUARD_NAME
 
-readonly MAX_HOUR=23
+# 24 is a real, documented value here: _shutdown.py's extra-workout bonus uses
+# it to mean midnight, and day-specific-shutdown-check.sh catches it via the
+# morning-window condition. The old error message claimed 0-23 while the code
+# allowed 24; the message was the thing that was wrong.
+readonly MAX_HOUR=24
+
+# The latest the machine may ever shut down, whatever has been earned. --restore
+# exists so the workout reward can loosen the schedule, and without a ceiling it
+# is simply an off switch for the ratchet: `--restore 24 24 0` from any shell
+# undoes everything. Bonuses above this are clamped, not refused, so the reward
+# path keeps working.
+readonly RESTORE_CEILING=23
+readonly RESTORE_LOG="${SHUTDOWN_RESTORE_LOG:-/var/log/shutdown-restore.log}"
 
 usage() {
 	echo "Usage: $0 [--restore] <mon_wed_hour> <thu_sun_hour> <morning_end_hour>" >&2
 	exit 1
 }
 
-# Validate that every argument is an hour in [0, 23].
+# Validate that every argument is an hour in [0, 24]; 24 means midnight.
 validate_hours() {
 	local hour
 	for hour in "$@"; do
 		if ! [[ "$hour" =~ ^[0-9]+$ ]] || [[ "$hour" -gt $MAX_HOUR ]]; then
-			echo "Error: Hours must be integers between 0 and ${MAX_HOUR}" >&2
+			echo "Error: Hours must be integers between 0 and ${MAX_HOUR}" \
+				"(24 means midnight)" >&2
 			return 1
 		fi
 	done
@@ -84,6 +102,35 @@ check_stricter_only() {
 			"morning shutdown window" >&2
 		echo "Use --restore flag to restore original times" >&2
 		return 1
+	fi
+}
+
+# Clamp a restore to the ceiling and record that it happened.
+#
+# Deliberately NOT written to /etc/shutdown-schedule-overrides.conf: that file
+# is parsed by day-specific-shutdown-check.sh as start|end|created|reason, and a
+# line matching the current time makes it exit 0 and skip the shutdown outright.
+# An "audit trail" written there would suppress the very curfew it documents.
+clamp_restore() {
+	local hour="$1" label="$2"
+	if [[ "$hour" -gt $RESTORE_CEILING ]]; then
+		echo "Note: ${label} ${hour}:00 clamped to the ${RESTORE_CEILING}:00 ceiling" >&2
+		printf '%s' "$RESTORE_CEILING"
+		return 0
+	fi
+	printf '%s' "$hour"
+}
+
+# A restore that is not recorded is a loosening nobody can audit, so a failure
+# to write the log says so on stderr rather than being swallowed. It is not
+# fatal: refusing the reward because a log file is unwritable would be worse
+# than the missing line.
+log_restore() {
+	local line
+	line="$(date -Is) | RESTORE | mon_wed=$1 thu_sun=$2 morning_end=$3 | by=${SUDO_USER:-${USER:-unknown}}"
+	if ! printf '%s\n' "$line" >>"$RESTORE_LOG" 2>/dev/null; then
+		echo "Warning: could not record this restore in ${RESTORE_LOG};" \
+			"the schedule was still loosened" >&2
 	fi
 }
 
@@ -133,6 +180,11 @@ main() {
 
 	if [[ "$restore_mode" == false ]]; then
 		check_stricter_only "$mon_wed" "$thu_sun" "$morning_end" || exit 1
+	else
+		# A restore may loosen, but never past the ceiling, and never silently.
+		mon_wed="$(clamp_restore "$mon_wed" "Mon-Wed")"
+		thu_sun="$(clamp_restore "$thu_sun" "Thu-Sun")"
+		log_restore "$mon_wed" "$thu_sun" "$morning_end"
 	fi
 
 	local canonical body
