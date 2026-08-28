@@ -25,7 +25,7 @@ jobs:
         run: echo "UTILS_ROOT=$GITHUB_WORKSPACE/.utils" >> "$GITHUB_ENV"
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.x"
       # The flutter-analyze pre-commit hook shells out to `flutter analyze` in
       # stronglift_replacement/workout_app. Pin to the version the app is
       # developed against (Dart SDK ^3.12.2) so CI's analyzer matches local.

@@ -2,7 +2,7 @@
 name = "screen-locker"
 version = "1.0.0"
 description = "Tkinter/systemd screen locker with workout tracking, sick-day management, and wake-alarm integration"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 # gatelock: shared lock-window/HMAC backend, also used by diet_guard and wake_alarm
 # crdt-sync: shared CRDT merge scheme + GitHub-Contents-API sync transport,
 # also used by diet_guard; here for phone-workout GitHub sync (Workstream C)
