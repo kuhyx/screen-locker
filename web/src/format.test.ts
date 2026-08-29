@@ -25,7 +25,7 @@ describe('formatStamp', () => {
     expect(formatStamp('2026-08-29T20:01:02+00:00')).toMatch(/Aug/)
   })
 
-  it('passes an unparseable value through unchanged', () => {
+  it('passes an unparsable value through unchanged', () => {
     expect(formatStamp('not a date')).toBe('not a date')
   })
 })
