@@ -108,3 +108,17 @@ def format_summary_line(snapshot: StatusSnapshot) -> str:
         f"{mark} {week.counted_count}/{week.minimum} workouts · "
         f"{tonight_str} tonight · sick {sick.used_7d}/{sick.budget_7d}"
     )
+
+
+def compliance_state_word(snapshot: StatusSnapshot) -> str:
+    """One-word compliance state for the tray icon: ``ok`` / ``warn`` / ``lock``.
+
+    ``lock`` — the lock would fire right now (no skip condition applies).
+    ``warn`` — not locked, but this week's minimum isn't met yet.
+    ``ok`` — not locked and the weekly minimum is already met.
+    """
+    if snapshot.lock_explanation.fired:
+        return "lock"
+    if snapshot.week.remaining > 0:
+        return "warn"
+    return "ok"

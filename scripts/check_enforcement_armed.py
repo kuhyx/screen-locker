@@ -28,107 +28,21 @@ Usage:
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
 import logging
-import shutil
-import subprocess
 import sys
+
+from screen_locker._armed_state import collect_states, systemctl_available
 
 _logger = logging.getLogger(__name__)
 
-# Every unit that must be armed for a workout-less day to end in a lock.
-# workout-locker.service itself is WantedBy=graphical-session.target and so is
-# only ever a login one-shot; the timers are what make enforcement recur.
-REQUIRED_TIMERS = (
-    "early-bird-workout-check.timer",
-    "workout-locker.timer",
-)
-
-_TIMEOUT_SECONDS = 10
-
-
-@dataclass(frozen=True)
-class TimerState:
-    """What systemd currently believes about one timer."""
-
-    name: str
-    enabled: bool
-    enabled_raw: str
-    scheduled: bool
-
-    @property
-    def armed(self) -> bool:
-        """True only when the timer is both enabled and actually scheduled.
-
-        Both halves matter. ``is-enabled`` alone passes for a timer whose job
-        systemd deleted to break an ordering cycle; ``list-timers`` alone passes
-        for a transient ``start``ed timer that will not survive a reboot.
-        """
-        return self.enabled and self.scheduled
-
-    def describe(self) -> str:
-        """Return a one-line human summary of this timer's state."""
-        if self.armed:
-            return f"OK       {self.name}: enabled and scheduled"
-        problems = []
-        if not self.enabled:
-            problems.append(f"not enabled (is-enabled={self.enabled_raw or 'unknown'})")
-        if not self.scheduled:
-            problems.append("no next trigger in list-timers")
-        return f"DISARMED {self.name}: {', '.join(problems)}"
-
 
 def _report(message: str) -> None:
-    """Write one line to stderr, so a disarmed locker is visible in the unit."""
+    """Write one line to stderr, so a disarmed locker is visible in the unit.
+
+    Args:
+        message: The line to write.
+    """
     sys.stderr.write(f"{message}\n")
-
-
-def _run(args: list[str]) -> tuple[int, str]:
-    """Run ``args``, returning (returncode, stdout). Never raises."""
-    try:
-        # Explicit argument list, never shell=True.
-        proc = subprocess.run(
-            args,
-            capture_output=True,
-            text=True,
-            timeout=_TIMEOUT_SECONDS,
-            check=False,
-        )
-    except OSError, subprocess.SubprocessError:
-        # A check that cannot run must not look like a check that passed.
-        _logger.exception("Could not run %s", " ".join(args))
-        return 1, ""
-    return proc.returncode, proc.stdout
-
-
-def _scheduled_timers() -> set[str]:
-    """Return the timer names systemd currently has a next trigger for."""
-    _, out = _run(["systemctl", "--user", "list-timers", "--all", "--no-pager"])
-    scheduled: set[str] = set()
-    for line in out.splitlines():
-        for name in REQUIRED_TIMERS:
-            # A timer with no next trigger prints "n/a" in the NEXT column.
-            if name in line and " n/a " not in f" {line} ":
-                scheduled.add(name)
-    return scheduled
-
-
-def collect_states() -> list[TimerState]:
-    """Return the current arming state of every required timer."""
-    scheduled = _scheduled_timers()
-    states = []
-    for name in REQUIRED_TIMERS:
-        code, out = _run(["systemctl", "--user", "is-enabled", name])
-        raw = out.strip()
-        states.append(
-            TimerState(
-                name=name,
-                enabled=code == 0 and raw == "enabled",
-                enabled_raw=raw,
-                scheduled=name in scheduled,
-            )
-        )
-    return states
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -141,7 +55,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    if shutil.which("systemctl") is None:
+    if not systemctl_available():
         # Reachable in containers/CI. Say so explicitly rather than passing:
         # "could not check" must never be recorded as "checked and fine".
         _logger.error("systemctl not found — the arming check could not run")

@@ -103,7 +103,7 @@ class TestReadTools:
         with (
             patch.object(_mcp, "gather_status") as gs,
             patch.object(_mcp, "format_summary_line", return_value="LINE") as fsl,
-            patch.object(_mcp, "_compliance_state_word", return_value="ok") as csw,
+            patch.object(_mcp, "compliance_state_word", return_value="ok") as csw,
         ):
             out = _mcp.get_summary()
         assert out == {"summary_line": "LINE", "compliance_state": "ok"}

@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from screen_locker.status_view import (
-    _compliance_state_word,
-)
+from screen_locker._status_projection import compliance_state_word
 from screen_locker.tests._status_view_helpers import (
     _lock_explanation,
     _snapshot,
@@ -18,7 +16,7 @@ class TestComplianceStateWord:
     def test_lock_when_fired(self) -> None:
         """Lock when fired."""
         snap = _snapshot(lock_explanation=_lock_explanation(fired=True))
-        assert _compliance_state_word(snap) == "lock"
+        assert compliance_state_word(snap) == "lock"
 
     def test_warn_when_not_fired_but_remaining(self) -> None:
         """Warn when not fired but remaining."""
@@ -26,7 +24,7 @@ class TestComplianceStateWord:
             lock_explanation=_lock_explanation(fired=False),
             week=_week(remaining=2),
         )
-        assert _compliance_state_word(snap) == "warn"
+        assert compliance_state_word(snap) == "warn"
 
     def test_ok_when_not_fired_and_minimum_met(self) -> None:
         """Ok when not fired and minimum met."""
@@ -34,4 +32,4 @@ class TestComplianceStateWord:
             lock_explanation=_lock_explanation(fired=False),
             week=_week(remaining=0),
         )
-        assert _compliance_state_word(snap) == "ok"
+        assert compliance_state_word(snap) == "ok"

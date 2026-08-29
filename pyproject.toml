@@ -13,6 +13,7 @@ dependencies = [
 
 [project.scripts]
 screen-locker-status = "screen_locker.status_view:main"
+screen-locker-web = "screen_locker._web_server:main"
 
 # Optional extras. The `mcp` group is ONLY needed by the read-only MCP server
 # (screen_locker._mcp), which Claude Code spawns via a dedicated venv (see

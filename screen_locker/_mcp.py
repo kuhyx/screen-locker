@@ -52,7 +52,7 @@ from screen_locker._constants import (
 )
 from screen_locker._sick_tracker import load_history
 from screen_locker._status_data import format_summary_line, gather_status
-from screen_locker.status_view import _compliance_state_word
+from screen_locker._status_projection import compliance_state_word
 
 # Log to STDERR only — STDOUT carries the MCP JSON-RPC protocol frames, so a
 # single stray stdout write would corrupt the stream and kill the session.
@@ -105,12 +105,12 @@ def get_summary() -> dict[str, Any]:
 
     ``summary_line`` is the same string the status bar shows
     (``format_summary_line``); ``compliance_state`` is one of ``ok`` / ``warn``
-    / ``lock`` (``_compliance_state_word``).
+    / ``lock`` (``compliance_state_word``).
     """
     snapshot = gather_status()
     return {
         "summary_line": format_summary_line(snapshot),
-        "compliance_state": _compliance_state_word(snapshot),
+        "compliance_state": compliance_state_word(snapshot),
     }
 
 

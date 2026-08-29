@@ -1,0 +1,19 @@
+[Unit]
+Description=Screen Locker status web UI (localhost only)
+# No After=graphical-session.target: this serves HTTP and reads state files, it
+# never touches the display. Ordering it after the graphical session would also
+# stop it starting on a headless boot, which is exactly when you most want to
+# be able to ask whether enforcement is armed.
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -m screen_locker._web_server
+Restart=always
+RestartSec=5s
+# steam-backlog-enforcer asks this server whether today has a workout before
+# deciding the gaming budget, and fails CLOSED to the smaller budget when the
+# answer does not arrive. So a crash costs gaming time rather than silently
+# handing it back -- but it should still come straight back up.
+
+[Install]
+WantedBy=default.target

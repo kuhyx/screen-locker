@@ -195,8 +195,11 @@ repos:
         language: system
         # Dart was missing here until 2026-08-15, so the cap had never looked at
         # a single file in workout_app/ — the whole Flutter app was exempt from
-        # the gate it was being refactored to satisfy.
-        types_or: [python, shell, dart]
+        # the gate it was being refactored to satisfy. ts/tsx joined on
+        # 2026-08-29 with web/, for exactly the same reason: a language absent
+        # from this list is a directory the cap silently does not apply to.
+        types_or: [python, shell, dart, ts, tsx]
+        exclude: '^web/(node_modules|dist|coverage)/'
       - id: no-silent-failures
         name: Block silent failures (swallowed exceptions and silent sys.exit(0) must say why)
         entry: python3 scripts/check_silent_failures.py
@@ -232,6 +235,32 @@ repos:
         entry: bash scripts/check_flutter_coverage.sh
         language: system
         files: '^stronglift_replacement/workout_app/.*\.dart$'
+        pass_filenames: false
+        require_serial: true
+        stages: [pre-push]
+
+      # web/ gates. steam-backlog-enforcer, which this app was copied from, has
+      # only a coverage hook -- its lint and typecheck are unenforced, so both
+      # can rot without anything failing. All three run here.
+      - id: web-lint
+        name: eslint (status web UI)
+        entry: npm --prefix web run lint
+        language: system
+        files: '^web/(src/.*\.(ts|tsx)|eslint\.config\.js|package\.json)$'
+        pass_filenames: false
+        require_serial: true
+      - id: web-typecheck
+        name: tsc --build (status web UI)
+        entry: npm --prefix web run build
+        language: system
+        files: '^web/(src/.*\.(ts|tsx)|tsconfig.*\.json|vite\.config\.ts)$'
+        pass_filenames: false
+        require_serial: true
+      - id: web-coverage
+        name: vitest --coverage 100% (status web UI)
+        entry: npm --prefix web run coverage
+        language: system
+        files: '^web/src/'
         pass_filenames: false
         require_serial: true
         stages: [pre-push]

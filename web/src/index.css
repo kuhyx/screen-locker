@@ -1,0 +1,133 @@
+/*
+ * Tokens from ~/utils/unified-design-system (DOCS-tokens.md). Values are copied
+ * rather than imported because that system ships as documentation plus
+ * per-stack generators, not an npm package -- keep these in step with it rather
+ * than inventing new ones.
+ */
+:root {
+  --ink: #211d1b;
+  --ink-raised-1: #2b2624;
+  --ink-raised-2: #38312e;
+  --line-dark: #463e3a;
+  --text-on-dark: #eceae9;
+  --muted-on-dark: #aaa09a;
+
+  --accent: #b8862e;
+  --success: #8a9a3c;
+  --warning: #e0a63c;
+  --danger: #e2585f;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+
+  --radius: 8px;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--text-on-dark);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+main {
+  margin: 0 auto;
+  max-width: 900px;
+  padding: var(--space-4) var(--space-3);
+}
+
+h1 {
+  font-size: 24px;
+  letter-spacing: -0.1px;
+  margin: 0 0 var(--space-4);
+}
+
+h2 {
+  font-size: 20px;
+  margin: 0 0 var(--space-3);
+}
+
+.card {
+  background: var(--ink-raised-1);
+  border: 1px solid var(--line-dark);
+  border-radius: var(--radius);
+  margin-bottom: var(--space-4);
+  padding: var(--space-4);
+}
+
+.headline {
+  font-size: 32px;
+  letter-spacing: -0.2px;
+  margin: 0 0 var(--space-2);
+}
+
+.muted {
+  color: var(--muted-on-dark);
+}
+
+.state-ok { color: var(--success); }
+.state-warn { color: var(--warning); }
+.state-lock { color: var(--danger); }
+
+.row {
+  border-top: 1px solid var(--line-dark);
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+  padding: var(--space-2) 0;
+}
+
+.row:first-of-type {
+  border-top: none;
+}
+
+table {
+  border-collapse: collapse;
+  font-size: 14px;
+  width: 100%;
+}
+
+th {
+  color: var(--muted-on-dark);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-align: left;
+}
+
+th,
+td {
+  border-bottom: 1px solid var(--line-dark);
+  padding: var(--space-2) var(--space-2) var(--space-2) 0;
+  vertical-align: top;
+}
+
+.pill {
+  background: var(--ink-raised-2);
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  padding: var(--space-1) var(--space-2);
+  white-space: nowrap;
+}
+
+.pill-lock { background: var(--danger); color: var(--ink); }
+.pill-ok { background: var(--success); color: var(--ink); }
+
+.error {
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  color: var(--danger);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+}

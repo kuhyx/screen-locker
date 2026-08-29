@@ -30,3 +30,10 @@ screen_locker/early_bird_pending.json
 
 # ci_mirror.sh cached requirements.txt venv (rebuilt on demand)
 .ci-mirror-venv/
+
+# Web status UI (web/) build and tooling output.
+web/node_modules/
+web/dist/
+web/coverage/
+web/node_modules
+web/dist

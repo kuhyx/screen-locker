@@ -37,6 +37,7 @@ from screen_locker._status_data import (
     format_summary_line,
     gather_status,
 )
+from screen_locker._status_projection import compliance_state_word
 from screen_locker._status_sections import StatusSectionsMixin
 from screen_locker._status_view_verify import PhoneCheckMixin, _make_bare_verifier
 from screen_locker._surface_group import FrameGroup
@@ -199,20 +200,6 @@ class StatusWindow(
         self.render(gather_status())
 
 
-def _compliance_state_word(snapshot: StatusSnapshot) -> str:
-    """One-word compliance state for the tray icon: ``ok`` / ``warn`` / ``lock``.
-
-    ``lock`` — the lock would fire right now (no skip condition applies).
-    ``warn`` — not locked, but this week's minimum isn't met yet.
-    ``ok`` — not locked and the weekly minimum is already met.
-    """
-    if snapshot.lock_explanation.fired:
-        return "lock"
-    if snapshot.week.remaining > 0:
-        return "warn"
-    return "ok"
-
-
 def main(argv: list[str] | None = None) -> None:
     """Entry point: ``--summary``/``--state``/``--sync`` print one line.
 
@@ -223,7 +210,7 @@ def main(argv: list[str] | None = None) -> None:
         print(format_summary_line(gather_status()))
         return
     if "--state" in args:
-        print(_compliance_state_word(gather_status()))
+        print(compliance_state_word(gather_status()))
         return
     if "--sync" in args:
         # On-disk only, like the other two -- safe on an i3blocks tick.
