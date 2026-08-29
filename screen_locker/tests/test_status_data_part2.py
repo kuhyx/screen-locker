@@ -189,8 +189,8 @@ class TestDayStatus:
         assert day.day_count == 0
         assert day.source == ""
 
-    def test_multiple_entries_count_verified_individually_manual_once(self) -> None:
-        """Two verified + two manual on one day → day_count 3, all types listed."""
+    def test_multiple_entries_each_count_individually(self) -> None:
+        """Two verified + two manual on one day → day_count 4, all types listed."""
         day = _day_status(
             date(2024, 1, 5),
             [
@@ -208,6 +208,12 @@ class TestDayStatus:
             "manual_workout",
         )
         assert day.counted is True
-        # 2 verified counted individually + all manual entries count once = 3.
-        assert day.day_count == 3
+        # Every distinct session counts: 2 verified + 2 manual = 4. This used to
+        # assert 3, because _day_status re-derived the rule as
+        # "all of a day's manual entries count once" -- a rule
+        # count_weekly_workouts never had. The two disagreed on exactly this
+        # input, and _day_status feeds the status view's weekly_minimum_met
+        # explanation, so the window could explain a decision the locker did
+        # not make. Both now go through _weekly_check.count_day_credits.
+        assert day.day_count == 4
         assert day.source == "run · gym · tt · squash"

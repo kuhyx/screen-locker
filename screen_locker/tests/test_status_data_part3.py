@@ -104,9 +104,14 @@ class TestGatherStatusLockSuppression:
                     "2024-01-01": {"workout_data": {"type": "phone_verified"}},
                     "2024-01-02": {"workout_data": {"type": "phone_verified"}},
                     "2024-01-03": {"workout_data": {"type": "phone_verified"}},
+                    # A gym session and a run on the same day: two genuinely
+                    # separate workouts, so two credits. Deliberately NOT two
+                    # phone_verified entries -- since the 2026-08-29 fix those
+                    # share one StrongLifts credit slot per day, which is the
+                    # whole point of the dedup.
                     "2024-01-04": [
                         {"workout_data": {"type": "phone_verified"}},
-                        {"workout_data": {"type": "phone_verified"}},
+                        {"workout_data": {"type": "runnerup_verified"}},
                     ],
                 }
             )
@@ -127,7 +132,9 @@ class TestGatherStatusLockSuppression:
         # Jan 1-4 one each, Jan 5 (today, Friday — the last day in-week without
         # going into the future) holds two, for 6 counted total: 1 above the
         # new minimum of 5. Also exercises multiple same-day entries each
-        # counting individually.
+        # counting individually — which is why the pair is a gym session plus a
+        # run rather than two phone_verified entries: those are the two
+        # ingestion paths for ONE StrongLifts session and share a credit slot.
         files["log_file"].write_text(
             json.dumps(
                 {
@@ -137,7 +144,7 @@ class TestGatherStatusLockSuppression:
                     "2024-01-04": {"workout_data": {"type": "phone_verified"}},
                     "2024-01-05": [
                         {"workout_data": {"type": "phone_verified"}},
-                        {"workout_data": {"type": "phone_verified"}},
+                        {"workout_data": {"type": "runnerup_verified"}},
                     ],
                 }
             )

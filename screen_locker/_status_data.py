@@ -67,9 +67,8 @@ from screen_locker._sick_tracker import (
 from screen_locker._wake_state import has_workout_skip_today
 from screen_locker._weekly_check import (
     COUNTED_WORKOUT_TYPES,
-    MANUAL_WORKOUT_TYPE,
-    VERIFIED_WORKOUT_TYPES,
     WEEKLY_WORKOUT_MINIMUM,
+    count_day_credits,
     is_relaxed_day,
 )
 
@@ -82,9 +81,14 @@ _DEFAULT_LOG_FILE = Path(__file__).resolve().parent / "log.json"
 def _day_status(day_date: date, entries: list[dict], sick_days: set[str]) -> DayStatus:
     """Build a :class:`DayStatus` for one calendar day from its entry list.
 
-    ``day_count`` mirrors the weekly rule (each verified workout counts, all of
-    a day's manual entries count once) so the week total sums to
-    :func:`~screen_locker._weekly_check.count_weekly_workouts`.
+    ``day_count`` comes from
+    :func:`~screen_locker._weekly_check.count_day_credits`, the same rule
+    enforcement uses, so the week total sums to
+    :func:`~screen_locker._weekly_check.count_weekly_workouts` by construction.
+    It used to re-derive the rule as ``verified + (1 if has_manual else 0)``,
+    which disagreed on any day with two manual workouts -- and since this value
+    feeds the status view's ``weekly_minimum_met`` explanation, the window could
+    explain a different decision than the locker actually made.
     """
     iso = day_date.isoformat()
     label = day_date.strftime("%a %b %d")
@@ -93,8 +97,6 @@ def _day_status(day_date: date, entries: list[dict], sick_days: set[str]) -> Day
         for e in entries
         if isinstance(e, dict)
     )
-    verified = sum(1 for t in types if t in VERIFIED_WORKOUT_TYPES)
-    has_manual = any(t == MANUAL_WORKOUT_TYPE for t in types)
     sources = [
         str(e.get("workout_data", {}).get("source", ""))
         for e in entries
@@ -106,7 +108,7 @@ def _day_status(day_date: date, entries: list[dict], sick_days: set[str]) -> Day
         entry_types=tuple(t for t in types if t),
         source=" · ".join(s for s in sources if s),
         counted=any(t in COUNTED_WORKOUT_TYPES for t in types),
-        day_count=verified + (1 if has_manual else 0),
+        day_count=count_day_credits(iso, [e for e in entries if isinstance(e, dict)]),
         is_sick_day=iso in sick_days,
     )
 
