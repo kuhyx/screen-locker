@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 # ISO week. On a Monday no such day exists (week_start == today), so using
 # date.today() made them fail every Monday and pass Tue-Sun. Pin "now" to a
 # Wednesday instead: yesterday is then Tuesday, comfortably inside the week.
-_FROZEN_NOW = datetime(2026, 7, 22, 12, 0, tzinfo=timezone.utc)  # a Wednesday
+_FROZEN_NOW = datetime(2026, 7, 22, 12, 0, tzinfo=UTC)  # a Wednesday
 _FROZEN_YESTERDAY = (_FROZEN_NOW.date() - timedelta(days=1)).isoformat()
 
 

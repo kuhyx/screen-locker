@@ -11,7 +11,7 @@ Loading and saving that history stays in ``_sick_tracker``.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 import logging
 from typing import Any
 
@@ -44,13 +44,13 @@ class SickHistory:
 
 def _today_iso() -> str:
     """Return today's date as ``YYYY-MM-DD`` (UTC)."""
-    return datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    return datetime.now(tz=UTC).strftime("%Y-%m-%d")
 
 
 def _parse_iso(date_str: str) -> datetime | None:
     """Parse ``YYYY-MM-DD`` into a UTC datetime, or return None."""
     try:
-        return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=UTC)
     except ValueError as exc:
         _logger.warning(
             "Sick history holds an unparsable date %r (%s) — that entry is "

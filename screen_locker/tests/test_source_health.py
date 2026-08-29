@@ -7,7 +7,7 @@ correctly while the phone had stopped writing to it nine days earlier.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from screen_locker import _sync_client
 from screen_locker._source_health import (
@@ -17,7 +17,7 @@ from screen_locker._source_health import (
     explain_findings,
 )
 
-_NOW = datetime(2026, 8, 24, 12, 0, tzinfo=timezone.utc)
+_NOW = datetime(2026, 8, 24, 12, 0, tzinfo=UTC)
 
 
 class TestCollectSourceFindings:
@@ -50,7 +50,7 @@ class TestDescribeStaleness:
 
     def test_nine_day_silence_is_reported_with_its_age(self) -> None:
         """The real 2026-08-15 mirror silence, named in days."""
-        newest = datetime(2026, 8, 15, 18, 0, tzinfo=timezone.utc)
+        newest = datetime(2026, 8, 15, 18, 0, tzinfo=UTC)
 
         finding = describe_staleness("GitHub mirror", newest, now=_NOW)
 

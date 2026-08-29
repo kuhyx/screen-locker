@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import logging
 import subprocess
 from typing import TYPE_CHECKING
@@ -76,7 +76,7 @@ class ShutdownMixin(SickDayStateMixin, WakeAlarmMixin):
 
         Returns True if successful, False otherwise.
         """
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         self._restore_original_config_if_needed()
         if self._sick_mode_used_today():
             _logger.warning("Sick mode already used today")

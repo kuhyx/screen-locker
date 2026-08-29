@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 import json
 import logging
 import sys
@@ -73,7 +73,7 @@ def _print_day_line(d: date, entries: list[dict], sick_days: set[str]) -> bool:
 
 def run_status(locker: ScreenLocker) -> None:
     """Print weekly workout status, run RunnerUp scan, apply bonus, then exit."""
-    today = datetime.now(tz=timezone.utc).astimezone().date()
+    today = datetime.now(tz=UTC).astimezone().date()
     monday = today - timedelta(days=today.weekday())
     log_file: Path = locker.log_file
     log_data = load_workout_log(log_file)
@@ -120,7 +120,7 @@ def run_status(locker: ScreenLocker) -> None:
     eb_str = "Yes — until 09:00" if eb_ext else "No"
 
     # Heat skips this month
-    this_month = datetime.now(tz=timezone.utc).astimezone().date().strftime("%Y-%m")
+    this_month = datetime.now(tz=UTC).astimezone().date().strftime("%Y-%m")
     heat_entries = [
         (d, entry)
         for d, entries in log_data.items()

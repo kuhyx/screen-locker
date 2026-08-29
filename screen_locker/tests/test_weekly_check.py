@@ -3,7 +3,7 @@ has_weekly_minimum."""
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 def _dt(weekday: int, hour: int = 10) -> datetime:
     """Return a UTC-aware datetime for the given ISO weekday (0=Mon, 6=Sun)."""
     # 2025-05-19 is a Monday (weekday 0)
-    base = datetime(2025, 5, 19, hour, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2025, 5, 19, hour, 0, 0, tzinfo=UTC)
     from datetime import timedelta
 
     return base + timedelta(days=weekday)

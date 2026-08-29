@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import patch
@@ -189,6 +190,6 @@ class TestIngestManualRecords:
 
 
 def _dt(date: str) -> object:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    return datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    return datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=UTC)

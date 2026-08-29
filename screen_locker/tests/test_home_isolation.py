@@ -16,7 +16,7 @@ which is the only warning that arrives before the credential is already gone.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 import os
 from pathlib import Path
 
@@ -32,7 +32,7 @@ def _fixture_credentials() -> FirebaseCredentials:
     return FirebaseCredentials(
         id_token=f"{fixture}-id-token",
         refresh_token=f"{fixture}-refresh-token",
-        expires_at=datetime.now(tz=timezone.utc) + timedelta(hours=1),
+        expires_at=datetime.now(tz=UTC) + timedelta(hours=1),
     )
 
 

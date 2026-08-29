@@ -18,7 +18,7 @@ that can drift.
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import logging
 from typing import TYPE_CHECKING
 
@@ -132,7 +132,7 @@ def run_manual_log(log_file: Path, argv: Sequence[str]) -> int:
     # UTC, matching how the budget windows compute "today" -- a local date
     # near midnight would file the workout in a different window than the one
     # it is then counted in.
-    date = args.date or datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    date = args.date or datetime.now(tz=UTC).strftime("%Y-%m-%d")
     draft = _draft(args)
     # Validated here as well as inside the ingest, purely so a person running
     # this by hand gets the concrete field error on stderr and a non-zero exit

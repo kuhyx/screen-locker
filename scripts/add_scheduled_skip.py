@@ -20,7 +20,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 from pathlib import Path
 import sys
@@ -97,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
 
     date = _today() if args.date == "today" else args.date
     try:
-        datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=UTC)
     except ValueError:
         msg = f"ERROR: {date!r} is not a YYYY-MM-DD date"
         raise SystemExit(msg) from None

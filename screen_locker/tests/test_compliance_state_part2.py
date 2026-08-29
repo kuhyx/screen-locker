@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import patch
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 def _today() -> str:
-    return datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    return datetime.now(tz=UTC).strftime("%Y-%m-%d")
 
 
 class TestExplainLockDecision:
@@ -47,7 +47,7 @@ class TestExplainLockDecision:
         files["early_bird_pending_file"].write_text(
             json.dumps({"date": _today(), "hmac": "sig"})
         )
-        now = datetime.now(tz=timezone.utc).astimezone().replace(hour=6, minute=0)
+        now = datetime.now(tz=UTC).astimezone().replace(hour=6, minute=0)
         with patch(
             "screen_locker._compliance_predicates.verify_entry_hmac", return_value=True
         ):
@@ -69,7 +69,7 @@ class TestExplainLockDecision:
         files["early_bird_pending_file"].write_text(
             json.dumps({"date": _today(), "hmac": "sig"})
         )
-        now = datetime.now(tz=timezone.utc).astimezone().replace(hour=10, minute=0)
+        now = datetime.now(tz=UTC).astimezone().replace(hour=10, minute=0)
         with patch(
             "screen_locker._compliance_predicates.verify_entry_hmac", return_value=True
         ):
@@ -97,7 +97,7 @@ class TestExplainLockDecision:
             extended_early_bird=False,
             weekly_minimum_met=False,
             relaxed_day=False,
-            now=datetime.now(tz=timezone.utc).astimezone().replace(hour=12, minute=0),
+            now=datetime.now(tz=UTC).astimezone().replace(hour=12, minute=0),
         )
         assert result.fired is False
         assert result.stage == "sick_day"
@@ -114,9 +114,7 @@ class TestExplainLockDecision:
                 extended_early_bird=False,
                 weekly_minimum_met=False,
                 relaxed_day=False,
-                now=datetime.now(tz=timezone.utc)
-                .astimezone()
-                .replace(hour=12, minute=0),
+                now=datetime.now(tz=UTC).astimezone().replace(hour=12, minute=0),
             )
         assert result.fired is False
         assert result.stage == "already_logged"
@@ -130,14 +128,14 @@ class TestExplainLockDecision:
             weekly_minimum_met=False,
             relaxed_day=False,
             wake_skip=True,
-            now=datetime.now(tz=timezone.utc).astimezone().replace(hour=12, minute=0),
+            now=datetime.now(tz=UTC).astimezone().replace(hour=12, minute=0),
         )
         assert result.fired is False
         assert result.stage == "wake_alarm_skip"
 
     def test_fresh_early_bird_time_skips(self, tmp_path: Path) -> None:
         files = self._files(tmp_path)
-        now = datetime.now(tz=timezone.utc).astimezone().replace(hour=6, minute=0)
+        now = datetime.now(tz=UTC).astimezone().replace(hour=6, minute=0)
         result = explain_lock_decision(
             **files,
             sick_history=SickHistory(),
@@ -156,7 +154,7 @@ class TestExplainLockDecision:
     ) -> None:
         """The re-check time isn't ambiguous — it's whichever one actually applies."""
         files = self._files(tmp_path)
-        now = datetime.now(tz=timezone.utc).astimezone().replace(hour=6, minute=0)
+        now = datetime.now(tz=UTC).astimezone().replace(hour=6, minute=0)
         result = explain_lock_decision(
             **files,
             sick_history=SickHistory(),
@@ -178,7 +176,7 @@ class TestExplainLockDecision:
             extended_early_bird=False,
             weekly_minimum_met=False,
             relaxed_day=True,
-            now=datetime.now(tz=timezone.utc).astimezone().replace(hour=12, minute=0),
+            now=datetime.now(tz=UTC).astimezone().replace(hour=12, minute=0),
         )
         assert result.fired is False
         assert result.stage == "relaxed_day"
@@ -202,7 +200,7 @@ class TestExplainLockDecision:
             extended_early_bird=False,
             weekly_minimum_met=False,
             relaxed_day=True,
-            now=datetime.now(tz=timezone.utc).astimezone().replace(hour=12, minute=0),
+            now=datetime.now(tz=UTC).astimezone().replace(hour=12, minute=0),
         )
         assert result.fired is False
         assert result.stage == "relaxed_day_already_skipped"
@@ -215,7 +213,7 @@ class TestExplainLockDecision:
             extended_early_bird=False,
             weekly_minimum_met=True,
             relaxed_day=False,
-            now=datetime.now(tz=timezone.utc).astimezone().replace(hour=12, minute=0),
+            now=datetime.now(tz=UTC).astimezone().replace(hour=12, minute=0),
         )
         assert result.fired is False
         assert result.stage == "weekly_minimum_met"
@@ -228,7 +226,7 @@ class TestExplainLockDecision:
             extended_early_bird=False,
             weekly_minimum_met=False,
             relaxed_day=False,
-            now=datetime.now(tz=timezone.utc).astimezone().replace(hour=12, minute=0),
+            now=datetime.now(tz=UTC).astimezone().replace(hour=12, minute=0),
         )
         assert result.fired is True
         assert result.stage == "full_lock_pending_heat_check"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
@@ -22,13 +23,13 @@ class TestIsTomorrowAlarmDay:
     ) -> None:
         """Sunday evening → Monday is alarm day (weekday=0)."""
         locker = create_locker(mock_tk, tmp_path)
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         # Sunday 2026-04-12 → tomorrow Monday
         with patch(
             "screen_locker._wake_alarm.datetime",
         ) as mock_dt:
-            mock_dt.now.return_value = datetime(2026, 4, 12, 23, 0, tzinfo=timezone.utc)
+            mock_dt.now.return_value = datetime(2026, 4, 12, 23, 0, tzinfo=UTC)
             mock_dt.side_effect = datetime
             from datetime import timedelta
 
@@ -47,7 +48,7 @@ class TestIsTomorrowAlarmDay:
     ) -> None:
         """Monday evening → Tuesday is NOT an alarm day."""
         locker = create_locker(mock_tk, tmp_path)
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
         # Monday 2026-04-13 → tomorrow Tuesday (weekday=1)
         with (
@@ -59,7 +60,7 @@ class TestIsTomorrowAlarmDay:
                 timedelta,
             ),
         ):
-            mock_dt.now.return_value = datetime(2026, 4, 13, 23, 0, tzinfo=timezone.utc)
+            mock_dt.now.return_value = datetime(2026, 4, 13, 23, 0, tzinfo=UTC)
             mock_dt.side_effect = datetime
             assert locker._is_tomorrow_alarm_day() is False
 
@@ -71,7 +72,7 @@ class TestIsTomorrowAlarmDay:
     ) -> None:
         """Thursday evening → Friday is alarm day (weekday=4)."""
         locker = create_locker(mock_tk, tmp_path)
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
         # Thursday 2026-04-16 → tomorrow Friday (weekday=4)
         with (
@@ -83,7 +84,7 @@ class TestIsTomorrowAlarmDay:
                 timedelta,
             ),
         ):
-            mock_dt.now.return_value = datetime(2026, 4, 16, 23, 0, tzinfo=timezone.utc)
+            mock_dt.now.return_value = datetime(2026, 4, 16, 23, 0, tzinfo=UTC)
             mock_dt.side_effect = datetime
             assert locker._is_tomorrow_alarm_day() is True
 

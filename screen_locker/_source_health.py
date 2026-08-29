@@ -19,7 +19,7 @@ accusing the user of skipping a workout they actually did.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from screen_locker._degraded_sources import degraded_sources
 
@@ -49,7 +49,7 @@ def describe_staleness(
             it returned nothing at all.
         now: Injected for tests.
     """
-    instant = now if now is not None else datetime.now(tz=timezone.utc)
+    instant = now if now is not None else datetime.now(tz=UTC)
     if newest is None:
         return SourceFinding(
             name=name,
@@ -60,7 +60,7 @@ def describe_staleness(
                 "your phone writes to."
             ),
         )
-    age = instant - newest.astimezone(timezone.utc)
+    age = instant - newest.astimezone(UTC)
     if age < STALE_AFTER:
         return None
     return SourceFinding(

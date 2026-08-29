@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import patch
@@ -16,9 +16,9 @@ if TYPE_CHECKING:
 # Fixed reference instant: Friday 2024-01-05, 12:00 UTC == 13:00 Europe/Warsaw.
 # Outside the 05:00-09:00 early-bird window and not a Tue/Wed/Thu relaxed day,
 # so lock-decision branches are fully deterministic regardless of wall clock.
-_FRIDAY_NOON_UTC = datetime(2024, 1, 5, 12, 0, tzinfo=timezone.utc)
+_FRIDAY_NOON_UTC = datetime(2024, 1, 5, 12, 0, tzinfo=UTC)
 # Monday of that same ISO week, for Mon-Wed shutdown-band assertions.
-_MONDAY_NOON_UTC = datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
+_MONDAY_NOON_UTC = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
 
 
 class TestGatherStatus:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
@@ -54,7 +54,7 @@ class TestIsSickDayToday:
     ) -> None:
         """Return True when today is in sick_history's sick_days list."""
         locker = create_locker(mock_tk, tmp_path)
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         history_file = tmp_path / "sick_history.json"
         history_file.write_text(json.dumps({"sick_days": [today]}))
         assert locker._is_sick_day_today() is True

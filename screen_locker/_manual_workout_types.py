@@ -11,7 +11,7 @@ manual workouts are self-reported, so only a few count in any rolling window.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 import logging
 from typing import TYPE_CHECKING
 
@@ -39,13 +39,13 @@ SPORT_LABELS: dict[str, str] = {
 
 def _today_iso() -> str:
     """Return today's date as ``YYYY-MM-DD`` (UTC)."""
-    return datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    return datetime.now(tz=UTC).strftime("%Y-%m-%d")
 
 
 def _parse_iso(date_str: str) -> datetime | None:
     """Parse ``YYYY-MM-DD`` into a UTC datetime, or return None."""
     try:
-        return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=UTC)
     except ValueError as exc:
         _logger.warning(
             "Workout log has an unparsable date key %r (%s) — that day is "

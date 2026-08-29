@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 from time import sleep
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING
 
 from crdt_sync import RemoteSyncError
 
@@ -41,10 +41,8 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
-T = TypeVar("T")
 
-
-def with_sync_retry(
+def with_sync_retry[T](
     operation: Callable[[], T],
     *,
     description: str,

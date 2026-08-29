@@ -10,7 +10,7 @@ filled in from whatever RunnerUp kept rather than only from today's check.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 import logging
 from typing import TYPE_CHECKING
 
@@ -72,7 +72,7 @@ class RunnerUpBackfillMixin:
             )
             return 0
 
-        now = datetime.now(tz=timezone.utc).astimezone()
+        now = datetime.now(tz=UTC).astimezone()
         today = now.date()
         week_start = today - timedelta(days=today.weekday())
 

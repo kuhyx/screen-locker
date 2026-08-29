@@ -22,7 +22,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 import logging
 from pathlib import Path
@@ -73,7 +73,7 @@ def revoke(history: dict, log: dict, date: str) -> str:
         revocations.append(
             {
                 "date": date,
-                "revoked_at": datetime.now(tz=timezone.utc).isoformat(),
+                "revoked_at": datetime.now(tz=UTC).isoformat(),
                 "reason": (
                     "workout was completed but the locker could not read it; "
                     "no local log entry survives for this date"
@@ -92,7 +92,7 @@ def revoke(history: dict, log: dict, date: str) -> str:
     revocations.append(
         {
             "date": date,
-            "revoked_at": datetime.now(tz=timezone.utc).isoformat(),
+            "revoked_at": datetime.now(tz=UTC).isoformat(),
             "reason": (
                 "workout verified after the fact; the sick day was spent only "
                 "because the locker could not read the synced workout"

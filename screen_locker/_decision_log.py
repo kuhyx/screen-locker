@@ -27,7 +27,7 @@ must never be re-tracked.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 import logging
 from pathlib import Path
@@ -94,7 +94,7 @@ class LockDecision:
     def as_record(self) -> dict[str, object]:
         """Render the durable JSON object written to the trail."""
         record: dict[str, object] = {
-            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+            "timestamp": datetime.now(tz=UTC).isoformat(),
             "locked": self.locked,
             "reason": self.reason,
         }
@@ -179,7 +179,7 @@ def record_no_decision(mode: str, *, log_file: Path | None = None) -> None:
     )
     _append_record(
         {
-            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+            "timestamp": datetime.now(tz=UTC).isoformat(),
             "locked": None,
             "reason": "mode_makes_no_decision",
             "mode": mode,

@@ -7,7 +7,7 @@ weekly minimum) means no lock is needed.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import patch
@@ -21,9 +21,9 @@ if TYPE_CHECKING:
 # Fixed reference instant: Friday 2024-01-05, 12:00 UTC == 13:00 Europe/Warsaw.
 # Outside the 05:00-09:00 early-bird window and not a Tue/Wed/Thu relaxed day,
 # so lock-decision branches are fully deterministic regardless of wall clock.
-_FRIDAY_NOON_UTC = datetime(2024, 1, 5, 12, 0, tzinfo=timezone.utc)
+_FRIDAY_NOON_UTC = datetime(2024, 1, 5, 12, 0, tzinfo=UTC)
 # Monday of that same ISO week, for Mon-Wed shutdown-band assertions.
-_MONDAY_NOON_UTC = datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
+_MONDAY_NOON_UTC = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
 
 
 class TestGatherStatusLockSuppression:
@@ -84,7 +84,7 @@ class TestGatherStatusLockSuppression:
     def test_relaxed_day_stops_lock(self, tmp_path: Path) -> None:
         """Tuesday is a relaxed day — is_relaxed_day derives it from `now`."""
         files = _files(tmp_path)
-        tuesday_noon = datetime(2024, 1, 2, 12, 0, tzinfo=timezone.utc)
+        tuesday_noon = datetime(2024, 1, 2, 12, 0, tzinfo=UTC)
         with patch(
             "screen_locker._status_data.has_workout_skip_today", return_value=False
         ):

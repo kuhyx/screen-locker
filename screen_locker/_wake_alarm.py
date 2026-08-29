@@ -8,7 +8,7 @@ change.
 from __future__ import annotations
 
 import calendar
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 import logging
 import subprocess
 
@@ -27,7 +27,7 @@ class WakeAlarmMixin:
     @staticmethod
     def _is_tomorrow_alarm_day() -> bool:
         """Check if tomorrow is an alarm day."""
-        tomorrow = datetime.now(tz=timezone.utc) + timedelta(days=1)
+        tomorrow = datetime.now(tz=UTC) + timedelta(days=1)
         return tomorrow.weekday() in ALARM_DAYS
 
     @staticmethod
@@ -37,7 +37,7 @@ class WakeAlarmMixin:
         Returns:
             Epoch seconds WAKE_AFTER_HOURS from now.
         """
-        wake_time = datetime.now(tz=timezone.utc) + timedelta(
+        wake_time = datetime.now(tz=UTC) + timedelta(
             hours=WAKE_AFTER_HOURS,
         )
         return calendar.timegm(wake_time.utctimetuple())

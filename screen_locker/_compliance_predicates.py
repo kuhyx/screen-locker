@@ -14,7 +14,7 @@ rather than at the old ``_compliance_state`` path.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 import logging
 from typing import TYPE_CHECKING
@@ -40,7 +40,7 @@ _logger = logging.getLogger(__name__)
 
 def _today_str() -> str:
     """Return today's date as ``YYYY-MM-DD`` in UTC."""
-    return datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    return datetime.now(tz=UTC).strftime("%Y-%m-%d")
 
 
 def is_scheduled_skip_today(

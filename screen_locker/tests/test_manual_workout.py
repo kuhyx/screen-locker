@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import dataclasses
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 import json
 from typing import TYPE_CHECKING
 
@@ -145,7 +145,7 @@ class TestIsBudgetExhausted:
         # MANUAL_WORKOUT_BUDGET_PER_30_DAYS distinct dates, all strictly after
         # the 30d cutoff (2026-06-05) but at/before the 7d cutoff (2026-06-28),
         # so only the 30d window sees them.
-        today_dt = datetime.strptime(_TODAY, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        today_dt = datetime.strptime(_TODAY, "%Y-%m-%d").replace(tzinfo=UTC)
         dates = [
             (today_dt - timedelta(days=8 + i)).strftime("%Y-%m-%d")
             for i in range(MANUAL_WORKOUT_BUDGET_PER_30_DAYS)

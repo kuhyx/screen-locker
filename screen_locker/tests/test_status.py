@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC
 import json
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -82,9 +83,9 @@ class TestRunStatusNormal:
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
         """Today == the week's Sunday: the per-day loop runs all 7 days, never breaking early."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        fixed_now = datetime(2026, 7, 5, 12, 0, tzinfo=timezone.utc)  # a real Sunday
+        fixed_now = datetime(2026, 7, 5, 12, 0, tzinfo=UTC)  # a real Sunday
         eb_file = tmp_path / "eb.json"
         log_file = tmp_path / "log.json"
         locker = _make_locker(log_file, n_filled=0)
@@ -106,9 +107,9 @@ class TestRunStatusNormal:
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
         """A date with no workout_log entry but in sick_history → shown as sick_day."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        today = datetime.now(tz=timezone.utc).astimezone().date().isoformat()
+        today = datetime.now(tz=UTC).astimezone().date().isoformat()
         eb_file = tmp_path / "eb.json"
         log_file = tmp_path / "log.json"
         history_file = tmp_path / "sick_history.json"
@@ -188,9 +189,9 @@ class TestRunStatusWorkoutLog:
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
         """Log entry with counted type → ✓ mark printed."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        today = datetime.now(tz=timezone.utc).astimezone().date().isoformat()
+        today = datetime.now(tz=UTC).astimezone().date().isoformat()
         log_file = tmp_path / "log.json"
         log_file.write_text(
             json.dumps(
@@ -223,9 +224,9 @@ class TestRunStatusWorkoutLog:
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
         """Log entry with uncounted type → ✗ mark printed."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        today = datetime.now(tz=timezone.utc).astimezone().date().isoformat()
+        today = datetime.now(tz=UTC).astimezone().date().isoformat()
         log_file = tmp_path / "log.json"
         log_file.write_text(
             json.dumps({today: {"workout_data": {"type": "heat_skip", "source": ""}}})

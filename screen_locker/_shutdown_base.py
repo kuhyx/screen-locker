@@ -10,7 +10,7 @@ overwrite the fresh base when it runs later in the same startup.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 import logging
 from typing import TYPE_CHECKING, Any
@@ -62,7 +62,7 @@ def reset_to_base_if_new_day(
 
     Returns True if a reset was performed, False if today was already reset.
     """
-    today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
 
     if state_file.exists():
         try:

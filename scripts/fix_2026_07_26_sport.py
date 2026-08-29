@@ -29,7 +29,7 @@ Usage (needs the root-owned key at /etc/workout-locker/hmac.key):
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 import logging
 from pathlib import Path
@@ -152,7 +152,7 @@ def main() -> int:
         _logger.info("\nDry run. Re-run with --apply to write.")
         return 0
 
-    stamp = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
     backup = LOG_FILE.with_suffix(f".json.bak-{stamp}")
     shutil.copy2(LOG_FILE, backup)
     _logger.info("\nBacked up to %s", backup)

@@ -18,7 +18,7 @@ surfaces the pending opportunity separately via ``AutoUpgradeOpportunity``.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from screen_locker._compliance_predicates import (
@@ -79,8 +79,8 @@ def explain_lock_decision(
     order. Heat-skip is never evaluated (it needs a live ``wttr.in`` call) —
     reported via ``heat_skip_evaluated=False``, not guessed.
     """
-    instant = now if now is not None else datetime.now(tz=timezone.utc)
-    today_str = instant.astimezone(timezone.utc).strftime("%Y-%m-%d")
+    instant = now if now is not None else datetime.now(tz=UTC)
+    today_str = instant.astimezone(UTC).strftime("%Y-%m-%d")
     local_dt = instant.astimezone()
     local_minutes = local_dt.hour * 60 + local_dt.minute
 

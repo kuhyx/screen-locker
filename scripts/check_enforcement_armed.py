@@ -94,7 +94,7 @@ def _run(args: list[str]) -> tuple[int, str]:
             timeout=_TIMEOUT_SECONDS,
             check=False,
         )
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         # A check that cannot run must not look like a check that passed.
         _logger.exception("Could not run %s", " ".join(args))
         return 1, ""

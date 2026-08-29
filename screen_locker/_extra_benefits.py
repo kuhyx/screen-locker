@@ -13,7 +13,7 @@ State is persisted in ``extra_benefits_state.json`` next to this file.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 import json
 import logging
 from typing import TYPE_CHECKING, Any
@@ -91,7 +91,7 @@ def process_week_transition(log_file: Path, state_file: Path) -> list[str]:
 
     Returns a list of human-readable reward strings (empty if no transition).
     """
-    now = datetime.now(tz=timezone.utc).astimezone()
+    now = datetime.now(tz=UTC).astimezone()
     current_week_str = _current_iso_week(now)
 
     state = _load_state(state_file)
@@ -108,7 +108,7 @@ def process_week_transition(log_file: Path, state_file: Path) -> list[str]:
         23,
         59,
         59,
-        tzinfo=timezone.utc,
+        tzinfo=UTC,
     )
     prev_week_count = count_weekly_workouts(log_file, today=prev_week_dt)
 
@@ -166,7 +166,7 @@ def weekly_shutdown_bonus_hours(
     state_file: Path, *, today: datetime | None = None
 ) -> int:
     """Return the banked shutdown-time bonus (hours) for the current ISO week."""
-    now = today if today is not None else datetime.now(tz=timezone.utc).astimezone()
+    now = today if today is not None else datetime.now(tz=UTC).astimezone()
     current_week_str = _current_iso_week(now)
     bonus_hours: dict[str, int] = _load_state(state_file).get(
         "weekly_shutdown_bonus_hours", {}
@@ -176,7 +176,7 @@ def weekly_shutdown_bonus_hours(
 
 def has_extended_early_bird(state_file: Path, *, today: datetime | None = None) -> bool:
     """Return True if the current ISO week has an extended early-bird window (09:00)."""
-    now = today if today is not None else datetime.now(tz=timezone.utc).astimezone()
+    now = today if today is not None else datetime.now(tz=UTC).astimezone()
     current_week_str = _current_iso_week(now)
     eb_weeks: list[str] = _load_state(state_file).get(
         "extended_early_bird_iso_weeks", []

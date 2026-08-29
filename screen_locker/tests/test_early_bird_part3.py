@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
@@ -81,7 +81,7 @@ class TestIsEarlyBirdPending:
     ) -> None:
         """Return False when HMAC verification fails."""
         locker = create_locker(mock_tk, tmp_path)
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         pending_file = tmp_path / "early_bird_pending.json"
         pending_file.write_text(json.dumps({"date": today, "hmac": "bad"}))
         with (
@@ -105,7 +105,7 @@ class TestIsEarlyBirdPending:
     ) -> None:
         """Return True when today's marker is present and HMAC-valid."""
         locker = create_locker(mock_tk, tmp_path)
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         pending_file = tmp_path / "early_bird_pending.json"
         pending_file.write_text(json.dumps({"date": today, "hmac": "sig"}))
         with (
@@ -125,7 +125,7 @@ class TestIsEarlyBirdPending:
     ) -> None:
         """Unsigned marker is accepted when no HMAC key is configured."""
         locker = create_locker(mock_tk, tmp_path)
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         pending_file = tmp_path / "early_bird_pending.json"
         pending_file.write_text(json.dumps({"date": today}))
         with (
@@ -163,7 +163,7 @@ class TestSaveEarlyBirdPending:
         assert pending_file.exists()
         with pending_file.open() as f:
             data: dict[str, Any] = json.load(f)
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         assert data["date"] == today
         assert not locker.log_file.exists()
 

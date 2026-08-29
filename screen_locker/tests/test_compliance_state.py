@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import patch
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 
 def _today() -> str:
-    return datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    return datetime.now(tz=UTC).strftime("%Y-%m-%d")
 
 
 class TestIsScheduledSkipToday:

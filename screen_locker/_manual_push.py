@@ -22,7 +22,7 @@ what happened, and logs it.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 import logging
 from typing import TYPE_CHECKING
@@ -117,7 +117,7 @@ def _entry_wall_ms(entry: dict, date: str) -> int:
             "for its sync clock",
             date,
         )
-    midnight = datetime.fromisoformat(date).replace(tzinfo=timezone.utc)
+    midnight = datetime.fromisoformat(date).replace(tzinfo=UTC)
     return int(midnight.timestamp() * 1000)
 
 

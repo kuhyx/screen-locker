@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
@@ -44,9 +45,9 @@ class TestSickModeUsedToday:
             "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE",
             state_file,
         ):
-            from datetime import datetime, timezone
+            from datetime import datetime
 
-            today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+            today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
             state_file.write_text(json.dumps({"date": today}))
             assert locker._sick_mode_used_today() is True
 

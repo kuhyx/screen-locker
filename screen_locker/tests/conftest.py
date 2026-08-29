@@ -11,7 +11,7 @@ Safety:
 from __future__ import annotations
 
 from contextlib import ExitStack
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -183,7 +183,7 @@ def _isolate_shutdown_base(tmp_path: Path) -> Iterator[None]:
     same as the rest of the suite already does.
     """
     target = tmp_path / "shutdown_base.json"
-    today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
     target.write_text(
         json.dumps(
             {"base_mon_wed_hour": 21, "base_thu_sun_hour": 21, "last_reset_date": today}

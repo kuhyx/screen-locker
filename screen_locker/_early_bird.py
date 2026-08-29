@@ -9,7 +9,7 @@ its own self-expiring, HMAC-signed state file, mirroring the pattern used by
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 import logging
 
@@ -30,7 +30,7 @@ _logger = logging.getLogger(__name__)
 
 def _today_str() -> str:
     """Return today's date as YYYY-MM-DD in UTC."""
-    return datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    return datetime.now(tz=UTC).strftime("%Y-%m-%d")
 
 
 class EarlyBirdMixin:
@@ -38,7 +38,7 @@ class EarlyBirdMixin:
 
     def _get_local_time_minutes(self) -> int:
         """Return current local time as minutes from midnight."""
-        now = datetime.now(tz=timezone.utc).astimezone()
+        now = datetime.now(tz=UTC).astimezone()
         return now.hour * 60 + now.minute
 
     def _is_early_bird_time(self) -> bool:

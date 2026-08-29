@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 import tkinter as tk
 from typing import TYPE_CHECKING, Any
@@ -66,7 +66,7 @@ class TestAutoUpgradeSickDay:
             assert locker._try_auto_upgrade_sick_day() is True
             mock_adjust.assert_called_once()
 
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         with log_file.open() as f:
             data: dict[str, Any] = json.load(f)
         # The log is day-keyed with a LIST of workouts; the upgrade appends one.

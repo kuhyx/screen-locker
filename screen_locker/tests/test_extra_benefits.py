@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
@@ -73,7 +73,7 @@ class TestProcessWeekTransition:
         self, tmp_path: Path
     ) -> None:
         """Early return when ISO week already processed (line 63)."""
-        now = datetime.now(tz=timezone.utc).astimezone()
+        now = datetime.now(tz=UTC).astimezone()
         year, week, _ = now.isocalendar()
         f = tmp_path / "state.json"
         f.write_text(json.dumps({"last_processed_iso_week": f"{year}-W{week:02d}"}))
@@ -81,7 +81,7 @@ class TestProcessWeekTransition:
 
     @staticmethod
     def _current_week_str() -> str:
-        now = datetime.now(tz=timezone.utc).astimezone()
+        now = datetime.now(tz=UTC).astimezone()
         year, week, _ = now.isocalendar()
         return f"{year}-W{week:02d}"
 
@@ -148,7 +148,7 @@ class TestProcessWeekTransition:
         ):
             process_week_transition(tmp_path / "log.json", f)
 
-        now = datetime.now(tz=timezone.utc).astimezone()
+        now = datetime.now(tz=UTC).astimezone()
         year, week, _ = now.isocalendar()
         state = json.loads(f.read_text())
         assert f"{year}-W{week:02d}" in state["extended_early_bird_iso_weeks"]
@@ -202,7 +202,7 @@ class TestProcessWeekTransition:
 
     def test_duplicate_eb_week_not_added_twice(self, tmp_path: Path) -> None:
         """Current week already in EB list: not added again (line 91 branch False)."""
-        now = datetime.now(tz=timezone.utc).astimezone()
+        now = datetime.now(tz=UTC).astimezone()
         year, week, _ = now.isocalendar()
         current_week = f"{year}-W{week:02d}"
         f = tmp_path / "state.json"

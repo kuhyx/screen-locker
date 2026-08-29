@@ -23,16 +23,13 @@ from __future__ import annotations
 
 import contextlib
 import tkinter as tk
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
-_W = TypeVar("_W", bound=tk.Misc)
-"""The widget each group mirrors, so a subclass keeps its own methods typed."""
 
-
-class WidgetGroup(Generic[_W]):
+class WidgetGroup[W: tk.Misc]:
     """One logical widget, mirrored onto every monitor.
 
     Only the operations the locker actually performs after creation are
@@ -40,16 +37,16 @@ class WidgetGroup(Generic[_W]):
     from the first copy, since all copies are built identically.
     """
 
-    def __init__(self, widgets: list[_W]) -> None:
+    def __init__(self, widgets: list[W]) -> None:
         """Wrap the per-monitor copies of one widget."""
         self._widgets = widgets
 
-    def __iter__(self) -> Iterator[_W]:
+    def __iter__(self) -> Iterator[W]:
         """Iterate the per-monitor copies, for callers that need each one."""
         return iter(self._widgets)
 
     @property
-    def first(self) -> _W:
+    def first(self) -> W:
         """The primary monitor's copy, for reads that cannot fan out."""
         return self._widgets[0]
 
@@ -111,7 +108,7 @@ class FrameGroup(WidgetGroup[tk.Frame]):
     it to ``_button()`` creates one button inside each of its frames.
     """
 
-    def __init__(self, widgets: list[_W]) -> None:
+    def __init__(self, widgets: list[tk.Frame]) -> None:
         """Wrap the per-monitor frames, tracking which output each came from."""
         super().__init__(widgets)
         self._outputs: list[str] = []

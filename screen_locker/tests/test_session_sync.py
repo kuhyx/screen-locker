@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 _DATE = "2026-08-21"
 # The ISO week _DATE falls in, for count_weekly_workouts.
-_TODAY = datetime(2026, 8, 21, tzinfo=timezone.utc)
+_TODAY = datetime(2026, 8, 21, tzinfo=UTC)
 
 
 def _session(**overrides: object) -> dict:

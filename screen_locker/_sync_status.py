@@ -131,7 +131,7 @@ def gather_sync_status(
         # astimezone() with no argument resolves the system local zone, which
         # is what a human reading the status window expects to see.
         last_push = (
-            dt.datetime.fromtimestamp(mtime, tz=dt.timezone.utc)
+            dt.datetime.fromtimestamp(mtime, tz=dt.UTC)
             .astimezone()
             .strftime("%Y-%m-%d %H:%M")
         )

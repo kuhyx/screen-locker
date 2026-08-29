@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from http import client as _http_client
 import json
 import logging
@@ -119,7 +119,7 @@ class PhoneVerificationMixin(AdbTransportMixin, HttpWorkoutFetchMixin):
         date_str = data.get("date") if data else None
         if not date_str:
             return 0
-        today = datetime.now(tz=timezone.utc).astimezone().date()
+        today = datetime.now(tz=UTC).astimezone().date()
         week_start = today - timedelta(days=today.weekday())
         try:
             entry_date = date.fromisoformat(date_str)

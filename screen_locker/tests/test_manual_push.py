@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import patch
@@ -61,9 +61,7 @@ class TestEntryWallMs:
 
     def test_uses_the_entry_timestamp(self) -> None:
         """Uses the entry timestamp."""
-        expected = int(
-            datetime(2026, 7, 13, 12, tzinfo=timezone.utc).timestamp() * 1000
-        )
+        expected = int(datetime(2026, 7, 13, 12, tzinfo=UTC).timestamp() * 1000)
         ms = _entry_wall_ms({"timestamp": "2026-07-13T12:00:00+00:00"}, "2026-07-13")
         assert ms == expected
 
@@ -74,7 +72,7 @@ class TestEntryWallMs:
 
     def test_missing_timestamp_falls_back_to_midnight(self) -> None:
         """Missing timestamp falls back to midnight."""
-        expected = int(datetime(2026, 7, 13, tzinfo=timezone.utc).timestamp() * 1000)
+        expected = int(datetime(2026, 7, 13, tzinfo=UTC).timestamp() * 1000)
         assert _entry_wall_ms({}, "2026-07-13") == expected
 
     def test_fallback_is_stable_across_calls(self) -> None:

@@ -5,6 +5,7 @@ Split out of test_status.py for the 250-line cap.
 
 from __future__ import annotations
 
+from datetime import UTC
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import patch
@@ -32,9 +33,9 @@ class TestWeeklyTotalUsesPerWorkoutRule:
         days are supposed to support. Also covers manual workouts counting
         individually (no once-per-day collapse), same as verified ones.
         """
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        today = datetime.now(tz=timezone.utc).astimezone().date().isoformat()
+        today = datetime.now(tz=UTC).astimezone().date().isoformat()
         log_file = tmp_path / "log.json"
         log_file.write_text(
             json.dumps(

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
@@ -36,7 +36,7 @@ class TestSaveWorkoutLog:
         assert log_file.exists()
         with log_file.open() as f:
             data: dict[str, Any] = json.load(f)
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         assert today in data
         # The log now holds a list of entries per day (multiple workouts/day).
         assert data[today][0]["workout_data"]["type"] == "running"
@@ -61,7 +61,7 @@ class TestSaveWorkoutLog:
 
         with log_file.open() as f:
             data: dict[str, Any] = json.load(f)
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         assert "hmac" not in data[today][0]
 
     def test_save_to_existing_file(
@@ -86,7 +86,7 @@ class TestSaveWorkoutLog:
         with log_file.open() as f:
             data: dict[str, Any] = json.load(f)
         assert "2020-01-01" in data
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         assert today in data
 
     def test_save_with_corrupted_existing_file(
@@ -110,7 +110,7 @@ class TestSaveWorkoutLog:
 
         with log_file.open() as f:
             data: dict[str, Any] = json.load(f)
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         assert today in data
 
     def test_save_with_write_error(

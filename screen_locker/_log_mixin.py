@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 import logging
 from typing import TYPE_CHECKING
@@ -107,7 +107,7 @@ def write_signed_entry(
         return RecordResult(appended=False, prior_entries=prior)
 
     entry: dict[str, object] = {
-        "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+        "timestamp": datetime.now(tz=UTC).isoformat(),
         "workout_data": workout_data,
     }
     if workout_id is not None:
@@ -154,5 +154,5 @@ class LogMixin:
         credit only for a genuinely new workout and scale it by whether today
         already had one.
         """
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         return write_signed_entry(self.log_file, today, self.workout_data)

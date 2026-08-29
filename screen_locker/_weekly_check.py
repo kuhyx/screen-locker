@@ -11,7 +11,7 @@ current ISO week (Mon-Sun).
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 import logging
 from typing import TYPE_CHECKING
 
@@ -67,7 +67,7 @@ def is_relaxed_day(*, today: datetime | None = None) -> bool:
     Returns:
         True when the current weekday is Tuesday, Wednesday, or Thursday.
     """
-    dt = today if today is not None else datetime.now(tz=timezone.utc).astimezone()
+    dt = today if today is not None else datetime.now(tz=UTC).astimezone()
     return dt.weekday() in _RELAXED_WEEKDAYS
 
 
@@ -92,7 +92,7 @@ def count_weekly_workouts(
     Returns:
         The weekly workout count (Mon-Sun, up to and including today).
     """
-    dt = today if today is not None else datetime.now(tz=timezone.utc).astimezone()
+    dt = today if today is not None else datetime.now(tz=UTC).astimezone()
     week_start = (dt - timedelta(days=dt.weekday())).date()
     today_date = dt.date()
 
@@ -100,9 +100,7 @@ def count_weekly_workouts(
     for date_str, entries in load_workout_log(log_file).items():
         try:
             entry_date = (
-                datetime.strptime(date_str, "%Y-%m-%d")
-                .replace(tzinfo=timezone.utc)
-                .date()
+                datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=UTC).date()
             )
         except ValueError as exc:
             _logger.warning(

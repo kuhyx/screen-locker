@@ -7,7 +7,7 @@ state via :func:`save_history`.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 import json
 import logging
 from typing import Any
@@ -60,7 +60,7 @@ def load_history() -> SickHistory:
     try:
         with SICK_HISTORY_FILE.open() as f:
             data = json.load(f)
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         _logger.warning("Could not read sick history; starting fresh")
         return SickHistory()
     return SickHistory(
@@ -198,7 +198,7 @@ def add_justification(
     today_str = today or _today_iso()
     entry: dict[str, Any] = {
         "date": today_str,
-        "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+        "timestamp": datetime.now(tz=UTC).isoformat(),
         "symptom": draft.symptom.strip(),
         "onset": draft.onset.strip(),
         "severity": int(draft.severity),

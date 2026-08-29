@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 from typing import TYPE_CHECKING
 
@@ -26,7 +26,7 @@ class TestWeeklyShutdownBonusHours:
 
     def test_returns_current_week_bonus(self, tmp_path: Path) -> None:
         """Returns the banked bonus for the current ISO week."""
-        now = datetime.now(tz=timezone.utc).astimezone()
+        now = datetime.now(tz=UTC).astimezone()
         year, week, _ = now.isocalendar()
         current_week = f"{year}-W{week:02d}"
         f = tmp_path / "state.json"
@@ -71,7 +71,7 @@ class TestHasExtendedEarlyBird:
 
     def test_returns_true_when_current_week_is_in_list(self, tmp_path: Path) -> None:
         """Current ISO week present in list → True."""
-        now = datetime.now(tz=timezone.utc).astimezone()
+        now = datetime.now(tz=UTC).astimezone()
         year, week, _ = now.isocalendar()
         current_week = f"{year}-W{week:02d}"
         f = tmp_path / "state.json"
@@ -82,6 +82,6 @@ class TestHasExtendedEarlyBird:
         """An explicit `today` is used instead of the real wall clock."""
         f = tmp_path / "state.json"
         f.write_text(json.dumps({"extended_early_bird_iso_weeks": ["2024-W01"]}))
-        fixed_today = datetime(2024, 1, 5, tzinfo=timezone.utc)
+        fixed_today = datetime(2024, 1, 5, tzinfo=UTC)
         assert has_extended_early_bird(f, today=fixed_today) is True
         assert has_extended_early_bird(f) is False

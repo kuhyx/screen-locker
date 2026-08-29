@@ -11,7 +11,7 @@ by patching ``screen_locker._wake_state.WAKE_STATE_FILE``.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 import logging
 
@@ -24,7 +24,7 @@ _logger = logging.getLogger(__name__)
 
 def _today_str() -> str:
     """Return today's date as YYYY-MM-DD in UTC."""
-    return datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    return datetime.now(tz=UTC).strftime("%Y-%m-%d")
 
 
 def load_wake_state() -> dict[str, object] | None:
@@ -39,7 +39,7 @@ def load_wake_state() -> dict[str, object] | None:
     try:
         with WAKE_STATE_FILE.open() as f:
             state = json.load(f)
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         _logger.warning("Cannot read wake state file")
         return None
 

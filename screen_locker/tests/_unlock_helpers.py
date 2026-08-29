@@ -7,7 +7,7 @@ leading underscore so pre-commit's name-tests-test hook skips it.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
@@ -36,7 +36,7 @@ def setup_unlock(
     if seed_today_type is None:
         log_file.write_text("{}")
     else:
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         log_file.write_text(
             json.dumps(
                 {

@@ -10,7 +10,7 @@ status view are built on.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -181,7 +181,7 @@ def gather_status(
     Never touches ADB, sudo, or the network — safe to call on every i3blocks
     tick and every status-window open/refresh.
     """
-    instant = now if now is not None else datetime.now(tz=timezone.utc)
+    instant = now if now is not None else datetime.now(tz=UTC)
     today_local = instant.astimezone()
     today_str = today_local.date().isoformat()
 

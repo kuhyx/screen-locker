@@ -7,7 +7,7 @@ Root DB fallback lives in ``_runnerup_db.py``.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import logging
 from typing import Any
 
@@ -77,7 +77,7 @@ class RunnerUpVerificationMixin(
         fails validation), or ``None`` if no today's file exists at all
         (caller should try the root DB path instead).
         """
-        today = datetime.now(tz=timezone.utc).astimezone().strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).astimezone().strftime("%Y-%m-%d")
         exports = self._find_runnerup_exports_for_date(today)
         if not exports:
             _logger.warning(

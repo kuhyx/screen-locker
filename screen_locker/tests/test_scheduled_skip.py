@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
@@ -46,7 +46,7 @@ class TestIsScheduledSkipToday:
     ) -> None:
         """Returns True when today's date is in the skips list."""
         locker = self._make_locker(mock_tk, tmp_path)
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         skip_file = tmp_path / "scheduled_skips.json"
         skip_file.write_text(json.dumps([today]))
         with patch(
@@ -128,7 +128,7 @@ class TestScheduledSkipEarlyExit:
 
     @staticmethod
     def _write_today_skip(tmp_path: Path) -> None:
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         skip_file = tmp_path / "scheduled_skips.json"
         skip_file.write_text(json.dumps([today]))
 

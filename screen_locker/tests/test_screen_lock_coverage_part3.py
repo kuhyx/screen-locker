@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
@@ -64,7 +64,7 @@ class TestTryAutoUpgradeSickDayRunnerUp:
             result = locker._try_auto_upgrade_sick_day()
 
         assert result is True
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         data = json.loads(log_file.read_text())
         assert data[today][0]["workout_data"]["type"] == "runnerup_verified"
         assert data[today][0]["workout_data"]["after_sick_day"] == "true"
@@ -141,7 +141,7 @@ class TestTryAutoUpgradeEarlyBirdRunnerUp:
             result = locker._try_auto_upgrade_early_bird()
 
         assert result is True
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         data = json.loads(log_file.read_text())
         assert data[today][0]["workout_data"]["type"] == "runnerup_verified"
         assert data[today][0]["workout_data"]["after_early_bird"] == "true"

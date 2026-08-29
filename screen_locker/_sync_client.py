@@ -10,7 +10,7 @@ because a silent None here is exactly how the PC stopped syncing for weeks.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 import logging
 from pathlib import Path
 
@@ -86,7 +86,7 @@ def try_recover_firebase_session() -> RecoveryResult:
             FirebaseCredentials(
                 id_token=body["id_token"],
                 refresh_token=body["refresh_token"],
-                expires_at=datetime.now(tz=timezone.utc)
+                expires_at=datetime.now(tz=UTC)
                 + timedelta(seconds=int(body["expires_in"])),
             )
         )

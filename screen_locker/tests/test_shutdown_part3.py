@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
@@ -68,9 +69,9 @@ class TestRestoreOriginalConfigIfNeeded:
     ) -> None:
         """Test does not restore when state date matches today."""
         locker = create_locker(mock_tk, tmp_path)
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         state_file = tmp_path / "state.json"
         state_file.write_text(
             json.dumps(

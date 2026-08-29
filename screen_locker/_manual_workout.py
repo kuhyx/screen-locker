@@ -15,7 +15,7 @@ see :class:`ManualWorkoutDraft` and :data:`SPORT_CHOICES`.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import logging
 
 from screen_locker._constants import (
@@ -60,7 +60,7 @@ _logger = logging.getLogger(__name__)
 def _parse_hhmm(value: str) -> datetime | None:
     """Parse an ``HH:MM`` string into a datetime on an arbitrary fixed date."""
     try:
-        return datetime.strptime(value.strip(), "%H:%M").replace(tzinfo=timezone.utc)
+        return datetime.strptime(value.strip(), "%H:%M").replace(tzinfo=UTC)
     except ValueError as exc:
         _logger.warning(
             "Manual workout time %r is not HH:MM (%s) — the workout's duration "
