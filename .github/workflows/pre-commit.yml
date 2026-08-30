@@ -34,6 +34,19 @@ jobs:
           flutter-version: 3.47.2
           channel: stable
           cache: true
+      # The web-lint / web-typecheck / web-coverage hooks run npm inside web/.
+      # Without its installed packages `tsc --build` cannot find the
+      # 'vite/client' and 'node' type libraries and fails with TS2688 -- which
+      # is what this workflow had been doing on every run since the status UI
+      # landed in 8f91158.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.20.0"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install status-UI packages
+        run: npm ci
+        working-directory: web
       - name: Install dependencies
         run: pip install -r requirements.txt
       # analyze needs resolved packages (.dart_tool); the hook runs analyze
