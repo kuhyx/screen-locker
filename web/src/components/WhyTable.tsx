@@ -32,7 +32,19 @@ export function WhyTable({ decisions }: Props) {
         <tbody>
           {decisions.decisions.map((decision, index) => (
             <tr key={`${decision.timestamp}-${String(index)}`}>
-              <td>{formatStamp(decision.timestamp)}</td>
+              <td>
+                {decision.local_time ?? formatStamp(decision.timestamp)}
+                {decision.repeat_count !== undefined &&
+                  decision.repeat_count > 1 && (
+                    <div className="muted">
+                      ×{decision.repeat_count}, last{' '}
+                      {decision.local_last_time ??
+                        formatStamp(
+                          decision.last_timestamp ?? decision.timestamp,
+                        )}
+                    </div>
+                  )}
+              </td>
               <td className={decision.locked === true ? 'state-lock' : 'muted'}>
                 {decision.locked === null
                   ? '—'

@@ -1,6 +1,13 @@
 [Unit]
 Description=Workout Screen Locker
 After=graphical-session.target
+# Backstop for any crash the code does not turn into a clean exit 0. The
+# 2026-08-30 no-display loop restarted ~1695 times in three hours at ~6.3s
+# apart -- 1.6 per 10s, which slips under systemd's DEFAULT 5-per-10s limit
+# forever. Over five minutes that same rate trips this and the unit stops,
+# so a restart storm becomes a visibly failed unit instead of a silent one.
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 [Service]
 Type=simple

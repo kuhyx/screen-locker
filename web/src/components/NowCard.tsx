@@ -7,7 +7,13 @@ interface Props {
 
 /** The decision as it stands right now, in words rather than slugs. */
 export function NowCard({ status }: Props) {
-  const { snapshot, gaming, compliance_state: state } = status
+  const {
+    snapshot,
+    gaming,
+    compliance_state: state,
+    queue_wait: queued,
+    locker_running: running,
+  } = status
   const { week, lock_explanation: lock } = snapshot
   const hours = budgetHours(gaming.workout_today)
 
@@ -18,6 +24,20 @@ export function NowCard({ status }: Props) {
         {lock.fired ? 'Lock would fire' : 'No lock'}
       </p>
       <p className="muted">{lock.reason}</p>
+      {lock.fired && queued !== null && (
+        <p className="state-lock">
+          A locker run has already decided to lock and is waiting for{' '}
+          {queued.blocked_by.join(', ')} to release the screen (
+          {Math.round(queued.elapsed_seconds / 60)} min so far). The screen is
+          held by {queued.blocked_by.join(', ')}, not unlocked.
+        </p>
+      )}
+      {lock.fired && queued === null && running === false && (
+        <p className="state-lock">
+          No locker run is in progress right now, so nothing is enforcing this.
+          The next timer tick will start one.
+        </p>
+      )}
 
       <div className="row">
         <span>This week</span>

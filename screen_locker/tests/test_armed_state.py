@@ -11,12 +11,15 @@ import subprocess
 from unittest.mock import MagicMock, patch
 
 from screen_locker._armed_state import (
+    REQUIRED_SERVICES,
     REQUIRED_TIMERS,
     TimerState,
     collect_states,
+    locker_unit_active,
     systemctl_available,
 )
 
+_ALL_UNITS = (*REQUIRED_TIMERS, *REQUIRED_SERVICES)
 _PKG = "screen_locker._armed_state"
 
 _LISTED = """NEXT                        LEFT  LAST  PASSED UNIT
@@ -46,25 +49,31 @@ class TestTimerState:
 
     def test_enabled_and_scheduled_is_armed(self) -> None:
         """Both halves present means the timer will really fire."""
-        state = TimerState("t", enabled=True, enabled_raw="enabled", scheduled=True)
+        state = TimerState(
+            "t.timer", enabled=True, enabled_raw="enabled", scheduled=True
+        )
         assert state.armed is True
         assert "OK" in state.describe()
 
     def test_enabled_but_unscheduled_is_not_armed(self) -> None:
         """The exact 2026-08 failure: enabled, but the job was deleted."""
-        state = TimerState("t", enabled=True, enabled_raw="enabled", scheduled=False)
+        state = TimerState(
+            "t.timer", enabled=True, enabled_raw="enabled", scheduled=False
+        )
         assert state.armed is False
         assert "no next trigger" in state.describe()
 
     def test_scheduled_but_disabled_is_not_armed(self) -> None:
         """A transient start does not survive a reboot."""
-        state = TimerState("t", enabled=False, enabled_raw="disabled", scheduled=True)
+        state = TimerState(
+            "t.timer", enabled=False, enabled_raw="disabled", scheduled=True
+        )
         assert state.armed is False
         assert "not enabled (is-enabled=disabled)" in state.describe()
 
     def test_unknown_enabled_state_is_named(self) -> None:
         """An empty is-enabled reads as unknown, not as a blank."""
-        state = TimerState("t", enabled=False, enabled_raw="", scheduled=False)
+        state = TimerState("t.timer", enabled=False, enabled_raw="", scheduled=False)
         assert "is-enabled=unknown" in state.describe()
 
 
@@ -86,15 +95,49 @@ class TestCollectStates:
     """collect_states reads systemd's own view, not the unit files."""
 
     def test_all_armed(self) -> None:
-        """Both timers enabled and listed with a next trigger."""
+        """Every timer enabled and listed, and the login run anchored."""
         with patch(f"{_PKG}.subprocess.run") as run:
             run.side_effect = [
                 _completed(_LISTED),
-                *[_completed("enabled\n") for _ in REQUIRED_TIMERS],
+                _completed("active\n"),
+                *[_completed("enabled\n") for _ in _ALL_UNITS],
             ]
             states = collect_states()
-        assert [s.name for s in states] == list(REQUIRED_TIMERS)
+        assert [s.name for s in states] == list(_ALL_UNITS)
         assert all(s.armed for s in states)
+
+    def test_the_login_run_is_checked_too(self) -> None:
+        """The 2026-08-30 gap: timers fine, login run silently disabled.
+
+        Enforcement read "armed" through a 24-minute unenforced window
+        because only the timers were ever looked at.
+        """
+        with patch(f"{_PKG}.subprocess.run") as run:
+            run.side_effect = [
+                _completed(_LISTED),
+                _completed("active\n"),
+                *[_completed("enabled\n") for _ in REQUIRED_TIMERS],
+                _completed("disabled\n", code=1),
+            ]
+            states = collect_states()
+        service = states[-1]
+        assert service.name == REQUIRED_SERVICES[0]
+        assert service.armed is False
+        assert not all(s.armed for s in states)
+
+    def test_an_inactive_login_target_disarms_the_service(self) -> None:
+        """Enabled is not enough: i3 may never activate the target."""
+        with patch(f"{_PKG}.subprocess.run") as run:
+            run.side_effect = [
+                _completed(_LISTED),
+                _completed("inactive\n", code=3),
+                *[_completed("enabled\n") for _ in _ALL_UNITS],
+            ]
+            states = collect_states()
+        service = states[-1]
+        assert service.enabled is True
+        assert service.armed is False
+        assert "is not active" in service.describe()
 
     def test_timer_listed_with_no_next_trigger_is_unscheduled(self) -> None:
         """An "n/a" NEXT column means systemd will never run it."""
@@ -104,7 +147,8 @@ class TestCollectStates:
         with patch(f"{_PKG}.subprocess.run") as run:
             run.side_effect = [
                 _completed(listed),
-                *[_completed("enabled\n") for _ in REQUIRED_TIMERS],
+                _completed("inactive\n", code=3),
+                *[_completed("enabled\n") for _ in _ALL_UNITS],
             ]
             states = collect_states()
         assert all(not s.scheduled for s in states)
@@ -114,7 +158,8 @@ class TestCollectStates:
         with patch(f"{_PKG}.subprocess.run") as run:
             run.side_effect = [
                 _completed(_LISTED),
-                *[_completed("disabled\n", code=1) for _ in REQUIRED_TIMERS],
+                _completed("active\n"),
+                *[_completed("disabled\n", code=1) for _ in _ALL_UNITS],
             ]
             states = collect_states()
         assert all(not s.enabled for s in states)
@@ -133,3 +178,37 @@ class TestCollectStates:
         ):
             states = collect_states()
         assert all(not s.armed for s in states)
+
+
+class TestLockerUnitActive:
+    """ "Would lock" says nothing about whether anything is enforcing it."""
+
+    def test_an_active_unit_reads_as_running(self) -> None:
+        """The ordinary case while a lock is up."""
+        with patch(f"{_PKG}.subprocess.run", return_value=_completed("active\n")):
+            assert locker_unit_active() is True
+
+    def test_an_inactive_unit_reads_as_not_running(self) -> None:
+        """The 2026-08-30 screenshot: decided to lock, nothing running."""
+        with patch(
+            f"{_PKG}.subprocess.run", return_value=_completed("inactive\n", code=3)
+        ):
+            assert locker_unit_active() is False
+
+    def test_no_systemctl_is_unknown_not_false(self) -> None:
+        """ "Could not ask" must never render as "not running"."""
+        with patch(f"{_PKG}.shutil.which", return_value=None):
+            assert locker_unit_active() is None
+
+    def test_a_failed_probe_is_unknown_not_false(self) -> None:
+        """A systemctl that cannot run answers nothing, not "no"."""
+        with patch(f"{_PKG}.subprocess.run", side_effect=OSError("no exec")):
+            assert locker_unit_active() is None
+
+    def test_an_armed_login_run_says_what_anchors_it(self) -> None:
+        """The Health row must name the target, since that is what drifts."""
+        state = TimerState(
+            REQUIRED_SERVICES[0], enabled=True, enabled_raw="enabled", scheduled=True
+        )
+        assert state.armed is True
+        assert "graphical-session.target" in state.describe()

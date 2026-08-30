@@ -15,11 +15,10 @@ writes to ``log.json``. Host class must provide:
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor  # pylint: disable=no-name-in-module
 from typing import TYPE_CHECKING
 
 from screen_locker._constants import HEAT_SKIP_CITY, HEAT_SKIP_TEMP_THRESHOLD
-from screen_locker._temperature import HARD_TIMEOUT_SECONDS
+from screen_locker._temperature import HARD_TIMEOUT_SECONDS, submit_background
 
 if TYPE_CHECKING:
     import tkinter as tk
@@ -83,9 +82,13 @@ class TemperatureStatusMixin:
         before this call returns would trigger a second, redundant render
         from within the same call stack that hasn't finished the first one.
         """
-        executor = ThreadPoolExecutor(max_workers=1)
-        self._temp_future = executor.submit(self.temperature_fetcher, HEAT_SKIP_CITY)
-        executor.shutdown(wait=False)
+        # Shares _temperature.submit_background rather than spinning up its
+        # own ThreadPoolExecutor per open and per refresh: those workers are
+        # non-daemon and joined at interpreter exit, so one stalled fetch
+        # held the whole process open past sys.exit(0).
+        self._temp_future = submit_background(
+            lambda: self.temperature_fetcher(HEAT_SKIP_CITY)
+        )
         self.root.after(500, self._poll_temperature_check)
 
     def _poll_temperature_check(self) -> None:

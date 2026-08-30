@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import tkinter as tk
 
 from screen_locker._compliance_predicates import is_relaxed_day_skipped_today
 from screen_locker._constants import (
@@ -30,7 +31,10 @@ from screen_locker._degraded_sources import degraded_sources
 from screen_locker._extra_benefits import process_week_transition
 from screen_locker._shutdown_base import reset_to_base_if_new_day
 from screen_locker._sync_mixin import SyncMixin
-from screen_locker._temperature import fetch_current_temp_with_status
+from screen_locker._temperature import (
+    HARD_TIMEOUT_SECONDS,
+    fetch_current_temp_with_status,
+)
 from screen_locker._weekly_check import (
     WEEKLY_WORKOUT_MINIMUM,
     count_weekly_workouts,
@@ -148,47 +152,85 @@ class StartupChecksMixin(SyncMixin):
         # "skip a workout" credit — that mechanic works against the goal of
         # maximizing weekly workouts, so it was removed in favor of a
         # shutdown-time-only reward (see _apply_weekly_shutdown_bonus).
-        self._check_heat_skip_exit()
+        heat = self._check_heat_skip_exit()
         # Nothing excused today: falling through here means the lock WILL be
         # built. Recorded explicitly so the trail shows enforcement happening,
         # not merely the absence of a skip -- "no line at all" was precisely
         # the signature of the 2026-08 outage.
+        #
+        # The heat reading rides along because the check was previously
+        # invisible on its most common outcome: a grep for "temperat|heat"
+        # across ~1700 runs returned nothing, so "checked, 27°C, under the
+        # threshold" and "never got here" looked identical in the trail.
         self._record_decision(
             locked=True,
             reason="enforced",
             detail="No exemption applied — building the lock screen.",
+            heat_check=heat,
         )
 
-    def _check_heat_skip_exit(self) -> None:
+    def _check_heat_skip_exit(self) -> str:
         """Exit early if today qualifies for the extreme-heat skip dialog.
 
         Fail-closed by construction: a failed or timed-out temperature fetch
         falls straight through to the lock, same as "not hot enough" — the
         only difference is this logs *why* explicitly, so a fetch failure
         is never silently indistinguishable from a normal day in the logs.
+
+        Returns:
+            A short summary of what the check saw, for the decision record.
+            Only returns at all when the lock is going ahead; the skip path
+            exits the process from inside ``_record_skip``.
         """
         check = fetch_current_temp_with_status(HEAT_SKIP_CITY)
         if check.timed_out:
             _logger.warning(
-                "Heat-skip temperature check timed out — defaulting to lock."
+                "Heat-skip temperature check timed out after %.1fs — "
+                "defaulting to lock.",
+                HARD_TIMEOUT_SECONDS,
             )
-            return
+            return "timed_out"
         if check.temp_celsius is None:
             _logger.warning(
                 "Heat-skip temperature check failed (network/API error) — "
                 "defaulting to lock."
             )
-            return
+            return "fetch_failed"
         if check.temp_celsius < HEAT_SKIP_TEMP_THRESHOLD:
-            return
+            # Logged even though nothing is wrong: this is the check's most
+            # common outcome and it used to leave no trace at all, so "the
+            # heat check ran and said no" was indistinguishable from "the
+            # heat check was never reached".
+            _logger.info(
+                "%s is %.0f°C, under the %d°C heat-skip threshold — "
+                "the lock goes ahead.",
+                HEAT_SKIP_CITY,
+                check.temp_celsius,
+                HEAT_SKIP_TEMP_THRESHOLD,
+            )
+            return f"{check.temp_celsius:.0f}C_under_threshold"
         _logger.info(
             "Temperature %.0f°C exceeds threshold — showing heat-skip dialog.",
             check.temp_celsius,
         )
-        if self._show_heat_skip_dialog(check.temp_celsius):
+        try:
+            skipped = self._show_heat_skip_dialog(check.temp_celsius)
+        except tk.TclError as exc:
+            # The dialog owns its own tk.Tk(). With no reachable display that
+            # raises here, and letting it escape would kill the process before
+            # the "enforced" record below is written -- a lock that silently
+            # never happened. Offering no skip is the fail-closed answer.
+            _logger.warning(
+                "Heat-skip dialog could not be shown (%s) — defaulting to "
+                "lock rather than skipping the workout.",
+                exc,
+            )
+            return f"{check.temp_celsius:.0f}C_dialog_unavailable"
+        if skipped:
             self._save_heat_skip_log(check.temp_celsius)
             self._record_skip(
                 "heat_skip",
                 f"User skipped the workout due to heat ({check.temp_celsius:.0f}°C).",
                 temp_celsius=round(check.temp_celsius, 1),
             )
+        return f"{check.temp_celsius:.0f}C_skip_declined"

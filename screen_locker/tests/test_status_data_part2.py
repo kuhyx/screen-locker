@@ -47,7 +47,7 @@ class TestGatherStatus:
         assert snap.streak == 0
         assert snap.early_bird_extended is False
         assert snap.lock_explanation.fired is True
-        assert snap.lock_explanation.stage == "full_lock_pending_heat_check"
+        assert snap.lock_explanation.stage == "would_lock"
 
     def test_populated_week_counts_workouts(self, tmp_path: Path) -> None:
         """Populated week counts workouts."""

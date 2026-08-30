@@ -82,7 +82,7 @@ class TestExplainLockDecision:
                 now=now,
             )
         assert result.fired is True
-        assert result.stage == "full_lock_pending_heat_check"
+        assert result.stage == "would_lock"
         assert result.auto_upgrade.via == "early_bird_expired"
         expired_step = next(
             t for t in result.trace if t.name == "early_bird_pending_expired"
@@ -229,7 +229,7 @@ class TestExplainLockDecision:
             now=datetime.now(tz=UTC).astimezone().replace(hour=12, minute=0),
         )
         assert result.fired is True
-        assert result.stage == "full_lock_pending_heat_check"
+        assert result.stage == "would_lock"
         assert result.auto_upgrade.via == "none"
         assert result.heat_skip_evaluated is False
 

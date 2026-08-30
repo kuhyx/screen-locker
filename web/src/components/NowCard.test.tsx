@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { NowCard } from './NowCard'
 import { makeStatus } from '../test/factories'
+import type { StatusPayload } from '../types'
 
 describe('NowCard', () => {
   it('shows the cut budget and says why when no workout was logged', () => {
@@ -40,7 +41,7 @@ describe('NowCard', () => {
             lock_explanation: {
               ...base.snapshot.lock_explanation,
               fired: true,
-              stage: 'full_lock_pending_heat_check',
+              stage: 'would_lock',
               reason: 'No skip condition applies.',
             },
           },
@@ -88,5 +89,58 @@ describe('NowCard', () => {
       />,
     )
     expect(screen.getByText(/degraded/)).toBeInTheDocument()
+  })
+
+  /**
+   * "Lock would fire" is a statement about the decision, not about whether
+   * anything is enforcing it. On 2026-08-30 the page said exactly that while
+   * the machine had just rebooted and no locker process existed.
+   */
+  const firing = (over: Partial<StatusPayload> = {}) => {
+    const base = makeStatus()
+    return {
+      ...base,
+      snapshot: {
+        ...base.snapshot,
+        lock_explanation: { ...base.snapshot.lock_explanation, fired: true },
+      },
+      ...over,
+    }
+  }
+
+  it('says when a decided lock is queued behind another holder', () => {
+    render(
+      <NowCard
+        status={firing({
+          queue_wait: {
+            blocked_by: ['wake_alarm'],
+            elapsed_seconds: 10716,
+            updated: '2026-08-30T09:01:05+00:00',
+          },
+          locker_running: true,
+        })}
+      />,
+    )
+    expect(screen.getByText(/waiting for/)).toBeInTheDocument()
+    expect(screen.getByText(/179 min so far/)).toBeInTheDocument()
+    expect(screen.getByText(/not unlocked/)).toBeInTheDocument()
+  })
+
+  it('says when nothing is enforcing a lock it says would fire', () => {
+    render(<NowCard status={firing({ locker_running: false })} />)
+    expect(
+      screen.getByText(/No locker run is in progress right now/),
+    ).toBeInTheDocument()
+  })
+
+  it('stays quiet when a run is up and unblocked', () => {
+    render(<NowCard status={firing({ locker_running: true })} />)
+    expect(screen.queryByText(/No locker run is in progress/)).toBeNull()
+    expect(screen.queryByText(/waiting for/)).toBeNull()
+  })
+
+  it('says nothing about enforcement when no lock is due', () => {
+    render(<NowCard status={makeStatus({ locker_running: false })} />)
+    expect(screen.queryByText(/No locker run is in progress/)).toBeNull()
   })
 })

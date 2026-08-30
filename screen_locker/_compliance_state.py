@@ -236,13 +236,15 @@ def explain_lock_decision(
     if result is not None:
         return result
 
+    # Named for the conclusion; "..._pending_heat_check" read as "stuck".
     return _stage(
         fired=True,
-        stage="full_lock_pending_heat_check",
+        stage="would_lock",
         reason=(
-            "No skip condition applies. The real locker still checks live "
-            "Warsaw temperature before showing the full lock — not "
-            "evaluated here." + degraded_note
+            "No skip condition applies, so a locker run starting now would "
+            "lock. This page re-derives the decision only: no live "
+            "temperature is checked, and a run may or may not be happening "
+            "right now (see Health)." + degraded_note
         ),
         context=stage_context,
     )

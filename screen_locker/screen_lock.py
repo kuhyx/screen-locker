@@ -7,6 +7,7 @@ Requires user to log their workout to unlock the screen.
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 import sys
 import tkinter as tk
@@ -33,6 +34,7 @@ from screen_locker._constants import (
     SCHEDULED_SKIPS_FILE,
     SICK_LOCKOUT_SECONDS,
 )
+from screen_locker._decision_log import record_run_aborted
 from screen_locker._early_bird import EarlyBirdMixin
 from screen_locker._heat_skip import HeatSkipMixin
 from screen_locker._log_mixin import LogMixin
@@ -139,7 +141,35 @@ class ScreenLocker(
         self.workout_data: dict[str, str] = {}
         self._relaxed_day_mode: bool = False
         self._check_early_exits(verify_only=verify_only)
-        self.root = GateRoot()
+        try:
+            self.root = GateRoot()
+        except tk.TclError as exc:
+            _logger.warning(
+                "Could not open a window on DISPLAY=%s (%s) — this run cannot "
+                "enforce anything, so it stops cleanly instead of failing and "
+                "being restarted in a loop.",
+                os.environ.get("DISPLAY"),
+                exc,
+            )
+            # No reachable X server. This used to escape as an unhandled
+            # TclError and exit 1, which `Restart=on-failure` turned into a
+            # storm: on 2026-08-30 the display was down from 02:00 and the
+            # unit restarted ~1695 times in three hours, ~6.3s apart -- just
+            # slow enough to stay under the default StartLimitBurst=5/10s, and
+            # fast enough that the identical records evicted the entire
+            # decision trail behind them.
+            #
+            # There is no screen to lock, so there is nothing this run can
+            # enforce; exiting 0 (which RestartPreventExitStatus=0 honours)
+            # is the correct answer, and recording it keeps "could not run"
+            # from looking like "chose not to lock".
+            record_run_aborted(
+                "no_display",
+                f"No usable X display ({exc}) — nothing to lock, so this run "
+                f"stops instead of restarting. DISPLAY={os.environ.get('DISPLAY')!r}",
+            )
+            self._instance_lock.release()
+            sys.exit(0)
         self.root.on_callback_error = self.on_callback_error
         title_suffix = (
             " [VERIFY]" if verify_only else (" [DEMO MODE]" if demo_mode else "")

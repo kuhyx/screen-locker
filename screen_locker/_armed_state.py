@@ -27,12 +27,26 @@ import subprocess
 _logger = logging.getLogger(__name__)
 
 # Every unit that must be armed for a workout-less day to end in a lock.
-# workout-locker.service itself is WantedBy=graphical-session.target and so is
-# only ever a login one-shot; the timers are what make enforcement recur.
+# The timers are what make enforcement recur.
 REQUIRED_TIMERS = (
     "early-bird-workout-check.timer",
     "workout-locker.timer",
 )
+
+# workout-locker.service is WantedBy=graphical-session.target: a login
+# one-shot that closes the window between a boot and the next timer tick.
+# It is checked here because on 2026-08-30 it had silently drifted to
+# `disabled`, the machine rebooted at 14:06, and nothing enforced until
+# 14:30 -- while this very module reported "armed" the whole time, because
+# it only ever looked at the two timers.
+REQUIRED_SERVICES = ("workout-locker.service",)
+
+# The target the login run hangs off. Checked as well as `is-enabled`
+# because ~/.config/i3/config notes that i3 "does not reliably activate
+# graphical-session.target" -- an enabled service anchored to an inactive
+# target is exactly the correct-looking-but-disarmed state this module was
+# written to catch.
+_LOGIN_TARGET = "graphical-session.target"
 
 _TIMEOUT_SECONDS = 10
 
@@ -60,19 +74,33 @@ class TimerState:
         return self.enabled and self.scheduled
 
     def describe(self) -> str:
-        """Return a one-line human summary of this timer's state.
+        """Return a one-line human summary of this unit's state.
 
         Returns:
             An ``OK``/``DISARMED`` line naming every reason it is not armed.
         """
         if self.armed:
-            return f"OK       {self.name}: enabled and scheduled"
+            return f"OK       {self.name}: {self._ready_phrase}"
         problems = []
         if not self.enabled:
             problems.append(f"not enabled (is-enabled={self.enabled_raw or 'unknown'})")
         if not self.scheduled:
-            problems.append("no next trigger in list-timers")
+            problems.append(self._missing_phrase)
         return f"DISARMED {self.name}: {', '.join(problems)}"
+
+    @property
+    def _ready_phrase(self) -> str:
+        """Return the wording for an armed unit of this kind."""
+        if self.name.endswith(".timer"):
+            return "enabled and scheduled"
+        return f"enabled and anchored to an active {_LOGIN_TARGET}"
+
+    @property
+    def _missing_phrase(self) -> str:
+        """Return the wording for the not-scheduled half of this kind."""
+        if self.name.endswith(".timer"):
+            return "no next trigger in list-timers"
+        return f"{_LOGIN_TARGET} is not active, so the login run cannot fire"
 
 
 def systemctl_available() -> bool:
@@ -128,15 +156,50 @@ def _scheduled_timers() -> set[str]:
     return scheduled
 
 
-def collect_states() -> list[TimerState]:
-    """Return the current arming state of every required timer.
+LOCKER_UNIT = "workout-locker.service"
+
+
+def locker_unit_active() -> bool | None:
+    """Return whether the locker unit is running right now.
+
+    "The lock would fire" is a statement about the *decision*; it says
+    nothing about whether anything is currently enforcing it. On 2026-08-30
+    the machine had rebooted, no locker process existed, and the status page
+    read exactly the same as it does with a lock on screen.
 
     Returns:
-        One :class:`TimerState` per entry in :data:`REQUIRED_TIMERS`.
+        True/False, or None when systemd could not be asked -- which must
+        never be rendered as "not running".
+    """
+    if not systemctl_available():
+        return None
+    code, out = _run(["systemctl", "--user", "is-active", LOCKER_UNIT])
+    if code != 0 and not out.strip():
+        return None
+    return out.strip() == "active"
+
+
+def _login_target_active() -> bool:
+    """Return whether the target the login run hangs off is active.
+
+    Returns:
+        True when ``graphical-session.target`` is active.
+    """
+    code, out = _run(["systemctl", "--user", "is-active", _LOGIN_TARGET])
+    return code == 0 and out.strip() == "active"
+
+
+def collect_states() -> list[TimerState]:
+    """Return the current arming state of every unit enforcement depends on.
+
+    Returns:
+        One :class:`TimerState` per entry in :data:`REQUIRED_TIMERS` and
+        :data:`REQUIRED_SERVICES`.
     """
     scheduled = _scheduled_timers()
+    login_target_up = _login_target_active()
     states = []
-    for name in REQUIRED_TIMERS:
+    for name in (*REQUIRED_TIMERS, *REQUIRED_SERVICES):
         code, out = _run(["systemctl", "--user", "is-enabled", name])
         raw = out.strip()
         states.append(
@@ -144,7 +207,13 @@ def collect_states() -> list[TimerState]:
                 name=name,
                 enabled=code == 0 and raw == "enabled",
                 enabled_raw=raw,
-                scheduled=name in scheduled,
+                # For a timer this is "systemd has a next trigger for it";
+                # for the login-run service it is "the target it is wanted by
+                # is actually up". Both answer the same question: would this
+                # unit really fire?
+                scheduled=(
+                    name in scheduled if name.endswith(".timer") else login_target_up
+                ),
             )
         )
     return states

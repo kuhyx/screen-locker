@@ -53,11 +53,22 @@ export interface GamingFact {
 }
 
 /** GET /api/status. */
+/** A locker run that has decided to lock but is waiting for the screen. */
+export interface QueueWait {
+  readonly blocked_by: readonly string[]
+  readonly elapsed_seconds: number
+  readonly updated: string
+}
+
 export interface StatusPayload {
   readonly snapshot: StatusSnapshot
   readonly summary_line: string
   readonly compliance_state: string
   readonly gaming: GamingFact
+  /** Non-null while a run is queued behind a higher-ranked screen holder. */
+  readonly queue_wait: QueueWait | null
+  /** Whether workout-locker.service is running; null means "could not ask". */
+  readonly locker_running: boolean | null
 }
 
 /** One recorded decision from decisions.jsonl. */
@@ -70,6 +81,14 @@ export interface Decision {
   readonly weekly_required?: number
   readonly also?: string
   readonly mode?: string
+  /** Set when consecutive identical decisions were folded into one row. */
+  readonly repeat_count?: number
+  /** The most recent sighting of a collapsed row; `timestamp` is the first. */
+  readonly last_timestamp?: string
+  /** Server-rendered local time. Preferred over formatting `timestamp` here:
+   *  LibreWolf's resistFingerprinting pins the browser's Date to UTC. */
+  readonly local_time?: string
+  readonly local_last_time?: string
 }
 
 /** GET /api/decisions. */

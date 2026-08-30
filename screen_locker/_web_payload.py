@@ -18,9 +18,14 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from screen_locker._armed_state import collect_states, systemctl_available
+from screen_locker._armed_state import (
+    collect_states,
+    locker_unit_active,
+    systemctl_available,
+)
 from screen_locker._decision_log import DECISION_LOG_FILE, read_decisions
 from screen_locker._log_io import load_workout_log
+from screen_locker._queue_state import read_queue_wait
 from screen_locker._status_data import gather_status
 from screen_locker._status_projection import (
     compliance_state_word,
@@ -38,10 +43,6 @@ LOG_FILE = Path(__file__).resolve().parent / "log.json"
 # The marker that disables enforcement machine-wide. Kept in sync with
 # scripts/disarm_guard.sh, which is the thing that writes it.
 DISARM_MARKER = Path.home() / ".local" / "share" / "screen_locker" / "DISARMED"
-
-# How many decisions the Why view gets by default. The trail holds 3000; the
-# browser only ever needs the recent tail to answer "why did nothing happen".
-DEFAULT_DECISION_LIMIT = 200
 
 
 def workout_credits_today(*, now: datetime | None = None) -> int:
@@ -77,6 +78,13 @@ def build_status_payload(*, now: datetime | None = None) -> dict[str, Any]:
     credits_today = workout_credits_today(now=now)
     return {
         "snapshot": asdict(snapshot),
+        # Whether a locker run has decided to lock and is waiting for a
+        # higher-ranked holder to release the screen. Without this the page
+        # says "Lock would fire" both when nothing is running and when a run
+        # is blocked behind wake_alarm -- two very different situations that
+        # looked identical on 2026-08-30.
+        "queue_wait": read_queue_wait(),
+        "locker_running": locker_unit_active(),
         "summary_line": format_summary_line(snapshot),
         "compliance_state": compliance_state_word(snapshot),
         # The gaming budget is decided by steam-backlog-enforcer, which owns the
@@ -91,27 +99,6 @@ def build_status_payload(*, now: datetime | None = None) -> dict[str, Any]:
                 else "no counted workout logged today"
             ),
         },
-    }
-
-
-def build_decisions_payload(
-    *,
-    limit: int = DEFAULT_DECISION_LIMIT,
-) -> dict[str, Any]:
-    """Build the decision-history payload, newest first.
-
-    Args:
-        limit: Maximum number of decisions to return.
-
-    Returns:
-        The recent decisions and the total the trail holds.
-    """
-    decisions = read_decisions()
-    tail = decisions[-limit:] if limit > 0 else decisions
-    return {
-        "total": len(decisions),
-        "returned": len(tail),
-        "decisions": list(reversed(tail)),
     }
 
 
@@ -152,7 +139,12 @@ def _last_decision_age_seconds(*, now: datetime | None = None) -> float | None:
     decisions = read_decisions()
     if not decisions:
         return None
-    stamp = decisions[-1].get("timestamp")
+    newest = decisions[-1]
+    # `timestamp` is when a collapsed row's streak *began*, which for the
+    # every-15-minutes --sync-only runs would report an hours-old trail as
+    # stale while it is in fact current. `last_timestamp` is the most recent
+    # sighting, so it is what freshness must be measured from.
+    stamp = newest.get("last_timestamp", newest.get("timestamp"))
     if not isinstance(stamp, str):
         return None
     try:

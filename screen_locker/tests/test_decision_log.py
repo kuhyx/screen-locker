@@ -19,11 +19,13 @@ from screen_locker._decision_log import (
     LockDecision,
     read_decisions,
     record_decision,
-    record_no_decision,
 )
 
 if TYPE_CHECKING:
     import pytest
+
+
+_PKG = "screen_locker._decision_log"
 
 
 class TestLockDecisionRendering:
@@ -151,19 +153,6 @@ class TestRecordDecision:
                 LockDecision(locked=True, reason="enforced"),
                 log_file=tmp_path / "d.jsonl",
             )
-
-
-class TestRecordNoDecision:
-    """Modes that never evaluate the lock must be distinguishable."""
-
-    def test_records_mode_and_null_lock(self, tmp_path: Path) -> None:
-        """'did not decide' must not look like 'decided not to lock'."""
-        target = tmp_path / "d.jsonl"
-        record_no_decision("--sync-only", log_file=target)
-        (record,) = read_decisions(log_file=target)
-        assert record["locked"] is None
-        assert record["reason"] == "mode_makes_no_decision"
-        assert record["mode"] == "--sync-only"
 
 
 class TestReadDecisions:

@@ -27,9 +27,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlsplit
 
-from screen_locker._web_payload import (
+from screen_locker._web_decisions import (
     DEFAULT_DECISION_LIMIT,
     build_decisions_payload,
+)
+from screen_locker._web_payload import (
     build_health_payload,
     build_status_payload,
 )

@@ -13,8 +13,8 @@ import json
 from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
+from screen_locker._web_decisions import build_decisions_payload
 from screen_locker._web_payload import (
-    build_decisions_payload,
     build_status_payload,
     workout_credits_today,
 )
@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 _PKG = "screen_locker._web_payload"
+_DECISIONS_PKG = "screen_locker._web_decisions"
 
 _SATURDAY = datetime(2026, 8, 29, 21, 0, 0, tzinfo=UTC)
 
@@ -130,7 +131,7 @@ class TestDecisionsPayload:
     def test_newest_first(self) -> None:
         """The browser reads top-down; the trail is stored oldest-first."""
         trail = [{"timestamp": "1"}, {"timestamp": "2"}, {"timestamp": "3"}]
-        with patch(f"{_PKG}.read_decisions", return_value=trail):
+        with patch(f"{_DECISIONS_PKG}.read_decisions", return_value=trail):
             payload = build_decisions_payload(limit=2)
         assert [d["timestamp"] for d in payload["decisions"]] == ["3", "2"]
         assert payload["total"] == 3
@@ -139,6 +140,44 @@ class TestDecisionsPayload:
     def test_a_non_positive_limit_returns_everything(self) -> None:
         """Guards the slice: limit=0 must not silently mean "no history"."""
         trail = [{"timestamp": "1"}, {"timestamp": "2"}]
-        with patch(f"{_PKG}.read_decisions", return_value=trail):
+        with patch(f"{_DECISIONS_PKG}.read_decisions", return_value=trail):
             payload = build_decisions_payload(limit=0)
         assert payload["returned"] == 2
+
+    def test_timestamps_are_rendered_server_side_in_local_time(self) -> None:
+        """The browser cannot be trusted to do this.
+
+        LibreWolf's resistFingerprinting pins JS ``Date`` to UTC, which is how
+        a 14:00 CEST decision came to render as "12:00 PM" on 2026-08-30.
+        """
+        trail = [{"timestamp": "2026-08-30T12:00:05+00:00"}]
+        with patch(f"{_DECISIONS_PKG}.read_decisions", return_value=trail):
+            payload = build_decisions_payload(limit=1)
+        rendered = payload["decisions"][0]["local_time"]
+        expected = (
+            datetime.fromisoformat("2026-08-30T12:00:05+00:00")
+            .astimezone()
+            .strftime("%b %d, %H:%M")
+        )
+        assert rendered == expected
+
+    def test_a_collapsed_row_reports_both_ends(self) -> None:
+        """A repeat-collapsed row must not look like a gap in history."""
+        trail = [
+            {
+                "timestamp": "2026-08-30T12:00:05+00:00",
+                "last_timestamp": "2026-08-30T12:40:14+00:00",
+                "repeat_count": 4,
+            }
+        ]
+        with patch(f"{_DECISIONS_PKG}.read_decisions", return_value=trail):
+            row = build_decisions_payload(limit=1)["decisions"][0]
+        assert row["local_time"] != row["local_last_time"]
+        assert row["repeat_count"] == 4
+
+    def test_an_unparsable_timestamp_is_left_unrendered(self) -> None:
+        """Better no local time than a confidently wrong one."""
+        trail = [{"timestamp": "not-a-timestamp"}]
+        with patch(f"{_DECISIONS_PKG}.read_decisions", return_value=trail):
+            row = build_decisions_payload(limit=1)["decisions"][0]
+        assert "local_time" not in row

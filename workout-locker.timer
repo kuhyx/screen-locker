@@ -16,12 +16,18 @@ Description=Periodically re-evaluate the workout lock decision
 # early-exit ladder handles "already logged", "window still active",
 # "weekly minimum met" and "relaxed day" -- so a re-check costs nothing when
 # there is nothing to do.
-OnCalendar=*-*-* *:00,30:00
+# Every 5 minutes, not every 30. A reboot leaves the machine unenforced
+# until the next tick (the login run below is the primary anchor, but i3 has
+# been observed not to activate graphical-session.target reliably), and on
+# 2026-08-30 that gap was 24 minutes wide with the lock decided and nothing
+# on screen. Each run is idempotent, so a shorter period costs only journal
+# lines.
+OnCalendar=*-*-* *:00/5
 # Catch up after suspend/downtime rather than waiting for the next half hour.
 Persistent=true
 # A lock that appears at a hard-predictable second feels like a glitch; a small
 # spread also avoids stacking with workout-sync.timer on the same tick.
-RandomizedDelaySec=60
+RandomizedDelaySec=15
 Unit=workout-locker.service
 
 [Install]

@@ -178,6 +178,15 @@ SYNC_STATE_FILE: Path = (
 )
 SYNC_TIMEOUT_SECONDS: float = 10.0
 
+# Published while the locker has DECIDED to lock but is waiting for a
+# higher-ranked holder (wake_alarm) to release the screen. From outside the
+# process that state is indistinguishable from a hang: on 2026-08-30 the
+# locker sat in gatelock's queue for 2h58m and the only evidence anywhere was
+# a single INFO line at the moment it started waiting.
+QUEUE_STATE_FILE: Path = (
+    Path.home() / ".local" / "share" / "screen_locker" / "queue_state.json"
+)
+
 # Sync runs from the morning routine, which is started right after boot and
 # right after resume — often seconds before networking is actually up. Such a
 # run used to fail outright, and reported it as a permissions problem

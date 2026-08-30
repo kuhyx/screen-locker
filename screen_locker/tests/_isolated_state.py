@@ -44,7 +44,21 @@ ISOLATED_STATE: tuple[tuple[str, tuple[str, ...]], ...] = (
     # The durable lock-decision trail. Written on EVERY locker run, so without
     # this the suite would append test decisions to the user's real
     # enforcement history in ~/.local/share/screen_locker/.
-    ("decisions.jsonl", ("_decision_log.DECISION_LOG_FILE",)),
+    # BOTH bindings: _decision_trail owns the writer and reads its own
+    # module global, so patching only _decision_log would silently let
+    # the suite write into the real enforcement history.
+    (
+        "decisions.jsonl",
+        (
+            "_decision_log.DECISION_LOG_FILE",
+            "_decision_trail.DECISION_LOG_FILE",
+        ),
+    ),
+    # Written whenever a locker run waits in gatelock's queue.
+    (
+        "queue_state.json",
+        ("_constants.QUEUE_STATE_FILE", "_queue_state.QUEUE_STATE_FILE"),
+    ),
     # Real $XDG_RUNTIME_DIR/gatelock file; unisolated, only the first test in
     # the whole suite would win it, since it is shared across all of them.
     (

@@ -19,6 +19,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from screen_locker._degraded_sources import clear_degraded_sources
 from screen_locker.tests._gatelock_fixtures import (
     FAKE_OUTPUTS,
     TWO_OUTPUTS,
@@ -153,6 +154,19 @@ def _isolate_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[N
     monkeypatch.setenv("HOME", str(tmp_path))
     with patch.object(Path, "home", lambda: tmp_path):
         yield
+
+
+@pytest.fixture(autouse=True)
+def _clear_degraded_sources() -> Iterator[None]:
+    """Reset the process-scoped degraded-backend registry around every test.
+
+    ``_degraded_sources._degraded`` is a module-level list, so a test that
+    records a failed Firebase read leaks into every test after it. Invisible
+    in file order; only ``pytest-randomly`` (which the CI mirror enables and
+    the local venvs do not) exposes it -- it failed on push and nowhere else.
+    """
+    clear_degraded_sources()
+    return
 
 
 @pytest.fixture(autouse=True)

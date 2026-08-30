@@ -30,8 +30,18 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 import json
 import logging
-from pathlib import Path
-from typing import Final
+from typing import TYPE_CHECKING
+
+from screen_locker._armed_state import locker_unit_active
+from screen_locker._decision_trail import (
+    DECISION_LOG_FILE,
+    DECISION_LOG_MAX_ENTRIES,
+    append_record,
+)
+from screen_locker._queue_state import read_queue_wait
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 __all__ = [
     "DECISION_LOG_FILE",
@@ -43,17 +53,8 @@ __all__ = [
 
 _logger = logging.getLogger(__name__)
 
-# Outside the repo on purpose -- workout state is private and git-untracked.
-DECISION_LOG_FILE: Path = (
-    Path.home() / ".local" / "share" / "screen_locker" / "decisions.jsonl"
-)
-
-# Trimmed on write so the recurring timers cannot grow this without bound.
-# Writers are the 30-minute locker timer plus the 15-minute sync run (which
-# records "made no decision"), i.e. ~100 lines/day -> roughly a month of
-# history. That comfortably covers the 13-day blind spot this file exists to
-# make impossible.
-DECISION_LOG_MAX_ENTRIES: Final[int] = 3000
+# Both live in _decision_trail (which owns the writer) and are re-exported
+# here, where every reader already looks for them.
 
 
 @dataclass(frozen=True)
@@ -107,13 +108,6 @@ class LockDecision:
         return record
 
 
-def _trimmed(lines: list[str], new_line: str) -> list[str]:
-    """Return the retained history with ``new_line`` appended."""
-    if len(lines) >= DECISION_LOG_MAX_ENTRIES:
-        lines = lines[-(DECISION_LOG_MAX_ENTRIES - 1) :]
-    return [*lines, new_line]
-
-
 def record_decision(decision: LockDecision, *, log_file: Path | None = None) -> None:
     """Log ``decision`` to the journal and append it to the durable trail.
 
@@ -129,35 +123,7 @@ def record_decision(decision: LockDecision, *, log_file: Path | None = None) -> 
     else:
         _logger.warning("%s", line)
 
-    _append_record(decision.as_record(), log_file=log_file)
-
-
-def _append_record(record: dict[str, object], *, log_file: Path | None = None) -> None:
-    """Append one record to the durable trail, trimming old history.
-
-    Never raises: failing to *record* why the locker acted must not stop the
-    locker from acting. A write failure is reported at ``warning`` rather than
-    swallowed, so the gap in the trail is itself visible.
-    """
-    target = DECISION_LOG_FILE if log_file is None else log_file
-    try:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        existing = (
-            target.read_text(encoding="utf-8").splitlines() if target.exists() else []
-        )
-        kept = _trimmed(
-            [entry for entry in existing if entry.strip()],
-            json.dumps(record),
-        )
-        target.write_text("\n".join(kept) + "\n", encoding="utf-8")
-    except OSError as exc:
-        _logger.warning(
-            "Could not append to the decision log at %s (%s) — this run's "
-            "decision is in the journal only, so the durable trail now has a "
-            "gap",
-            target,
-            exc,
-        )
+    append_record(decision.as_record(), log_file=log_file)
 
 
 def record_no_decision(mode: str, *, log_file: Path | None = None) -> None:
@@ -172,17 +138,67 @@ def record_no_decision(mode: str, *, log_file: Path | None = None) -> None:
     Written at ``info`` because these modes run constantly and are expected;
     the durable trail is what makes them auditable, not the log level.
     """
+    # What the LOCKER was doing at this moment rides along. systemd cannot
+    # start a second instance of an already-active Type=simple unit, so on
+    # 2026-08-30 the 09:30-14:00 timer triggers were silent no-ops and the
+    # only records in that window were these sync lines -- which said nothing
+    # about the run that had decided to lock at 09:01 and was still waiting.
+    # This is the every-15-minutes heartbeat that already exists, so putting
+    # the observation here needs no new unit in the enforcement path.
+    locker = locker_unit_active()
+    waiting = read_queue_wait()
     _logger.info(
-        "DECISION lock=n/a reason=mode_makes_no_decision mode=%s — this mode "
-        "never evaluates the lock",
+        "DECISION lock=n/a reason=mode_makes_no_decision mode=%s "
+        "locker_running=%s%s — this mode never evaluates the lock",
         mode,
+        "unknown" if locker is None else locker,
+        (
+            f" queued_behind={','.join(waiting.get('blocked_by', []))}"
+            if waiting
+            else ""
+        ),
     )
-    _append_record(
+    record: dict[str, object] = {
+        "timestamp": datetime.now(tz=UTC).isoformat(),
+        "locked": None,
+        "reason": "mode_makes_no_decision",
+        "mode": mode,
+        "locker_running": locker,
+    }
+    if waiting:
+        record["queued_behind"] = waiting.get("blocked_by", [])
+    append_record(record, log_file=log_file)
+
+
+def record_run_aborted(
+    reason: str, detail: str, *, log_file: Path | None = None
+) -> None:
+    """Note that a run could not reach the decision ladder at all.
+
+    Distinct from :func:`record_no_decision`, which covers modes that are
+    *designed* never to decide. This covers a run that meant to decide and
+    could not -- the case that produced the 2026-08-30 restart loop, where
+    1695 runs died before recording anything and the only evidence was a
+    stack trace in the journal.
+
+    Written at ``warning``: unlike the sync modes, this is never expected.
+
+    Args:
+        reason: Machine-readable slug for the trail.
+        detail: One human sentence about what was missing.
+        log_file: Override for the trail path (for testing).
+    """
+    _logger.warning(
+        "DECISION lock=n/a reason=%s — %s",
+        reason,
+        detail,
+    )
+    append_record(
         {
             "timestamp": datetime.now(tz=UTC).isoformat(),
             "locked": None,
-            "reason": "mode_makes_no_decision",
-            "mode": mode,
+            "reason": reason,
+            "detail": detail,
         },
         log_file=log_file,
     )

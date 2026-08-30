@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import tkinter as tk
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
@@ -37,6 +38,40 @@ class TestHeatSkipBranch:
 
         mock_hot.assert_called_once()
         mock_dialog.assert_not_called()
+        mock_sys_exit.assert_not_called()
+
+    def test_a_dialog_that_cannot_be_shown_fails_closed(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """The heat dialog builds its own tk.Tk(), which can fail.
+
+        With no reachable display that raises here, and letting it escape
+        would kill the process *before* the "enforced" record is written --
+        a lock that silently never happened. Refusing the skip is the only
+        fail-closed answer.
+        """
+        with (
+            patch(
+                "screen_locker._startup_checks.has_weekly_minimum", return_value=False
+            ),
+            patch(
+                "screen_locker._startup_checks.fetch_current_temp_with_status",
+                return_value=TemperatureCheck(temp_celsius=35.0, timed_out=False),
+            ),
+            patch.object(
+                ScreenLocker,
+                "_show_heat_skip_dialog",
+                side_effect=tk.TclError("no display"),
+            ),
+            patch.object(ScreenLocker, "_save_heat_skip_log") as saved,
+        ):
+            create_locker(mock_tk, tmp_path, has_logged=False)
+
+        # No skip recorded, and the run continued to build the lock.
+        saved.assert_not_called()
         mock_sys_exit.assert_not_called()
 
     def test_too_hot_and_user_confirms_skip(

@@ -33,7 +33,7 @@ from screen_locker._status_data import (
 def _lock_explanation() -> LockExplanation:
     return LockExplanation(
         fired=True,
-        stage="full_lock_pending_heat_check",
+        stage="would_lock",
         reason="No skip condition applies.",
         trace=(PredicateResult("scheduled_skip", fired=False, reason="not a skip"),),
         auto_upgrade=AutoUpgradeOpportunity(

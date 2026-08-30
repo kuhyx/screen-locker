@@ -17,9 +17,9 @@ from gatelock import (
     Arbiter,
     LockWindow,
     ScrollableSurface,
-    wait_for_turn,
 )
 
+from screen_locker._queue_wait import wait_for_screen
 from screen_locker._surface_group import FrameGroup
 
 if TYPE_CHECKING:
@@ -93,7 +93,7 @@ class WindowSetupMixin:
         # leetcode_guard's own fix for the same grab race (gatelock's own
         # module docstring: 2026-07-25, and again with diet_guard on
         # 2026-08-21).
-        wait_for_turn(arbiter)
+        wait_for_screen(arbiter)
         arbiter.acquire_holder()
         lock = LockWindow(self.root, self._colors, hooks=self, arbiter=arbiter)
         lock.setup()

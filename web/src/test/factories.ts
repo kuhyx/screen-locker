@@ -40,6 +40,8 @@ export function makeStatus(over: Partial<StatusPayload> = {}): StatusPayload {
       credits_today: 0,
       reason: 'no counted workout logged today',
     },
+    queue_wait: null,
+    locker_running: true,
     ...over,
   }
 }

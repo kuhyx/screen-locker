@@ -76,4 +76,74 @@ describe('WhyTable', () => {
     // weekly_required missing falls back to 0 rather than rendering undefined.
     expect(screen.getByText('2/0')).toBeInTheDocument()
   })
+
+  /**
+   * A restart loop wrote ~1693 identical records on 2026-08-30 and evicted
+   * the whole trail. They now collapse into one row, which must not then
+   * read as a gap in history.
+   */
+  it('shows how many times a collapsed row repeated, and when it last did', () => {
+    render(
+      <WhyTable
+        decisions={makeDecisions({
+          decisions: [
+            {
+              timestamp: '2026-08-30T00:02:00+00:00',
+              locked: true,
+              reason: 'enforced',
+              repeat_count: 1693,
+              last_timestamp: '2026-08-30T03:05:00+00:00',
+              local_time: 'Aug 30, 02:02',
+              local_last_time: 'Aug 30, 05:05',
+            },
+          ],
+        })}
+      />,
+    )
+    expect(screen.getByText('Aug 30, 02:02')).toBeInTheDocument()
+    expect(screen.getByText(/×1693, last Aug 30, 05:05/)).toBeInTheDocument()
+  })
+
+  it('prefers the server-rendered local time over the browser clock', () => {
+    // LibreWolf's resistFingerprinting pins JS Date to UTC, which rendered a
+    // 14:00 CEST decision as "12:00 PM" on 2026-08-30.
+    render(
+      <WhyTable
+        decisions={makeDecisions({
+          decisions: [
+            {
+              timestamp: '2026-08-30T12:00:05+00:00',
+              locked: true,
+              reason: 'enforced',
+              local_time: 'Aug 30, 14:00',
+            },
+          ],
+        })}
+      />,
+    )
+    expect(screen.getByText('Aug 30, 14:00')).toBeInTheDocument()
+  })
+
+  it('falls back to formatting the ISO stamp when the server sent none', () => {
+    render(
+      <WhyTable
+        decisions={makeDecisions({
+          decisions: [
+            {
+              timestamp: '2026-08-30T12:00:05+00:00',
+              locked: true,
+              reason: 'enforced',
+              repeat_count: 3,
+            },
+          ],
+        })}
+      />,
+    )
+    expect(screen.getByText(/×3, last/)).toBeInTheDocument()
+  })
+
+  it('adds no repeat note to a row that happened once', () => {
+    render(<WhyTable decisions={makeDecisions()} />)
+    expect(screen.queryByText(/×/)).toBeNull()
+  })
 })
