@@ -207,7 +207,7 @@ class StorageService {
   Future<List<Map<String, dynamic>>> getWorkoutHistory({
     int limit = 60,
   }) async {
-    return _db.rawQuery(
+    return await _db.rawQuery(
       'SELECT date, workout_type, duration_seconds, succeeded, json '
       'FROM workout_history ORDER BY date DESC LIMIT ?',
       [limit],

@@ -59,7 +59,7 @@ SecureCredentialStore credentialStore() {
       read: (key) async {
         final file = _desktopCredentialFile();
         if (!file.existsSync()) return null;
-        return file.readAsString();
+        return await file.readAsString();
       },
       write: (key, value) async {
         final file = _desktopCredentialFile();
@@ -86,7 +86,7 @@ SecureCredentialStore credentialStore() {
 Future<FirebaseAccount?> loadAccount() async {
   // Linux desktop reads the shared PC credential instead of the keystore,
   // so a fresh desktop install is connected the moment it starts.
-  if (Platform.isLinux) return _accountFromDesktopConfig();
+  if (Platform.isLinux) return await _accountFromDesktopConfig();
   try {
     return FirebaseAccount.tryParse(
       await _secure.read(key: kFirebaseAccountKey),
@@ -149,9 +149,9 @@ Future<FirebaseRestClient?> openFirebase() async {
     // marker beside it. Treating the marker as the source of truth is what
     // made a phone with a live session sync over GitHub and 401 forever --
     // the credential was in the keystore the whole time, unused.
-    return _clientFromStoredSession();
+    return await _clientFromStoredSession();
   }
-  return firebaseClientFor(
+  return await firebaseClientFor(
     config: kProject.configFor(account.email),
     store: credentialStore(),
     // A Google-provisioned account stores an empty password.

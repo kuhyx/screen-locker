@@ -102,7 +102,7 @@ extension StorageServiceSchema on StorageService {
       final dir = await getApplicationSupportDirectory();
       return dir.path;
     }
-    return getDatabasesPath();
+    return await getDatabasesPath();
   }
   // coverage:ignore-end
 

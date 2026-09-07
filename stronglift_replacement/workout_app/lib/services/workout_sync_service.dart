@@ -119,7 +119,7 @@ class WorkoutSyncService {
       log('WorkoutSyncService.push skipped: $reason', level: 900);
       return const PushResult(pushed: false, reason: reason);
     }
-    return _session(settings.token).run(
+    return await _session(settings.token).run(
       operation: 'push',
       successReason: 'pushed',
       failurePrefix: 'push failed',
@@ -165,7 +165,7 @@ class WorkoutSyncService {
     }
     // No addition: whatever this device already has, unchanged. The point is
     // the round trip, not the payload.
-    return _session(settings.token).run(
+    return await _session(settings.token).run(
       operation: 'syncNow',
       successReason: 'synced',
       failurePrefix: 'sync failed',
@@ -183,7 +183,7 @@ class WorkoutSyncService {
       log('WorkoutSyncService.pushManual skipped: $reason', level: 900);
       return const PushResult(pushed: false, reason: reason);
     }
-    return _session(settings.token).run(
+    return await _session(settings.token).run(
       operation: 'pushManual',
       successReason: 'pushed',
       failurePrefix: 'push failed',
