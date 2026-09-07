@@ -7,10 +7,12 @@ weekly minimum) means no lock is needed.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import patch
+
+import freedays
 
 from screen_locker._status_data import gather_status
 from screen_locker.tests.test_status_data import _files
@@ -73,7 +75,11 @@ class TestGatherStatusLockSuppression:
     def test_scheduled_skip_stops_lock(self, tmp_path: Path) -> None:
         """Scheduled skip stops lock."""
         files = _files(tmp_path)
-        files["scheduled_skips_file"].write_text(json.dumps(["2024-01-05"]))
+        freedays.mark(
+            date(2024, 1, 5),
+            paths=freedays.Paths.under(tmp_path / "freedays"),
+            now=date(2024, 1, 5),
+        )
         with patch(
             "screen_locker._status_data.has_workout_skip_today", return_value=False
         ):

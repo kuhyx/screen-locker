@@ -7,6 +7,8 @@ import json
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
+import freedays
+
 from screen_locker._compliance_state import explain_lock_decision
 from screen_locker._sick_tracker import SickHistory
 
@@ -24,13 +26,15 @@ class TestExplainLockDecision:
     def _files(self, tmp_path: Path) -> dict[str, Path]:
         return {
             "log_file": tmp_path / "log.json",
-            "scheduled_skips_file": tmp_path / "scheduled_skips.json",
             "early_bird_pending_file": tmp_path / "early_bird_pending.json",
         }
 
     def test_scheduled_skip_short_circuits(self, tmp_path: Path) -> None:
         files = self._files(tmp_path)
-        files["scheduled_skips_file"].write_text(json.dumps([_today()]))
+        freedays.mark(
+            freedays.today(),
+            paths=freedays.Paths.under(tmp_path / "freedays"),
+        )
         result = explain_lock_decision(
             **files,
             sick_history=SickHistory(),

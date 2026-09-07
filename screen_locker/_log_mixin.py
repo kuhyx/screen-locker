@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING
 from gatelock.log_integrity import compute_entry_hmac
 
 from screen_locker import _compliance_state
-from screen_locker._constants import SCHEDULED_SKIPS_FILE
 from screen_locker._log_io import load_workout_log
 from screen_locker._manual_workout import MANUAL_WORKOUT_TYPE, manual_sync_record_id
 
@@ -144,7 +143,7 @@ class LogMixin:
 
     def _is_scheduled_skip_today(self) -> bool:
         """Return True if today's date is listed in the scheduled skips file."""
-        return _compliance_state.is_scheduled_skip_today(SCHEDULED_SKIPS_FILE)
+        return _compliance_state.is_scheduled_skip_today()
 
     def save_workout_log(self) -> RecordResult:
         """Append today's workout to the log (HMAC-signed) and report the result.

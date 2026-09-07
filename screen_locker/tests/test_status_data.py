@@ -22,6 +22,5 @@ def _files(tmp_path: Path) -> dict[str, Path]:
         "extra_benefits_file": tmp_path / "extra_benefits_state.json",
         "shutdown_base_file": tmp_path / "shutdown_base.json",
         "shutdown_config_file": tmp_path / "shutdown_config.conf",
-        "scheduled_skips_file": tmp_path / "scheduled_skips.json",
         "early_bird_pending_file": tmp_path / "early_bird_pending.json",
     }

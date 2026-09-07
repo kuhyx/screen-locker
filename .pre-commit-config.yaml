@@ -122,8 +122,12 @@ repos:
           - --jobs=4
         additional_dependencies:
           - pytest
-          - gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.7.1#subdirectory=gatelock
-          - crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.9.0#subdirectory=crdt-sync
+          # Kept in step with pyproject.toml: pip refuses two different
+          # direct URLs for one distribution, so a stale pin here becomes
+          # an unresolvable hook env once freedays joins the list.
+          - gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.7.3#subdirectory=gatelock
+          - crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.9.1#subdirectory=crdt-sync
+          - freedays @ git+https://github.com/kuhyx/utils@freedays-v0.1.0#subdirectory=freedays
           - mcp>=2,<3
           - pydantic
       - id: pylint
@@ -137,8 +141,12 @@ repos:
           - --disable=protected-access,unused-argument,duplicate-code
         additional_dependencies:
           - pytest
-          - gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.7.1#subdirectory=gatelock
-          - crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.9.0#subdirectory=crdt-sync
+          # Kept in step with pyproject.toml: pip refuses two different
+          # direct URLs for one distribution, so a stale pin here becomes
+          # an unresolvable hook env once freedays joins the list.
+          - gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.7.3#subdirectory=gatelock
+          - crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.9.1#subdirectory=crdt-sync
+          - freedays @ git+https://github.com/kuhyx/utils@freedays-v0.1.0#subdirectory=freedays
           - mcp>=2,<3
           - pydantic
 

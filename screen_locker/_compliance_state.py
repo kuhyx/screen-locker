@@ -63,7 +63,6 @@ __all__ = [
 def explain_lock_decision(
     *,
     log_file: Path,
-    scheduled_skips_file: Path,
     early_bird_pending_file: Path,
     sick_history: SickHistory,
     extended_early_bird: bool,
@@ -84,7 +83,7 @@ def explain_lock_decision(
     local_dt = instant.astimezone()
     local_minutes = local_dt.hour * 60 + local_dt.minute
 
-    scheduled = is_scheduled_skip_today(scheduled_skips_file, today=today_str)
+    scheduled = is_scheduled_skip_today(local_dt.date())
     pending = is_early_bird_pending(early_bird_pending_file, today=today_str)
     window_open = _early_bird_window_open(
         extended=extended_early_bird, local_minutes=local_minutes

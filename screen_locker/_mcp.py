@@ -48,7 +48,6 @@ from screen_locker._compliance_state import (
 )
 from screen_locker._constants import (
     EARLY_BIRD_PENDING_FILE,
-    SCHEDULED_SKIPS_FILE,
 )
 from screen_locker._sick_tracker import load_history
 from screen_locker._status_data import format_summary_line, gather_status
@@ -137,7 +136,7 @@ def get_flags() -> dict[str, bool]:
     history = load_history()
     return {
         "has_logged_today": has_logged_today(_LOG_FILE),
-        "is_scheduled_skip_today": is_scheduled_skip_today(SCHEDULED_SKIPS_FILE),
+        "is_scheduled_skip_today": is_scheduled_skip_today(),
         "is_early_bird_pending": is_early_bird_pending(EARLY_BIRD_PENDING_FILE),
         "is_sick_day_today": is_sick_day_today(history),
     }

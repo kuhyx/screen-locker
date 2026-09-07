@@ -137,7 +137,7 @@ class TestGetFlags:
         }
         lh.assert_called_once_with()
         hlt.assert_called_once_with(_mcp._LOG_FILE)
-        iss.assert_called_once_with(_mcp.SCHEDULED_SKIPS_FILE)
+        iss.assert_called_once_with()
         iep.assert_called_once_with(_mcp.EARLY_BIRD_PENDING_FILE)
         isd.assert_called_once_with("HIST")
 

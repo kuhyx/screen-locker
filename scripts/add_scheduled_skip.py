@@ -1,111 +1,80 @@
 #!/usr/bin/env python3
-"""Add a date to ``scheduled_skips.json`` — the locker's first early exit.
+"""Mark a day free, for this app and every other gate app at once.
 
-A scheduled skip is the supported way to exempt a specific day without
-weakening enforcement for any other day: the lock chain checks it first, and
-(since the 2026-08 logging work) records the exemption as a decision, so an
-unexpected quiet day is traceable to the date that caused it instead of looking
-like the enforcer silently died again.
+This used to append to ``screen_locker/scheduled_skips.json``, which only
+screen-locker read. That file is no longer consulted by anything: the lock
+chain now asks the shared pool (``~/utils/freedays``), so a day taken here
+also stands down diet-guard, wake-alarm, leetcode-guard and home-guard.
 
-Kept out of ``arm.sh`` because the file it edits is the one the lock chain
-reads: a malformed write is read as "not a skip" and the machine locks anyway,
-so this belongs somewhere the repo's linters and tests actually apply.
+Kept as a thin wrapper rather than deleted because ``arm.sh`` calls it, and
+because this is the name already in muscle memory. ``freedays mark`` does
+exactly the same thing.
 
-Usage:
-    python3 scripts/add_scheduled_skip.py --date today
-    python3 scripts/add_scheduled_skip.py --date 2026-08-20
-    python3 scripts/add_scheduled_skip.py --list
+    scripts/add_scheduled_skip.py --date today
+    scripts/add_scheduled_skip.py --date 2026-12-24
+
+The date is **local**. The old version computed a local "today" while the
+lock chain compared against a UTC one, so a skip added near midnight could
+name a date the chain never matched. freedays owns "what is today" for both
+sides now, so that disagreement cannot recur.
 """
 
 from __future__ import annotations
 
 import argparse
-from datetime import UTC, datetime
-import json
-from pathlib import Path
+import logging
 import sys
 
-SKIPS_FILE = (
-    Path(__file__).resolve().parent.parent / "screen_locker" / ("scheduled_skips.json")
-)
+import freedays
 
-
-def _today() -> str:
-    """Return today's local date as YYYY-MM-DD.
-
-    Local, not UTC: the skip must match the day the user is living in, and the
-    lock chain's own ``_today_str`` is local for the same reason.
-    """
-    return datetime.now().astimezone().strftime("%Y-%m-%d")
+_logger = logging.getLogger(__name__)
 
 
 def _report(message: str) -> None:
-    """Write one line to stdout (matches the other scripts in this directory)."""
     sys.stdout.write(f"{message}\n")
 
 
-def load_skips(path: Path) -> list[str]:
-    """Return the recorded skip dates, or [] when the file is absent."""
-    if not path.exists():
-        return []
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        # Refuse rather than silently starting a fresh list: overwriting an
-        # unreadable file would drop skips the user still expects to hold.
-        msg = f"could not read {path}: {exc}"
-        msg = f"ERROR: {msg}"
-        raise SystemExit(msg) from exc
-    if not isinstance(data, list):
-        msg = f"ERROR: {path} does not contain a JSON list"
-        raise SystemExit(msg)
-    return [str(entry) for entry in data]
-
-
-def add_skip(path: Path, date: str) -> bool:
-    """Add ``date`` to the skips file. True if it was newly added."""
-    skips = load_skips(path)
-    if date in skips:
-        return False
-    skips.append(date)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(sorted(skips), indent=2) + "\n", encoding="utf-8")
-    return True
-
-
 def main(argv: list[str] | None = None) -> int:
-    """Add the requested date, or list what is already recorded."""
-    parser = argparse.ArgumentParser(description=__doc__)
+    """Mark the requested day free in the shared pool.
+
+    Returns:
+        ``0`` when the day is free (including when it already was), ``1``
+        when the pool refused, ``2`` when the date could not be parsed.
+    """
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "--date",
-        help="date to skip: 'today' or YYYY-MM-DD",
+        default="today",
+        help="YYYY-MM-DD, or 'today'/'tomorrow' (default: today)",
     )
     parser.add_argument(
-        "--list",
-        action="store_true",
-        help="print the recorded skip dates and exit",
+        "--reason",
+        default="",
+        help="optional free text; never required",
     )
     args = parser.parse_args(argv)
 
-    if args.list:
-        for entry in sorted(load_skips(SKIPS_FILE)):
-            _report(entry)
+    try:
+        day = freedays.resolve(args.date)
+    except ValueError as exc:
+        _logger.warning("could not parse the requested date: %s", exc)
+        _report(f"error: {exc}")
+        return 2
+
+    iso = freedays.to_iso(day)
+    if freedays.is_free_day(day):
+        _report(f"{iso} is already a free day; nothing to do")
         return 0
 
-    if not args.date:
-        parser.error("--date is required (or use --list)")
-
-    date = _today() if args.date == "today" else args.date
     try:
-        datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=UTC)
-    except ValueError:
-        msg = f"ERROR: {date!r} is not a YYYY-MM-DD date"
-        raise SystemExit(msg) from None
+        freedays.mark(day, reason=args.reason)
+    except freedays.FreeDayError as exc:
+        _logger.warning("the pool refused %s: %s", iso, exc)
+        _report(f"error: {exc}")
+        return 1
 
-    if add_skip(SKIPS_FILE, date):
-        _report(f"Added scheduled skip for {date} — the locker will not lock that day.")
-    else:
-        _report(f"{date} is already a scheduled skip; nothing to do.")
+    left = freedays.status(year=day.year).left
+    _report(f"{iso} is now a free day for every gate app ({left} left in {day.year})")
     return 0
 
 

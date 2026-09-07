@@ -46,7 +46,6 @@ from screen_locker._constants import (
     EXTRA_BENEFITS_FILE,
     MANUAL_WORKOUT_BUDGET_PER_7_DAYS,
     MANUAL_WORKOUT_BUDGET_PER_30_DAYS,
-    SCHEDULED_SKIPS_FILE,
     SHUTDOWN_BASE_FILE,
     SHUTDOWN_CONFIG_FILE,
     SICK_BUDGET_PER_7_DAYS,
@@ -174,7 +173,6 @@ def gather_status(
     extra_benefits_file: Path = EXTRA_BENEFITS_FILE,
     shutdown_base_file: Path = SHUTDOWN_BASE_FILE,
     shutdown_config_file: Path = SHUTDOWN_CONFIG_FILE,
-    scheduled_skips_file: Path = SCHEDULED_SKIPS_FILE,
     early_bird_pending_file: Path = EARLY_BIRD_PENDING_FILE,
     now: datetime | None = None,
 ) -> StatusSnapshot:
@@ -196,7 +194,6 @@ def gather_status(
 
     lock_explanation = explain_lock_decision(
         log_file=log_file,
-        scheduled_skips_file=scheduled_skips_file,
         early_bird_pending_file=early_bird_pending_file,
         sick_history=sick_history,
         extended_early_bird=early_bird_extended,

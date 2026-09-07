@@ -19,6 +19,7 @@ import json
 import logging
 from typing import TYPE_CHECKING
 
+import freedays
 from gatelock.log_integrity import compute_entry_hmac, verify_entry_hmac
 
 from screen_locker._constants import (
@@ -31,6 +32,7 @@ from screen_locker._sick_tracker import is_sick_day as _is_sick_day
 from screen_locker._weekly_check import RELAXED_DAY_SKIP_TYPE
 
 if TYPE_CHECKING:
+    from datetime import date
     from pathlib import Path
 
     from screen_locker._sick_tracker import SickHistory
@@ -43,24 +45,22 @@ def _today_str() -> str:
     return datetime.now(tz=UTC).strftime("%Y-%m-%d")
 
 
-def is_scheduled_skip_today(
-    scheduled_skips_file: Path, *, today: str | None = None
-) -> bool:
-    """Return True if *today* is listed in *scheduled_skips_file*."""
-    if not scheduled_skips_file.exists():
-        return False
-    try:
-        with scheduled_skips_file.open() as f:
-            skips = json.load(f)
-    except (OSError, json.JSONDecodeError) as exc:
-        _logger.warning(
-            "Could not read scheduled skips from %s: %s — treating today as NOT "
-            "a scheduled skip (the lock chain continues)",
-            scheduled_skips_file,
-            exc,
-        )
-        return False
-    return (today or _today_str()) in skips
+def is_scheduled_skip_today(today: date | None = None) -> bool:
+    """Return True if *today* is in the shared free-day pool.
+
+    The source moved from this app's own ``scheduled_skips.json`` to the
+    fleet-wide pool (``~/utils/freedays``), so one marked day now stands down
+    every gate app at once instead of only this one.
+
+    The date is **local**, not UTC. The file-backed check this replaces
+    compared against a UTC day while ``add_scheduled_skip.py`` wrote a local
+    one, so a skip added near midnight could name a date the chain never
+    matched. freedays owns "what is today" for all of them now.
+
+    Still fails closed: an unreadable pool reads as "not free", so the lock
+    chain continues rather than the lock silently switching itself off.
+    """
+    return freedays.is_free_day(today)
 
 
 def has_logged_today(log_file: Path, *, today: str | None = None) -> bool:

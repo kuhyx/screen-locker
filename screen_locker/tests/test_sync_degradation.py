@@ -44,7 +44,6 @@ class TestUnreadableSourceIsNotNoWorkout:
     def _files(self, tmp_path: Path) -> dict[str, Path]:
         return {
             "log_file": tmp_path / "log.json",
-            "scheduled_skips_file": tmp_path / "scheduled_skips.json",
             "early_bird_pending_file": tmp_path / "early_bird_pending.json",
         }
 

@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-import json
+from datetime import date
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock, patch
 
+import freedays
 import pytest
 
 from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from unittest.mock import MagicMock
 
     from screen_locker.screen_lock import ScreenLocker
 
@@ -23,104 +23,69 @@ class TestIsScheduledSkipToday:
     def _make_locker(self, mock_tk: MagicMock, tmp_path: Path) -> ScreenLocker:
         return create_locker(mock_tk, tmp_path)
 
-    def test_returns_false_when_file_absent(
+    def test_returns_false_when_pool_empty(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Returns False when scheduled_skips.json does not exist."""
+        """Returns False when nothing has ever been marked."""
         locker = self._make_locker(mock_tk, tmp_path)
-        skip_file = tmp_path / "scheduled_skips.json"
-        with patch(
-            "screen_locker._log_mixin.SCHEDULED_SKIPS_FILE",
-            skip_file,
-        ):
-            assert locker._is_scheduled_skip_today() is False
+        assert locker._is_scheduled_skip_today() is False
 
-    def test_returns_true_when_today_listed(
+    def test_returns_true_when_today_marked(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Returns True when today's date is in the skips list."""
+        """Returns True when today is in the shared free-day pool."""
         locker = self._make_locker(mock_tk, tmp_path)
-        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
-        skip_file = tmp_path / "scheduled_skips.json"
-        skip_file.write_text(json.dumps([today]))
-        with patch(
-            "screen_locker._log_mixin.SCHEDULED_SKIPS_FILE",
-            skip_file,
-        ):
-            assert locker._is_scheduled_skip_today() is True
+        freedays.mark(
+            freedays.today(), paths=freedays.Paths.under(tmp_path / "freedays")
+        )
+        assert locker._is_scheduled_skip_today() is True
 
-    def test_returns_false_when_today_not_listed(
+    def test_returns_false_when_only_another_day_marked(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Returns False when today's date is not in the skips list."""
+        """A pool holding some other date does not free today."""
         locker = self._make_locker(mock_tk, tmp_path)
-        skip_file = tmp_path / "scheduled_skips.json"
-        skip_file.write_text(json.dumps(["1999-01-01", "2000-06-15"]))
-        with patch(
-            "screen_locker._log_mixin.SCHEDULED_SKIPS_FILE",
-            skip_file,
-        ):
-            assert locker._is_scheduled_skip_today() is False
+        freedays.mark(
+            date(2026, 12, 24),
+            paths=freedays.Paths.under(tmp_path / "freedays"),
+        )
+        assert locker._is_scheduled_skip_today() is False
 
-    def test_returns_false_on_corrupt_json(
+    def test_returns_false_on_corrupt_pool(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Returns False when the skips file contains invalid JSON."""
+        """Fail closed: an unparsable pool locks normally rather than opening."""
         locker = self._make_locker(mock_tk, tmp_path)
-        skip_file = tmp_path / "scheduled_skips.json"
-        skip_file.write_text("{not valid json}")
-        with patch(
-            "screen_locker._log_mixin.SCHEDULED_SKIPS_FILE",
-            skip_file,
-        ):
-            assert locker._is_scheduled_skip_today() is False
+        pool = tmp_path / "freedays"
+        pool.mkdir(exist_ok=True)
+        (pool / "free_days.json").write_text("{not valid json}")
+        assert locker._is_scheduled_skip_today() is False
 
-    def test_returns_false_on_read_error(
+    def test_returns_false_when_the_day_was_released(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Returns False when the skips file cannot be read (OSError)."""
+        """Giving a day back re-arms the lock for it."""
         locker = self._make_locker(mock_tk, tmp_path)
-        skip_file = tmp_path / "scheduled_skips.json"
-        skip_file.write_text("[]")
-        with (
-            patch(
-                "screen_locker._log_mixin.SCHEDULED_SKIPS_FILE",
-                skip_file,
-            ),
-            patch("builtins.open", side_effect=OSError("permission denied")),
-        ):
-            assert locker._is_scheduled_skip_today() is False
-
-    def test_empty_list_returns_false(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Returns False for an empty skips list."""
-        locker = self._make_locker(mock_tk, tmp_path)
-        skip_file = tmp_path / "scheduled_skips.json"
-        skip_file.write_text("[]")
-        with patch(
-            "screen_locker._log_mixin.SCHEDULED_SKIPS_FILE",
-            skip_file,
-        ):
-            assert locker._is_scheduled_skip_today() is False
+        paths = freedays.Paths.under(tmp_path / "freedays")
+        freedays.mark(freedays.today(), paths=paths)
+        assert locker._is_scheduled_skip_today() is True
+        freedays.release(freedays.today(), paths=paths)
+        assert locker._is_scheduled_skip_today() is False
 
 
 class TestScheduledSkipEarlyExit:
@@ -128,9 +93,10 @@ class TestScheduledSkipEarlyExit:
 
     @staticmethod
     def _write_today_skip(tmp_path: Path) -> None:
-        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
-        skip_file = tmp_path / "scheduled_skips.json"
-        skip_file.write_text(json.dumps([today]))
+        """Mark today free in the shared pool the conftest redirected here."""
+        freedays.mark(
+            freedays.today(), paths=freedays.Paths.under(tmp_path / "freedays")
+        )
 
     def test_exits_on_scheduled_skip_day(
         self,

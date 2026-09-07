@@ -68,6 +68,11 @@ if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
 
 
+# Autouse fixtures that keep this suite off real user state live here; see
+# that module for why the two seams are different.
+pytest_plugins = ("screen_locker.tests._real_state_fixtures",)
+
+
 @pytest.fixture(autouse=True)
 def _block_real_tk_and_exit() -> Iterator[None]:
     """Replace the whole ``tk`` module and ``sys.exit`` for every test.
@@ -127,32 +132,6 @@ def _block_real_network() -> Iterator[None]:
     with ExitStack() as stack:
         for target in targets:
             stack.enter_context(patch(target, side_effect=OSError("blocked")))
-        yield
-
-
-@pytest.fixture(autouse=True)
-def _isolate_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """Point ``$HOME`` and ``Path.home()`` at tmp_path for every test.
-
-    ``ISOLATED_STATE`` cannot cover this. Everything under ``~/.config`` is
-    resolved at *call* time by ``crdt_sync.credential_store_for``
-    (``Path.home() / ".config" / app / "firebase_auth.json"``), not bound to a
-    module-level constant, so there is no attribute to patch -- the only seam
-    is home itself.
-
-    What this protects is a live credential, not a scratch file. A test that
-    reaches ``credential_store_for("screen_locker")`` and saves would overwrite
-    the machine's real Firebase session with fixture values, and the damage is
-    invisible until the next sync fails with HTTP 401. The same redirect also
-    covers the sync PAT and the shared ``~/.config/crdt-sync/`` password and
-    OAuth secret, which are read the same way.
-
-    ``Path.home()`` is patched as well as ``$HOME``: it consults ``os.environ``
-    on POSIX, but only via ``expanduser``, and a test that patches the
-    environment differently must not silently regain access to the real one.
-    """
-    monkeypatch.setenv("HOME", str(tmp_path))
-    with patch.object(Path, "home", lambda: tmp_path):
         yield
 
 

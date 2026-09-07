@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import patch
+
+import freedays
 
 from screen_locker._compliance_state import (
     has_logged_today,
@@ -26,33 +28,39 @@ def _today() -> str:
 class TestIsScheduledSkipToday:
     """Mirrors test_scheduled_skip.py's coverage, for the standalone function."""
 
-    def test_missing_file(self, tmp_path: Path) -> None:
-        """A missing skips file means today is not a scheduled skip."""
-        assert is_scheduled_skip_today(tmp_path / "skips.json") is False
+    def test_empty_pool(self, tmp_path: Path) -> None:
+        """An empty pool means today is not a free day."""
+        assert is_scheduled_skip_today() is False
 
-    def test_today_listed(self, tmp_path: Path) -> None:
-        """Today's date in the skips list makes it a scheduled skip."""
-        skip_file = tmp_path / "skips.json"
-        skip_file.write_text(json.dumps([_today()]))
-        assert is_scheduled_skip_today(skip_file) is True
+    def test_today_marked(self, tmp_path: Path) -> None:
+        """Today in the shared pool makes it a free day."""
+        freedays.mark(
+            freedays.today(), paths=freedays.Paths.under(tmp_path / "freedays")
+        )
+        assert is_scheduled_skip_today() is True
 
-    def test_today_not_listed(self, tmp_path: Path) -> None:
-        """A list without today is not a scheduled skip."""
-        skip_file = tmp_path / "skips.json"
-        skip_file.write_text(json.dumps(["1999-01-01"]))
-        assert is_scheduled_skip_today(skip_file) is False
+    def test_today_not_marked(self, tmp_path: Path) -> None:
+        """A pool holding some other date is not today's free day."""
+        freedays.mark(
+            date(2026, 12, 24),
+            paths=freedays.Paths.under(tmp_path / "freedays"),
+        )
+        assert is_scheduled_skip_today() is False
 
-    def test_corrupt_json(self, tmp_path: Path) -> None:
-        """Unparsable JSON fails closed: not a skip."""
-        skip_file = tmp_path / "skips.json"
-        skip_file.write_text("{bad}")
-        assert is_scheduled_skip_today(skip_file) is False
+    def test_corrupt_pool(self, tmp_path: Path) -> None:
+        """Unparsable JSON fails closed: not a free day, the chain continues."""
+        pool = tmp_path / "freedays"
+        pool.mkdir(exist_ok=True)
+        (pool / "free_days.json").write_text("{bad}")
+        assert is_scheduled_skip_today() is False
 
-    def test_explicit_today_override(self, tmp_path: Path) -> None:
+    def test_explicit_day_override(self, tmp_path: Path) -> None:
         """The `today` argument overrides the real date."""
-        skip_file = tmp_path / "skips.json"
-        skip_file.write_text(json.dumps(["2020-05-05"]))
-        assert is_scheduled_skip_today(skip_file, today="2020-05-05") is True
+        freedays.mark(
+            date(2026, 12, 24),
+            paths=freedays.Paths.under(tmp_path / "freedays"),
+        )
+        assert is_scheduled_skip_today(date(2026, 12, 24)) is True
 
 
 class TestHasLoggedToday:
