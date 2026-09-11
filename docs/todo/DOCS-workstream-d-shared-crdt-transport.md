@@ -8,9 +8,9 @@ fell out of it (both resolved by explicit user call, 2026-07-04).
 
 **The two shared libraries are now implemented and locally verified
 (2026-07-05):**
-- `~/crdt-sync` (Python) — 60 tests, 100% branch coverage, clean
+- `~/src/utils/crdt-sync` (Python) — 60 tests, 100% branch coverage, clean
   ruff/mypy/pylint/bandit/pre-commit. Local git repo, one commit.
-- `~/crdt_sync_dart` (pure Dart, no Flutter dep) — 59 tests, clean
+- `~/src/utils/crdt_sync_dart` (pure Dart, no Flutter dep) — 59 tests, clean
   `dart analyze`. Local git repo, one commit.
 
 Both implement the unified LWW-map-with-sticky-remove scheme (`Hlc`,
@@ -62,7 +62,7 @@ from-scratch CRDT implementation.
 
 **diet-guard and wake-alarm do NOT use CRDTs today.** Their existing
 "merge" mechanisms are much simpler:
-- diet-guard: `_sync_merge.merge_logs` (`~/diet-guard/diet_guard/_sync_merge.py`,
+- diet-guard: `_sync_merge.merge_logs` (`~/src/diet-guard/diet_guard/_sync_merge.py`,
   81 lines) is a tombstone-aware, entry-key-based merge — closer to
   last-write-wins per entry than a general CRDT. Transport is
   `_sync_github.GitHubSyncClient` against a private repo's Contents API
@@ -151,9 +151,9 @@ time this is scoped for real.
 
 ## Critical files (reference only — read, do not modify, during scoping)
 
-- `~/todo/lib/sync/sync_service.dart`, `sync_settings.dart` (CRDT-via-package pattern)
-- `~/diet-guard/diet_guard/_sync.py`, `_sync_github.py`, `_sync_merge.py`
-- `~/diet-guard/app/lib/services/sync_service.dart`, `sync_merge.dart`
-- `~/wake-alarm/shutdown-wrapper.sh`
+- `~/src/todo/lib/sync/sync_service.dart`, `sync_settings.dart` (CRDT-via-package pattern)
+- `~/src/diet-guard/diet_guard/_sync.py`, `_sync_github.py`, `_sync_merge.py`
+- `~/src/diet-guard/app/lib/services/sync_service.dart`, `sync_merge.dart`
+- `~/src/wake-alarm/shutdown-wrapper.sh`
 - `docs/todo/workstream-c-github-sync-workout-data.md` (this repo — resolve
   its open questions jointly with this one, not independently)

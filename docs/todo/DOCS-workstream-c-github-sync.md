@@ -47,7 +47,7 @@ production in this user's other repos — read both before designing this
 one:
 
 1. **diet-guard's Contents-API repo sync**
-   (`~/diet-guard/diet_guard/_sync.py` + `_sync_github.py` +
+   (`~/src/diet-guard/diet_guard/_sync.py` + `_sync_github.py` +
    `_sync_merge.py`, ~120/190/80 lines respectively). `GitHubSyncClient`
    (`_sync_github.py:38`) wraps the GitHub Contents API with
    `get_file_text(path)`, `put_file_text(path, text, message=...)`,
@@ -59,7 +59,7 @@ one:
    fine-grained PAT read from `~/.config/diet_guard/sync_token` (scoped to
    just that one repo's contents).
 2. **wake-alarm's Gist-based sync**
-   (`~/wake-alarm/shutdown-wrapper.sh`, phone app writes to a **private
+   (`~/src/wake-alarm/shutdown-wrapper.sh`, phone app writes to a **private
    Gist**, not a repo). Config at `~/.config/wake_alarm/gist_sync.json`
    with `token`/`gist_id`. Much simpler (single JSON blob, no per-device
    paths, no merge step) — matches wake-alarm's much simpler data shape (one
@@ -148,7 +148,7 @@ sync code first.
 - `screen_locker/_constants.py` (`WORKOUT_APP_JSON_REMOTES`,
   `WORKOUT_HTTP_PORT` — new `SYNC_*` constants go here too)
 - `stronglift_replacement/workout_app/lib/` (phone-side push, new work)
-- Reference-only, do not modify: `~/diet-guard/diet_guard/_sync_github.py`,
-  `_sync.py`, `_sync_merge.py`; `~/wake-alarm/shutdown-wrapper.sh`
+- Reference-only, do not modify: `~/src/diet-guard/diet_guard/_sync_github.py`,
+  `_sync.py`, `_sync_merge.py`; `~/src/wake-alarm/shutdown-wrapper.sh`
 - **Do not touch**: `screen_locker/_runnerup_verification.py`,
   `_runnerup_db.py` (hard boundary, see Context above)

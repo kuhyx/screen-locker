@@ -14,7 +14,7 @@ independently, in 9 files. Evidence:
   `_sick_dialog.py` (18), `_temperature_status_mixin.py` (5).
   `#1a1a1a` alone (the background) appears **31 times** — and it is *also*
   already defined once, correctly, as `LockConfig.bg = "#1a1a1a"` in
-  `~/utils/gatelock/gatelock/_window.py:71`. None of the 31 in-repo literals
+  `~/src/utils/gatelock/gatelock/_window.py:71`. None of the 31 in-repo literals
   import or reference it; `LockWindow.setup()` in gatelock applies
   `config.bg` to the root window (`_window.py:143`), and then every
   screen-locker dialog re-hardcodes the same string as if gatelock's value

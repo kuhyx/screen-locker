@@ -1,5 +1,5 @@
 /*
- * Tokens from ~/utils/unified-design-system (DOCS-tokens.md). Values are copied
+ * Tokens from ~/src/utils/unified-design-system (DOCS-tokens.md). Values are copied
  * rather than imported because that system ships as documentation plus
  * per-stack generators, not an npm package -- keep these in step with it rather
  * than inventing new ones.

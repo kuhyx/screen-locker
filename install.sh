@@ -42,7 +42,7 @@ readonly REPO_DIR="$SCRIPT_DIR"
 readonly SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
 readonly PROD_PYTHON="/usr/bin/python3"
 # The shared lock backend, developed in lockstep with this repo.
-readonly GATELOCK_DIR="$HOME/utils/gatelock"
+readonly GATELOCK_DIR="$HOME/src/utils/gatelock"
 
 echo "=== Screen Locker Installer ==="
 
@@ -58,7 +58,7 @@ fi
 # 2. Install the package ------------------------------------------------------
 # --break-system-packages is required on Arch (PEP 668). Editable so a later
 # `git pull` in THIS clone updates the running service with no reinstall. That
-# is also why the clone must live somewhere durable (~/screen-locker), never a
+# is also why the clone must live somewhere durable (~/src/screen-locker), never a
 # scratch directory: a non-editable snapshot would freeze at this commit and
 # silently stop tracking the repo.
 echo "[2/4] Installing screen_locker into user site-packages (editable)..."
@@ -69,7 +69,7 @@ echo "[2/4] Installing screen_locker into user site-packages (editable)..."
 # pyproject.toml pins `gatelock @ git+https://.../@gatelock-v0.2.1`, so the
 # install above resolves that pin and overwrites any local editable gatelock
 # with a frozen wheel built from the tag. That silently reverts every
-# unreleased change in ~/utils/gatelock and breaks the other lockers that
+# unreleased change in ~/src/utils/gatelock and breaks the other lockers that
 # depend on them -- observed: it removed `ScrollableSurface` and took
 # diet_guard down with it.
 #
@@ -122,7 +122,7 @@ if ! (cd /tmp && "$PROD_PYTHON" -c "import screen_locker" 2>/dev/null); then
 fi
 if ! (cd /tmp && "$PROD_PYTHON" -c "import gatelock" 2>/dev/null); then
     echo "ERROR: $PROD_PYTHON cannot import gatelock (the shared lock" >&2
-    echo "       backend). Install it editable from ~/utils/gatelock." >&2
+    echo "       backend). Install it editable from ~/src/utils/gatelock." >&2
     exit 1
 fi
 if [[ -d "$GATELOCK_DIR" ]]; then

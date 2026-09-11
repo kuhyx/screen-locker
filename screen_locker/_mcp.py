@@ -135,7 +135,7 @@ def get_flags() -> dict[str, bool]:
 
     ``is_scheduled_skip_today`` keeps its name but no longer reads this app's
     ``scheduled_skips.json``: it is now the shared, fleet-wide free-day pool
-    (``~/utils/freedays``), so a true here also means diet-guard, wake-alarm,
+    (``~/src/utils/freedays``), so a true here also means diet-guard, wake-alarm,
     leetcode-guard and home-guard are standing down today.
     """
     history = load_history()

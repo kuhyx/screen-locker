@@ -15,7 +15,7 @@ to have very different shareability:
   `put_file_text` / `list_directory` against a private repo) is genuinely
   shared already — it's independently duplicated almost line-for-line
   between todo's `GitHubClient` and diet-guard's `GitHubSyncClient`
-  (`~/diet-guard/diet_guard/_sync_github.py`, 191 lines, `requests`-only).
+  (`~/src/diet-guard/diet_guard/_sync_github.py`, 191 lines, `requests`-only).
   Extracting this into a shared Python lib (and a shared Dart lib for
   todo's/diet-guard's Dart-side client) is low-risk, small, and is the part
   Workstream C already committed to (Contents-API pattern, not Gist —
@@ -70,7 +70,7 @@ library too:
 ## 3. Per-app migration cost (revised — the original doc's "todo = smallest
 lift" assumption does not hold)
 
-Checked `~/todo/lib/data/note_repository.dart`: notes are **mutated in
+Checked `~/src/todo/lib/data/note_repository.dart`: notes are **mutated in
 place** — `upsert()` does `INSERT ... ON CONFLICT DO UPDATE SET text = ?,
 priority = ?, status = ?, updated_at = ?`, relying on `sqlite_crdt`'s
 per-column Hybrid-Logical-Clock last-writer-wins to reconcile concurrent
@@ -138,8 +138,8 @@ off the shelf.
 
 ## Critical files referenced (read-only during this pass)
 
-- `~/todo/lib/sync/sync_service.dart`, `~/todo/lib/data/note_repository.dart`
-- `~/diet-guard/diet_guard/_sync.py`, `_sync_github.py`, `_sync_merge.py`
-- `~/diet-guard/app/lib/services/sync_merge.dart`
-- `~/wake-alarm/shutdown-wrapper.sh`
+- `~/src/todo/lib/sync/sync_service.dart`, `~/src/todo/lib/data/note_repository.dart`
+- `~/src/diet-guard/diet_guard/_sync.py`, `_sync_github.py`, `_sync_merge.py`
+- `~/src/diet-guard/app/lib/services/sync_merge.dart`
+- `~/src/wake-alarm/shutdown-wrapper.sh`
 - `docs/todo/workstream-c-github-sync-workout-data.md` (this repo)

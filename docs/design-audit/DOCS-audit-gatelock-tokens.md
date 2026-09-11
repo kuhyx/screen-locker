@@ -1,13 +1,13 @@
 ## Shared gatelock library
 
-`~/utils/gatelock` is **not** its own git repo — `git -C ~/utils/gatelock
-rev-parse --show-toplevel` resolves to `/home/kuhy/utils`, so it's a
-subdirectory of the `~/utils` monorepo. Per audit scope, gatelock itself was
+`~/src/utils/gatelock` is **not** its own git repo — `git -C ~/src/utils/gatelock
+rev-parse --show-toplevel` resolves to `/home/kuhy/src/utils`, so it's a
+subdirectory of the `~/src/utils` monorepo. Per audit scope, gatelock itself was
 not walked against all 28 rules and no separate
-`~/utils/gatelock/DESIGN_AUDIT_TODO.md` was written.
+`~/src/utils/gatelock/DESIGN_AUDIT_TODO.md` was written.
 
 What's relevant here: gatelock defines exactly **one** real design token —
-`LockConfig.bg: str = "#1a1a1a"` (`~/utils/gatelock/gatelock/_window.py:71`),
+`LockConfig.bg: str = "#1a1a1a"` (`~/src/utils/gatelock/gatelock/_window.py:71`),
 applied via `self.root.configure(bg=self._config.bg, ...)` in
 `LockWindow.setup()` (`_window.py:143`). Both consumer repos re-hardcode
 this same literal instead of reading it back off their own `LockConfig`

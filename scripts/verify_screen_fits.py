@@ -18,7 +18,7 @@ whole ``tk`` module for every test so the suite can never reach a display, and
 widget heights can only be measured by really rendering them. Like
 ``verify_lock_popup_safety.py``, this re-executes itself under Xvfb:
 
-    cd ~/screen-locker && python3 -m scripts.verify_screen_fits
+    cd ~/src/screen-locker && python3 -m scripts.verify_screen_fits
 
 Run as a *module*, not a path: ``-m`` puts the repo root on ``sys.path`` so
 ``screen_locker`` resolves from the checkout. Running it as a path only works

@@ -49,7 +49,7 @@ def is_scheduled_skip_today(today: date | None = None) -> bool:
     """Return True if *today* is in the shared free-day pool.
 
     The source moved from this app's own ``scheduled_skips.json`` to the
-    fleet-wide pool (``~/utils/freedays``), so one marked day now stands down
+    fleet-wide pool (``~/src/utils/freedays``), so one marked day now stands down
     every gate app at once instead of only this one.
 
     The date is **local**, not UTC. The file-backed check this replaces

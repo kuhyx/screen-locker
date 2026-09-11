@@ -7,7 +7,7 @@
 
 ## Goal
 
-`bash ~/utils/scripts/check_file_length.sh --all` from the repo root exits 0.
+`bash ~/src/utils/scripts/check_file_length.sh --all` from the repo root exits 0.
 
 Everything else in `refactor_claude_todo.md` still applies (no gaming the cap,
 no deleting tests, no suppressions). This file only adds what the previous
@@ -16,7 +16,7 @@ session learned the hard way.
 ## Start here (do this first, it costs one command)
 
 ```bash
-cd ~/screen-locker/stronglift_replacement/workout_app
+cd ~/src/screen-locker/stronglift_replacement/workout_app
 env -u GIT_DIR flutter test 2>&1 | tail -1     # MUST print: +402: All tests passed!
 ```
 
@@ -145,10 +145,10 @@ extension in a part still reaches `_privateField`.
 ## Verify (all of it, every batch)
 
 ```bash
-cd ~/screen-locker/stronglift_replacement/workout_app
+cd ~/src/screen-locker/stronglift_replacement/workout_app
 env -u GIT_DIR dart analyze lib/            # must be "No issues found!"
 env -u GIT_DIR flutter test 2>&1 | tail -1  # must be +402
-cd ~/screen-locker && pre-commit run        # includes the 100% Flutter coverage gate
+cd ~/src/screen-locker && pre-commit run        # includes the 100% Flutter coverage gate
 ```
 
 `dart analyze` is a **no-op on test files** — `analysis_options.yaml` excludes
@@ -157,7 +157,7 @@ signal.
 
 ## Done condition
 
-- `bash ~/utils/scripts/check_file_length.sh --all` exits 0.
+- `bash ~/src/utils/scripts/check_file_length.sh --all` exits 0.
 - 402 Dart tests pass; `flutter` coverage still 100%.
 - `pre-commit run --all-files` passes.
 - The app still runs on the phone: use the `phone-deploy` skill

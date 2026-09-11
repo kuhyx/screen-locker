@@ -61,7 +61,7 @@ export function makeHealth(over: Partial<HealthPayload> = {}): HealthPayload {
     armed: true,
     disarmed: false,
     disarm_marker: '/home/kuhy/.local/share/screen_locker/DISARMED',
-    log_file: '/home/kuhy/screen-locker/screen_locker/log.json',
+    log_file: '/home/kuhy/src/screen-locker/screen_locker/log.json',
     log_age_seconds: 3600,
     decision_log_file: '/home/kuhy/.local/share/screen_locker/decisions.jsonl',
     last_decision_age_seconds: 120,

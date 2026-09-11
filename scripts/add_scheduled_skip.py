@@ -3,7 +3,7 @@
 
 This used to append to ``screen_locker/scheduled_skips.json``, which only
 screen-locker read. That file is no longer consulted by anything: the lock
-chain now asks the shared pool (``~/utils/freedays``), so a day taken here
+chain now asks the shared pool (``~/src/utils/freedays``), so a day taken here
 also stands down diet-guard, wake-alarm, leetcode-guard and home-guard.
 
 Kept as a thin wrapper rather than deleted because ``arm.sh`` calls it, and

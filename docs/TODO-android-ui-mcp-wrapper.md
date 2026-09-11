@@ -1,12 +1,12 @@
 # Task: replace blind coordinate tapping with element-targeted Android UI automation
 
 > **STATUS 2026-08-10: BUILT.** The tool now exists at
-> `~/testsAndMisc/python_pkg/android_ui/` (see its README). It covers `dump` /
+> `~/src/testsAndMisc/python_pkg/android_ui/` (see its README). It covers `dump` /
 > `find` / `tap` / `type` / `wait` / `focus` with verified typing, ambiguity as
 > an error, keyboard detection, and partial-tree retries — all exercised
 > against the physical Pixel 6a. What remains from the spec below is the
-> optional MCP wrapper, `scroll_to()`, and rolling it out to `~/todo` and
-> `~/dufs-cloud/app`. Everything after this line is the original brief, kept
+> optional MCP wrapper, `scroll_to()`, and rolling it out to `~/src/todo` and
+> `~/src/dufs-cloud/app`. Everything after this line is the original brief, kept
 > because it records WHY each guarantee exists.
 
 ## what
@@ -51,7 +51,7 @@ nodes by class and gave exact centers, and the retry worked first time.
 
 New shared tool, not a per-repo copy. Two options, pick one:
 
-- `~/testsAndMisc/python_pkg/android_ui/` — a CLI (`android-ui find "Connect
+- `~/src/testsAndMisc/python_pkg/android_ui/` — a CLI (`android-ui find "Connect
   Firebase"`, `android-ui tap "Connect Firebase"`, `android-ui dump`), matching
   how `app_icons` is already shared across repos.
 - An MCP server exposing the same as tools, which is what makes it available to
@@ -59,9 +59,9 @@ New shared tool, not a per-repo copy. Two options, pick one:
   asked for "some tool ... (mcp?) which also translates to UI".
 
 Consumers (every repo with an Android surface):
-- `~/screen-locker/stronglift_replacement/workout_app`
-- `~/todo`
-- `~/dufs-cloud/app`
+- `~/src/screen-locker/stronglift_replacement/workout_app`
+- `~/src/todo`
+- `~/src/dufs-cloud/app`
 - any future Flutter app (this should be part of the app scaffold)
 
 ## must
@@ -108,7 +108,7 @@ emulator and not a debug-only Flutter driver session.
 
 - This session's working recovery: `uiautomator dump` + the bounds-parsing
   python in the screen-locker scratchpad (`ui.xml`, `ui2.xml`).
-- `~/screen-locker/CLAUDE.md` — "You are NOT done until you install the new
+- `~/src/screen-locker/CLAUDE.md` — "You are NOT done until you install the new
   version on the phone itself", which is why agent-driven UI is on the critical
   path for every task in this repo.
 - Note `uiautomator dump` returns an empty/partial tree while an animation is

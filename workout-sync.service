@@ -19,4 +19,4 @@ ExecStart=/usr/bin/python3 -m screen_locker.screen_lock --sync-only
 # disabled early-bird-workout-check.timer and nothing noticed for 13 days).
 # ExecStartPost without "-" means a disarmed locker marks this unit failed, so
 # it surfaces in `systemctl --user --failed` instead of scrolling past.
-ExecStartPost=/usr/bin/python3 %h/screen-locker/scripts/check_enforcement_armed.py --quiet
+ExecStartPost=/usr/bin/python3 %h/src/screen-locker/scripts/check_enforcement_armed.py --quiet

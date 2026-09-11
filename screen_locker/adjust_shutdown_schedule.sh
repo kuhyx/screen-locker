@@ -21,7 +21,7 @@
 # whole ratchet.
 #
 # Add to /etc/sudoers.d/workout-locker:
-#   <username> ALL=(root) NOPASSWD: /home/kuhy/screen-locker/screen_locker/adjust_shutdown_schedule.sh
+#   <username> ALL=(root) NOPASSWD: /home/kuhy/src/screen-locker/screen_locker/adjust_shutdown_schedule.sh
 
 set -euo pipefail
 

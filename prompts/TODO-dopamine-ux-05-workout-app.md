@@ -2,8 +2,8 @@
 > "do dopamine-ux-05-workout-app". It is self-contained -- it needs no context from
 > any other session.
 >
-> Canonical copy: `~/utils/dopamine-ux/05-workout-app.md` (source of truth; this is a
-> distributed copy). Running order and cross-prompt rules: `~/utils/dopamine-ux/00-INDEX.md`.
+> Canonical copy: `~/src/utils/dopamine-ux/05-workout-app.md` (source of truth; this is a
+> distributed copy). Running order and cross-prompt rules: `~/src/utils/dopamine-ux/00-INDEX.md`.
 > Generated 2026-08-16 from a survey of this repo -- line numbers are accurate
 > as of that date; **anchor on the symbol names, not the line numbers.**
 
@@ -19,10 +19,10 @@ Do **both**, in the same session that completes the work:
    Do not leave a finished prompt lying in the repo -- a stale prompt is
    indistinguishable from a pending one, and the next session will re-run it.
 
-2. **Log completion in the canonical index**, in `~/utils` (a *different* repo,
+2. **Log completion in the canonical index**, in `~/src/utils` (a *different* repo,
    so it needs its own commit):
    ```bash
-   cd ~/utils
+   cd ~/src/utils
    # append to the "Completion log" table in dopamine-ux/00-INDEX.md:
    #   | 05-workout-app.md | DONE <YYYY-MM-DD> | <impl commit sha> | <one-line note> |
    git add dopamine-ux/00-INDEX.md
@@ -74,7 +74,7 @@ number with a motion token while you are in the file.
 
 ## where
 
-Repo: `~/screen-locker`. App: `~/screen-locker/stronglift_replacement/workout_app`
+Repo: `~/src/screen-locker`. App: `~/src/screen-locker/stronglift_replacement/workout_app`
 (a Flutter app nested inside the screen-locker repo; that directory contains **no
 Python** — only the app and two design docs).
 
@@ -175,7 +175,7 @@ Theme: `lib/ui/theme.dart` — local hand-copy, **no `design_system` dependency*
 2. Finishing a workout produces a haptic and a visible dialog arrival; step 2
    adds a sound.
 3. No inline animation duration remains in `exercise_tile_rows.dart`.
-4. `cd ~/screen-locker/stronglift_replacement/workout_app && flutter analyze` clean.
+4. `cd ~/src/screen-locker/stronglift_replacement/workout_app && flutter analyze` clean.
 5. `flutter test` passes **and coverage stays at 100%**.
 6. With OS "remove animations" on, the app works and durations are zero.
 7. Step 2: the settings toggle flips, persists across restart, and silences both
@@ -187,7 +187,7 @@ Theme: `lib/ui/theme.dart` — local hand-copy, **no `design_system` dependency*
 
 ```
 adb devices                      # confirm 23181JEGR08034
-cd ~/screen-locker/stronglift_replacement/workout_app
+cd ~/src/screen-locker/stronglift_replacement/workout_app
 flutter build apk --release
 adb install -r build/app/outputs/flutter-apk/app-release.apk
 ```
@@ -209,7 +209,7 @@ state what you felt and heard; do not infer them from the code.
   `setLastWorkoutType` as the public-wrapper pattern.
 - `lib/screens/settings_screen_sections.dart` ~:1-11 — the coverage/line-cap
   comments, and `_SyncSection` as the section pattern.
-- `~/utils/unified-design-system/motion.md` — motion/haptic vocabulary from
+- `~/src/utils/unified-design-system/motion.md` — motion/haptic vocabulary from
   prompt 01. **Prompt 01 must have run first.**
 
 ## context you would otherwise rediscover
