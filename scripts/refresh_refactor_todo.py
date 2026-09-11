@@ -31,7 +31,7 @@ _logger = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TODO_FILE = REPO_ROOT / "refactor_claude_todo.md"
 GATE = REPO_ROOT / "scripts" / "check_file_length.sh"
-FALLBACK_GATE = Path.home() / "utils" / "scripts" / "check_file_length.sh"
+FALLBACK_GATE = Path.home() / "src/utils" / "scripts" / "check_file_length.sh"
 
 BEGIN_MARKER = "<!-- BEGIN GENERATED VIOLATIONS -->"
 END_MARKER = "<!-- END GENERATED VIOLATIONS -->"
