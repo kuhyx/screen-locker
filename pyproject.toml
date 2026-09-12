@@ -22,7 +22,7 @@ screen-locker-web = "screen_locker._web_server:main"
 # so the systemd/CLI system-python path stays dependency-light and never has
 # to import the MCP SDK.
 [project.optional-dependencies]
-mcp = ["mcp==2.1.1"]
+mcp = ["mcp==2.2.0"]
 
 [tool.setuptools.packages.find]
 # This repo also holds stronglift_replacement/ (an unrelated Flutter app, not

@@ -31,7 +31,7 @@ jobs:
       # developed against (Dart SDK ^3.12.2) so CI's analyzer matches local.
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.47.2
+          flutter-version: 3.47.4
           channel: stable
           cache: true
       # The web-lint / web-typecheck / web-coverage hooks run npm inside web/.
@@ -41,7 +41,7 @@ jobs:
       # landed in 8f91158.
       - uses: actions/setup-node@v4
         with:
-          node-version: "24.20.0"
+          node-version: "24.21.0"
           cache: npm
           cache-dependency-path: web/package-lock.json
       - name: Install status-UI packages
