@@ -40,12 +40,16 @@ class StatusSectionsMixin:
         self._text(
             f"{mark} Today ({day.label}): {entry_str}",
             role="body",
-            color=self._colors.success if day.counted else self._colors.warning,
+            color=self._colors.palette.success
+            if day.counted
+            else self._colors.palette.warning,
         )
         if day.source:
             # Secondary provenance note on an already-shown entry -- a
             # deliberately caption-sized exception to the 16px floor.
-            self._text(day.source, role="caption", color=self._colors.muted, pad="xs")
+            self._text(
+                day.source, role="caption", color=self._colors.palette.muted, pad="xs"
+            )
 
     def _section_week(self, parent: tk.Widget, week: WeeklySummary) -> None:
         """Render this ISO week's per-day breakdown and totals."""
@@ -61,20 +65,20 @@ class StatusSectionsMixin:
             self._text(
                 f"{mark} {day.label}: {entry_str}",
                 role="body",
-                color=self._colors.muted,
+                color=self._colors.palette.muted,
                 pad="xs",
             )
         if week.remaining > 0:
             self._text(
                 f"Need {week.remaining} more this week.",
                 role="body",
-                color=self._colors.warning,
+                color=self._colors.palette.warning,
             )
         elif week.extra > 0:
             self._text(
                 f"{week.extra} above the weekly minimum!",
                 role="body",
-                color=self._colors.success,
+                color=self._colors.palette.success,
             )
 
     def _section_lock_explanation(
@@ -86,13 +90,15 @@ class StatusSectionsMixin:
         self._text(
             expl.reason,
             role="body",
-            color=self._colors.danger if expl.fired else self._colors.success,
+            color=self._colors.palette.danger
+            if expl.fired
+            else self._colors.palette.success,
         )
         if expl.auto_upgrade.would_attempt:
             self._text(
                 f"Pending auto-upgrade: {expl.auto_upgrade.reason}",
                 role="label",
-                color=self._colors.warning,
+                color=self._colors.palette.warning,
             )
 
     def _section_sick_budget(self, parent: tk.Widget, sick: SickBudgetStatus) -> None:
@@ -103,7 +109,9 @@ class StatusSectionsMixin:
             f"{sick.used_7d}/{sick.budget_7d} week · {sick.used_30d}/{sick.budget_30d} "
             f"month · {sick.used_90d}/{sick.budget_90d} quarter · debt {sick.debt}",
             role="body",
-            color=self._colors.danger if sick.exhausted else self._colors.muted,
+            color=self._colors.palette.danger
+            if sick.exhausted
+            else self._colors.palette.muted,
         )
 
     def _section_manual_workout_budget(
@@ -116,7 +124,9 @@ class StatusSectionsMixin:
             f"{manual.used_7d}/{manual.budget_7d} week · "
             f"{manual.used_30d}/{manual.budget_30d} month",
             role="body",
-            color=self._colors.danger if manual.exhausted else self._colors.muted,
+            color=self._colors.palette.danger
+            if manual.exhausted
+            else self._colors.palette.muted,
         )
 
     def _section_sync_backend(self, parent: tk.Widget) -> None:
@@ -134,7 +144,9 @@ class StatusSectionsMixin:
         self._text(
             format_sync_line(status),
             role="body",
-            color=self._colors.muted if status.healthy else self._colors.danger,
+            color=self._colors.palette.muted
+            if status.healthy
+            else self._colors.palette.danger,
         )
 
     def _section_shutdown(
@@ -154,7 +166,7 @@ class StatusSectionsMixin:
             self._text(
                 "Live shutdown config unavailable.",
                 role="body",
-                color=self._colors.warning,
+                color=self._colors.palette.warning,
             )
         # Rest-of-week/next-week/explanation are speculative annotations, not
         # the section's primary content -- a deliberate caption-sized
@@ -164,7 +176,9 @@ class StatusSectionsMixin:
             f"{d.label} {d.hour:02d}:00" for d in shutdown.rest_of_week
         )
         self._text(
-            f"Rest of week: {rest_line}", role="caption", color=self._colors.muted
+            f"Rest of week: {rest_line}",
+            role="caption",
+            color=self._colors.palette.muted,
         )
         next_line = ", ".join(
             f"{d.label} {d.hour:02d}:00" for d in shutdown.next_week_preview
@@ -172,6 +186,8 @@ class StatusSectionsMixin:
         self._text(
             f"Next week (speculative): {next_line}",
             role="caption",
-            color=self._colors.muted,
+            color=self._colors.palette.muted,
         )
-        self._text(shutdown.explanation, role="caption", color=self._colors.muted)
+        self._text(
+            shutdown.explanation, role="caption", color=self._colors.palette.muted
+        )

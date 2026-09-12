@@ -31,35 +31,35 @@ class UnlockViewMixin:
             "Great job! 💪",
             role="display",
             scale=1.5,
-            color=self._colors.success,
+            color=self._colors.palette.success,
             pad="lg",
         )
         if credit.shutdown_adjusted:
             self._text(
                 "Shutdown time +2h later! 🎁",
                 role="title",
-                color=self._colors.warning,
+                color=self._colors.palette.warning,
             )
         if credit.extra_bonus_delta > 0:
             self._text(
                 f"Extra workout today! +{credit.extra_bonus_delta}h tonight",
                 role="subtitle",
-                color=self._colors.warning,
+                color=self._colors.palette.warning,
             )
         if credit.new_debt is not None:
             self._text(
                 f"Workout debt: {credit.new_debt}",
                 role="subtitle",
-                color=self._colors.warning
+                color=self._colors.palette.warning
                 if credit.new_debt > 0
-                else self._colors.muted,
+                else self._colors.palette.muted,
             )
         streak = current_streak(EXTRA_BENEFITS_FILE)
         if streak >= 1:
             self._text(
                 f"🔥 {streak}-week streak (5+ workouts each)",
                 role="label",
-                color=self._colors.muted,
+                color=self._colors.palette.muted,
             )
         self._text("Screen Unlocked!", role="display", pad="md")
         if self.workout_data.get("type") in _COMMITTABLE:

@@ -30,7 +30,10 @@ class UIFlowsMixin(SickDayFlowMixin, LockoutFlowMixin):
         """
         self.clear_container()
         self._label(
-            "Checking phone...", role="display", color=self._colors.warning, pad="lg"
+            "Checking phone...",
+            role="display",
+            color=self._colors.palette.warning,
+            pad="lg",
         )
         self._text("Looking for today's workout in StrongLifts...", role="body")
 
@@ -54,52 +57,58 @@ class UIFlowsMixin(SickDayFlowMixin, LockoutFlowMixin):
         """Show TRY AGAIN and (if budget allows) I'm sick after a failed check."""
         self.clear_container()
         self._label(
-            "No Workout Found", role="display", color=self._colors.danger, pad="md"
+            "No Workout Found",
+            role="display",
+            color=self._colors.palette.danger,
+            pad="md",
         )
-        self._text(message, color=self._colors.warning)
+        self._text(message, color=self._colors.palette.warning)
         # Never accuse the user of skipping a workout the machine simply could
         # not see. On 2026-08-24 this screen said "No Workout Found" after a
         # 1h57m session, because Firebase was unreadable and the GitHub mirror
         # had been stale for nine days -- neither of which was shown here.
         diagnosis = explain_findings(collect_source_findings())
         if diagnosis:
-            self._text(diagnosis, color=self._colors.muted)
+            self._text(diagnosis, color=self._colors.palette.muted)
         history = _sick_tracker.load_history()
-        self._text(_sick_tracker.budget_summary(history), color=self._colors.muted)
         self._text(
-            _manual_workout.budget_summary(self.log_file), color=self._colors.muted
+            _sick_tracker.budget_summary(history), color=self._colors.palette.muted
+        )
+        self._text(
+            _manual_workout.budget_summary(self.log_file),
+            color=self._colors.palette.muted,
         )
         frame = self._button_row()
         self._button(
             frame,
             "TRY AGAIN",
-            bg=self._colors.accent,
+            bg=self._colors.palette.accent,
             command=self._start_phone_check,
             width=12,
         ).pack(side="left", padx=self._colors.space("sm"))
         if _sick_tracker.is_budget_exhausted(history):
             self._text(
                 "Sick budget exhausted. No 'I'm sick' option available.",
-                color=self._colors.danger,
+                color=self._colors.palette.danger,
             )
         else:
             self._button(
                 frame,
                 "I'm sick",
-                bg=self._colors.warning,
+                bg=self._colors.palette.warning,
                 command=self.ask_if_sick,
                 width=12,
             ).pack(side="left", padx=self._colors.space("sm"))
         if _manual_workout.is_budget_exhausted(self.log_file):
             self._text(
                 "Manual-workout budget exhausted. No manual-log option available.",
-                color=self._colors.danger,
+                color=self._colors.palette.danger,
             )
         else:
             self._button(
                 frame,
                 "Log Manual Workout",
-                bg=self._colors.accent,
+                bg=self._colors.palette.accent,
                 command=self._show_manual_workout_form,
                 width=16,
             ).pack(side="left", padx=self._colors.space("sm"))
@@ -112,11 +121,13 @@ class UIFlowsMixin(SickDayFlowMixin, LockoutFlowMixin):
             "✓ Manual Workout Logged!",
             role="display",
             scale=1.3,
-            color=self._colors.success,
+            color=self._colors.palette.success,
             pad="lg",
         )
-        self._text(entry.get("source", ""), role="subtitle", color=self._colors.success)
-        self._text("Unlocking...", role="body", color=self._colors.muted)
+        self._text(
+            entry.get("source", ""), role="subtitle", color=self._colors.palette.success
+        )
+        self._text("Unlocking...", role="body", color=self._colors.palette.muted)
         unlock_delay = 1500 if self.demo_mode else 2000
         self.root.after(unlock_delay, self.unlock_screen)
 
@@ -134,11 +145,11 @@ class UIFlowsMixin(SickDayFlowMixin, LockoutFlowMixin):
                 "✓ Workout Verified!",
                 role="display",
                 scale=1.3,
-                color=self._colors.success,
+                color=self._colors.palette.success,
                 pad="lg",
             )
-            self._text(message, role="subtitle", color=self._colors.success)
-            self._text("Unlocking...", role="body", color=self._colors.muted)
+            self._text(message, role="subtitle", color=self._colors.palette.success)
+            self._text("Unlocking...", role="body", color=self._colors.palette.muted)
             unlock_delay = 1500 if self.demo_mode else 2000
             self.root.after(unlock_delay, self.unlock_screen)
         elif status == "too_short":
@@ -175,7 +186,10 @@ class UIFlowsMixin(SickDayFlowMixin, LockoutFlowMixin):
         """
         self.clear_container()
         self._label(
-            "Checking RunnerUp...", role="display", color=self._colors.warning, pad="lg"
+            "Checking RunnerUp...",
+            role="display",
+            color=self._colors.palette.warning,
+            pad="lg",
         )
         self._text("Looking for today's run in RunnerUp...", role="body")
         executor = ThreadPoolExecutor(max_workers=1)
@@ -196,11 +210,13 @@ class UIFlowsMixin(SickDayFlowMixin, LockoutFlowMixin):
                     "✓ Run Verified!",
                     role="display",
                     scale=1.3,
-                    color=self._colors.success,
+                    color=self._colors.palette.success,
                     pad="lg",
                 )
-                self._text(message, role="subtitle", color=self._colors.success)
-                self._text("Unlocking...", role="body", color=self._colors.muted)
+                self._text(message, role="subtitle", color=self._colors.palette.success)
+                self._text(
+                    "Unlocking...", role="body", color=self._colors.palette.muted
+                )
                 unlock_delay = 1500 if self.demo_mode else 2000
                 self.root.after(unlock_delay, self.unlock_screen)
             else:

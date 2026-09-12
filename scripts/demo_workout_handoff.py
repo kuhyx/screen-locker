@@ -43,7 +43,7 @@ import tkinter as tk
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from gatelock import LockConfig, LockWindow
+from gatelock import GrabPolicy, LockConfig, LockWindow
 
 from screen_locker._workout_app import ProcessHooks, workout_app_binary
 from screen_locker._workout_handoff import lock_grab_handoff
@@ -130,7 +130,7 @@ def main() -> int:
     root = tk.Tk()
     root.title("Workout handoff demo")
     # Local grab + VT switching enabled: every escape hatch stays open.
-    config = LockConfig(mode="hard", grab="local", disable_vt=False)
+    config = LockConfig(mode="hard", grab=GrabPolicy(kind="local", disable_vt=False))
     hooks = _DemoHooks()
     lock = LockWindow(root, config, hooks)
     hooks.lock = lock

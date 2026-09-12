@@ -20,14 +20,14 @@ class SickDayFlowMixin:
     def _get_sick_day_status(self) -> tuple[str, str]:
         """Determine sick day status text and color."""
         if self._sick_mode_used_today():
-            return "Shutdown time already adjusted today", self._colors.warning
+            return "Shutdown time already adjusted today", self._colors.palette.warning
         if self._adjust_shutdown_time_earlier():
             return (
                 "Shutdown time moved 1.5 hours earlier ✓\n(Will revert tomorrow)"
-            ), self._colors.success
+            ), self._colors.palette.success
         return (
             "Could not adjust shutdown time (check permissions)",
-            self._colors.danger,
+            self._colors.palette.danger,
         )
 
     def _proceed_to_sick_countdown(self) -> None:
@@ -54,7 +54,7 @@ class SickDayFlowMixin:
         countdown: int,
     ) -> None:
         """Display sick day UI labels and countdown."""
-        self._label("Sick Day Mode", color=self._colors.warning, pad="md")
+        self._label("Sick Day Mode", color=self._colors.palette.warning, pad="md")
         self._text(status_text, color=status_color)
         minutes = countdown // 60
         self._text(

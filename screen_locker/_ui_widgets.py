@@ -69,8 +69,8 @@ class UIWidgetsMixin(UIFormFieldsMixin):
             tk.Label,
             text=text,
             font=self._colors.font(role, bold=True, scale=scale),
-            fg=color or self._colors.fg,
-            bg=self._colors.bg,
+            fg=color or self._colors.palette.fg,
+            bg=self._colors.palette.bg,
         )
         label.pack(pady=self._colors.space(pad))
         return label
@@ -92,8 +92,8 @@ class UIWidgetsMixin(UIFormFieldsMixin):
             tk.Label,
             text=text,
             font=self._colors.font(role, scale=scale),
-            fg=color or self._colors.fg,
-            bg=self._colors.bg,
+            fg=color or self._colors.palette.fg,
+            bg=self._colors.palette.bg,
         )
         label.pack(pady=self._colors.space(pad))
         return label
@@ -109,12 +109,12 @@ class UIWidgetsMixin(UIFormFieldsMixin):
         the bug by omission.
         """
         fills = {
-            self._colors.accent,
-            self._colors.success,
-            self._colors.warning,
-            self._colors.danger,
+            self._colors.palette.accent,
+            self._colors.palette.success,
+            self._colors.palette.warning,
+            self._colors.palette.danger,
         }
-        return self._colors.on_fill if bg in fills else self._colors.fg
+        return self._colors.palette.on_fill if bg in fills else self._colors.palette.fg
 
     def _button(
         self,
@@ -174,6 +174,6 @@ class UIWidgetsMixin(UIFormFieldsMixin):
         on every screen: the pixels it spends are the ones the manual-workout
         form has left over on a 1024x600 panel.
         """
-        frame = self.container.child_frame(bg=self._colors.bg)
+        frame = self.container.child_frame(bg=self._colors.palette.bg)
         frame.pack(pady=self._colors.space("sm"))
         return frame

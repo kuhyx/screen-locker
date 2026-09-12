@@ -39,15 +39,15 @@ def build_heat_skip_content(
     *both* edges if it ever outgrows the display -- and it has to be in the
     fit check for that reason.
     """
-    outer = tk.Frame(parent, bg=_COLORS.bg)
+    outer = tk.Frame(parent, bg=_COLORS.palette.bg)
     outer.place(relx=0.5, rely=0.5, anchor="center")
 
     tk.Label(
         outer,
         text="\u2600  Too hot to workout?",
         font=_COLORS.font("body", bold=True, family=_FONT),
-        bg=_COLORS.bg,
-        fg=_COLORS.warning,
+        bg=_COLORS.palette.bg,
+        fg=_COLORS.palette.warning,
     ).pack(pady=(0, _COLORS.space("sm")))
 
     tk.Label(
@@ -57,28 +57,28 @@ def build_heat_skip_content(
             f"  (threshold: {HEAT_SKIP_TEMP_THRESHOLD}\u00b0C)"
         ),
         font=_COLORS.font("body", family=_FONT),
-        bg=_COLORS.bg,
-        fg=_COLORS.muted,
+        bg=_COLORS.palette.bg,
+        fg=_COLORS.palette.muted,
     ).pack(pady=_COLORS.space("xs"))
 
     tk.Label(
         outer,
         text="Skip today's workout due to extreme heat?",
         font=_COLORS.font("body", family=_FONT),
-        bg=_COLORS.bg,
-        fg=_COLORS.muted,
+        bg=_COLORS.palette.bg,
+        fg=_COLORS.palette.muted,
     ).pack(pady=(_COLORS.space("xs"), 0))
 
-    btn_frame = tk.Frame(outer, bg=_COLORS.bg)
+    btn_frame = tk.Frame(outer, bg=_COLORS.palette.bg)
     btn_frame.pack(pady=_COLORS.space("lg"))
 
     skip_button = tk.Button(
         btn_frame,
         text="Skip workout",
         command=on_skip,
-        bg=_COLORS.warning,
-        fg=_COLORS.on_fill,
-        activebackground=_COLORS.warning,
+        bg=_COLORS.palette.warning,
+        fg=_COLORS.palette.on_fill,
+        activebackground=_COLORS.palette.warning,
         font=_COLORS.font("label", family=_FONT),
         padx=_COLORS.space("md"),
         pady=_COLORS.space("sm"),
@@ -91,9 +91,9 @@ def build_heat_skip_content(
         btn_frame,
         text="No, I'll workout",
         command=on_decline,
-        bg=_COLORS.field_bg,
-        fg=_COLORS.fg,
-        activebackground=_COLORS.field_bg,
+        bg=_COLORS.palette.field_bg,
+        fg=_COLORS.palette.fg,
+        activebackground=_COLORS.palette.field_bg,
         font=_COLORS.font("label", family=_FONT),
         padx=_COLORS.space("md"),
         pady=_COLORS.space("sm"),
@@ -131,7 +131,7 @@ class HeatSkipMixin:
         # This window is destroyed before the main GateRoot is created.
         root = tk.Tk()
         root.title("Extreme Heat")
-        root.configure(bg=_COLORS.bg)
+        root.configure(bg=_COLORS.palette.bg)
         root.attributes("-fullscreen", True)
         root.attributes("-topmost", True)
         root.grab_set()

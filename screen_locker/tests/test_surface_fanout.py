@@ -55,7 +55,9 @@ class TestLockerFansOut:
         row = locker._button_row()
         mock_tk.Button.reset_mock()
 
-        locker._button(row, "OK", bg=locker._colors.accent, command=lambda: None)
+        locker._button(
+            row, "OK", bg=locker._colors.palette.accent, command=lambda: None
+        )
 
         assert mock_tk.Button.call_count == len(TWO_OUTPUTS)
 

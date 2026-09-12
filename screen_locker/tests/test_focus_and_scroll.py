@@ -184,7 +184,7 @@ class TestMultiLineField:
     ) -> None:
         """Both halves fan out, like every other widget helper here."""
         locker = create_locker(mock_tk, tmp_path)
-        parent = locker.container.child_frame(bg=locker._colors.bg)
+        parent = locker.container.child_frame(bg=locker._colors.palette.bg)
         mock_tk.Text.reset_mock()
 
         boxes = locker._add_label_text(parent, label="Why?", height=3)
@@ -202,7 +202,7 @@ class TestMultiLineField:
         advertised way out -- on this lock, that means never reaching SUBMIT.
         """
         locker = create_locker(mock_tk, tmp_path)
-        parent = locker.container.child_frame(bg=locker._colors.bg)
+        parent = locker.container.child_frame(bg=locker._colors.palette.bg)
 
         boxes = locker._add_label_text(parent, label="Why?")
 
@@ -213,7 +213,7 @@ class TestMultiLineField:
     def test_paste_is_disabled(self, mock_tk: MagicMock, tmp_path: Path) -> None:
         """The justification has to be typed, like every other field here."""
         locker = create_locker(mock_tk, tmp_path)
-        parent = locker.container.child_frame(bg=locker._colors.bg)
+        parent = locker.container.child_frame(bg=locker._colors.palette.bg)
 
         boxes = locker._add_label_text(parent, label="Why?")
 

@@ -42,21 +42,21 @@ class ManualWorkoutDialogMixin(
     def _show_manual_workout_form(self) -> None:
         """Render the manual-workout evidence form, or a budget-exhausted note."""
         self.clear_container()
-        self._label("Log Manual Workout", color=self._colors.accent, pad="xs")
+        self._label("Log Manual Workout", color=self._colors.palette.accent, pad="xs")
         if _manual_workout.is_budget_exhausted(self.log_file):
             self._text(
                 "Manual-workout budget exhausted for this window.",
-                color=self._colors.danger,
+                color=self._colors.palette.danger,
             )
             self._text(
                 _manual_workout.budget_summary(self.log_file),
-                color=self._colors.muted,
+                color=self._colors.palette.muted,
             )
             row = self._button_row()
             self._button(
                 row,
                 "BACK",
-                bg=self._colors.field_bg,
+                bg=self._colors.palette.field_bg,
                 command=self._on_manual_workout_cancelled,
                 width=12,
             ).pack(side="left", padx=self._colors.space("sm"))
@@ -64,7 +64,7 @@ class ManualWorkoutDialogMixin(
         self._text(
             _manual_workout.budget_summary(self.log_file),
             role="label",
-            color=self._colors.accent,
+            color=self._colors.palette.accent,
             pad="xs",
         )
         self._build_manual_workout_form()
@@ -106,8 +106,8 @@ class ManualWorkoutDialogMixin(
         # Both sport sub-frames occupy the same full-width grid slot; only the
         # selected one is shown (see _on_mw_sport_changed).
         act_row = self._mw_next_full_row(form)
-        self._mw_tt_frame = tk.Frame(form, bg=self._colors.bg)
-        self._mw_other_frame = tk.Frame(form, bg=self._colors.bg)
+        self._mw_tt_frame = tk.Frame(form, bg=self._colors.palette.bg)
+        self._mw_other_frame = tk.Frame(form, bg=self._colors.palette.bg)
         for sport_frame in (self._mw_tt_frame, self._mw_other_frame):
             sport_frame.grid_columnconfigure(0, weight=1, uniform="mwact")
             sport_frame.grid_columnconfigure(1, weight=1, uniform="mwact")
@@ -151,20 +151,20 @@ class ManualWorkoutDialogMixin(
         )
 
         self._mw_error_label = self._text(
-            "", role="label", color=self._colors.danger, pad="xs"
+            "", role="label", color=self._colors.palette.danger, pad="xs"
         )
         button_row = self._button_row()
         self._button(
             button_row,
             "SUBMIT",
-            bg=self._colors.accent,
+            bg=self._colors.palette.accent,
             command=self._submit_manual_workout_form,
             width=12,
         ).pack(side="left", padx=self._colors.space("sm"))
         self._button(
             button_row,
             "BACK",
-            bg=self._colors.field_bg,
+            bg=self._colors.palette.field_bg,
             command=self._on_manual_workout_cancelled,
             width=12,
         ).pack(side="left", padx=self._colors.space("sm"))

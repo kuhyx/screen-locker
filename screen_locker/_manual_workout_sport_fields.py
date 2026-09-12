@@ -48,13 +48,13 @@ class ManualWorkoutSportFieldsMixin:
         self._mw_sport_var = tk.StringVar(
             value=_manual_workout.SPORT_LABELS[_manual_workout.SPORT_TABLE_TENNIS]
         )
-        row = tk.Frame(parent, bg=self._colors.bg)
+        row = tk.Frame(parent, bg=self._colors.palette.bg)
         tk.Label(
             row,
             text="Sport:",
             font=self._colors.font("body"),
-            fg=self._colors.fg,
-            bg=self._colors.bg,
+            fg=self._colors.palette.fg,
+            bg=self._colors.palette.bg,
         ).pack(side="left", padx=self._colors.space("xs"))
         for label in _manual_workout.SPORT_LABELS.values():
             tk.Radiobutton(
@@ -65,14 +65,14 @@ class ManualWorkoutSportFieldsMixin:
                 # Radiobutton's command takes no argument -- bind the label.
                 command=lambda chosen=label: self._on_mw_sport_changed(chosen),
                 font=self._colors.font("body"),
-                fg=self._colors.fg,
-                bg=self._colors.bg,
-                activeforeground=self._colors.fg,
-                activebackground=self._colors.bg,
+                fg=self._colors.palette.fg,
+                bg=self._colors.palette.bg,
+                activeforeground=self._colors.palette.fg,
+                activebackground=self._colors.palette.bg,
                 # Without selectcolor the indicator is a white blob on the dark
                 # overlay; the OptionMenu was the one unstyled widget in this
                 # form, which likely added to it reading as dead.
-                selectcolor=self._colors.field_bg,
+                selectcolor=self._colors.palette.field_bg,
                 highlightthickness=0,
             ).pack(side="left", padx=self._colors.space("xs"))
         self._mw_grid(parent, row, full=True)

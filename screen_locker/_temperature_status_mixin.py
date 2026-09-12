@@ -40,7 +40,9 @@ class TemperatureStatusMixin:
         result = self._temp_result
         if result is None:
             self._text(
-                "Checking Warsaw temperature…", role="caption", color=self._colors.muted
+                "Checking Warsaw temperature…",
+                role="caption",
+                color=self._colors.palette.muted,
             )
             return
         if result.timed_out:
@@ -48,14 +50,14 @@ class TemperatureStatusMixin:
                 f"Warsaw temperature check timed out after ~"
                 f"{int(HARD_TIMEOUT_SECONDS)}s — network may be down.",
                 role="caption",
-                color=self._colors.warning,
+                color=self._colors.palette.warning,
             )
             return
         if result.temp_celsius is None:
             self._text(
                 "Warsaw temperature check failed (network/API error).",
                 role="caption",
-                color=self._colors.warning,
+                color=self._colors.palette.warning,
             )
             return
         hot = result.temp_celsius >= HEAT_SKIP_TEMP_THRESHOLD
@@ -63,13 +65,13 @@ class TemperatureStatusMixin:
             f"Warsaw: {result.temp_celsius:.0f}°C (heat-skip threshold "
             f"{HEAT_SKIP_TEMP_THRESHOLD}°C)",
             role="caption",
-            color=self._colors.warning if hot else self._colors.muted,
+            color=self._colors.palette.warning if hot else self._colors.palette.muted,
         )
         if hot:
             self._text(
                 "Would trigger heat-skip today.",
                 role="caption",
-                color=self._colors.danger,
+                color=self._colors.palette.danger,
             )
 
     def _start_temperature_check(self) -> None:

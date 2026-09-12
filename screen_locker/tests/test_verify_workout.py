@@ -161,7 +161,7 @@ class TestSetupVerifyWindow:
         locker.root.minsize.assert_called_once()
         locker.root.maxsize.assert_called_once()
         locker.root.configure.assert_called_with(
-            bg=locker._colors.bg,
+            bg=locker._colors.palette.bg,
             cursor="arrow",
         )
         locker.root.protocol.assert_called_with(

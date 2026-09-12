@@ -143,7 +143,7 @@ class FormHost(UIWidgetsMixin, ManualWorkoutDialogMixin):
         self.log_file = Path(self._log_dir.name) / "log.json"
         self.log_file.write_text("{}")
         self._colors = LockConfig()
-        self.container = FrameGroup.single(root, bg=self._colors.bg)
+        self.container = FrameGroup.single(root, bg=self._colors.palette.bg)
 
     def _on_manual_workout_saved(self, entry: dict[str, object]) -> None:
         """Unused here; the form is never submitted."""

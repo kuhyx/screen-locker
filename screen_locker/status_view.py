@@ -103,7 +103,7 @@ class StatusWindow(
         # but it shares UIWidgetsMixin's factory with the locker, which now
         # builds through a group. Filling the window rather than centring, so
         # this is built here instead of via FrameGroup.single().
-        frame = tk.Frame(root, bg=self._colors.bg)
+        frame = tk.Frame(root, bg=self._colors.palette.bg)
         frame.pack(fill="both", expand=True)
         self.container = FrameGroup([frame])
         self._start_temperature_check()
@@ -127,11 +127,15 @@ class StatusWindow(
         if self._phone_check_result is not None:
             status, message = self._phone_check_result
             color = (
-                self._colors.success if status == "verified" else self._colors.warning
+                self._colors.palette.success
+                if status == "verified"
+                else self._colors.palette.warning
             )
             self._text(f"Phone check ({status}): {message}", role="body", color=color)
         if self._credit_message is not None:
-            self._text(self._credit_message, role="body", color=self._colors.success)
+            self._text(
+                self._credit_message, role="body", color=self._colors.palette.success
+            )
         # "Check Phone"/"Log Manual Workout" are the primary write actions
         # (accent, high contrast per rule 3); "Refresh"/"Close" are secondary
         # utility actions (muted) -- two tiers instead of four arbitrary hues.
@@ -139,7 +143,7 @@ class StatusWindow(
         self._button(
             frame,
             "Check Phone",
-            bg=self._colors.accent,
+            bg=self._colors.palette.accent,
             command=self._on_check_phone_clicked,
             width=14,
         ).pack(side="left", padx=self._colors.space("sm"))
@@ -147,21 +151,21 @@ class StatusWindow(
             self._button(
                 frame,
                 "Log Manual Workout",
-                bg=self._colors.accent,
+                bg=self._colors.palette.accent,
                 command=self._show_manual_workout_form,
                 width=16,
             ).pack(side="left", padx=self._colors.space("sm"))
         self._button(
             frame,
             "Refresh",
-            bg=self._colors.field_bg,
+            bg=self._colors.palette.field_bg,
             command=self._on_refresh_clicked,
             width=10,
         ).pack(side="left", padx=self._colors.space("sm"))
         self._button(
             frame,
             "Close",
-            bg=self._colors.field_bg,
+            bg=self._colors.palette.field_bg,
             command=self.root.destroy,
             width=8,
         ).pack(side="left", padx=self._colors.space("sm"))
@@ -219,7 +223,7 @@ def main(argv: list[str] | None = None) -> None:
 
     root = tk.Tk()
     root.title("Workout Status")
-    root.configure(bg=_STATUS_COLORS.bg)
+    root.configure(bg=_STATUS_COLORS.palette.bg)
     root.minsize(560, 200)
 
     def refresh() -> None:

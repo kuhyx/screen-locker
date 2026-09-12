@@ -72,8 +72,8 @@ class ManualWorkoutFormWidgetsMixin:
             parent,
             text=title,
             font=self._colors.font("body", bold=True),
-            fg=self._colors.accent,
-            bg=self._colors.bg,
+            fg=self._colors.palette.accent,
+            bg=self._colors.palette.bg,
             anchor="w",
         )
         self._mw_grid(parent, label, full=True)
@@ -95,7 +95,7 @@ class ManualWorkoutFormWidgetsMixin:
                 one field per form should ask.
         """
         var = tk.StringVar()
-        cell = tk.Frame(parent, bg=self._colors.bg)
+        cell = tk.Frame(parent, bg=self._colors.palette.bg)
         # Label beside the field, not above it. Stacked, each of the ten cells
         # cost two lines plus the gap between them, and the form measured
         # 1320px against a 768px panel; side-by-side each cell is one line
@@ -105,17 +105,17 @@ class ManualWorkoutFormWidgetsMixin:
             cell,
             text=label,
             font=self._colors.font("label"),
-            fg=self._colors.fg,
-            bg=self._colors.bg,
+            fg=self._colors.palette.fg,
+            bg=self._colors.palette.bg,
             anchor="w",
         ).pack(side="left", padx=(0, self._colors.space("xs")))
         entry = tk.Entry(
             cell,
             textvariable=var,
             font=self._colors.font("label"),
-            bg=self._colors.field_bg,
-            fg=self._colors.fg,
-            insertbackground=self._colors.fg,
+            bg=self._colors.palette.field_bg,
+            fg=self._colors.palette.fg,
+            insertbackground=self._colors.palette.fg,
             **self._colors.focus_kwargs(),
         )
         entry.pack(side="left", fill="x", expand=True)
@@ -130,13 +130,13 @@ class ManualWorkoutFormWidgetsMixin:
     ) -> tk.IntVar:
         """Add a half-width label + numeric Spinbox and return its IntVar."""
         var = tk.IntVar(value=0)
-        row = tk.Frame(parent, bg=self._colors.bg)
+        row = tk.Frame(parent, bg=self._colors.palette.bg)
         tk.Label(
             row,
             text=label,
             font=self._colors.font("label"),
-            fg=self._colors.fg,
-            bg=self._colors.bg,
+            fg=self._colors.palette.fg,
+            bg=self._colors.palette.bg,
         ).pack(side="left", padx=self._colors.space("xs"))
         tk.Spinbox(
             row,
@@ -157,22 +157,22 @@ class ManualWorkoutFormWidgetsMixin:
         whole rows of a form that has to fit a 768px panel, and two of them
         sit side by side just as legibly.
         """
-        cell = tk.Frame(parent, bg=self._colors.bg)
+        cell = tk.Frame(parent, bg=self._colors.palette.bg)
         tk.Label(
             cell,
             text=label,
             font=self._colors.font("label"),
-            fg=self._colors.fg,
-            bg=self._colors.bg,
+            fg=self._colors.palette.fg,
+            bg=self._colors.palette.bg,
             anchor="w",
         ).pack(fill="x")
         text_widget = tk.Text(
             cell,
             height=2,
             font=self._colors.font("label"),
-            bg=self._colors.field_bg,
-            fg=self._colors.fg,
-            insertbackground=self._colors.fg,
+            bg=self._colors.palette.field_bg,
+            fg=self._colors.palette.fg,
+            insertbackground=self._colors.palette.fg,
             **self._colors.focus_kwargs(),
         )
         text_widget.pack(pady=self._colors.space("xs"), fill="x")
@@ -187,7 +187,7 @@ class ManualWorkoutFormWidgetsMixin:
 
     def _mw_rpe_row(self, parent: tk.Widget) -> None:
         """Add the RPE (rate of perceived exertion) spinbox row."""
-        row = tk.Frame(parent, bg=self._colors.bg)
+        row = tk.Frame(parent, bg=self._colors.palette.bg)
         tk.Label(
             row,
             text=(
@@ -195,8 +195,8 @@ class ManualWorkoutFormWidgetsMixin:
                 f"({MANUAL_WORKOUT_RPE_MIN}-{MANUAL_WORKOUT_RPE_MAX}):"
             ),
             font=self._colors.font("label"),
-            fg=self._colors.fg,
-            bg=self._colors.bg,
+            fg=self._colors.palette.fg,
+            bg=self._colors.palette.bg,
         ).pack(side="left", padx=self._colors.space("xs"))
         tk.Spinbox(
             row,
@@ -234,7 +234,7 @@ class ManualWorkoutFormWidgetsMixin:
         Still built on the primary surface only -- an independently scrolled
         copy per monitor would show two different parts of one form.
         """
-        form = tk.Frame(self.container.first, bg=self._colors.bg)
+        form = tk.Frame(self.container.first, bg=self._colors.palette.bg)
         # No outer gap: the budget line above and the first section heading
         # below already separate the grid, and on a 1024x600 panel this form
         # fits by single-digit pixels.

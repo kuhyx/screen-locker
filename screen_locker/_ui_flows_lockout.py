@@ -33,7 +33,7 @@ class LockoutFlowMixin:
             f"Go work out!\nLocked for {self.lockout_time} seconds",
             role="display",
             scale=1.5,
-            color=self._colors.danger,
+            color=self._colors.palette.danger,
             pad="lg",
         )
         self.countdown_label = self._label(
@@ -82,10 +82,10 @@ class LockoutFlowMixin:
         self._label(
             "Cannot Verify Workout",
             role="display",
-            color=self._colors.warning,
+            color=self._colors.palette.warning,
             pad="md",
         )
-        self._text(message, color=self._colors.warning)
+        self._text(message, color=self._colors.palette.warning)
         self._text(
             "Connect phone via ADB to skip this wait,\n"
             "or wait for the penalty timer.\n\n"

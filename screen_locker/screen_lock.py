@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 from gatelock import (
     GateRoot,
+    GrabPolicy,
     LockConfig,
     LockWindow,
 )
@@ -184,14 +185,17 @@ class ScreenLocker(
         # color/font fields apply everywhere, so this is built unconditionally.
         self._colors = LockConfig(
             mode="hard",
-            grab="local" if demo_mode else "global",
-            disable_vt=not demo_mode,
-            # Opt in: a weaker holder (diet_guard, leetcode_guard) that already
-            # owns the grab must stand down rather than block enforcement
-            # forever -- the 2026-08-21 lockout was diet_guard holding it for
-            # hours. Safe in this direction only; gatelock never signals a
-            # holder that outranks us, so wake_alarm can still take the screen.
-            preempt_weaker_holder=not demo_mode,
+            grab=GrabPolicy(
+                kind="local" if demo_mode else "global",
+                disable_vt=not demo_mode,
+                # Opt in: a weaker holder (diet_guard, leetcode_guard) that
+                # already owns the grab must stand down rather than block
+                # enforcement forever -- the 2026-08-21 lockout was diet_guard
+                # holding it for hours. Safe in this direction only; gatelock
+                # never signals a holder that outranks us, so wake_alarm can
+                # still take the screen.
+                preempt_weaker_holder=not demo_mode,
+            ),
         )
         # Built before setup(), which calls build_surface per live output.
         self.container = FrameGroup([])

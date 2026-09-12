@@ -35,34 +35,39 @@ class SickDialogMixin(SickCommitmentMixin):
         history = _sick_tracker.load_history()
         self._sick_history_cache: SickHistory = history
         self.clear_container()
-        self._label("Sick Day Request", color=self._colors.warning, pad="sm")
-        self._text(_sick_tracker.budget_summary(history), color=self._colors.warning)
+        self._label("Sick Day Request", color=self._colors.palette.warning, pad="sm")
+        self._text(
+            _sick_tracker.budget_summary(history), color=self._colors.palette.warning
+        )
 
         recent = _sick_tracker.format_recent_justifications(history)
         if recent:
             self._text(
-                "Recent sick days:", role="label", color=self._colors.muted, pad="sm"
+                "Recent sick days:",
+                role="label",
+                color=self._colors.palette.muted,
+                pad="sm",
             )
-            self._text(recent, role="label", color=self._colors.muted, pad="sm")
+            self._text(recent, role="label", color=self._colors.palette.muted, pad="sm")
 
         had_commitment = _sick_tracker.had_commitment_for_today(history)
         if had_commitment:
             self._text(
                 "⚠ Yesterday you committed to working out today.",
                 role="body",
-                color=self._colors.danger,
+                color=self._colors.palette.danger,
             )
             self._text(
                 "Breaking the commitment costs 2 sick-budget days.",
                 role="label",
-                color=self._colors.danger,
+                color=self._colors.palette.danger,
             )
 
         self._build_justification_form(had_commitment=had_commitment)
 
     def _build_justification_form(self, *, had_commitment: bool) -> None:
         """Add justification form fields and submit button to the container."""
-        form = self.container.child_frame(bg=self._colors.bg)
+        form = self.container.child_frame(bg=self._colors.palette.bg)
         form.pack(pady=self._colors.space("sm"))
 
         self._sick_symptom_var = tk.StringVar()
@@ -70,7 +75,9 @@ class SickDialogMixin(SickCommitmentMixin):
         self._sick_severity_var = tk.IntVar(value=5)
         self._sick_text_widget = self._add_form_widgets(form)
 
-        self._sick_error_label = self._text("", color=self._colors.danger, pad="sm")
+        self._sick_error_label = self._text(
+            "", color=self._colors.palette.danger, pad="sm"
+        )
 
         button_row = self._button_row()
         # Starts disabled during the forced-read delay -- field_bg (our
@@ -79,7 +86,7 @@ class SickDialogMixin(SickCommitmentMixin):
         self._sick_submit_button = self._button(
             button_row,
             "SUBMIT",
-            bg=self._colors.field_bg,
+            bg=self._colors.palette.field_bg,
             command=self._submit_sick_justification,
             width=12,
         )
@@ -87,7 +94,7 @@ class SickDialogMixin(SickCommitmentMixin):
         self._button(
             button_row,
             "BACK",
-            bg=self._colors.field_bg,
+            bg=self._colors.palette.field_bg,
             command=self._start_phone_check,
             width=12,
         ).pack(side="left", padx=self._colors.space("sm"))
@@ -110,14 +117,14 @@ class SickDialogMixin(SickCommitmentMixin):
             label="When did it start? (e.g. last night):",
             variable=self._sick_onset_var,
         )
-        sev_row = parent.child_frame(bg=self._colors.bg)
+        sev_row = parent.child_frame(bg=self._colors.palette.bg)
         sev_row.pack(pady=self._colors.space("sm"))
         sev_row.child_widgets(
             tk.Label,
             text="Severity (1-10):",
             font=self._colors.font("label"),
-            fg=self._colors.fg,
-            bg=self._colors.bg,
+            fg=self._colors.palette.fg,
+            bg=self._colors.palette.bg,
         ).pack(side="left", padx=self._colors.space("xs"))
         sev_row.child_widgets(
             tk.Spinbox,
@@ -132,8 +139,8 @@ class SickDialogMixin(SickCommitmentMixin):
             tk.Label,
             text=(f"Describe how you feel (min {SICK_JUSTIFICATION_MIN_CHARS} chars):"),
             font=self._colors.font("label"),
-            fg=self._colors.fg,
-            bg=self._colors.bg,
+            fg=self._colors.palette.fg,
+            bg=self._colors.palette.bg,
         ).pack(pady=self._colors.space("sm"))
         text_widgets = TextGroup(
             list(
@@ -142,9 +149,9 @@ class SickDialogMixin(SickCommitmentMixin):
                     width=60,
                     height=6,
                     font=self._colors.font("label"),
-                    bg=self._colors.field_bg,
-                    fg=self._colors.fg,
-                    insertbackground=self._colors.fg,
+                    bg=self._colors.palette.field_bg,
+                    fg=self._colors.palette.fg,
+                    insertbackground=self._colors.palette.fg,
                     **self._colors.focus_kwargs(),
                 )
             )

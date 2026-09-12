@@ -24,7 +24,7 @@ class UIFlowsRelaxedMixin:
         self._label(
             "Verifying Workout",
             role="display",
-            color=self._colors.warning,
+            color=self._colors.palette.warning,
             pad="lg",
         )
         self._text(
@@ -61,15 +61,15 @@ class UIFlowsRelaxedMixin:
                 "✓ Workout Verified!",
                 role="display",
                 scale=1.3,
-                color=self._colors.success,
+                color=self._colors.palette.success,
                 pad="lg",
             )
-            self._text(message, role="subtitle", color=self._colors.success)
+            self._text(message, role="subtitle", color=self._colors.palette.success)
             if adjusted:
                 self._text(
                     "Shutdown time moved later!",
                     role="subtitle",
-                    color=self._colors.warning,
+                    color=self._colors.palette.warning,
                 )
             self.root.after(2000, self.close)
         else:
@@ -81,22 +81,22 @@ class UIFlowsRelaxedMixin:
         self._label(
             "Workout Not Found",
             role="display",
-            color=self._colors.danger,
+            color=self._colors.palette.danger,
             pad="md",
         )
-        self._text(message, color=self._colors.warning)
+        self._text(message, color=self._colors.palette.warning)
         frame = self._button_row()
         self._button(
             frame,
             "TRY AGAIN",
-            bg=self._colors.accent,
+            bg=self._colors.palette.accent,
             command=self._start_verify_workout_check,
             width=12,
         ).pack(side="left", padx=self._colors.space("sm"))
         self._button(
             frame,
             "Close",
-            bg=self._colors.field_bg,
+            bg=self._colors.palette.field_bg,
             command=self.close,
             width=12,
         ).pack(side="left", padx=self._colors.space("sm"))
@@ -116,28 +116,28 @@ class UIFlowsRelaxedMixin:
         self._label(
             "Optional Day (Tue / Wed / Thu)",
             role="title",
-            color=self._colors.warning,
+            color=self._colors.palette.warning,
             pad="md",
         )
         self._text(
             f"Weekly workouts: {count} / {WEEKLY_WORKOUT_MINIMUM}\n"
             "No penalty for skipping today.",
             role="subtitle",
-            color=self._colors.muted,
+            color=self._colors.palette.muted,
             pad="sm",
         )
         frame = self._button_row()
         self._button(
             frame,
             "Skip — No Penalty",
-            bg=self._colors.success,
+            bg=self._colors.palette.success,
             command=self._skip_relaxed_day,
             width=18,
         ).pack(side="left", padx=self._colors.space("sm"))
         self._button(
             frame,
             "Log Stronglift Workout",
-            bg=self._colors.accent,
+            bg=self._colors.palette.accent,
             command=self._start_relaxed_phone_check,
             width=20,
         ).pack(side="left", padx=self._colors.space("sm"))
@@ -158,7 +158,10 @@ class UIFlowsRelaxedMixin:
         """Run Stronglift check in relaxed mode (no screen grab, no sick option)."""
         self.clear_container()
         self._label(
-            "Checking phone...", role="display", color=self._colors.warning, pad="lg"
+            "Checking phone...",
+            role="display",
+            color=self._colors.palette.warning,
+            pad="lg",
         )
         self._text("Looking for today's workout in StrongLifts...", role="body")
         executor = ThreadPoolExecutor(max_workers=1)
@@ -192,21 +195,26 @@ class UIFlowsRelaxedMixin:
         """Show retry and skip-close when workout not found in relaxed mode."""
         self.clear_container()
         self._label(
-            "No Workout Found", role="display", color=self._colors.danger, pad="md"
+            "No Workout Found",
+            role="display",
+            color=self._colors.palette.danger,
+            pad="md",
         )
-        self._text(f"❌ {message}\n\nReason: {status}", color=self._colors.warning)
+        self._text(
+            f"❌ {message}\n\nReason: {status}", color=self._colors.palette.warning
+        )
         frame = self._button_row()
         self._button(
             frame,
             "TRY AGAIN",
-            bg=self._colors.accent,
+            bg=self._colors.palette.accent,
             command=self._start_relaxed_phone_check,
             width=12,
         ).pack(side="left", padx=self._colors.space("sm"))
         self._button(
             frame,
             "Close (Skip)",
-            bg=self._colors.success,
+            bg=self._colors.palette.success,
             command=self.close,
             width=14,
         ).pack(side="left", padx=self._colors.space("sm"))

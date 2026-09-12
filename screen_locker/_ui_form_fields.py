@@ -54,14 +54,14 @@ class UIFormFieldsMixin:
         nothing focused the user's typing goes nowhere and there is no other
         window on screen to make that obvious.
         """
-        row = parent.child_frame(bg=self._colors.bg)
+        row = parent.child_frame(bg=self._colors.palette.bg)
         row.pack(pady=self._colors.space("sm"), fill="x")
         row.child_widgets(
             tk.Label,
             text=label,
             font=self._colors.font("label"),
-            fg=self._colors.fg,
-            bg=self._colors.bg,
+            fg=self._colors.palette.fg,
+            bg=self._colors.palette.bg,
             anchor="w",
         ).pack(side="top", anchor="w")
         entries = row.child_widgets(
@@ -69,9 +69,9 @@ class UIFormFieldsMixin:
             textvariable=variable,
             width=50,
             font=self._colors.font("label"),
-            bg=self._colors.field_bg,
-            fg=self._colors.fg,
-            insertbackground=self._colors.fg,
+            bg=self._colors.palette.field_bg,
+            fg=self._colors.palette.fg,
+            insertbackground=self._colors.palette.fg,
             **self._colors.focus_kwargs(),
         )
         entries.pack(side="top", anchor="w", pady=self._colors.space("xs"))
@@ -96,14 +96,14 @@ class UIFormFieldsMixin:
         not advertised anywhere. On a lock surface that means a user who tabs
         into it can never reach the submit button.
         """
-        row = parent.child_frame(bg=self._colors.bg)
+        row = parent.child_frame(bg=self._colors.palette.bg)
         row.pack(pady=self._colors.space("sm"), fill="x")
         row.child_widgets(
             tk.Label,
             text=label,
             font=self._colors.font("label"),
-            fg=self._colors.fg,
-            bg=self._colors.bg,
+            fg=self._colors.palette.fg,
+            bg=self._colors.palette.bg,
             anchor="w",
         ).pack(side="top", anchor="w")
         boxes = row.child_widgets(
@@ -112,9 +112,9 @@ class UIFormFieldsMixin:
             height=height,
             wrap="word",
             font=self._colors.font("label"),
-            bg=self._colors.field_bg,
-            fg=self._colors.fg,
-            insertbackground=self._colors.fg,
+            bg=self._colors.palette.field_bg,
+            fg=self._colors.palette.fg,
+            insertbackground=self._colors.palette.fg,
             **self._colors.focus_kwargs(),
         )
         boxes.pack(side="top", anchor="w", pady=self._colors.space("xs"))

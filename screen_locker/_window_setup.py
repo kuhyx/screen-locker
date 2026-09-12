@@ -210,8 +210,8 @@ class WindowSetupMixin:
             self.root,
             text="✕ Close Demo",
             font=self._colors.font("caption"),
-            bg=self._colors.danger,
-            fg=self._colors.on_fill,
+            bg=self._colors.palette.danger,
+            fg=self._colors.palette.on_fill,
             command=self.close,
             cursor="hand2",
         )
@@ -238,7 +238,7 @@ class WindowSetupMixin:
         still does not fit scrolls, because ``_ensure_container`` wraps these
         windows in a viewport too.
         """
-        self.root.configure(bg=self._colors.bg, cursor="arrow")
+        self.root.configure(bg=self._colors.palette.bg, cursor="arrow")
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         # "" hands sizing back to the geometry manager instead of pinning it.
         self.root.geometry("")

@@ -32,7 +32,7 @@ class TestSectionManualWorkoutBudget:
             for c in mock_tk.Label.call_args_list
             if "week" in c.kwargs.get("text", "")
         ]
-        assert any(c.kwargs.get("fg") == window._colors.danger for c in calls)
+        assert any(c.kwargs.get("fg") == window._colors.palette.danger for c in calls)
 
     def test_not_exhausted_uses_normal_color(self, mock_tk: MagicMock) -> None:
         snap = _snapshot(
@@ -44,7 +44,7 @@ class TestSectionManualWorkoutBudget:
             for c in mock_tk.Label.call_args_list
             if "week" in c.kwargs.get("text", "")
         ]
-        assert any(c.kwargs.get("fg") == window._colors.muted for c in calls)
+        assert any(c.kwargs.get("fg") == window._colors.palette.muted for c in calls)
 
 
 class TestManualWorkoutButtonVisibility:

@@ -31,7 +31,7 @@ class SickCommitmentMixin:
         self._label(
             "Commit to working out tomorrow?",
             role="display",
-            color=self._colors.warning,
+            color=self._colors.palette.warning,
             pad="md",
         )
         # ~80 chars at font_size 16 would render as one unbroken line past the
@@ -46,20 +46,20 @@ class SickCommitmentMixin:
         self._commitment_remaining = COMMITMENT_PROMPT_TIMEOUT_SECONDS
         self._commitment_timer_label = self._text(
             f"Auto-skipping in {COMMITMENT_PROMPT_TIMEOUT_SECONDS}s",
-            color=self._colors.muted,
+            color=self._colors.palette.muted,
         )
         row = self._button_row()
         self._button(
             row,
             "YES",
-            bg=self._colors.success,
+            bg=self._colors.palette.success,
             command=lambda: self._answer_commitment(commit=True),
             width=12,
         ).pack(side="left", padx=self._colors.space("sm"))
         self._button(
             row,
             "NO",
-            bg=self._colors.field_bg,
+            bg=self._colors.palette.field_bg,
             command=lambda: self._answer_commitment(commit=False),
             width=12,
         ).pack(side="left", padx=self._colors.space("sm"))
