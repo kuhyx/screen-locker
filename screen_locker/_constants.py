@@ -113,6 +113,9 @@ SCHEDULED_SKIPS_FILE = Path(__file__).resolve().parent / "scheduled_skips.json"
 EXTRA_BENEFITS_FILE = Path(__file__).resolve().parent / "extra_benefits_state.json"
 # State file storing the base (pre-bonus) shutdown hours and last reset date.
 SHUTDOWN_BASE_FILE = Path(__file__).resolve().parent / "shutdown_base.json"
+# Workout records this PC must keep deleted in the sync store, pushed as
+# tombstones on every tick (see _sync_tombstones for why once is not enough).
+SYNC_TOMBSTONES_FILE = Path(__file__).resolve().parent / "sync_tombstones.json"
 # Self-expiring marker: "logged in during today's early-bird window, still
 # waiting to see if a real workout shows up." Not a log.json entry —
 # it's a same-day pending flag, checked against its own "date" field.

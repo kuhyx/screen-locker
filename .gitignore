@@ -19,6 +19,8 @@ htmlcov/
 screen_locker/log.json
 # ...and the ledger naming which of its entries record the same workout.
 screen_locker/duplicate_credits.json
+# ...and the sync tombstones the PC re-pushes every tick (names a workout id).
+screen_locker/sync_tombstones.json
 # ...including the timestamped backups a correction script leaves behind.
 screen_locker/*.json.bak-*
 screen_locker/sick_history.json

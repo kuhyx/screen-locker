@@ -53,6 +53,7 @@ from screen_locker._log_io import load_workout_log
 from screen_locker._log_mixin import _derive_workout_id
 from screen_locker._push_outcome import describe_push
 from screen_locker._sync_retry import with_sync_retry
+from screen_locker._sync_tombstones import tombstone_records
 from screen_locker._weekly_check import COUNTED_WORKOUT_TYPES
 from screen_locker._workout_sync import _DEVICES_PREFIX, read_sync_token, remote_client
 
@@ -157,6 +158,9 @@ def records_from_workout_log(log_file: Path) -> dict[str, Record]:
             log[str(record_id)] = Record(
                 id=str(record_id), fields={_PAYLOAD_FIELD: (payload, hlc)}
             )
+    # Re-pushed every tick: sync_log never reads this device's own remote
+    # log, so a tombstone written once is overwritten by the next push.
+    log.update(tombstone_records())
     return log
 
 

@@ -32,6 +32,15 @@ ISOLATED_STATE: tuple[tuple[str, tuple[str, ...]], ...] = (
             "_status.EXTRA_BENEFITS_FILE",
         ),
     ),
+    # Pushed to the shared sync store on every tick; a test that wrote here
+    # would tombstone a real workout on the phone.
+    (
+        "sync_tombstones.json",
+        (
+            "_constants.SYNC_TOMBSTONES_FILE",
+            "_sync_tombstones.SYNC_TOMBSTONES_FILE",
+        ),
+    ),
     (
         "sick_day_state.json",
         (
