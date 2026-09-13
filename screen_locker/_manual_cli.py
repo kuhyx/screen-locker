@@ -18,10 +18,10 @@ that can drift.
 from __future__ import annotations
 
 import argparse
-from datetime import UTC, datetime
 import logging
 from typing import TYPE_CHECKING
 
+from screen_locker._day import today_str
 from screen_locker._manual_sync import ingest_manual_records
 from screen_locker._manual_workout import (
     SPORT_CHOICES,
@@ -129,10 +129,10 @@ def run_manual_log(log_file: Path, argv: Sequence[str]) -> int:
     add_manual_arguments(parser)
     args = parser.parse_args(list(argv))
 
-    # UTC, matching how the budget windows compute "today" -- a local date
-    # near midnight would file the workout in a different window than the one
-    # it is then counted in.
-    date = args.date or datetime.now(tz=UTC).strftime("%Y-%m-%d")
+    # The LOCAL day, like every other day-key (screen_locker._day): the old
+    # UTC default filed a workout logged at 00:02 CEST under yesterday, and the
+    # lock check then could not find it "today".
+    date = args.date or today_str()
     draft = _draft(args)
     # Validated here as well as inside the ingest, purely so a person running
     # this by hand gets the concrete field error on stderr and a non-zero exit

@@ -14,7 +14,6 @@ rather than at the old ``_compliance_state`` path.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import json
 import logging
 from typing import TYPE_CHECKING
@@ -27,6 +26,7 @@ from screen_locker._constants import (
     EARLY_BIRD_END_MINUTE,
     EARLY_BIRD_START_HOUR,
 )
+from screen_locker._day import today_str
 from screen_locker._log_io import load_workout_log
 from screen_locker._sick_tracker import is_sick_day as _is_sick_day
 from screen_locker._weekly_check import RELAXED_DAY_SKIP_TYPE
@@ -41,8 +41,8 @@ _logger = logging.getLogger(__name__)
 
 
 def _today_str() -> str:
-    """Return today's date as ``YYYY-MM-DD`` in UTC."""
-    return datetime.now(tz=UTC).strftime("%Y-%m-%d")
+    """Return today's LOCAL date as ``YYYY-MM-DD`` (see ``screen_locker._day``)."""
+    return today_str()
 
 
 def is_scheduled_skip_today(today: date | None = None) -> bool:

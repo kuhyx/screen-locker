@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from gatelock.log_integrity import compute_entry_hmac
 
 from screen_locker import _compliance_state
+from screen_locker._day import today_str
 from screen_locker._log_io import load_workout_log
 from screen_locker._manual_workout import MANUAL_WORKOUT_TYPE, manual_sync_record_id
 
@@ -78,6 +79,22 @@ def _entry_workout_id(date: str, entry: Mapping[str, object]) -> str | None:
     return _derive_workout_id(date, workout_data)
 
 
+def _is_logged_anywhere(logs: dict[str, list[dict]], workout_id: str) -> bool:
+    """True if any day already holds an entry with this ``workout_id``.
+
+    Searched across ALL days, not just the one being written: a workout id is
+    globally unique (it embeds its own date), and a copy of the same workout
+    can arrive keyed on a different day — e.g. an entry moved to the local day
+    it was really logged on, then its synced twin coming back stamped with
+    the old UTC day. Per-day dedup would append that twin as a duplicate.
+    """
+    return any(
+        _entry_workout_id(day, e) == workout_id
+        for day, entries in logs.items()
+        for e in entries
+    )
+
+
 def write_signed_entry(
     log_file: Path, date: str, workout_data: Mapping[str, object]
 ) -> RecordResult:
@@ -87,7 +104,7 @@ def write_signed_entry(
     workout) and manual-sync ingestion, which files a synced workout under its
     OWN date so the weekly count places it in the right ISO week. The log is
     day-keyed but now holds MULTIPLE entries per day: this APPENDS rather than
-    overwrites. If an entry with the same ``workout_id`` already exists for the
+    overwrites. If an entry with the same ``workout_id`` already exists on ANY
     day, it is a no-op — the log itself is the idempotency store, so
     re-verifying the same workout never double-records. Every write normalizes
     the whole file to the list shape, progressively migrating legacy entries.
@@ -100,9 +117,7 @@ def write_signed_entry(
     prior = list(entries)
 
     workout_id = _derive_workout_id(date, workout_data)
-    if workout_id is not None and any(
-        _entry_workout_id(date, e) == workout_id for e in entries
-    ):
+    if workout_id is not None and _is_logged_anywhere(logs, workout_id):
         return RecordResult(appended=False, prior_entries=prior)
 
     entry: dict[str, object] = {
@@ -153,5 +168,5 @@ class LogMixin:
         credit only for a genuinely new workout and scale it by whether today
         already had one.
         """
-        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+        today = today_str()
         return write_signed_entry(self.log_file, today, self.workout_data)

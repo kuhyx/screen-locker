@@ -38,6 +38,7 @@ from screen_locker._compliance_trace import (
     describe_auto_upgrade_opportunity,
     describe_degraded_sources,
 )
+from screen_locker._day import today_str as local_day
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -79,7 +80,7 @@ def explain_lock_decision(
     reported via ``heat_skip_evaluated=False``, not guessed.
     """
     instant = now if now is not None else datetime.now(tz=UTC)
-    today_str = instant.astimezone(UTC).strftime("%Y-%m-%d")
+    today_str = local_day(instant)
     local_dt = instant.astimezone()
     local_minutes = local_dt.hour * 60 + local_dt.minute
 

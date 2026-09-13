@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import logging
 import subprocess
 from typing import TYPE_CHECKING
@@ -11,6 +10,7 @@ from screen_locker._constants import (
     ADJUST_SHUTDOWN_SCRIPT,
     SHUTDOWN_CONFIG_FILE,
 )
+from screen_locker._day import today_str
 from screen_locker._shutdown_sick_state import SickDayStateMixin
 from screen_locker._wake_alarm import WakeAlarmMixin
 
@@ -76,7 +76,7 @@ class ShutdownMixin(SickDayStateMixin, WakeAlarmMixin):
 
         Returns True if successful, False otherwise.
         """
-        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+        today = today_str()
         self._restore_original_config_if_needed()
         if self._sick_mode_used_today():
             _logger.warning("Sick mode already used today")

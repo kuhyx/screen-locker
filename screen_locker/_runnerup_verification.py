@@ -7,7 +7,6 @@ Root DB fallback lives in ``_runnerup_db.py``.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import logging
 from typing import Any
 
@@ -18,6 +17,7 @@ from screen_locker._constants import (
     RUNNERUP_EXPORT_DIRS,
     WORKOUT_DURATION_ACCEPT_MINUTES,
 )
+from screen_locker._day import today_str
 from screen_locker._runnerup_backfill import RunnerUpBackfillMixin
 from screen_locker._runnerup_db import RunnerUpDbMixin
 from screen_locker._runnerup_tcx import RunnerUpTcxMixin
@@ -77,7 +77,7 @@ class RunnerUpVerificationMixin(
         fails validation), or ``None`` if no today's file exists at all
         (caller should try the root DB path instead).
         """
-        today = datetime.now(tz=UTC).astimezone().strftime("%Y-%m-%d")
+        today = today_str()
         exports = self._find_runnerup_exports_for_date(today)
         if not exports:
             _logger.warning(

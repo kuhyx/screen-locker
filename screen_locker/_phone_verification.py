@@ -8,7 +8,6 @@ import json
 import logging
 from pathlib import Path
 import tempfile
-import time
 
 from screen_locker._adb_transport import AdbTransportMixin
 from screen_locker._constants import (
@@ -16,6 +15,7 @@ from screen_locker._constants import (
     WORKOUT_APP_JSON_REMOTES,
     WORKOUT_DURATION_ACCEPT_MINUTES,
 )
+from screen_locker._day import today_str
 from screen_locker._http_workout_fetch import HttpWorkoutFetchMixin
 from screen_locker._log_mixin import write_signed_entry
 from screen_locker._time_check import check_clock_skew
@@ -41,7 +41,7 @@ class PhoneVerificationMixin(AdbTransportMixin, HttpWorkoutFetchMixin):
         only fall back to a stale/older payload if no candidate is from today.
         """
         tmp = Path(tempfile.gettempdir()) / "workout_result.json"
-        today = time.strftime("%Y-%m-%d")
+        today = today_str()
         first_parsed: dict | None = None
         for remote in WORKOUT_APP_JSON_REMOTES:
             ok, _ = self._run_adb(["pull", remote, str(tmp)])
@@ -91,7 +91,7 @@ class PhoneVerificationMixin(AdbTransportMixin, HttpWorkoutFetchMixin):
         must reflect a workout done *right now*. For crediting a workout
         found dated earlier in the week, see ``_try_fill_stronglifts_for_week``.
         """
-        today = time.strftime("%Y-%m-%d")
+        today = today_str()
         if data.get("date") != today:
             return "stale", f"Workout JSON is from {data.get('date')}, not today"
         return self._validate_json_content(data)

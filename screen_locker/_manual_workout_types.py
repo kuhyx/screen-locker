@@ -19,6 +19,7 @@ from screen_locker._constants import (
     MANUAL_WORKOUT_BUDGET_PER_7_DAYS,
     MANUAL_WORKOUT_BUDGET_PER_30_DAYS,
 )
+from screen_locker._day import today_str
 from screen_locker._log_io import load_workout_log
 
 if TYPE_CHECKING:
@@ -38,8 +39,8 @@ SPORT_LABELS: dict[str, str] = {
 
 
 def _today_iso() -> str:
-    """Return today's date as ``YYYY-MM-DD`` (UTC)."""
-    return datetime.now(tz=UTC).strftime("%Y-%m-%d")
+    """Return today's LOCAL date as ``YYYY-MM-DD`` (see ``screen_locker._day``)."""
+    return today_str()
 
 
 def _parse_iso(date_str: str) -> datetime | None:

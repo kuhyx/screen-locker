@@ -11,20 +11,20 @@ by patching ``screen_locker._wake_state.WAKE_STATE_FILE``.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import json
 import logging
 
 from gatelock.log_integrity import verify_entry_hmac
 
 from screen_locker._constants import WAKE_STATE_FILE
+from screen_locker._day import today_str
 
 _logger = logging.getLogger(__name__)
 
 
 def _today_str() -> str:
-    """Return today's date as YYYY-MM-DD in UTC."""
-    return datetime.now(tz=UTC).strftime("%Y-%m-%d")
+    """Return today's LOCAL date as YYYY-MM-DD (see ``screen_locker._day``)."""
+    return today_str()
 
 
 def load_wake_state() -> dict[str, object] | None:

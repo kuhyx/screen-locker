@@ -10,11 +10,11 @@ earlier, so the following day can put them back.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import json
 import logging
 
 from screen_locker._constants import SICK_DAY_STATE_FILE
+from screen_locker._day import today_str
 
 _logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class SickDayStateMixin:
         try:
             with SICK_DAY_STATE_FILE.open() as f:
                 state = json.load(f)
-            today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+            today = today_str()
             return state.get("date") == today
         except (OSError, json.JSONDecodeError) as exc:
             _logger.warning(
@@ -112,7 +112,7 @@ class SickDayStateMixin:
             if loaded is None:
                 return
             state_date, orig_mw, orig_ts = loaded
-            today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+            today = today_str()
             if state_date != today:
                 self._write_restored_config(orig_mw, orig_ts, state_date)
         except (OSError, json.JSONDecodeError) as e:
