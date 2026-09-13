@@ -20,6 +20,8 @@ import '../fake_secure_storage.dart';
 import '_workout_screen_test_fixtures.dart';
 
 void main() {
+  late FakeAudioRecorder audio;
+
   setUpAll(() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
@@ -34,8 +36,9 @@ void main() {
     // MissingPluginException as an unhandled Future error.
     installFakeSecureStorage();
     // The break-end sound creates a real AudioPlayer; fake its platform
-    // channels too, for the same reason as above.
-    installFakeAudioPlatform();
+    // channels too, for the same reason as above. The recorder is what
+    // makes "the cue actually played" an assertion rather than a hope.
+    audio = installFakeAudioPlatform();
   });
 
   // Interaction taps trigger `unawaited(_saveActiveSession())` (a sqflite write)

@@ -10,8 +10,9 @@ part of 'workout_screen.dart';
 extension _WorkoutScreenSession on _WorkoutScreenState {
   /// Rebuilds in-memory session state from a persisted [s] blob.
   ///
-  /// Restores a break only when its recorded end time is still in the future,
-  /// so a session resumed after the rest period simply has no break running.
+  /// A break whose recorded end time has already passed is *not* dropped: it is
+  /// parked in `_expiredBreak` so the screen can say so and, if the user only
+  /// just missed it, play the cue they were waiting for.
   void _restoreFromSaved(Map<String, dynamic> s) {
     _startTime = DateTime.fromMillisecondsSinceEpoch(s['startTimeMs'] as int);
     _tapped = (s['tapped'] as List)
@@ -26,17 +27,53 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
     final breakDur = s['breakDurationSecs'] as int? ?? 0;
     if (breakEndMs > 0 && breakDur > 0) {
       final endTime = DateTime.fromMillisecondsSinceEpoch(breakEndMs);
-      final remaining = endTime.difference(DateTime.now()).inSeconds;
-      if (remaining > 0) {
+      final clock = BreakClock(endTime: endTime, durationSecs: breakDur);
+      if (!clock.expiredAt(DateTime.now())) {
         _breakForExIdx = s['breakForExIdx'] as int? ?? -1;
         _breakForSetIdx = s['breakForSetIdx'] as int? ?? -1;
         _breakLabel = s['breakLabel'] as String? ?? 'Rest';
-        _breakDurationSecs = breakDur;
-        _breakStartTime = endTime.subtract(Duration(seconds: breakDur));
-        _breakRemaining = remaining;
+        _breakClock = clock;
         _breakTimer = Timer.periodic(const Duration(seconds: 1), _tickBreak);
+      } else {
+        // NEVER fail silently. This branch used to be an implicit no-op, which
+        // is why "the break never rang" was indistinguishable from "there was
+        // no break": the app was away when the rest ended, and said nothing
+        // about it on the way back.
+        log(
+          'WorkoutScreen: the restored session had a rest period that ended '
+          '${clock.secondsOverdueAt(DateTime.now())}s ago while the app was '
+          'not running, so its end cue never played.',
+          level: 900,
+        );
+        _expiredBreak = clock;
       }
     }
+  }
+
+  /// Plays the cue for a break that ended while the app was away, if it is
+  /// still recent enough to be useful.
+  ///
+  /// Called once, after the first frame. Beyond the grace window the rest is
+  /// ancient history and firing the sound would just be startling — but the
+  /// `log` above has already recorded it either way.
+  Future<void> _settleExpiredBreak() async {
+    final clock = _expiredBreak;
+    _expiredBreak = null;
+    if (clock == null) return;
+    final overdue = clock.secondsOverdueAt(DateTime.now());
+    if (overdue > _expiredBreakGraceSecs) {
+      log(
+        'WorkoutScreen: not replaying the rest-end cue — it is ${overdue}s '
+        'late, past the ${_expiredBreakGraceSecs}s grace window.',
+        level: 800,
+      );
+      return;
+    }
+    await _playBreakEndCue();
+    // Forget the break now it has been settled. Without this the saved session
+    // still carries its deadline, so relaunching twice inside the grace window
+    // would sound the cue again for a rest that ended once.
+    unawaited(_saveActiveSession());
   }
 
   /// Persists the active session locally, and to Firebase when [toFirebase].
@@ -49,6 +86,11 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
   Future<void> _saveActiveSession({bool toFirebase = false}) async {
     final data = _activeSessionData();
     await StorageService.instance.saveActiveSession(data);
+    // The one seam the notification is fed from. Every event that moves the
+    // workout on -- a set, a warmup, a rep decrement, a skip, a reset, a
+    // drained press -- already comes through here, so hanging the push on it
+    // means none of them can be forgotten.
+    unawaited(_breaks.push(_buildSnapshot()));
     if (!toFirebase) return;
     _lastActiveSessionPush = ProgressionSyncService()
         .pushActiveSession(data)
@@ -74,30 +116,26 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
       'breakForSetIdx': _breakForSetIdx,
       'breakLabel': _breakLabel,
       'breakDurationSecs': _breakDurationSecs,
-      'breakEndMs': _breakStartTime != null
-          ? _breakStartTime!
-                .add(Duration(seconds: _breakDurationSecs))
-                .millisecondsSinceEpoch
-          : 0,
+      'breakEndMs': _breakClock?.endTime.millisecondsSinceEpoch ?? 0,
     };
   }
 
   /// When the user decrements reps on the set that triggered the current break,
   /// switch between 3-min (success) and 5-min (fail) durations.
   void _recomputeBreakIfNeeded(int exIdx, int setIdx) {
-    if (!_inBreak) return;
+    // Read the clock ONCE. `_inBreak` re-reads DateTime.now() every time it is
+    // touched, so guarding on it and then dereferencing `_breakClock!` is a
+    // null-assertion waiting for the break to expire between the two lines.
+    final clock = _breakClock;
+    if (clock == null || clock.expiredAt(DateTime.now())) return;
     if (_breakForExIdx != exIdx || _breakForSetIdx != setIdx) return;
     if (_breakForSetIdx == -1) return; // warmup break, never recompute
 
     final succeeded = _doneReps[exIdx][setIdx] >= widget.exercises[exIdx].reps;
     final newDuration = succeeded ? _successBreakSecs : _failBreakSecs;
-    if (newDuration == _breakDurationSecs) return;
+    if (newDuration == clock.durationSecs) return;
 
-    final elapsed = DateTime.now().difference(_breakStartTime!).inSeconds;
-    final newRemaining = (newDuration - elapsed).clamp(0, newDuration);
-
-    _breakDurationSecs = newDuration;
-    _breakRemaining = newRemaining;
+    _breakClock = clock.withDuration(newDuration);
     _breakLabel = succeeded
         ? 'Rest (3 min — well done!)'
         : 'Rest (5 min — keep going!)';

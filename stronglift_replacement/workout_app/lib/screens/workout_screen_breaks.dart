@@ -10,40 +10,56 @@ extension _WorkoutScreenBreaks on _WorkoutScreenState {
   void _startBreak(int secs, String label, int exIdx, int setIdx) {
     _breakTimer?.cancel();
     _applyBreakState(() {
-      _breakDurationSecs = secs;
-      _breakRemaining = secs;
+      _breakClock = BreakClock.startingAt(DateTime.now(), secs);
       _breakLabel = label;
       _breakForExIdx = exIdx;
       _breakForSetIdx = setIdx;
-      _breakStartTime = DateTime.now();
     });
     _breakTimer = Timer.periodic(const Duration(seconds: 1), _tickBreak);
   }
 
-  void _tickBreak(Timer t) {
-    _applyBreakState(() => _breakRemaining--);
-    if (_breakRemaining <= 0) {
-      t.cancel();
+  /// The once-a-second tick.
+  void _tickBreak(Timer t) => _refreshBreak();
+
+  /// Re-reads the deadline after the app was away, and drains any press made
+  /// from the notification while it was.
+  void _onResumed() {
+    unawaited(_drainIntents());
+    _refreshBreak();
+  }
+
+  /// Re-renders the countdown from the deadline, and ends the rest once past.
+  ///
+  /// Deliberately not a decrement: ticks are throttled, and in Doze dropped
+  /// entirely, once the app is backgrounded — so counting them loses time.
+  /// Reading the clock instead means a timer that stalled for ten minutes
+  /// fires the cue on its very next tick rather than never.
+  void _refreshBreak() {
+    final clock = _breakClock;
+    if (clock == null) return;
+    if (clock.expiredAt(DateTime.now())) {
+      _breakTimer?.cancel();
       unawaited(_onBreakFinished());
+    } else {
+      _applyBreakState(() {});
     }
   }
 
   void _cancelBreak() {
     _breakTimer?.cancel();
     _applyBreakState(() {
-      _breakRemaining = 0;
+      _breakClock = null;
       _breakForExIdx = -1;
       _breakForSetIdx = -1;
-      _breakStartTime = null;
     });
   }
 
   Future<void> _onBreakFinished() async {
     await _playBreakEndCue();
     _applyBreakState(() {
+      _breakClock = null;
       _breakForExIdx = -1;
       _breakForSetIdx = -1;
-      _breakStartTime = null;
     });
     unawaited(_saveActiveSession());
   }

@@ -7,10 +7,18 @@ import 'dart:developer';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:vibration/vibration.dart';
+import 'package:workout_app/models/break_intent.dart';
+import 'package:workout_app/models/break_snapshot.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/exercise_result.dart';
 import 'package:workout_app/models/set_result.dart';
 import 'package:workout_app/models/workout_session.dart';
+import 'package:workout_app/services/break_clock.dart';
+import 'package:workout_app/services/break_intent_queue.dart';
+import 'package:workout_app/services/break_intent_store.dart';
+import 'package:workout_app/services/break_service_controller.dart';
+import 'package:workout_app/services/foreground_break_client.dart';
+import 'package:workout_app/services/foreground_break_client_flutter.dart';
 import 'package:workout_app/services/lock_mode.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
@@ -26,11 +34,18 @@ part 'workout_screen_body.dart';
 part 'workout_screen_breaks.dart';
 part 'workout_screen_dialogs.dart';
 part 'workout_screen_finish.dart';
+part 'workout_screen_intents.dart';
 part 'workout_screen_session.dart';
+part 'workout_screen_taps.dart';
 
 const _successBreakSecs = 180; // 3 min after successful set
 const _failBreakSecs = 300; // 5 min after failed set
 const _warmupBreakSecs = 180; // 3 min after warmup
+
+// How late a restored break's end cue may still be played. Long enough to
+// cover the app being killed and reopened mid-rest; short enough that
+// resuming yesterday's session does not blast the sound across the gym.
+const _expiredBreakGraceSecs = 120;
 
 /// Screen that drives an active workout session with per-rep tracking.
 class WorkoutScreen extends StatefulWidget {
@@ -40,6 +55,7 @@ class WorkoutScreen extends StatefulWidget {
     required this.exercises,
     super.key,
     this.savedState,
+    this.breakClient,
   });
 
   /// 'A' or 'B' — used for history and progression.
@@ -50,6 +66,11 @@ class WorkoutScreen extends StatefulWidget {
 
   /// Serialized state to restore (crash-recovery); null for a fresh session.
   final Map<String, dynamic>? savedState;
+
+  /// Foreground-service client, injectable so tests can drive the notification
+  /// path on a host that has no foreground service. Null means the real one.
+  @visibleForTesting
+  final ForegroundBreakClient? breakClient;
 
   @override
   State<WorkoutScreen> createState() => _WorkoutScreenState();
@@ -65,17 +86,27 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   Map<String, ExerciseState> _exerciseStates = {};
 
-  // Break state
-  int _breakRemaining = 0;
-  int _breakDurationSecs = 0;
-  DateTime? _breakStartTime;
+  // Break state. The deadline is the source of truth: `_breakClock` is what
+  // survives the app being backgrounded, and everything else is derived from
+  // it. See services/break_clock.dart for why a tick counter could not be.
+  BreakClock? _breakClock;
   Timer? _breakTimer;
   String _breakLabel = '';
   int _breakForExIdx = -1;
   int _breakForSetIdx = -1; // -1 = warmup break
 
+  /// A break restored as already-expired, awaiting its cue after first frame.
+  BreakClock? _expiredBreak;
+
+  int get _breakRemaining =>
+      _breakClock?.remainingSecsAt(DateTime.now()) ?? 0;
+
+  int get _breakDurationSecs => _breakClock?.durationSecs ?? 0;
+
   bool get _inBreak => _breakRemaining > 0;
 
+  late final AppLifecycleListener _lifecycle;
+  late final BreakServiceController _breaks;
   final _audio = AudioPlayer();
   final _sync = SyncService();
   bool _finished = false;
@@ -92,7 +123,19 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       setState(() => _elapsed = DateTime.now().difference(_startTime));
     });
+    // Coming back to the foreground is the one moment the countdown is
+    // guaranteed to be stale: ticks stop while the app is away, and the clock
+    // has to be re-read before the user sees a frame.
+    _lifecycle = AppLifecycleListener(onResume: _onResumed);
+    _breaks = BreakServiceController(
+      widget.breakClient ?? FlutterForegroundBreakClient(),
+      BreakIntentQueue(PrefsBreakIntentStore()),
+    );
     unawaited(_loadExerciseStates());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_settleExpiredBreak());
+      unawaited(_startBreakService());
+    });
   }
 
   void _initFresh() {
@@ -121,6 +164,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   void dispose() {
     _elapsedTimer.cancel();
     _breakTimer?.cancel();
+    _lifecycle.dispose();
+    // Deliberately NOT stopping the break service here. The back button pops
+    // this screen while the workout carries on in the database, and stopping
+    // the service on dispose killed the countdown and the notification with
+    // it -- silently putting the user back on the bug this feature fixes.
+    // The service is stopped only by Finish, by Reset, and by the stale-service
+    // reaper in main() for the case where neither ever happens.
     unawaited(_audio.dispose());
     super.dispose();
   }
@@ -135,61 +185,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   bool get _allSetsCompleted => _tapped.every((row) => row.every((t) => t));
 
-  // ── Interaction ────────────────────────────────────────────────────────────
-
-  void _tapCircle(int exIdx, int setIdx) {
-    if (_finished) return;
-
-    final wasNotTapped = !_tapped[exIdx][setIdx];
-    if (wasNotTapped && _inBreak) return;
-
-    setState(() {
-      if (wasNotTapped) {
-        _tapped[exIdx][setIdx] = true;
-      } else {
-        _doneReps[exIdx][setIdx] = (_doneReps[exIdx][setIdx] - 1).clamp(0, 999);
-        _recomputeBreakIfNeeded(exIdx, setIdx);
-      }
-    });
-
-    if (wasNotTapped) {
-      final rest = _restAfterSet(exIdx, setIdx);
-      if (rest != null) {
-        _startBreak(rest.seconds, rest.label, exIdx, setIdx);
-      }
-    }
-
-    // Only a newly-completed set moves the workout forward; a rep decrement
-    // re-enters here and must not cost a remote write.
-    unawaited(_saveActiveSession(toFirebase: wasNotTapped));
-  }
-
-  void _tapWarmup(int exIdx) {
-    if (_finished || _warmupTapped[exIdx]) return;
-    setState(() => _warmupTapped[exIdx] = true);
-    if (!_inBreak) {
-      _startBreak(_warmupBreakSecs, 'Warmup rest (3 min)', exIdx, -1);
-    }
-    unawaited(_saveActiveSession(toFirebase: true));
-  }
-
-  void _resetCircle(int exIdx, int setIdx) {
-    if (_finished) return;
-    setState(() {
-      _tapped[exIdx][setIdx] = false;
-      _doneReps[exIdx][setIdx] = widget.exercises[exIdx].reps;
-    });
-    if (_breakForExIdx == exIdx && _breakForSetIdx == setIdx) {
-      _cancelBreak();
-    }
-    unawaited(_saveActiveSession());
-  }
-
-  /// Runs [fn] inside `setState` on behalf of the break/threshold extensions.
+  /// Runs [fn] inside `setState` on behalf of this library's extensions.
   ///
   /// `setState` is `@protected`, so an extension cannot call it directly. This
-  /// shim is the one seam through which `workout_screen_breaks.dart` mutates
-  /// state; keeping it named makes those writes greppable from here.
+  /// shim is the one seam through which `workout_screen_breaks.dart` and
+  /// `workout_screen_taps.dart` mutate state; keeping it named makes those
+  /// writes greppable from here.
   void _applyBreakState(VoidCallback fn) => setState(fn);
 
   // ── Finish / Reset ─────────────────────────────────────────────────────────
@@ -201,6 +202,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Future<void> _finishWorkout() async {
     _elapsedTimer.cancel();
     _breakTimer?.cancel();
+    // Before the state flips: the service must not outlive the workout, and
+    // with stopWithTask="false" nothing else will ever stop it.
+    await _breaks.stop();
     setState(() => _finished = true);
     await _persistFinishedWorkout();
   }

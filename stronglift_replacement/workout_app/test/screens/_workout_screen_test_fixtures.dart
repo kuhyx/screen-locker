@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/screens/workout_screen.dart';
+import 'package:workout_app/services/foreground_break_client.dart';
 import 'package:workout_app/ui/theme.dart';
 
 Map<String, dynamic> completeSaved() => {
@@ -24,6 +25,33 @@ Map<String, dynamic> completeSaved() => {
   'warmupTapped': [false, false],
 };
 
+/// A saved session parked mid-rest, [secondsFromNow] from its deadline.
+///
+/// Negative values describe a break that ended while the app was away — the
+/// case that used to be dropped in silence.
+Map<String, dynamic> savedWithBreak(int secondsFromNow, {int durationSecs = 180}) => {
+  'workoutType': 'A',
+  'startTimeMs': DateTime.now()
+      .subtract(const Duration(minutes: 5))
+      .millisecondsSinceEpoch,
+  'tapped': [
+    [true, false, false],
+    [false, false, false],
+  ],
+  'doneReps': [
+    [5, 5, 5],
+    [5, 5, 5],
+  ],
+  'warmupTapped': [false, false],
+  'breakForExIdx': 0,
+  'breakForSetIdx': 0,
+  'breakLabel': 'Rest (3 min — well done!)',
+  'breakDurationSecs': durationSecs,
+  'breakEndMs': DateTime.now()
+      .add(Duration(seconds: secondsFromNow))
+      .millisecondsSinceEpoch,
+};
+
 const testExercises = [
   Exercise(name: 'Squat', sets: 3, reps: 5, weight: 20.0),
   Exercise(name: 'Press', sets: 3, reps: 5, weight: 15.0),
@@ -33,12 +61,14 @@ Widget wrapWorkout({
   String type = 'A',
   List<Exercise> exercises = testExercises,
   Map<String, dynamic>? savedState,
+  ForegroundBreakClient? breakClient,
 }) => MaterialApp(
   theme: buildAppTheme(),
   home: WorkoutScreen(
     workoutType: type,
     exercises: exercises,
     savedState: savedState,
+    breakClient: breakClient,
   ),
 );
 

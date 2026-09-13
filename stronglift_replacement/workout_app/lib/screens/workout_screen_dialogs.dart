@@ -66,6 +66,10 @@ extension _WorkoutScreenDialogs on _WorkoutScreenState {
       ),
     );
     if (ok == true) {
+      // The service outlives the screen by design (stopWithTask="false"), so
+      // abandoning a workout has to take it down explicitly -- otherwise the
+      // notification sits there counting down a workout that no longer exists.
+      await _breaks.stop();
       await StorageService.instance.clearActiveSession();
       if (mounted) Navigator.of(context).pop();
     }

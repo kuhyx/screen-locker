@@ -9,7 +9,7 @@ High (max 2 features):
     adds breaks between REPS (3 minutes if REP succeeded (as in all reps were done) and 5 minutes if it failed) <-- currently app ads breaks between SETS which wrong
         STILL OPEN (2026-08-09): breaks are still per-SET, and suppressed on the last set of an exercise. Needs a decision — "break between reps" would mean pausing mid-set, which is unusual; confirm intent before building.
     After break time (after REPS) is over app should play a sound and vibrate the phone and generally point the user attention towards the app
-        DONE (verified 2026-08-09): break end plays assets/sounds/break_end.mp3 and vibrates 800ms. Caveat: only while the app is foregrounded — Dart timers suspend in the background, which needs a native foreground service (deferred).
+        DONE (verified 2026-09-12, on-device, screen off and locked): break end plays assets/sounds/break_end.mp3 and vibrates 800ms, AND the OS rings the break_end_v1 channel from res/raw. The old "only while foregrounded" caveat is gone: a flutter_foreground_task service holds a wake lock and owns the deadline, and the countdown is now derived from a stored end time instead of a tick counter that stalled whenever Android throttled the isolate.
 
 Mid (max 3 features):
     change warmup exercises weight from 2/3 to 3/4 of target weight
@@ -21,6 +21,7 @@ Low (max 4 features):
     If set is finished user cannot modify reps on this set for some reason -> this is a bug user should ALWAYS be able to modify ANY reps in ANY exercise
     shows history of workouts and a graph for showing progress
     The app should be capable of working in the background without any problem and display status notifications allowing user to click on "done rep" from the status bar
+        DONE (2026-09-12): a foreground service runs for the whole workout and shows an ongoing notification — "Workout A · break 1:47" / "Next: Dumbbell Lunge — set 2/5 / 12 reps @ 10 kg" — with three action buttons: ✓ Done (records the set at full target reps), − 1 rep (decrements the set recorded last, which also stretches a 3-min rest to 5), Skip break. Presses go into a durable SharedPreferences queue and are applied through the same _tapCircle/_skipBreak the on-screen buttons use, so a press made while the app is dead still lands on the next launch. Verified on-device with the screen off and locked; the button PRESSES themselves still want a human tap to confirm end-to-end (the plugin's receiver is NOT_EXPORTED, so adb cannot fire them).
     automatically decreases weight if user had a break from using the app <-- not sure if implemented (maybe implemented but did not have a change to check it add fallback manual setting of weights by user)
 
 

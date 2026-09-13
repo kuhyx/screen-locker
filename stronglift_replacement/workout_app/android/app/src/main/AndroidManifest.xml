@@ -10,6 +10,26 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Required to bind a server socket for the HTTP fallback sync endpoint -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Android 13+ runtime opt-in. Requested when a workout starts, not at
+         launch: that is the moment the service is about to be created, so the
+         prompt has obvious context. A denial is surfaced in the UI, never
+         swallowed: without it the foreground service still runs but shows
+         nothing, which looks exactly like the bug this feature fixes. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- The rest-period deadline has to keep ticking while the phone is in a
+         pocket. A Dart timer in the UI isolate cannot: Android throttles it and
+         Doze suspends it outright. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- Required by ForegroundTaskOptions(allowWakeLock: true), which takes a
+         PARTIAL_WAKE_LOCK so the deadline fires with the screen off. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Makes the battery-optimisation opt-out show the system dialog instead
+         of returning denied. HyperOS kills background services hard; see the
+         OEM notes in the workout app README. -->
+    <uses-permission
+        android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <application
         android:label="workout_app"
         android:name="${applicationName}"
@@ -36,6 +56,21 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- android:stopWithTask="false" is LOAD-BEARING, not boilerplate: it
+             is what keeps the break timer alive after the app is swiped out of
+             recents mid-workout, which is the whole point of the service. Do
+             not "tidy" it away.
+
+             foregroundServiceType="dataSync" rather than "health": health
+             additionally demands a runtime ACTIVITY_RECOGNITION/BODY_SENSORS
+             grant on Android 14+, and specialUse needs a Play-review
+             justification property. Neither buys anything for a sideloaded
+             personal app, and dataSync's 6h/24h budget dwarfs a workout. -->
+        <service
+            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false"
+            android:stopWithTask="false" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

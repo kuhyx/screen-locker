@@ -29,6 +29,12 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Required by flutter_local_notifications 22.x, which uses java.time
+        // APIs that only exist from API 26. minSdk here is 24, so they have to
+        // be backported. The plugin's README says to enable this even when the
+        // app schedules no notifications -- we don't, and it is still needed:
+        // without it the Android build fails outright.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -71,4 +77,9 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Backports java.time for minSdk 24; see isCoreLibraryDesugaringEnabled.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }

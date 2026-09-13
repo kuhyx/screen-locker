@@ -2,9 +2,12 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/screens/home_screen.dart';
 import 'package:workout_app/services/backup_service.dart';
+import 'package:workout_app/services/break_service_controller.dart';
+import 'package:workout_app/services/foreground_break_client_flutter.dart';
 import 'package:workout_app/services/http_server_service.dart';
 import 'package:workout_app/services/lock_mode.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
@@ -18,6 +21,11 @@ import 'package:workout_app/ui/theme.dart';
 // up are unit-tested individually; the entry point itself is not.
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  // The UI end of the channel the break foreground service talks back on.
+  // Must precede runApp, and must happen even on Linux: the call is a no-op
+  // where there is no service, and skipping it would mean the workout screen
+  // silently never hears a notification button press.
+  FlutterForegroundTask.initCommunicationPort();
   // Must precede runApp: the UI reads this to decide whether to offer
   // any way out of the workout.
   lockModeEnabled = parseLockMode(args);
@@ -50,6 +58,13 @@ void main(List<String> args) async {
     );
   }
   await StorageService.init();
+  // Before the UI exists: a service left over from a crashed or force-stopped
+  // workout must not sit in the status bar counting down nothing.
+  await stopStaleBreakService(
+    FlutterForegroundBreakClient(),
+    hasActiveWorkout: () async =>
+        await StorageService.instance.loadActiveSession() != null,
+  );
   await StorageService.instance.restoreFromBackupIfNeeded();
   // The permission-free restore path, and the reason storage is now optional.
   // `backup.json` is unreadable without the grant, so on a denied reinstall the

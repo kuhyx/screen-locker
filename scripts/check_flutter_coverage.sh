@@ -19,7 +19,15 @@ echo "Running flutter test --coverage ..."
 # git to identify its own SDK. With it set, flutter reads THIS repository as
 # the SDK -- reporting our HEAD as the framework revision -- and pub then
 # resolves every version constraint against "0.0.0-unknown" and fails.
-env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE flutter test --coverage
+# FLUTTER_TEST_CONCURRENCY: one test isolate per core is the default and peaks
+# well over 4 GiB on this suite, which the 4 GiB resource cap (capped.sh)
+# OOM-kills. Set it to 1-2 when running under the cap; unset keeps the default.
+concurrency=()
+if [[ -n "${FLUTTER_TEST_CONCURRENCY:-}" ]]; then
+  concurrency=(--concurrency "$FLUTTER_TEST_CONCURRENCY")
+fi
+env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
+  flutter test --coverage "${concurrency[@]}"
 
 cd - > /dev/null
 
