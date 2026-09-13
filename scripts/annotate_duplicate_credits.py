@@ -38,7 +38,7 @@ import sys
 from typing import TypedDict
 
 from screen_locker._log_io import load_workout_log
-from screen_locker._weekly_check import count_day_credits, credit_key
+from screen_locker._weekly_check import count_day_credits, credit_key, day_workout_index
 
 _logger = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ def _shared_credits(date_str: str, entries: list[dict]) -> list[CreditRecord]:
     """
     groups: dict[tuple[str, str], list[tuple[int, dict]]] = defaultdict(list)
     for index, entry in enumerate(entries):
-        key = credit_key(date_str, index, entry)
+        key = credit_key(date_str, index, entry, day_workout_index(entries))
         if key is not None:
             groups[key].append((index, entry))
 

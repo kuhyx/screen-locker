@@ -13,6 +13,7 @@ from screen_locker._constants import (
 from screen_locker._day import today_str
 from screen_locker._shutdown_sick_state import SickDayStateMixin
 from screen_locker._wake_alarm import WakeAlarmMixin
+from screen_locker._workout_credit import FIRST_WORKOUT_BONUS_HOURS
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -97,8 +98,8 @@ class ShutdownMixin(SickDayStateMixin, WakeAlarmMixin):
             if config_values is None:
                 return False
             mon_wed_hour, thu_sun_hour, morning_end_hour = config_values
-            new_mon_wed = min(23, mon_wed_hour + 2)
-            new_thu_sun = min(23, thu_sun_hour + 2)
+            new_mon_wed = min(23, mon_wed_hour + FIRST_WORKOUT_BONUS_HOURS)
+            new_thu_sun = min(23, thu_sun_hour + FIRST_WORKOUT_BONUS_HOURS)
             return self._write_shutdown_config(
                 new_mon_wed,
                 new_thu_sun,

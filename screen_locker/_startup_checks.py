@@ -108,7 +108,10 @@ class StartupChecksMixin(SyncMixin):
         # Reset shutdown config to base (21:00) at the start of each new day,
         # then layer this week's earned bonus back on top of the fresh base.
         if reset_to_base_if_new_day(
-            SHUTDOWN_BASE_FILE, self, sick_day_state_file=SICK_DAY_STATE_FILE
+            SHUTDOWN_BASE_FILE,
+            self,
+            sick_day_state_file=SICK_DAY_STATE_FILE,
+            log_file=self.log_file,
         ):
             self._apply_weekly_shutdown_bonus()
         # Ingest any manual workouts synced from the phone (or another device)

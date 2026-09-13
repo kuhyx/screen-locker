@@ -91,6 +91,7 @@ def credit_key(
     date_str: str,
     entry_index: int,
     entry: Mapping[str, Any],
+    sibling_index: Mapping[str, int] | None = None,
 ) -> tuple[str, str] | None:
     """Return the credit slot a log entry occupies, or None if it earns none.
 
@@ -104,6 +105,10 @@ def credit_key(
         entry_index: Position of the entry within that date's list, used to
             keep independently-earned credits distinct.
         entry: The log entry.
+        sibling_index: ``workout_id`` → position for every entry filed under
+            the same day (see :func:`day_workout_index`). A synced copy names
+            the entry it was pulled from in ``sync_record_id``; when that entry
+            is already here, the copy is the same workout and shares its slot.
 
     Returns:
         A hashable key shared by entries that represent the same workout, or
@@ -120,7 +125,31 @@ def credit_key(
     # Verified runs and manual workouts are genuinely separate sessions, so
     # several on one day all count -- the manual-workout rate budget (see
     # screen_locker._manual_workout) is the anti-gaming limiter, not a collapse.
+    # The one exception is a sync re-ingesting an entry that is already on
+    # this day under a different workout_id (2026-09-13: a manual workout
+    # rekeyed to its local day, then pulled back in stamped with that day).
+    sync_id = (
+        workout_data.get("sync_record_id")
+        if isinstance(workout_data, Mapping)
+        else None
+    )
+    if sibling_index and isinstance(sync_id, str) and sync_id in sibling_index:
+        entry_index = sibling_index[sync_id]
     return (wtype, f"{date_str}#{entry_index}")
+
+
+def day_workout_index(entries: Iterable[Mapping[str, Any]]) -> dict[str, int]:
+    """Map each ``workout_id`` on one day to the position of its first entry.
+
+    Built once per day and handed to :func:`credit_key`, so a synced copy can
+    resolve its ``sync_record_id`` to the slot of the entry it duplicates.
+    """
+    index: dict[str, int] = {}
+    for position, entry in enumerate(entries):
+        wid = entry.get("workout_id")
+        if wid is not None:
+            index.setdefault(str(wid), position)
+    return index
 
 
 def count_day_credits(date_str: str, entries: Iterable[Mapping[str, Any]]) -> int:
@@ -132,12 +161,15 @@ def count_day_credits(date_str: str, entries: Iterable[Mapping[str, Any]]) -> in
 
     Returns:
         The number of distinct credits, after collapsing the two StrongLifts
-        ingestion paths onto one slot.
+        ingestion paths (and any synced copy of an entry already present)
+        onto one slot.
     """
+    day_entries = list(entries)
+    sibling_index = day_workout_index(day_entries)
     keys = {
         key
-        for index, entry in enumerate(entries)
-        if (key := credit_key(date_str, index, entry)) is not None
+        for index, entry in enumerate(day_entries)
+        if (key := credit_key(date_str, index, entry, sibling_index)) is not None
     }
     return len(keys)
 

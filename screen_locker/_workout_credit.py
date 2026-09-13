@@ -25,6 +25,22 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
+# The shutdown reward for a day's workouts: the first counted workout pushes
+# shutdown later by FIRST_WORKOUT_BONUS_HOURS, every further one by
+# EXTRA_WORKOUT_BONUS_HOURS. Both the live credit paths below and the daily
+# base reset (``_shutdown_base``) derive from these two numbers, so a day's
+# earned hours can be recomputed from the log instead of being lost when the
+# credit landed before the reset ran.
+FIRST_WORKOUT_BONUS_HOURS = 2
+EXTRA_WORKOUT_BONUS_HOURS = 1
+
+
+def earned_shutdown_bonus_hours(credit_count: int) -> int:
+    """Return the shutdown hours a day with *credit_count* distinct workouts earned."""
+    if credit_count <= 0:
+        return 0
+    return FIRST_WORKOUT_BONUS_HOURS + (credit_count - 1) * EXTRA_WORKOUT_BONUS_HOURS
+
 
 @dataclass(frozen=True)
 class WorkoutCreditResult:
@@ -112,7 +128,7 @@ class WorkoutCreditMixin:
             shutdown_adjusted = self._try_adjust_shutdown_for_workout()
         elif self.workout_data.get("type") in COUNTED_WORKOUT_TYPES:
             old_cfg = self._read_shutdown_config()
-            if old_cfg and self._adjust_shutdown_time_by(1):
+            if old_cfg and self._adjust_shutdown_time_by(EXTRA_WORKOUT_BONUS_HOURS):
                 new_cfg = self._read_shutdown_config()
                 if new_cfg:
                     extra_bonus_delta = new_cfg[1] - old_cfg[1]
