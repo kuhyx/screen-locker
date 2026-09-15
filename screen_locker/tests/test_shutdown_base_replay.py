@@ -147,36 +147,28 @@ class TestResetReplaysTodaysCredit:
 
     def _mixin(self) -> MagicMock:
         mixin = MagicMock()
-        mixin._read_shutdown_config.return_value = (21, 21, 5)
+        mixin._read_shutdown_config.return_value = (20, 20, 5)
         mixin._write_shutdown_config.return_value = True
         return mixin
 
-    def _state(self, tmp_path: Path, base: int = 21) -> Path:
+    def _state(self, tmp_path: Path) -> Path:
         state = tmp_path / "state.json"
-        state.write_text(
-            json.dumps(
-                {
-                    "last_reset_date": "2000-01-01",
-                    "base_mon_wed_hour": base,
-                    "base_thu_sun_hour": base,
-                }
-            )
-        )
+        state.write_text(json.dumps({"last_reset_date": "2000-01-01"}))
         return state
 
     def test_writes_base_plus_todays_earned_hours(self, tmp_path: Path) -> None:
-        """The 2026-09-13 case: base 21 + one football → 23, not 21."""
+        """The 2026-09-13 case: base 20 + one football → 22, not 20."""
         log = _write_log(tmp_path / "log.json", today_str(), _real_2026_09_13())
         mixin = self._mixin()
         assert (
             reset_to_base_if_new_day(self._state(tmp_path), mixin, log_file=log) is True
         )
-        mixin._write_shutdown_config.assert_called_once_with(23, 23, 5, restore=True)
+        mixin._write_shutdown_config.assert_called_once_with(22, 22, 5, restore=True)
 
     def test_without_log_file_writes_plain_base(self, tmp_path: Path) -> None:
         mixin = self._mixin()
         assert reset_to_base_if_new_day(self._state(tmp_path), mixin) is True
-        mixin._write_shutdown_config.assert_called_once_with(21, 21, 5, restore=True)
+        mixin._write_shutdown_config.assert_called_once_with(20, 20, 5, restore=True)
 
     def test_empty_day_writes_plain_base(self, tmp_path: Path) -> None:
         log = _write_log(tmp_path / "log.json", "2000-01-01", _real_2026_09_13())
@@ -184,23 +176,25 @@ class TestResetReplaysTodaysCredit:
         assert (
             reset_to_base_if_new_day(self._state(tmp_path), mixin, log_file=log) is True
         )
-        mixin._write_shutdown_config.assert_called_once_with(21, 21, 5, restore=True)
+        mixin._write_shutdown_config.assert_called_once_with(20, 20, 5, restore=True)
 
     def test_earned_hours_are_capped_at_the_restore_ceiling(
         self, tmp_path: Path
     ) -> None:
-        """base 22 + 2h earned would be 24; the script clamps at 23, so ask for 23."""
-        log = _write_log(tmp_path / "log.json", today_str(), _real_2026_09_13())
+        """base 20 + 2h football + 2 extra workouts = 24; the script clamps at 23."""
+        entries = [
+            *_real_2026_09_13(),
+            _manual("manual:2026-09-13T12:00"),
+            _manual("manual:2026-09-13T18:00"),
+        ]
+        log = _write_log(tmp_path / "log.json", today_str(), entries)
         mixin = self._mixin()
-        state = self._state(tmp_path, base=22)
-        assert reset_to_base_if_new_day(state, mixin, log_file=log) is True
+        assert reset_to_base_if_new_day(self._state(tmp_path), mixin, log_file=log)
         mixin._write_shutdown_config.assert_called_once_with(23, 23, 5, restore=True)
 
-    def test_state_file_still_records_base_not_target(self, tmp_path: Path) -> None:
-        """Tomorrow's reset must start from 21 again, not from today's 23."""
+    def test_state_file_records_only_the_date(self, tmp_path: Path) -> None:
+        """Tomorrow's reset must start from the constant, not from today's 22."""
         log = _write_log(tmp_path / "log.json", today_str(), _real_2026_09_13())
         state = self._state(tmp_path)
         reset_to_base_if_new_day(state, self._mixin(), log_file=log)
-        saved = json.loads(state.read_text())
-        assert (saved["base_mon_wed_hour"], saved["base_thu_sun_hour"]) == (21, 21)
-        assert saved["last_reset_date"] == today_str()
+        assert json.loads(state.read_text()) == {"last_reset_date": today_str()}

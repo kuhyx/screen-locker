@@ -7,43 +7,62 @@ import json
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
-from screen_locker._shutdown_base import get_base_hours, reset_to_base_if_new_day
+from screen_locker._shutdown_base import (
+    BASE_HOUR,
+    _load_state,
+    reset_to_base_if_new_day,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 
-class TestGetBaseHours:
-    """Tests for get_base_hours."""
+class TestLoadState:
+    """Tests for the state-file reader behind both entry points."""
 
-    def test_returns_defaults_when_file_missing(self, tmp_path: Path) -> None:
-        """Missing file → (21, 21) without errors (lines 29-30)."""
-        assert get_base_hours(tmp_path / "nonexistent.json") == (21, 21)
+    def test_missing_file_is_empty(self, tmp_path: Path) -> None:
+        """Missing file → {} without errors."""
+        assert _load_state(tmp_path / "nonexistent.json") == {}
 
-    def test_returns_stored_hours(self, tmp_path: Path) -> None:
-        """Valid file with custom hours → exact values (lines 31-37)."""
+    def test_returns_stored_stamps(self, tmp_path: Path) -> None:
+        """Valid file → exact contents."""
         f = tmp_path / "state.json"
-        f.write_text(json.dumps({"base_mon_wed_hour": 22, "base_thu_sun_hour": 20}))
-        assert get_base_hours(f) == (22, 20)
+        f.write_text(json.dumps({"last_reset_date": "2000-01-01"}))
+        assert _load_state(f) == {"last_reset_date": "2000-01-01"}
 
-    def test_returns_defaults_on_corrupt_json(self, tmp_path: Path) -> None:
-        """Corrupt JSON → (21, 21) via except (lines 38-39)."""
+    def test_corrupt_json_is_empty(self, tmp_path: Path) -> None:
+        """Corrupt JSON → {} via except."""
         f = tmp_path / "state.json"
         f.write_text("not-json")
-        assert get_base_hours(f) == (21, 21)
+        assert _load_state(f) == {}
 
-    def test_returns_defaults_on_oserror(self) -> None:
-        """OSError on open → (21, 21) via except (lines 38-39)."""
+    def test_oserror_is_empty(self) -> None:
+        """OSError on open → {} via except."""
         mock_path = MagicMock()
         mock_path.exists.return_value = True
         mock_path.open.side_effect = OSError("read fail")
-        assert get_base_hours(mock_path) == (21, 21)
+        assert _load_state(mock_path) == {}
 
-    def test_uses_default_when_key_missing(self, tmp_path: Path) -> None:
-        """Keys absent in JSON → each defaults to 21."""
+    def test_stale_base_keys_are_ignored(self, tmp_path: Path) -> None:
+        """A file installed before the base became a constant must not revive 21."""
         f = tmp_path / "state.json"
-        f.write_text(json.dumps({}))
-        assert get_base_hours(f) == (21, 21)
+        f.write_text(
+            json.dumps(
+                {
+                    "last_reset_date": "2000-01-01",
+                    "base_mon_wed_hour": 21,
+                    "base_thu_sun_hour": 21,
+                }
+            )
+        )
+        mixin = MagicMock()
+        mixin._read_shutdown_config.return_value = (21, 21, 5)
+        mixin._write_shutdown_config.return_value = True
+        assert reset_to_base_if_new_day(f, mixin) is True
+        mixin._write_shutdown_config.assert_called_once_with(
+            BASE_HOUR, BASE_HOUR, 5, restore=True
+        )
+        assert "base_mon_wed_hour" not in json.loads(f.read_text())
 
 
 class TestResetToBaseIfNewDay:
@@ -66,18 +85,10 @@ class TestResetToBaseIfNewDay:
     def test_resets_when_new_day(self, tmp_path: Path) -> None:
         """Different last_reset_date → reset performed, returns True (lines 67-100)."""
         f = tmp_path / "state.json"
-        f.write_text(
-            json.dumps(
-                {
-                    "last_reset_date": "2000-01-01",
-                    "base_mon_wed_hour": 21,
-                    "base_thu_sun_hour": 21,
-                }
-            )
-        )
+        f.write_text(json.dumps({"last_reset_date": "2000-01-01"}))
         mixin = self._make_mixin()
         assert reset_to_base_if_new_day(f, mixin) is True
-        mixin._write_shutdown_config.assert_called_once_with(21, 21, 5, restore=True)
+        mixin._write_shutdown_config.assert_called_once_with(20, 20, 5, restore=True)
 
     def test_resets_when_no_state_file(self, tmp_path: Path) -> None:
         """No state file → treated as new day, reset performed (lines 67-100)."""
@@ -101,7 +112,7 @@ class TestResetToBaseIfNewDay:
         mixin._read_shutdown_config.return_value = None
         mixin._write_shutdown_config.return_value = True
         reset_to_base_if_new_day(f, mixin)
-        mixin._write_shutdown_config.assert_called_once_with(21, 21, 5, restore=True)
+        mixin._write_shutdown_config.assert_called_once_with(20, 20, 5, restore=True)
 
     def test_clears_sick_day_state_file_on_reset(self, tmp_path: Path) -> None:
         """Existing sick-day file is deleted during reset (lines 79-82)."""

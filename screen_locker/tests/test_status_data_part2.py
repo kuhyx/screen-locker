@@ -40,7 +40,7 @@ class TestGatherStatus:
         assert snap.week.remaining == 5
         assert snap.week.extra == 0
         assert snap.shutdown.tonight is None
-        assert snap.shutdown.rest_of_week[0].hour == 21
+        assert snap.shutdown.rest_of_week[0].hour == 20
         assert snap.shutdown.rest_of_week[0].speculative is False
         assert snap.sick_budget.used_7d == 0
         assert snap.sick_budget.exhausted is False
@@ -124,7 +124,7 @@ class TestGatherStatus:
         assert snap.bonus_hours_this_week == 3
         assert snap.streak == 2
         assert snap.early_bird_extended is True
-        assert snap.shutdown.rest_of_week[0].hour == 24  # 21 base + 3 bonus
+        assert snap.shutdown.rest_of_week[0].hour == 23  # 20 base + 3 bonus
 
     def test_next_week_preview_is_speculative_rest_of_week_is_not(
         self, tmp_path: Path

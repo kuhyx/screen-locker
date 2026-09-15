@@ -4,6 +4,14 @@ Tkinter/systemd screen locker with workout tracking, sick-day management, and
 wake-alarm integration. It enforces a workout cadence by locking the screen
 until a RunnerUp-verified (or explicitly justified) workout is logged.
 
+## Shutdown time
+
+Every day starts at **20:00** (`BASE_HOUR` in `screen_locker/_shutdown_base.py`)
+and bonuses push it later, capped at 23:00: the first counted workout +2h,
+each further one +1h, and an accepted LeetCode submission that day +1h (flat,
+read from leetcode-guard's ledger, once per day). The config is re-derived from
+those sources on each new day, so nothing has to be "remembered" across reboots.
+
 ## MCP server (Claude Code integration)
 
 screen-locker exposes a **read-only** MCP server (`screen_locker._mcp`) so

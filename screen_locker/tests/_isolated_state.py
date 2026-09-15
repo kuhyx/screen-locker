@@ -73,4 +73,11 @@ ISOLATED_STATE: tuple[tuple[str, tuple[str, ...]], ...] = (
         "instance.lock",
         ("_constants.INSTANCE_LOCK_FILE", "screen_lock.INSTANCE_LOCK_FILE"),
     ),
+    # leetcode-guard's ledger. Read-only from here, but a test must never see
+    # the user's real solves: a real credit would earn a fake shutdown hour
+    # inside an assertion written against an empty day.
+    (
+        "leetcode_ledger.json",
+        ("_leetcode_bonus.LEETCODE_LEDGER_FILE",),
+    ),
 )

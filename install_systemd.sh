@@ -88,11 +88,12 @@ if systemctl --user is-active "workout-locker.timer" &>/dev/null; then
 fi
 rm -f "$USER_SERVICE_DIR/workout-locker.timer"
 
-# Seed shutdown_base.json with base=21 if not already present
+# Seed shutdown_base.json if not already present. It holds only date stamps;
+# the base hour itself is BASE_HOUR in screen_locker/_shutdown_base.py.
 SHUTDOWN_BASE="$SCRIPT_DIR/screen_locker/shutdown_base.json"
 if [[ ! -f "$SHUTDOWN_BASE" ]]; then
-	printf '{\n  "base_mon_wed_hour": 21,\n  "base_thu_sun_hour": 21,\n  "last_reset_date": ""\n}\n' > "$SHUTDOWN_BASE"
-	echo "✓ Created shutdown_base.json with base=21:00"
+	printf '{\n  "last_reset_date": ""\n}\n' > "$SHUTDOWN_BASE"
+	echo "✓ Created shutdown_base.json"
 fi
 
 # Copy service file to user systemd directory

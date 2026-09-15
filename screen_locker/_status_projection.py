@@ -19,7 +19,7 @@ from screen_locker._extra_benefits import (
     weekly_shutdown_bonus_hours,
 )
 from screen_locker._shutdown import read_shutdown_config
-from screen_locker._shutdown_base import get_base_hours
+from screen_locker._shutdown_base import BASE_HOUR
 from screen_locker._status_types import ShutdownProjection, ShutdownProjectionDay
 from screen_locker._weekly_check import count_weekly_workouts
 
@@ -53,7 +53,6 @@ def _week_rows(
 
 def _shutdown_projection(
     *,
-    shutdown_base_file: Path,
     shutdown_config_file: Path,
     extra_benefits_file: Path,
     log_file: Path,
@@ -61,9 +60,8 @@ def _shutdown_projection(
 ) -> ShutdownProjection:
     """Build the shutdown-time projection: tonight, rest of week, next week."""
     tonight = read_shutdown_config(shutdown_config_file)
-    base_mw, base_ts = get_base_hours(shutdown_base_file)
     bonus = weekly_shutdown_bonus_hours(extra_benefits_file, today=today_local)
-    rest_of_week = _week_rows(base_mw + bonus, base_ts + bonus, speculative=False)
+    rest_of_week = _week_rows(BASE_HOUR + bonus, BASE_HOUR + bonus, speculative=False)
 
     this_week_count = count_weekly_workouts(log_file, today=today_local)
     streak = current_streak(extra_benefits_file)
@@ -71,7 +69,7 @@ def _shutdown_projection(
         this_week_count, streak
     )
     next_week_preview = _week_rows(
-        base_mw + would_be_bonus, base_ts + would_be_bonus, speculative=True
+        BASE_HOUR + would_be_bonus, BASE_HOUR + would_be_bonus, speculative=True
     )
 
     return ShutdownProjection(

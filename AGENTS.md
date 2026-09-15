@@ -24,3 +24,21 @@ weeks because a missing token `return`ed `[]` and real errors only logged at
   should read like a sentence a human can act on.
 - **No escape hatch** — `# noqa` is banned repo-wide. If a failure really is
   benign, log it at `warning` and move on.
+
+## The shutdown hour is derived, never incremented into
+
+`/etc/shutdown-schedule.conf` is recomputed from scratch by
+`_shutdown_base.reset_to_base_if_new_day` on each new day:
+`BASE_HOUR (20) + today's workout hours + the LeetCode hour`, capped at 23.
+Anything that pushes the hour with a plain read-add-write and is *not* a term
+of that derivation gets wiped by the next reset -- that is how a 00:02 workout
+lost its hours on 2026-09-13. Add a new bonus source as a term first, then
+(optionally) as a live pass stamped in `shutdown_base.json` so the two do not
+double-apply. The base is the constant, not the state file: the file once
+persisted `base_*_hour`, which made the code's default dead.
+
+The LeetCode hour is read from leetcode-guard's ledger
+(`_leetcode_bonus.py`): HMAC-verified `credit` entries, keyed on LeetCode's
+own `submitted_at`, flat +1h/day, and *fail closed* -- an unreadable ledger or
+key earns nothing. leetcode-guard itself stays read-only; it never writes
+the config.

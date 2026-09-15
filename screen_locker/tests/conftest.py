@@ -173,18 +173,18 @@ def _isolate_shutdown_base(tmp_path: Path) -> Iterator[None]:
     Pre-seeded with today's date so reset_to_base_if_new_day() is a no-op by
     default (matching the real file's steady state) -- tests that want to
     exercise the actual reset path patch reset_to_base_if_new_day directly,
-    same as the rest of the suite already does.
+    same as the rest of the suite already does. The LeetCode stamp is seeded
+    too, so apply_leetcode_bonus_if_new() never reads a ledger by default.
     """
     target = tmp_path / "shutdown_base.json"
     today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
     target.write_text(
-        json.dumps(
-            {"base_mon_wed_hour": 21, "base_thu_sun_hour": 21, "last_reset_date": today}
-        )
+        json.dumps({"last_reset_date": today, "leetcode_bonus_date": today})
     )
     with (
         patch("screen_locker._constants.SHUTDOWN_BASE_FILE", target),
         patch("screen_locker._startup_checks.SHUTDOWN_BASE_FILE", target),
+        patch("screen_locker._sync_mixin.SHUTDOWN_BASE_FILE", target),
     ):
         yield
 
