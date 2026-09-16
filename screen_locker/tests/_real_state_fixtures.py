@@ -70,3 +70,18 @@ def _isolate_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[N
     monkeypatch.setenv("HOME", str(tmp_path))
     with patch.object(Path, "home", lambda: tmp_path):
         yield
+
+
+@pytest.fixture(autouse=True)
+def _no_real_runnerup_webdav_dir(tmp_path: Path) -> Iterator[None]:
+    """Never let the RunnerUp scan read the developer's real WebDAV drop dir.
+
+    ``RUNNERUP_WEBDAV_DIRS`` is bound from ``Path.home()`` at *import* time,
+    so ``_isolate_home`` cannot reach it. On this machine the real directory
+    holds today's run, which made every "phone absent → not verified" test
+    pass verification the day the source was added (2026-09-16). Tests that
+    want the local source point the tuple at directories they populate.
+    """
+    absent = (tmp_path / "no-runnerup-webdav",)
+    with patch("screen_locker._runnerup_verification.RUNNERUP_WEBDAV_DIRS", absent):
+        yield

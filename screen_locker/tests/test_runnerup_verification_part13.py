@@ -89,6 +89,9 @@ class TestBranchCoverageGaps:
             "_run_adb",
             MagicMock(return_value=(True, dup_files)),
         )
+        # The adb listing only runs with a device attached (the WebDAV drop
+        # dir is searched first and needs no phone).
+        object.__setattr__(locker, "_has_adb_device", MagicMock(return_value=True))
         result = locker._find_runnerup_exports_for_date("2024-03-15")
         # Dedup: only one path in the result
         assert len(result) >= 1

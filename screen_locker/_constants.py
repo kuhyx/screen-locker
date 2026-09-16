@@ -143,6 +143,17 @@ RUNNERUP_EXPORT_DIRS: tuple[str, ...] = (
     "/storage/emulated/0/Documents/RunnerUp",
 )
 
+# Where RunnerUp's WebDAV synchroniser drops the same exports on this machine
+# (dufs, see ~/src/dufs-cloud), and where endurain-import moves them once
+# Endurain has them. Read straight off the disk, so a run is credited without
+# the phone being adb-reachable -- on 2026-09-16 the TCX landed here at 20:08
+# and the phone was only plugged in at 20:25. Same filenames as the phone
+# export, optionally prefixed with the device name (RunnerUp_Pixel_6a_...).
+RUNNERUP_WEBDAV_DIRS: tuple[Path, ...] = (
+    Path.home() / "data" / "cloud" / "RunnerUp",
+    Path.home() / "data" / "cloud" / "RunnerUp" / "processed",
+)
+
 # ---------------------------------------------------------------------------
 # Sync (phone workout data) — Workstream C, built on the shared crdt-sync
 # library. GitHub is used purely as dumb file storage via the REST Contents

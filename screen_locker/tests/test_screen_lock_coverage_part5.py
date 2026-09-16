@@ -56,7 +56,7 @@ class TestIngestSyncedManualWorkouts:
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
         """The callback wired into ingest_manual_records must be
-        ``locker._credit_ingested_manual_workout``, so a synced manual
+        ``locker._credit_ingested_workout``, so a synced manual
         workout earns the same reward a live one would; workout_data is reset
         afterward so it can't leak into a later interactive flow."""
         locker = create_locker(mock_tk, tmp_path)
@@ -73,14 +73,14 @@ class TestIngestSyncedManualWorkouts:
         ):
             locker._ingest_synced_manual_workouts()
         assert ingest.call_args.kwargs["on_ingested"] == (
-            locker._credit_ingested_manual_workout
+            locker._credit_ingested_workout
         )
         assert locker.workout_data == {}
 
-    def test_credit_ingested_manual_workout_applies_reward(
+    def test_credit_ingested_workout_applies_reward(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
-        """_credit_ingested_manual_workout sets workout_data to the ingested
+        """_credit_ingested_workout sets workout_data to the ingested
         entry and applies the shared credit logic — proving a synced manual
         workout (today's or back-dated) earns full shutdown/debt credit,
         exactly like a live-logged one."""
@@ -92,11 +92,11 @@ class TestIngestSyncedManualWorkouts:
             "_apply_credit_for_written_entry",
             return_value=MagicMock(shutdown_adjusted=True, extra_bonus_delta=0),
         ) as apply_credit:
-            locker._credit_ingested_manual_workout(entry, prior)
+            locker._credit_ingested_workout(entry, prior)
         assert locker.workout_data == entry
         apply_credit.assert_called_once_with(prior)
 
-    def test_credit_ingested_manual_workout_logs_extra_bonus(
+    def test_credit_ingested_workout_logs_extra_bonus(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
         """A second same-day synced manual workout (extra_bonus_delta, not the
@@ -110,11 +110,11 @@ class TestIngestSyncedManualWorkouts:
             "_apply_credit_for_written_entry",
             return_value=MagicMock(shutdown_adjusted=False, extra_bonus_delta=1),
         ) as apply_credit:
-            locker._credit_ingested_manual_workout(entry, prior)
+            locker._credit_ingested_workout(entry, prior)
         assert locker.workout_data == entry
         apply_credit.assert_called_once_with(prior)
 
-    def test_credit_ingested_manual_workout_no_reward_logs_nothing(
+    def test_credit_ingested_workout_no_reward_logs_nothing(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
         """A duplicate/no-op credit result (neither shutdown_adjusted nor
@@ -128,7 +128,7 @@ class TestIngestSyncedManualWorkouts:
             "_apply_credit_for_written_entry",
             return_value=MagicMock(shutdown_adjusted=False, extra_bonus_delta=0),
         ) as apply_credit:
-            locker._credit_ingested_manual_workout(entry, prior)
+            locker._credit_ingested_workout(entry, prior)
         assert locker.workout_data == entry
         apply_credit.assert_called_once_with(prior)
 
@@ -191,8 +191,5 @@ class TestIngestSyncedSessions:
             ) as ingest,
         ):
             locker._ingest_synced_sessions()
-        assert (
-            ingest.call_args.kwargs["on_ingested"]
-            == locker._credit_ingested_manual_workout
-        )
+        assert ingest.call_args.kwargs["on_ingested"] == locker._credit_ingested_workout
         assert locker.workout_data == {}

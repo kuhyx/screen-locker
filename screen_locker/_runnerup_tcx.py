@@ -41,7 +41,15 @@ class RunnerUpTcxMixin:
     """Pulls and parses RunnerUp's TCX exports over adb."""
 
     def _pull_and_parse_tcx(self, remote_path: str) -> dict[str, Any] | None:
-        """Pull a remote TCX file and parse it. Returns activity dict or None."""
+        """Parse a TCX export, pulling it over adb first unless it is local.
+
+        A path that exists on this machine (the WebDAV drop directory, see
+        ``RUNNERUP_WEBDAV_DIRS``) is parsed in place; anything else is a
+        phone path and goes through ``adb pull``. Returns the activity dict
+        or None.
+        """
+        if Path(remote_path).is_file():
+            return self._parse_tcx(remote_path)
         tmp_dir = tempfile.mkdtemp(prefix="runnerup_tcx_")
         local_path = str(Path(tmp_dir) / "activity.tcx")
         try:

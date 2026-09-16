@@ -16,10 +16,6 @@ from screen_locker._manual_push import push_pc_workouts
 from screen_locker._manual_sync import ingest_manual_records
 from screen_locker._session_sync import ingest_session_records
 from screen_locker._shutdown_base import apply_leetcode_bonus_if_new
-from screen_locker._weekly_check import (
-    WEEKLY_WORKOUT_MINIMUM,
-    count_weekly_workouts,
-)
 from screen_locker._workout_sync import (
     pull_all_manual_records,
     pull_all_session_records,
@@ -67,7 +63,7 @@ class SyncMixin:
         ingested = ingest_manual_records(
             self.log_file,
             pull_all_manual_records(),
-            on_ingested=self._credit_ingested_manual_workout,
+            on_ingested=self._credit_ingested_workout,
         )
         for record_id in ingested:
             _logger.info("Ingested synced manual workout: %s", record_id)
@@ -88,42 +84,51 @@ class SyncMixin:
         ingested = ingest_session_records(
             self.log_file,
             pull_all_session_records(),
-            on_ingested=self._credit_ingested_manual_workout,
+            on_ingested=self._credit_ingested_workout,
         )
         for record_id in ingested:
             _logger.info("Ingested synced StrongLifts session: %s", record_id)
         self.workout_data = {}
 
-    def _credit_ingested_manual_workout(
+    def _credit_ingested_workout(
         self, entry: dict[str, str], prior_entries: list[dict]
     ) -> None:
-        """Apply the live-workout reward to a manual workout ingested via sync."""
+        """Apply the live-workout reward to a workout ingested from another source.
+
+        Shared by manual-workout sync, StrongLifts session sync and the
+        RunnerUp TCX backfill -- one reward rule for every non-interactive way
+        a workout can land in the log.
+        """
         self.workout_data = entry
         credit = self._apply_credit_for_written_entry(prior_entries)
         if credit.shutdown_adjusted:
             _logger.info(
-                "Synced manual workout pushed shutdown time +2h: %s",
+                "Ingested workout pushed shutdown time +2h: %s",
                 entry.get("source", ""),
             )
         elif credit.extra_bonus_delta:
             _logger.info(
-                "Synced manual workout added +%dh shutdown time: %s",
+                "Ingested workout added +%dh shutdown time: %s",
                 credit.extra_bonus_delta,
                 entry.get("source", ""),
             )
 
     def _auto_fill_week_runnerup_bonus(self) -> None:
-        """Auto-fill missed RunnerUp workouts and award any earned bonus."""
-        prev_count = count_weekly_workouts(self.log_file)
-        n_filled = self._scan_and_fill_week_runnerup(self.log_file)
-        if not n_filled:
-            return
-        new_count = count_weekly_workouts(self.log_file)
-        _logger.info("Auto-filled %d RunnerUp workout(s) from TCX exports.", n_filled)
-        # Award +1h for each newly auto-filled workout above the minimum.
-        bonus = max(0, new_count - max(WEEKLY_WORKOUT_MINIMUM, prev_count))
-        if bonus > 0 and self._adjust_shutdown_time_by(bonus):
-            _logger.info("Auto-fill extra bonus: +%dh shutdown time.", bonus)
+        """Auto-fill missed RunnerUp workouts and credit each one.
+
+        Every appended run goes through the same
+        :meth:`_credit_ingested_workout` callback as a synced manual workout
+        or StrongLifts session, so the reward is the documented day rule
+        (+2h first counted workout of its day, +1h each further one).
+        """
+        n_filled = self._scan_and_fill_week_runnerup(
+            self.log_file, on_ingested=self._credit_ingested_workout
+        )
+        if n_filled:
+            _logger.info(
+                "Auto-filled %d RunnerUp workout(s) from TCX exports.", n_filled
+            )
+        self.workout_data = {}
 
     def _apply_weekly_shutdown_bonus(self) -> None:
         """Layer this week's earned shutdown bonus back on top of the fresh base."""

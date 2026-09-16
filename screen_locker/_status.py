@@ -95,18 +95,19 @@ def run_status(locker: ScreenLocker) -> None:
     # which would undercount a day holding two verified workouts.
     before_count = count_weekly_workouts(log_file)
 
-    # RunnerUp scan
-    n_filled = locker._scan_and_fill_week_runnerup(log_file)
+    # RunnerUp scan. Each fill is credited by the shared ingestion callback
+    # (+2h first counted workout of its day, +1h each further one), the same
+    # rule the timer's sync pass and the daily base reset use.
+    n_filled = locker._scan_and_fill_week_runnerup(
+        log_file, on_ingested=locker._credit_ingested_workout
+    )
+    locker.workout_data = {}
     if n_filled > 0:
         print(f"  Auto-filled {n_filled} workout(s) from RunnerUp exports.")
         after_count = count_weekly_workouts(log_file)
-        bonus = max(0, after_count - max(WEEKLY_WORKOUT_MINIMUM, before_count))
-        if bonus > 0:
-            ok = locker._adjust_shutdown_time_by(bonus)
-            if ok:
-                print(f"  +{bonus}h shutdown bonus applied.")
-            else:
-                print(f"  +{bonus}h shutdown bonus pending (config write failed).")
+        _, mw_hour, _ = locker._read_shutdown_config() or (None, None, None)
+        if mw_hour is not None:
+            print(f"  Shutdown tonight: {mw_hour:02d}:00.")
     else:
         print("  No new workouts found via RunnerUp scan.")
         after_count = before_count

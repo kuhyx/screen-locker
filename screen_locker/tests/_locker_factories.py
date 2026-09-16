@@ -32,6 +32,7 @@ def _make_locker(
         workout_data={},
     )
     locker._scan_and_fill_week_runnerup = MagicMock(return_value=n_filled)
+    locker._credit_ingested_workout = MagicMock()
     locker._adjust_shutdown_time_by = MagicMock(return_value=bonus_applied)
     locker._read_shutdown_config = MagicMock(return_value=cfg)
     return locker

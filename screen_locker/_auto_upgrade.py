@@ -4,6 +4,13 @@ Neither early_bird (a same-day pending marker, see ``_early_bird.py``) nor
 sick_day (tracked in ``sick_history.json`` via ``_sick_tracker.py``) live in
 log.json — this module only checks their pending state and, on
 success, writes the *real* outcome (phone_verified/runnerup_verified) there.
+
+The upgrade credits through ``_apply_workout_credit`` -- save first, reward
+only if the entry was actually appended. It used to push the shutdown hour
+and THEN save: when the same run was already in the log (the 15-minute sync
+pass had pulled the TCX at 20:25 on 2026-09-16) the save deduped to nothing
+and the +2h landed anyway, and again on every 5-minute tick while the
+pending marker lasted -- a runaway that only the 23:00 ceiling stopped.
 """
 
 from __future__ import annotations
@@ -156,8 +163,7 @@ class AutoUpgradeMixin(_ReasonsMixin):
             self.workout_data["type"] = "phone_verified"
             self.workout_data["source"] = message
             self.workout_data["after_sick_day"] = "true"
-            self._adjust_shutdown_time_later()
-            self.save_workout_log()
+            self._apply_workout_credit()
             return True
         _logger.info("Auto-upgrade phone skipped (%s), trying RunnerUp...", status)
         try:
@@ -177,8 +183,7 @@ class AutoUpgradeMixin(_ReasonsMixin):
         self.workout_data["type"] = "runnerup_verified"
         self.workout_data["source"] = runnerup_msg
         self.workout_data["after_sick_day"] = "true"
-        self._adjust_shutdown_time_later()
-        self.save_workout_log()
+        self._apply_workout_credit()
         return True
 
     def _try_auto_upgrade_early_bird(self) -> bool:
@@ -196,8 +201,7 @@ class AutoUpgradeMixin(_ReasonsMixin):
             self.workout_data["type"] = "phone_verified"
             self.workout_data["source"] = message
             self.workout_data["after_early_bird"] = "true"
-            self._adjust_shutdown_time_later()
-            self.save_workout_log()
+            self._apply_workout_credit()
             return True
         _logger.info("Early bird phone skipped (%s), trying RunnerUp...", status)
         try:
@@ -218,6 +222,5 @@ class AutoUpgradeMixin(_ReasonsMixin):
         self.workout_data["type"] = "runnerup_verified"
         self.workout_data["source"] = runnerup_msg
         self.workout_data["after_early_bird"] = "true"
-        self._adjust_shutdown_time_later()
-        self.save_workout_log()
+        self._apply_workout_credit()
         return True

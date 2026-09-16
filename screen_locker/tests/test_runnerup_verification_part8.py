@@ -141,6 +141,7 @@ class TestFindRunnerupExportsForDate:
     ) -> None:
         """_run_adb returning False → empty list."""
         locker = create_locker(mock_tk, tmp_path)
+        object.__setattr__(locker, "_has_adb_device", MagicMock(return_value=True))
         object.__setattr__(locker, "_run_adb", MagicMock(return_value=(False, "")))
         assert locker._find_runnerup_exports_for_date("2024-03-15") == []
 
@@ -152,6 +153,7 @@ class TestFindRunnerupExportsForDate:
     ) -> None:
         """ADB listing with no date-matching .tcx files → empty list."""
         locker = create_locker(mock_tk, tmp_path)
+        object.__setattr__(locker, "_has_adb_device", MagicMock(return_value=True))
         object.__setattr__(
             locker,
             "_run_adb",
@@ -172,6 +174,9 @@ class TestFindRunnerupExportsForDate:
             "_run_adb",
             MagicMock(return_value=(True, "RunnerUp_2024-03-15-10-30-00_act.tcx\n")),
         )
+        # The adb listing only runs with a device attached (the WebDAV drop
+        # dir is searched first and needs no phone).
+        object.__setattr__(locker, "_has_adb_device", MagicMock(return_value=True))
         result = locker._find_runnerup_exports_for_date("2024-03-15")
         assert len(result) >= 1
         assert "2024-03-15" in result[0]

@@ -14,19 +14,22 @@ if TYPE_CHECKING:
 class TestCheckNonVerifyExitsExtras:
     """Tests for _check_non_verify_exits coverage gaps (lines 228, 233, 251-254)."""
 
-    def test_logs_auto_filled_runnerup_entries(
+    def test_auto_fill_credits_through_shared_callback(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """_scan_and_fill_week_runnerup > 0 + bonus > 0 → bonus logger.info (line 188)."""
+        """The login-time scan hands every fill to ``_credit_ingested_workout``.
+
+        It used to compute a weekly-surplus bonus here (+1h per workout above
+        the weekly minimum), which is 0 for most of the week and silently
+        left a synced run uncredited (2026-09-16). No bonus is computed on
+        this path any more; the callback owns the reward.
+        """
         locker = create_locker(mock_tk, tmp_path)
-        object.__setattr__(
-            locker,
-            "_scan_and_fill_week_runnerup",
-            MagicMock(return_value=2),
-        )
+        scan = MagicMock(return_value=2)
+        object.__setattr__(locker, "_scan_and_fill_week_runnerup", scan)
         # Short-circuit _check_today_state_exits so the test is time-independent.
         object.__setattr__(
             locker,
@@ -41,9 +44,6 @@ class TestCheckNonVerifyExitsExtras:
         with (
             patch("screen_locker._startup_checks.reset_to_base_if_new_day"),
             patch(
-                "screen_locker._sync_mixin.count_weekly_workouts", side_effect=[0, 6]
-            ),
-            patch(
                 "screen_locker._startup_checks.process_week_transition",
                 return_value=[],
             ),
@@ -54,43 +54,10 @@ class TestCheckNonVerifyExitsExtras:
             patch("screen_locker.screen_lock.sys.exit"),
         ):
             locker._check_non_verify_exits()
-        locker._adjust_shutdown_time_by.assert_called_once_with(1)  # bonus = 6-max(5,0)
-
-    def test_auto_fill_no_bonus_when_min_not_exceeded(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """n_filled > 0 but new_count <= min → bonus=0 → branch 187->190 (no bonus log)."""
-        locker = create_locker(mock_tk, tmp_path)
-        object.__setattr__(
-            locker,
-            "_scan_and_fill_week_runnerup",
-            MagicMock(return_value=1),
+        scan.assert_called_once_with(
+            locker.log_file, on_ingested=locker._credit_ingested_workout
         )
-        object.__setattr__(
-            locker,
-            "_check_today_state_exits",
-            MagicMock(return_value=False),
-        )
-        with (
-            patch("screen_locker._startup_checks.reset_to_base_if_new_day"),
-            # prev=2, new=3 → bonus=max(0,3-max(5,2))=0 → no bonus logger call
-            patch(
-                "screen_locker._sync_mixin.count_weekly_workouts", side_effect=[2, 3]
-            ),
-            patch(
-                "screen_locker._startup_checks.process_week_transition",
-                return_value=[],
-            ),
-            patch("screen_locker._startup_checks.is_relaxed_day", return_value=False),
-            patch(
-                "screen_locker._startup_checks.has_weekly_minimum", return_value=False
-            ),
-            patch("screen_locker.screen_lock.sys.exit"),
-        ):
-            locker._check_non_verify_exits()
+        locker._adjust_shutdown_time_by.assert_not_called()
 
     def test_logs_weekly_reward_message(
         self,

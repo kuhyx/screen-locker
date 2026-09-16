@@ -12,6 +12,14 @@ each further one +1h, and an accepted LeetCode submission that day +1h (flat,
 read from leetcode-guard's ledger, once per day). The config is re-derived from
 those sources on each new day, so nothing has to be "remembered" across reboots.
 
+A RunnerUp run is credited from its TCX export, found in the WebDAV drop
+directory RunnerUp uploads to on this machine (`~/data/cloud/RunnerUp/`, plus
+`processed/` once endurain-import has taken it) or, when a phone is adb-visible,
+in `/sdcard/Documents/RunnerUp/`. The 15-minute `workout-sync.timer` scans both,
+so a run finished after 20:00 pushes the hour later without the phone being
+plugged in; the per-minute shutdown check then lifts the night lockdown on its
+own once the hour is past "now" (digital-wellbeing's check script).
+
 ## MCP server (Claude Code integration)
 
 screen-locker exposes a **read-only** MCP server (`screen_locker._mcp`) so

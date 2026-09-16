@@ -15,6 +15,7 @@ from screen_locker._constants import (
     MIN_WORKOUT_DURATION_MINUTES,
     RUNNERUP_DISTANCE_TOLERANCE,
     RUNNERUP_EXPORT_DIRS,
+    RUNNERUP_WEBDAV_DIRS,
     WORKOUT_DURATION_ACCEPT_MINUTES,
 )
 from screen_locker._day import today_str
@@ -50,14 +51,43 @@ class RunnerUpVerificationMixin(
     # File-based path (no root required)
     # ------------------------------------------------------------------
 
+    def _has_runnerup_source(self) -> bool:
+        """Whether any RunnerUp export source is reachable right now.
+
+        The WebDAV drop directory on this disk counts as much as an
+        adb-visible phone: both hold the same TCX files.
+        """
+        return self._has_local_runnerup_dir() or self._has_adb_device()
+
+    @staticmethod
+    def _has_local_runnerup_dir() -> bool:
+        return any(d.is_dir() for d in RUNNERUP_WEBDAV_DIRS)
+
+    @staticmethod
+    def _find_local_runnerup_exports_for_date(date_str: str) -> list[str]:
+        """TCX files for ``date_str`` in the WebDAV drop directories, sorted."""
+        found: list[str] = []
+        for local_dir in RUNNERUP_WEBDAV_DIRS:
+            if not local_dir.is_dir():
+                continue
+            for path in sorted(local_dir.glob("*.tcx")):
+                if date_str in path.name and str(path) not in found:
+                    found.append(str(path))
+        return found
+
     def _find_runnerup_exports_for_date(self, date_str: str) -> list[str]:
-        """Return adb paths of RunnerUp TCX exports for the given date, or empty list.
+        """Return paths of RunnerUp TCX exports for the given date, or empty list.
+
+        Local WebDAV copies come first (no phone needed), then the phone's
+        export directories over adb when a device is attached.
 
         Args:
             date_str: ISO date string in ``YYYY-MM-DD`` format matched against
                 TCX filenames (``RunnerUp_YYYY-MM-DD-HH-MM-SS_xxx.tcx``).
         """
-        found: list[str] = []
+        found = self._find_local_runnerup_exports_for_date(date_str)
+        if not self._has_adb_device():
+            return found
         for dirpath in RUNNERUP_EXPORT_DIRS:
             ok, out = self._run_adb(["shell", "ls", dirpath])
             if not ok or not out.strip():
@@ -165,13 +195,13 @@ class RunnerUpVerificationMixin(
         if not skew_ok:
             return "clock_tampered", skew_msg
 
-        if not self._has_adb_device():
+        if not self._has_runnerup_source():
             return (
                 "no_phone",
                 "Phone not connected — plug in via USB or enable wireless ADB",
             )
 
-        # Path 1: file-based (no root needed).
+        # Path 1: file-based (no root needed; WebDAV copies first, then adb).
         file_result = self._verify_runnerup_via_files()
         if file_result is not None:
             _logger.info("RunnerUp file-based result: %s", file_result[0])
@@ -179,5 +209,11 @@ class RunnerUpVerificationMixin(
 
         # Path 2: root DB pull (fallback when no export files found yet).
         # On a non-rooted device this path cannot succeed; _verify_runnerup_via_db
-        # reports that plainly rather than as a generic failure.
+        # reports that plainly rather than as a generic failure. Needs adb.
+        if not self._has_adb_device():
+            return (
+                "not_verified",
+                f"No RunnerUp export for today in {RUNNERUP_WEBDAV_DIRS} and the "
+                "phone is not adb-reachable",
+            )
         return self._verify_runnerup_via_db()

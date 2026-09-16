@@ -59,24 +59,34 @@ def _make_bare_verifier(log_file: Path) -> ScreenLocker:
 def _backfill_week_and_apply_bonus(verifier: ScreenLocker) -> str | None:
     """Scan the current week for unlogged RunnerUp/StrongLifts and credit it.
 
-    Reuses the exact prev/new-count + ``_adjust_shutdown_time_by`` bonus
-    pattern already proven by the automatic lock-check
-    (``screen_lock.py:_auto_fill_week_runnerup_bonus``) and the ``--status``
-    CLI (``_status.py``) — deliberately *not* routed through
-    ``_apply_workout_credit``, which always files under today by design and
-    would mis-date a backfilled entry.
+    Each RunnerUp fill is credited through the same ``on_ingested`` callback
+    as the timer's sync pass and every other ingestion source
+    (``_sync_mixin._credit_ingested_workout``): +2h for the first counted
+    workout of its day, +1h for each further one. The callback files the
+    reward against the entry's OWN day, so a back-dated fill is not mis-dated
+    the way routing it through ``_apply_workout_credit`` (always today) would.
+
+    The StrongLifts fill keeps the weekly-surplus rule for now (+1h per
+    workout above the weekly minimum); it is a separate source with its own
+    dedup and is out of scope for the RunnerUp credit fix.
 
     Returns a human-readable summary if anything was filled, else ``None``.
     """
     prev_count = count_weekly_workouts(verifier.log_file)
-    filled = verifier._scan_and_fill_week_runnerup(verifier.log_file)
-    filled += verifier._try_fill_stronglifts_for_week(verifier.log_file)
+    filled = verifier._scan_and_fill_week_runnerup(
+        verifier.log_file, on_ingested=verifier._credit_ingested_workout
+    )
+    verifier.workout_data = {}
+    sl_filled = verifier._try_fill_stronglifts_for_week(verifier.log_file)
+    bonus = 0
+    if sl_filled:
+        new_count = count_weekly_workouts(verifier.log_file)
+        bonus = max(0, new_count - max(WEEKLY_WORKOUT_MINIMUM, prev_count + filled))
+        if bonus > 0:
+            verifier._adjust_shutdown_time_by(bonus)
+    filled += sl_filled
     if not filled:
         return None
-    new_count = count_weekly_workouts(verifier.log_file)
-    bonus = max(0, new_count - max(WEEKLY_WORKOUT_MINIMUM, prev_count))
-    if bonus > 0:
-        verifier._adjust_shutdown_time_by(bonus)
     plural = "workout" if filled == 1 else "workouts"
     message = f"Auto-filled {filled} {plural} from earlier this week."
     if bonus > 0:

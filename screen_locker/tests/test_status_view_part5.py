@@ -63,7 +63,7 @@ class TestVerifyPhoneThenRunnerup:
 
         with patch(
             "screen_locker._status_view_verify.count_weekly_workouts",
-            side_effect=[2, 3],
+            return_value=2,
         ):
             result = _verify_phone_then_runnerup(verifier)
 
@@ -71,4 +71,5 @@ class TestVerifyPhoneThenRunnerup:
         assert (
             result.week_fill_message == "Auto-filled 1 workout from earlier this week."
         )
+        # The RunnerUp fill is credited by the shared callback, not here.
         verifier._adjust_shutdown_time_by.assert_not_called()
