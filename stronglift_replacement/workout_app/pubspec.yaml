@@ -24,7 +24,7 @@ dependencies:
   # The break-end alert itself, on its own high-importance channel so the OS
   # rings even if the Flutter isolate is busy.
   flutter_local_notifications: 22.3.1
-  flutter_secure_storage: 11.1.1
+  flutter_secure_storage: 11.2.0
 
   # One-tap sign-in for the sync account. App-side only: crdt_sync stays pure
   # Dart so it keeps working on Linux desktop and headless.
