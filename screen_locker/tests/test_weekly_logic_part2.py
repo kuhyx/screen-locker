@@ -59,6 +59,30 @@ class TestCheckTodayStateExits:
             result = locker._check_today_state_exits()
         assert result is False
 
+    def test_expired_early_bird_does_not_outrank_a_logged_workout(
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """2026-09-18: a manual walk logged at 09:32 must hold after 08:30.
+
+        The expired-marker branch used to return False (full lock) before
+        ``has_logged_today`` was ever consulted, so every 5-minute tick after
+        the walk re-locked the PC for the rest of the day.
+        """
+        locker = self._make_locker(mock_tk, tmp_path)
+        with (
+            patch.object(locker, "_is_early_bird_pending", return_value=True),
+            patch.object(locker, "_is_early_bird_time", return_value=False),
+            patch.object(locker, "_try_auto_upgrade_early_bird", return_value=False),
+            patch.object(locker, "has_logged_today", return_value=True),
+            patch("screen_locker._auto_upgrade.record_decision") as record,
+        ):
+            result = locker._check_today_state_exits()
+        assert result is True
+        assert record.call_args.args[0].reason == "workout_logged_today"
+
     def test_early_bird_window_active_returns_true(
         self,
         mock_tk: MagicMock,

@@ -21,6 +21,7 @@ from screen_locker._constants import (
 )
 from screen_locker._day import today_str
 from screen_locker._log_io import load_workout_log
+from screen_locker._weekly_check import credit_key, day_workout_index
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -63,13 +64,21 @@ def count_in_window(
     *,
     today: str | None = None,
 ) -> int:
-    """Return how many ``manual_workout`` ENTRIES fall in the trailing window.
+    """Return how many manual-workout CREDITS fall in the trailing window.
 
-    Counted per entry, not per day: each logged manual workout consumes its
+    Counted per workout, not per day: each logged manual workout consumes its
     own budget slot, matching how each one also earns its own weekly-count
     and shutdown credit (see ``screen_locker._weekly_check.COUNTED_WORKOUT_TYPES``
     and ``screen_locker._workout_credit``) — the budget is the sole limiter on
     how many you can log, not a once-per-day collapse.
+
+    "One workout" is decided by :func:`screen_locker._weekly_check.credit_key`,
+    the single rule every counter must share. This used to count raw entries
+    instead, so a synced copy of a workout already in the log (2026-09-13: a
+    manual rekeyed to its local day, then pulled back in under a fresh
+    workout_id) consumed a second budget slot while the weekly count, going
+    through ``credit_key``, correctly saw one — and the budget read exhausted
+    for a week over a workout that was logged once.
     """
     today_str = today or _today_iso()
     today_dt = _parse_iso(today_str)
@@ -81,10 +90,14 @@ def count_in_window(
         parsed = _parse_iso(date_str)
         if parsed is None or not (cutoff < parsed <= today_dt):
             continue
-        count += sum(
-            1
-            for entry in entries
-            if entry.get("workout_data", {}).get("type") == MANUAL_WORKOUT_TYPE
+        siblings = day_workout_index(entries)
+        count += len(
+            {
+                key
+                for index, entry in enumerate(entries)
+                if (key := credit_key(date_str, index, entry, siblings)) is not None
+                and key[0] == MANUAL_WORKOUT_TYPE
+            }
         )
     return count
 

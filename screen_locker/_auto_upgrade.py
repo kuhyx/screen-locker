@@ -92,15 +92,23 @@ class AutoUpgradeMixin(_ReasonsMixin):
 
     def _check_today_state_exits(self) -> bool:
         """Handle early-bird and today's log states. Return True to stop startup."""
-        if self._is_early_bird_pending() and not self._is_early_bird_time():
-            if self._try_auto_upgrade_early_bird():
-                _skip(
-                    "early_bird_auto_upgraded",
-                    "Auto-upgraded early_bird entry to phone_verified.",
-                )
-                return True
-            return False  # Expired early bird, upgrade unavailable — full lock.
-        if self._is_early_bird_pending():
+        pending = self._is_early_bird_pending()
+        window_open = self._is_early_bird_time()
+        if pending and not window_open and self._try_auto_upgrade_early_bird():
+            _skip(
+                "early_bird_auto_upgraded",
+                "Auto-upgraded early_bird entry to phone_verified.",
+            )
+            return True
+        # An expired marker with nothing to upgrade is NOT a lock on its own.
+        # It used to `return False` right here, ahead of has_logged_today, so
+        # a workout logged by any other path after 08:30 never counted while
+        # the marker lasted: on 2026-09-18 a manual walk entered on the lock
+        # screen at 09:32 closed the lock, and the 09:35 tick locked again --
+        # every 5 minutes, for the rest of the day -- while the explain chain
+        # (_compliance_state, where the expired marker is non-terminal) said
+        # "lock skipped". Fall through to the same ladder as any other morning.
+        if pending and window_open:
             # The ONLY thing that closes this window is
             # early-bird-workout-check.timer. When that timer was disabled by an
             # ordering cycle (2026-08-04) this branch silently deferred the lock
@@ -136,7 +144,7 @@ class AutoUpgradeMixin(_ReasonsMixin):
                 "Wake alarm earned a workout skip.",
                 **self._other_conditions("wake_alarm_skip"),
             )
-        elif self._is_early_bird_time():
+        elif window_open:
             self._save_early_bird_pending()
             _skip(
                 "early_bird_banked",

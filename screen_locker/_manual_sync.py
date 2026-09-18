@@ -22,11 +22,14 @@ import logging
 from typing import TYPE_CHECKING
 
 from screen_locker._log_io import load_workout_log
-from screen_locker._log_mixin import write_signed_entry
+from screen_locker._log_mixin import _entry_workout_id, write_signed_entry
+from screen_locker._manual_sync_draft import (
+    _draft_or_report,
+    is_empty_stub,
+    reconstruct_draft,
+)
 from screen_locker._manual_workout import (
     MANUAL_WORKOUT_SYNC_KIND,
-    SPORT_OTHER,
-    ManualWorkoutDraft,
     build_entry,
     is_budget_exhausted,
     validate_manual_workout,
@@ -38,140 +41,31 @@ if TYPE_CHECKING:
 
     OnIngestedCallback = Callable[[dict, "list[dict]"], None]
 
+__all__ = ["ingest_manual_records", "is_empty_stub", "reconstruct_draft"]
+
 _logger = logging.getLogger(__name__)
 
 # Key under which the source sync record id is stored in the ingested
 # ``workout_data`` — makes re-ingestion of the same record idempotent.
 _SYNC_ID_FIELD = "sync_record_id"
 
-# The raw user inputs every real manual workout carries. A payload holding none
-# of them is a metadata stub, not a damaged workout: there is nothing to
-# recover and no amount of retrying will change that.
-_SUBSTANTIVE_FIELDS = frozenset(
-    {
-        "sport",
-        "start_time",
-        "end_time",
-        "location_name",
-        "transport_method",
-        "cost",
-        "rpe",
-        "went_well",
-        "to_improve",
-        "overall_feeling",
-    }
-)
-
-
-def is_empty_stub(payload: Mapping[str, object]) -> bool:
-    """True when ``payload`` carries no workout content at all.
-
-    Observed in the wild as ``{"type", "kind", "date"}`` and nothing else --
-    a record the phone created without ever attaching the workout. Every sync
-    cycle re-reported it as malformed, so a permanent, unfixable condition
-    produced an unbounded stream of identical warnings (four every 15 minutes),
-    which is how the genuinely actionable lines got lost in the noise.
-    """
-    return not (_SUBSTANTIVE_FIELDS & set(payload))
-
-
-def _coerce_int(value: object) -> int:
-    """Coerce a JSON scalar to int; raise for a non-numeric (skips the record)."""
-    if isinstance(value, (int, str)):
-        return int(value)
-    raise TypeError(value)
-
-
-def reconstruct_draft(payload: Mapping[str, object]) -> ManualWorkoutDraft | None:
-    """Rebuild a :class:`ManualWorkoutDraft` from a synced manual payload.
-
-    Returns None if a required raw field is missing or mistyped, so a malformed
-    record is skipped rather than crashing ingestion. Only the raw user inputs
-    are read back — the derived fields (``source``, ``duration_minutes``,
-    ``type``) are recomputed by :func:`build_entry` on the PC.
-    """
-    try:
-        sport = str(payload["sport"])
-        activity_type_other = (
-            str(payload.get("activity_type", "")) if sport == SPORT_OTHER else ""
-        )
-        return ManualWorkoutDraft(
-            sport=sport,
-            start_time=str(payload["start_time"]),
-            end_time=str(payload["end_time"]),
-            location_name=str(payload["location_name"]),
-            transport_method=str(payload["transport_method"]),
-            cost=str(payload["cost"]),
-            rpe=_coerce_int(payload["rpe"]),
-            went_well=str(payload["went_well"]),
-            to_improve=str(payload["to_improve"]),
-            overall_feeling=str(payload["overall_feeling"]),
-            reservation_phone=str(payload.get("reservation_phone", "")),
-            techniques_practiced=str(payload.get("techniques_practiced", "")),
-            warm_up_minutes=str(payload.get("warm_up_minutes", "")),
-            pain_or_injury=str(payload.get("pain_or_injury", "none")),
-            matches_won=_coerce_int(payload.get("matches_won", 0)),
-            matches_lost=_coerce_int(payload.get("matches_lost", 0)),
-            sets_won=_coerce_int(payload.get("sets_won", 0)),
-            sets_lost=_coerce_int(payload.get("sets_lost", 0)),
-            racket=str(payload.get("racket", "")),
-            balls=str(payload.get("balls", "")),
-            activity_type_other=activity_type_other,
-            activity_details=str(payload.get("activity_details", "")),
-            equipment=str(payload.get("equipment", "")),
-        )
-    except (KeyError, TypeError, ValueError) as exc:
-        _logger.warning(
-            "Synced manual workout payload is malformed (%s: %s) — SKIPPING "
-            "this record, so it will not be logged or counted on the PC",
-            type(exc).__name__,
-            exc,
-        )
-        return None
-
-
-def _draft_or_report(
-    record_id: str, payload: Mapping[str, object]
-) -> ManualWorkoutDraft | None:
-    """Rebuild the draft, or report why it cannot be rebuilt and return None.
-
-    The two failure modes are deliberately reported at different levels, because
-    only one of them is actionable:
-
-    * an **empty stub** carries no workout at all (seen as ``{type, kind,
-      date}``) -- nothing to recover, nothing to fix, so re-reporting it at
-      ``warning`` on every 15-minute sync cycle only teaches the reader to
-      ignore this logger;
-    * a **malformed** payload has real workout fields that would not parse,
-      which means genuine credit may be going missing -- that stays loud.
-    """
-    if is_empty_stub(payload):
-        _logger.info(
-            "Manual record %s is an empty stub (keys: %s) — no workout data to "
-            "ingest; skipping permanently, no credit is being lost",
-            record_id,
-            sorted(payload),
-        )
-        return None
-    draft = reconstruct_draft(payload)
-    if draft is None:
-        _logger.warning(
-            "Manual record %s is malformed — it HAS workout fields but they "
-            "could not be parsed, so real credit may be lost",
-            record_id,
-        )
-    return draft
-
 
 def _already_ingested(logs: dict[str, list[dict]], record_id: str) -> bool:
-    """True if any logged entry already carries this sync record id.
+    """True if any logged entry already IS this sync record.
 
-    Iterates the per-day lists (a day may hold several workouts); a cheap
-    early-out before reconstructing the draft. The write chokepoint also dedups
-    by ``workout_id``, so this and that are two guards on the same idempotency.
+    Matches either way a record can already be here: an entry ingested from
+    sync carries the id in ``sync_record_id``; an entry logged on this PC
+    (form or CLI) and then published carries it as its own ``workout_id``,
+    since the publisher keys records on exactly that. Checking only the first
+    is how the 2026-09-13 football was re-ingested: it had been logged locally
+    (no ``sync_record_id``), pushed as ``manual:2026-09-12T14:30``, and pulled
+    back as a "new" record. A cheap early-out before reconstructing the draft;
+    the write chokepoint dedups by ``workout_id`` as a second guard.
     """
-    for entries in logs.values():
+    for day, entries in logs.items():
         for entry in entries:
+            if _entry_workout_id(day, entry) == record_id:
+                return True
             workout_data = entry.get("workout_data", {})
             if (
                 isinstance(workout_data, dict)
@@ -229,6 +123,13 @@ def ingest_manual_records(
             continue
         entry = build_entry(draft)
         entry[_SYNC_ID_FIELD] = record_id
+        # The wire id IS the workout's id: the device that logged it minted
+        # ``manual:<date>T<start>`` once, and the publisher keys on the same
+        # id. Without this the chokepoint re-derived one from ``date`` +
+        # start, and when the two dates disagreed (a record whose day key was
+        # later corrected to the local day) the same workout landed twice
+        # under two ids -- and then consumed two manual-budget slots.
+        entry["workout_id"] = record_id
         result = write_signed_entry(log_file, date, entry)
         if not result.appended:
             # This is dedup working, not credit being lost: the workout is
