@@ -14,6 +14,7 @@ them justifies taking the screen away.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -47,12 +48,19 @@ class TestUnreadableSourceIsNotNoWorkout:
             "early_bird_pending_file": tmp_path / "early_bird_pending.json",
         }
 
+    # Local noon: outside the 05:00-08:30 early-bird window on any clock. CI
+    # runs around 08:00 UTC, and unpinned that landed inside the window on
+    # the runner, so the chain stopped at "early-bird window open" before it
+    # ever reached the degraded-source verdict these tests are about.
+    _NOON = datetime.now(tz=UTC).astimezone().replace(hour=12, minute=0)
+
     def test_lock_reports_unreadable_source_not_absent_workout(
         self, tmp_path: Path
     ) -> None:
         """An empty log plus a dead backend must not read as "you did nothing"."""
         result = explain_lock_decision(
             **self._files(tmp_path),
+            now=self._NOON,
             sick_history=SickHistory(),
             extended_early_bird=False,
             weekly_minimum_met=False,
@@ -67,6 +75,7 @@ class TestUnreadableSourceIsNotNoWorkout:
         """With every backend answering, an empty log really does mean none."""
         result = explain_lock_decision(
             **self._files(tmp_path),
+            now=self._NOON,
             sick_history=SickHistory(),
             extended_early_bird=False,
             weekly_minimum_met=False,
