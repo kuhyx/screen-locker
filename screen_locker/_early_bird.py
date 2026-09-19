@@ -4,7 +4,7 @@ The early-bird "still waiting to see if a real workout shows up" flag is a
 same-day pending marker, not a workout — it is intentionally kept out of
 log.json (which is reserved for real outcomes) and instead lives in
 its own self-expiring, HMAC-signed state file, mirroring the pattern used by
-``_wake_state.py`` for the companion wake_alarm service.
+``wake_alarm._state`` in the companion wake-alarm service.
 """
 
 from __future__ import annotations

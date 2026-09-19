@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+from screen_locker._morning_session import MorningSkip
 from screen_locker.tests.conftest import create_locker, create_locker_relaxed_day
+
+_SKIP = MorningSkip(outcome="completed", exempt_until=datetime(2099, 1, 1).astimezone())
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -147,8 +151,8 @@ class TestCheckTodayStateExits:
             patch.object(locker, "_is_sick_day_today", return_value=False),
             patch.object(locker, "has_logged_today", return_value=False),
             patch(
-                "screen_locker._auto_upgrade.has_workout_skip_today",
-                return_value=True,
+                "screen_locker._auto_upgrade.morning_skip_today",
+                return_value=_SKIP,
             ),
         ):
             result = locker._check_today_state_exits()
@@ -167,8 +171,8 @@ class TestCheckTodayStateExits:
             patch.object(locker, "_is_sick_day_today", return_value=False),
             patch.object(locker, "has_logged_today", return_value=False),
             patch(
-                "screen_locker._auto_upgrade.has_workout_skip_today",
-                return_value=False,
+                "screen_locker._auto_upgrade.morning_skip_today",
+                return_value=None,
             ),
             patch.object(locker, "_is_early_bird_time", return_value=True),
             patch.object(locker, "_save_early_bird_pending"),
@@ -189,8 +193,8 @@ class TestCheckTodayStateExits:
             patch.object(locker, "_is_sick_day_today", return_value=False),
             patch.object(locker, "has_logged_today", return_value=False),
             patch(
-                "screen_locker._auto_upgrade.has_workout_skip_today",
-                return_value=False,
+                "screen_locker._auto_upgrade.morning_skip_today",
+                return_value=None,
             ),
             patch.object(locker, "_is_early_bird_time", return_value=False),
         ):

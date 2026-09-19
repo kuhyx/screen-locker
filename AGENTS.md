@@ -42,3 +42,15 @@ The LeetCode hour is read from leetcode-guard's ledger
 own `submitted_at`, flat +1h/day, and *fail closed* -- an unreadable ledger or
 key earns nothing. leetcode-guard itself stays read-only; it never writes
 the config.
+
+## The morning session is the carrot
+
+The `wake_alarm_skip` rung reads wake-alarm's HMAC-signed
+`~/.local/state/wake_alarm/morning_session.json` (`_morning_session.py`), not
+Firebase: wake-alarm is the only reader, and the previous channel here pointed
+at a path that stopped existing when the repos split and answered "no skip"
+for a year without an error. The whole decision is *signature ok, dated today,
+now < exempt_until*; the 09:30/11:00 cutoffs live in wake-alarm
+(`DOCS-morning-session-pc.md`) and must not be re-derived here. The enforce
+path waits up to 30 s for a freshly booted PC's refresher; status paths never
+wait, and tests pin the retry to 0.

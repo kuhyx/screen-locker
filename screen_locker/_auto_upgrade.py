@@ -21,7 +21,7 @@ import sys
 from screen_locker import _sick_tracker
 from screen_locker._decision_log import LockDecision, record_decision
 from screen_locker._decision_reasons import reasons_extra
-from screen_locker._wake_state import has_workout_skip_today
+from screen_locker._morning_session import has_workout_skip_today, morning_skip_today
 from screen_locker._weekly_check import has_weekly_minimum, is_relaxed_day
 
 _logger = logging.getLogger(__name__)
@@ -138,10 +138,12 @@ class AutoUpgradeMixin(_ReasonsMixin):
                 "Workout already logged today.",
                 **self._other_conditions("workout_logged_today"),
             )
-        elif has_workout_skip_today():
+        elif (skip := morning_skip_today(wait=True)) is not None:
             _skip(
                 "wake_alarm_skip",
-                "Wake alarm earned a workout skip.",
+                f"Morning session earned it: {skip}.",
+                exempt_until=skip.exempt_until.isoformat(),
+                outcome=skip.outcome,
                 **self._other_conditions("wake_alarm_skip"),
             )
         elif window_open:

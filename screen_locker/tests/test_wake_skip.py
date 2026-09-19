@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+from screen_locker._morning_session import MorningSkip
 from screen_locker.tests.conftest import create_locker
+
+_SKIP = MorningSkip(outcome="completed", exempt_until=datetime(2099, 1, 1).astimezone())
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -22,8 +26,8 @@ class TestWakeSkipIntegration:
     ) -> None:
         """Screen locker exits if wake alarm granted workout skip today."""
         with patch(
-            "screen_locker._auto_upgrade.has_workout_skip_today",
-            return_value=True,
+            "screen_locker._auto_upgrade.morning_skip_today",
+            return_value=_SKIP,
         ):
             create_locker(mock_tk, tmp_path, has_logged=False)
 
@@ -37,8 +41,8 @@ class TestWakeSkipIntegration:
     ) -> None:
         """Screen locker proceeds normally if no wake skip active."""
         with patch(
-            "screen_locker._auto_upgrade.has_workout_skip_today",
-            return_value=False,
+            "screen_locker._auto_upgrade.morning_skip_today",
+            return_value=None,
         ):
             locker = create_locker(mock_tk, tmp_path, has_logged=False)
 
@@ -53,8 +57,8 @@ class TestWakeSkipIntegration:
     ) -> None:
         """has_logged_today exits before wake skip is even checked."""
         with patch(
-            "screen_locker._auto_upgrade.has_workout_skip_today",
-            return_value=True,
+            "screen_locker._auto_upgrade.morning_skip_today",
+            return_value=_SKIP,
         ):
             create_locker(mock_tk, tmp_path, has_logged=True)
 
@@ -69,8 +73,8 @@ class TestWakeSkipIntegration:
     ) -> None:
         """verify_only mode checks sick day log, not wake skip."""
         with patch(
-            "screen_locker._auto_upgrade.has_workout_skip_today",
-            return_value=True,
+            "screen_locker._auto_upgrade.morning_skip_today",
+            return_value=_SKIP,
         ):
             create_locker(
                 mock_tk,

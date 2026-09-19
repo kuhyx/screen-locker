@@ -131,9 +131,15 @@ ALARM_DAYS: frozenset[int] = frozenset({0, 4, 5, 6})
 WAKE_AFTER_HOURS: int = 8
 # Path to the rtcwake binary.
 RTCWAKE_BIN: str = "/usr/sbin/rtcwake"
-# State file written by wake_alarm; read here to check for workout skip.
-WAKE_STATE_FILE = (
-    Path(__file__).resolve().parent.parent / "wake_alarm" / "wake_state.json"
+# The PC's copy of the phone's morning session, written HMAC-signed by
+# wake-alarm (`python -m wake_alarm._session --refresh`, every 2 min through
+# the morning). Read here, never fetched: wake-alarm is the only Firebase
+# reader. XDG state rather than a sibling checkout, because the previous
+# reader pointed at "../wake_alarm/wake_state.json" -- a path that stopped
+# existing when the repos split -- and returned "no skip" for a year without
+# a single error. Keep the path in step with wake_alarm/_constants.py.
+MORNING_SESSION_FILE = (
+    Path.home() / ".local" / "state" / "wake_alarm" / "morning_session.json"
 )
 
 # Directories where RunnerUp writes per-activity TCX exports (File Synchronizer).

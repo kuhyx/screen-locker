@@ -185,9 +185,9 @@ def explain_lock_decision(
     result = _check(
         "wake_alarm_skip",
         fired=wake_skip,
-        reason_true="Wake-alarm earned a workout skip for today.",
-        reason_false="No wake-alarm workout skip earned today.",
-        terminal_reason="Wake-alarm earned a workout skip — lock skipped.",
+        reason_true="The morning session earned a workout skip for now.",
+        reason_false="No morning-session skip in force.",
+        terminal_reason="Morning session earned a skip — lock skipped.",
     )
     if result is not None:
         return result

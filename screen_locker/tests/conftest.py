@@ -116,6 +116,21 @@ def mock_subprocess_run() -> Generator[MagicMock]:
 
 
 @pytest.fixture(autouse=True)
+def _isolate_morning_session(tmp_path: Path) -> Iterator[None]:
+    """Keep the morning-session reader off the real signed file, and never
+    let it sleep: a test that forgets would read the developer's actual
+    morning and, on the enforce path, wait 30 real seconds for it."""
+    with (
+        patch(
+            "screen_locker._morning_session.MORNING_SESSION_FILE",
+            tmp_path / "morning_session.json",
+        ),
+        patch("screen_locker._morning_session.MORNING_RETRY_SECONDS", 0.0),
+    ):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def _block_real_network() -> Iterator[None]:
     """Block real subnet probes and wttr.in calls for every test.
 

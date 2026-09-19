@@ -57,12 +57,12 @@ from screen_locker._extra_benefits import (
     weekly_shutdown_bonus_hours,
 )
 from screen_locker._log_io import load_workout_log
+from screen_locker._morning_session import has_workout_skip_today
 from screen_locker._sick_tracker import (
     count_in_window,
     is_budget_exhausted,
     load_history,
 )
-from screen_locker._wake_state import has_workout_skip_today
 from screen_locker._weekly_check import (
     COUNTED_WORKOUT_TYPES,
     WEEKLY_WORKOUT_MINIMUM,

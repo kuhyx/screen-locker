@@ -125,8 +125,8 @@ class TestInitEarlyBirdFlow:
             patch.object(ScreenLocker, "_start_phone_check"),
             patch.object(ScreenLocker, "_start_verify_workout_check"),
             patch(
-                "screen_locker._auto_upgrade.has_workout_skip_today",
-                return_value=False,
+                "screen_locker._auto_upgrade.morning_skip_today",
+                return_value=None,
             ),
             pytest.raises(SystemExit),
         ):
