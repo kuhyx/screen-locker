@@ -62,7 +62,6 @@ class TestUnreadableSourceIsNotNoWorkout:
             **self._files(tmp_path),
             now=self._NOON,
             sick_history=SickHistory(),
-            extended_early_bird=False,
             weekly_minimum_met=False,
             relaxed_day=False,
             degraded_sources=(_sync_client.DegradedSource("firebase", "HTTP 400"),),
@@ -77,7 +76,6 @@ class TestUnreadableSourceIsNotNoWorkout:
             **self._files(tmp_path),
             now=self._NOON,
             sick_history=SickHistory(),
-            extended_early_bird=False,
             weekly_minimum_met=False,
             relaxed_day=False,
         )

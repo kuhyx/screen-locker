@@ -19,6 +19,7 @@ from screen_locker._constants import (
     SICK_HISTORY_FILE,
     SICK_HISTORY_REVIEW_COUNT,
     SICK_JUSTIFICATION_MIN_CHARS,
+    SICK_JUSTIFICATION_PREVIEW_CHARS,
 )
 from screen_locker._sick_budget import (
     SickHistory,
@@ -235,7 +236,9 @@ def format_recent_justifications(
     lines: list[str] = []
     for entry in entries:
         date_str = entry.get("date", "?")
-        symptom = entry.get("symptom", "?")
+        symptom = str(entry.get("symptom", "?"))
+        if len(symptom) > SICK_JUSTIFICATION_PREVIEW_CHARS:
+            symptom = symptom[: SICK_JUSTIFICATION_PREVIEW_CHARS - 1] + "…"
         severity = entry.get("severity", "?")
         lines.append(f"{date_str}  sev {severity}/10  —  {symptom}")
     return "\n".join(lines)

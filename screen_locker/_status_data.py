@@ -194,7 +194,6 @@ def gather_status(
         log_file=log_file,
         early_bird_pending_file=early_bird_pending_file,
         sick_history=sick_history,
-        extended_early_bird=early_bird_extended,
         weekly_minimum_met=week.counted_count >= WEEKLY_WORKOUT_MINIMUM,
         relaxed_day=is_relaxed_day(today=today_local),
         wake_skip=has_workout_skip_today(),

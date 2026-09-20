@@ -43,7 +43,16 @@ own `submitted_at`, flat +1h/day, and *fail closed* -- an unreadable ledger or
 key earns nothing. leetcode-guard itself stays read-only; it never writes
 the config.
 
-## The morning session is the carrot
+## The morning session is the carrot — and the early-bird window is it
+
+`EarlyBirdMixin._is_early_bird_time` no longer reads a clock: it is open
+exactly while wake-alarm's signed file grants an exemption (before the
+alarm, during the session, until 11:00 once it completed in time). The
+05:00–08:30 window and the extended-to-09:00 reward locked someone who got
+up at 07:00 and were a second mechanism next to the one that knows whether
+the user is up (2026-09-20). The pending marker is banked by the
+`wake_alarm_skip` rung; `early-bird-workout-check.timer` (09:30:30, 11:00:30)
+re-checks just after the carrot's two possible ends.
 
 The `wake_alarm_skip` rung reads wake-alarm's HMAC-signed
 `~/.local/state/wake_alarm/morning_session.json` (`_morning_session.py`), not

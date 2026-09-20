@@ -12,6 +12,7 @@ from screen_locker import _sick_tracker
 from screen_locker._constants import (
     SICK_COMMITMENT_FORCED_READ_SECONDS,
     SICK_JUSTIFICATION_MIN_CHARS,
+    SICK_SCREEN_RECENT_LINES,
 )
 from screen_locker._sick_commitment import SickCommitmentMixin
 from screen_locker._surface_group import FrameGroup, TextGroup
@@ -40,7 +41,9 @@ class SickDialogMixin(SickCommitmentMixin):
             _sick_tracker.budget_summary(history), color=self._colors.palette.warning
         )
 
-        recent = _sick_tracker.format_recent_justifications(history)
+        recent = _sick_tracker.format_recent_justifications(
+            history, n=SICK_SCREEN_RECENT_LINES
+        )
         if recent:
             self._text(
                 "Recent sick days:",

@@ -22,7 +22,6 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from screen_locker._compliance_predicates import (
-    _early_bird_window_open,
     has_logged_today,
     is_early_bird_pending,
     is_relaxed_day_skipped_today,
@@ -66,7 +65,6 @@ def explain_lock_decision(
     log_file: Path,
     early_bird_pending_file: Path,
     sick_history: SickHistory,
-    extended_early_bird: bool,
     weekly_minimum_met: bool,
     relaxed_day: bool,
     wake_skip: bool = False,
@@ -82,16 +80,13 @@ def explain_lock_decision(
     instant = now if now is not None else datetime.now(tz=UTC)
     today_str = local_day(instant)
     local_dt = instant.astimezone()
-    local_minutes = local_dt.hour * 60 + local_dt.minute
 
     scheduled = is_scheduled_skip_today(local_dt.date())
     pending = is_early_bird_pending(early_bird_pending_file, today=today_str)
-    window_open = _early_bird_window_open(
-        extended=extended_early_bird, local_minutes=local_minutes
-    )
+    # The early-bird window IS the wake-alarm carrot (EarlyBirdMixin).
+    window_open = wake_skip
     expired = pending and not window_open
     early_bird_open_and_pending = pending and window_open
-    window_end_label = "09:00" if extended_early_bird else "08:30"
     sick_today = is_sick_day_today(sick_history, today=today_str)
     logged = has_logged_today(log_file, today=today_str)
     relaxed_day_already_skipped = relaxed_day and is_relaxed_day_skipped_today(
@@ -188,19 +183,6 @@ def explain_lock_decision(
         reason_true="The morning session earned a workout skip for now.",
         reason_false="No morning-session skip in force.",
         terminal_reason="Morning session earned a skip — lock skipped.",
-    )
-    if result is not None:
-        return result
-
-    result = _check(
-        "early_bird_time_fresh",
-        fired=window_open,
-        reason_true=(
-            f"Currently inside the early-bird window (05:00-{window_end_label})."
-        ),
-        reason_false="Not currently inside the early-bird window.",
-        terminal_reason="Inside the early-bird window — lock skipped, pending marker "
-        f"would be saved for the {window_end_label} re-check.",
     )
     if result is not None:
         return result

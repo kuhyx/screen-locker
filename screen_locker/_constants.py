@@ -31,6 +31,13 @@ SICK_LOCKOUT_MULTIPLIER_PER_RECENT = 2
 SICK_JUSTIFICATION_MIN_CHARS = 120
 # How many past sick justifications to show on the dialog (read-only).
 SICK_HISTORY_REVIEW_COUNT = 10
+# The sick screen lists past justifications one per line, at most this many
+# and each cut to this many characters: six full-length ones pushed the
+# screen 7 px past 1366x768, which the screens-fit gate only sees with a real
+# history on disk. The review *count* above is for the budget logic, not the
+# screen.
+SICK_SCREEN_RECENT_LINES = 4
+SICK_JUSTIFICATION_PREVIEW_CHARS = 36
 # Forced read-only delay before SUBMIT enables when a commitment was made.
 SICK_COMMITMENT_FORCED_READ_SECONDS = 5
 # Breaking a commitment counts as this many sick budget days.

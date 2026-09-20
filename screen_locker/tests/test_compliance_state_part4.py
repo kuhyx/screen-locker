@@ -2,52 +2,39 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from screen_locker import _compliance_state
+from screen_locker._sick_tracker import SickHistory
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
-class TestEarlyBirdWindowOpen:
-    """The early-bird window's start/end boundaries, including the extension."""
+class TestEarlyBirdWindowIsTheCarrot:
+    """The window is whatever wake-alarm's signed file says -- no wall clock."""
 
-    """Direct tests for the module-private, deliberately independent reimplementation."""
+    def test_no_clock_predicate_remains(self) -> None:
+        assert not hasattr(_compliance_state, "_early_bird_window_open")
 
-    def test_before_window(self) -> None:
-        """Before the start hour the window is shut."""
-        assert (
-            _compliance_state._early_bird_window_open(extended=False, local_minutes=299)
-            is False
+    def test_window_open_mirrors_wake_skip(self, tmp_path: Path) -> None:
+        files = {
+            "log_file": tmp_path / "log.json",
+            "early_bird_pending_file": tmp_path / "eb.json",
+        }
+        open_ = _compliance_state.explain_lock_decision(
+            **files,
+            sick_history=SickHistory(),
+            weekly_minimum_met=False,
+            relaxed_day=False,
+            wake_skip=True,
         )
-
-    def test_at_start(self) -> None:
-        """The start minute itself is inside the window."""
-        assert (
-            _compliance_state._early_bird_window_open(extended=False, local_minutes=300)
-            is True
+        shut = _compliance_state.explain_lock_decision(
+            **files,
+            sick_history=SickHistory(),
+            weekly_minimum_met=False,
+            relaxed_day=False,
+            wake_skip=False,
         )
-
-    def test_before_end(self) -> None:
-        """A minute before the end is still inside the window."""
-        assert (
-            _compliance_state._early_bird_window_open(extended=False, local_minutes=509)
-            is True
-        )
-
-    def test_at_end_exclusive(self) -> None:
-        """The end minute is exclusive: the window is already shut."""
-        assert (
-            _compliance_state._early_bird_window_open(extended=False, local_minutes=510)
-            is False
-        )
-
-    def test_extended_before_end(self) -> None:
-        """With the extension earned, the window runs later."""
-        assert (
-            _compliance_state._early_bird_window_open(extended=True, local_minutes=539)
-            is True
-        )
-
-    def test_extended_at_end_exclusive(self) -> None:
-        """The extended end is exclusive too."""
-        assert (
-            _compliance_state._early_bird_window_open(extended=True, local_minutes=540)
-            is False
-        )
+        assert open_.stage == "wake_alarm_skip"
+        assert shut.stage == "would_lock"

@@ -4,27 +4,22 @@ The early-bird "still waiting to see if a real workout shows up" flag is a
 same-day pending marker, not a workout — it is intentionally kept out of
 log.json (which is reserved for real outcomes) and instead lives in
 its own self-expiring, HMAC-signed state file, mirroring the pattern used by
-``wake_alarm._state`` in the companion wake-alarm service.
+``wake_alarm._state`` in the companion wake-alarm service. It is written when
+the wake-alarm carrot defers the lock, so that when the carrot ends the next
+run tries a phone/RunnerUp workout before locking.
 """
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import json
 import logging
 
 from gatelock.log_integrity import compute_entry_hmac
 
 from screen_locker._compliance_state import is_early_bird_pending
-from screen_locker._constants import (
-    EARLY_BIRD_END_HOUR,
-    EARLY_BIRD_END_MINUTE,
-    EARLY_BIRD_PENDING_FILE,
-    EARLY_BIRD_START_HOUR,
-    EXTRA_BENEFITS_FILE,
-)
+from screen_locker._constants import EARLY_BIRD_PENDING_FILE
 from screen_locker._day import today_str
-from screen_locker._extra_benefits import has_extended_early_bird
+from screen_locker._morning_session import MorningSkip, morning_skip_today
 
 _logger = logging.getLogger(__name__)
 
@@ -35,27 +30,27 @@ def _today_str() -> str:
 
 
 class EarlyBirdMixin:
-    """Mixin providing early-bird time window checks and pending-state helpers."""
+    """Mixin providing the early-bird window check and pending-state helpers.
 
-    def _get_local_time_minutes(self) -> int:
-        """Return current local time as minutes from midnight."""
-        now = datetime.now(tz=UTC).astimezone()
-        return now.hour * 60 + now.minute
+    Since 2026-09-20 the window is not a wall clock but the wake-alarm
+    morning-session carrot: open exactly while wake-alarm's signed
+    ``morning_session.json`` says the morning is being earned (before the
+    alarm, during the session, and until 11:00 once it completed in time).
+    The old 05:00-08:30 clock locked someone who got up at 07:00 -- the
+    opposite of the goal -- and it was a second mechanism next to the one
+    that actually knows whether the user is up.
+    """
+
+    _morning_skip: MorningSkip | None = None
 
     def _is_early_bird_time(self) -> bool:
-        """Return True if current local time is in the early bird window.
+        """Whether the wake-alarm carrot is in force right now.
 
-        Normally the window closes at 08:30. When the current ISO week has an
-        extended early-bird reward (earned by 5+ workouts the prior week) the
-        window extends to 09:00.
+        Waits (bounded) for a freshly booted PC's refresher; the verdict is
+        kept on the instance so the skip detail can quote its ``exempt_until``.
         """
-        minutes = self._get_local_time_minutes()
-        start = EARLY_BIRD_START_HOUR * 60
-        if has_extended_early_bird(EXTRA_BENEFITS_FILE):
-            end = 9 * 60  # 09:00
-        else:
-            end = EARLY_BIRD_END_HOUR * 60 + EARLY_BIRD_END_MINUTE
-        return start <= minutes < end
+        self._morning_skip = morning_skip_today(wait=True)
+        return self._morning_skip is not None
 
     def _is_early_bird_pending(self) -> bool:
         """Check if today has an unresolved early-bird pending marker."""

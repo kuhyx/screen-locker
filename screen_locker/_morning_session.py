@@ -32,8 +32,8 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 # Only inside this local window is a non-today file worth waiting for: the
-# refresher runs 07:00-11:00, so outside it "not today's" is simply the truth.
-MORNING_WINDOW: tuple[tuple[int, int], tuple[int, int]] = ((7, 0), (11, 0))
+# refresher runs 05:00-11:00, so outside it "not today's" is simply the truth.
+MORNING_WINDOW: tuple[tuple[int, int], tuple[int, int]] = ((5, 0), (11, 0))
 MORNING_RETRY_SECONDS: float = 30.0
 MORNING_POLL_SECONDS: float = 5.0
 

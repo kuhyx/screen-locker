@@ -122,16 +122,16 @@ class TestEnforcementTimersAreCycleFree:
 
 
 class TestEarlyBirdTimerWindows:
-    """The early-bird timer must keep closing both grace windows."""
+    """The early-bird timer must re-check just after both carrot boundaries."""
 
-    def test_covers_normal_and_extended_windows(self) -> None:
-        """08:30 closes the normal window; 09:05 closes the extended one."""
+    def test_covers_both_carrot_boundaries(self) -> None:
+        """09:30 ends an aborted morning's grace; 11:00 ends a completed one's."""
         text = (REPO_ROOT / "early-bird-workout-check.timer").read_text(
             encoding="utf-8"
         )
         calendars = _directive_values(text, "OnCalendar")
-        assert "*-*-* 08:30:00" in calendars
-        assert "*-*-* 09:05:00" in calendars
+        assert "*-*-* 09:30:30" in calendars
+        assert "*-*-* 11:00:30" in calendars
 
 
 class TestPeriodicLockerTimer:

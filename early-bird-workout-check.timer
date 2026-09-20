@@ -10,14 +10,17 @@ Description=Re-check workout after early bird grace period expires (08:30 normal
 # After=graphical-session.target, which is where that ordering belongs.
 
 [Timer]
-# Fires at 08:30 for the normal early-bird window (5:00–8:30).
-# Also fires at 09:05 to catch the extended window (5:00–9:00) earned by 5+ workout weeks.
-# Both runs are idempotent: the service handles "already logged" and "window still active".
-OnCalendar=*-*-* 08:30:00
-OnCalendar=*-*-* 09:05:00
+# The early-bird window is the wake-alarm morning-session carrot since
+# 2026-09-20 (screen_locker/_early_bird.py): it ends at the signed
+# exempt_until -- 11:00 after a completed morning, min(start+90 min, 09:30)
+# after an aborted one, alarm+15 min when no session started. These runs land
+# just after the two boundaries the 5-minute tick could miss by up to five
+# minutes; every run is idempotent ("already logged", "carrot still in force").
+OnCalendar=*-*-* 09:30:30
+OnCalendar=*-*-* 11:00:30
 Unit=workout-locker.service
-# Persistent=true: a machine asleep or off at 08:30 would otherwise skip the
-# re-check entirely, leaving the early-bird marker banked and the day
+# Persistent=true: a machine asleep or off at a boundary would otherwise skip
+# the re-check entirely, leaving the early-bird marker banked and the day
 # unenforced. Both runs are idempotent (see above), so a catch-up run is safe.
 Persistent=true
 AccuracySec=1s

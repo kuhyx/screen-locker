@@ -21,11 +21,6 @@ from typing import TYPE_CHECKING
 import freedays
 from gatelock.log_integrity import compute_entry_hmac, verify_entry_hmac
 
-from screen_locker._constants import (
-    EARLY_BIRD_END_HOUR,
-    EARLY_BIRD_END_MINUTE,
-    EARLY_BIRD_START_HOUR,
-)
 from screen_locker._day import today_str
 from screen_locker._log_io import load_workout_log
 from screen_locker._sick_tracker import is_sick_day as _is_sick_day
@@ -141,16 +136,3 @@ def is_sick_day_today(history: SickHistory, *, today: str | None = None) -> bool
     the status layer have one predicate module to import from.
     """
     return _is_sick_day(history, today=today)
-
-
-def _early_bird_window_open(*, extended: bool, local_minutes: int) -> bool:
-    """Deliberate, independent reimplementation of ``_is_early_bird_time``.
-
-    Not shared with ``EarlyBirdMixin._is_early_bird_time`` because too many
-    existing tests are pinned to its ``_get_local_time_minutes`` patch point.
-    Kept here as a small, separate, pure re-implementation for the status
-    layer only — see the module docstring in ``_early_bird.py``.
-    """
-    start = EARLY_BIRD_START_HOUR * 60
-    end = 9 * 60 if extended else EARLY_BIRD_END_HOUR * 60 + EARLY_BIRD_END_MINUTE
-    return start <= local_minutes < end

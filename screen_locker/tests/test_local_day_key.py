@@ -101,7 +101,6 @@ class TestAfterMidnightLog:
                 log_file=log_file,
                 early_bird_pending_file=tmp_path / "early_bird_pending.json",
                 sick_history=SickHistory(),
-                extended_early_bird=False,
                 weekly_minimum_met=True,
                 relaxed_day=False,
                 now=JUST_AFTER_MIDNIGHT_UTC,

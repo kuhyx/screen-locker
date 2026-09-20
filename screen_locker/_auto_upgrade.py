@@ -21,7 +21,7 @@ import sys
 from screen_locker import _sick_tracker
 from screen_locker._decision_log import LockDecision, record_decision
 from screen_locker._decision_reasons import reasons_extra
-from screen_locker._morning_session import has_workout_skip_today, morning_skip_today
+from screen_locker._morning_session import has_workout_skip_today
 from screen_locker._weekly_check import has_weekly_minimum, is_relaxed_day
 
 _logger = logging.getLogger(__name__)
@@ -109,15 +109,13 @@ class AutoUpgradeMixin(_ReasonsMixin):
         # (_compliance_state, where the expired marker is non-terminal) said
         # "lock skipped". Fall through to the same ladder as any other morning.
         if pending and window_open:
-            # The ONLY thing that closes this window is
-            # early-bird-workout-check.timer. When that timer was disabled by an
-            # ordering cycle (2026-08-04) this branch silently deferred the lock
-            # every single day, forever.
+            # The window is the wake-alarm carrot (see EarlyBirdMixin): it
+            # closes when the signed exempt_until passes, and the 5-minute
+            # tick plus early-bird-workout-check.timer then re-decide.
             _skip(
                 "early_bird_window_active",
-                "Early bird window still active — deferring to the 08:30/09:05 "
-                "re-check timer.",
-                recheck_by="early-bird-workout-check.timer",
+                f"Morning-session carrot still in force: {self._morning_skip}.",
+                recheck_by="workout-locker.timer",
                 **self._other_conditions("early_bird_window_active"),
             )
         elif self._is_sick_day_today():
@@ -138,21 +136,17 @@ class AutoUpgradeMixin(_ReasonsMixin):
                 "Workout already logged today.",
                 **self._other_conditions("workout_logged_today"),
             )
-        elif (skip := morning_skip_today(wait=True)) is not None:
+        elif window_open:
+            # Bank the marker so the run that sees the carrot end tries a
+            # phone/RunnerUp workout before falling through to a lock.
+            self._save_early_bird_pending()
+            skip = self._morning_skip
             _skip(
                 "wake_alarm_skip",
-                f"Morning session earned it: {skip}.",
-                exempt_until=skip.exempt_until.isoformat(),
-                outcome=skip.outcome,
+                f"Morning session earned it: {skip or 'carrot in force'}.",
+                exempt_until=skip.exempt_until.isoformat() if skip else None,
+                outcome=skip.outcome if skip else None,
                 **self._other_conditions("wake_alarm_skip"),
-            )
-        elif window_open:
-            self._save_early_bird_pending()
-            _skip(
-                "early_bird_banked",
-                "Early bird time — banked the pending marker, will re-check "
-                "at 08:30/09:05.",
-                recheck_by="early-bird-workout-check.timer",
             )
         else:
             return False

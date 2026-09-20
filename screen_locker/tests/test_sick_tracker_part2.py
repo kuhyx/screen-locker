@@ -11,6 +11,7 @@ from screen_locker import _sick_tracker
 from screen_locker._constants import (
     SICK_HISTORY_REVIEW_COUNT,
     SICK_JUSTIFICATION_MIN_CHARS,
+    SICK_JUSTIFICATION_PREVIEW_CHARS,
 )
 from screen_locker._sick_tracker import (
     JustificationDraft,
@@ -198,3 +199,14 @@ class TestRecentJustifications:
         history = SickHistory(justifications=[{}])
         out = format_recent_justifications(history)
         assert "?" in out
+
+    def test_format_keeps_a_long_symptom_to_one_line(self) -> None:
+        """A 48-char symptom wrapped and pushed the sick screen past 768 px."""
+        history = SickHistory(
+            justifications=[
+                {"date": "2026-05-01", "symptom": "x" * 48, "severity": 7},
+            ],
+        )
+        out = format_recent_justifications(history)
+        assert out.endswith("…")
+        assert len(out.split("—  ")[1]) == SICK_JUSTIFICATION_PREVIEW_CHARS
