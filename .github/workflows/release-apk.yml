@@ -96,7 +96,7 @@ jobs:
 
       - name: Build signed APK
         run: |
-          flutter build apk --release \
+          flutter build apk --release --flavor daily \
             --build-name="${{ steps.ver.outputs.semver }}" \
             --build-number="${{ steps.vc.outputs.code }}"
 
@@ -106,7 +106,7 @@ jobs:
       - name: Verify the APK is release-signed
         run: |
           set -euo pipefail
-          apk=build/app/outputs/flutter-apk/app-release.apk
+          apk=build/app/outputs/flutter-apk/app-daily-release.apk
           signer=$(ls -d "$ANDROID_SDK_ROOT"/build-tools/* | sort -V | tail -1)/apksigner
           "$signer" verify --print-certs "$apk" | tee /tmp/certs.txt
           if grep -qi 'CN=Android Debug' /tmp/certs.txt; then
@@ -127,7 +127,7 @@ jobs:
         run: |
           set -euo pipefail
           out="workout-app-${{ steps.ver.outputs.semver }}-build.${{ steps.vc.outputs.code }}.apk"
-          cp build/app/outputs/flutter-apk/app-release.apk "$out"
+          cp build/app/outputs/flutter-apk/app-daily-release.apk "$out"
           echo "path=$out" >> "$GITHUB_OUTPUT"
 
       - name: Publish the per-commit prerelease

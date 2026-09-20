@@ -17,7 +17,7 @@ extension BackupServiceSession on BackupService {
         if (f.existsSync()) await f.delete();
         return;
       }
-      final dir = Directory(BackupService._baseDir);
+      final dir = Directory(BackupService.baseDir);
       if (!dir.existsSync()) {
         dir.createSync(recursive: true);
       }
@@ -43,7 +43,7 @@ extension BackupServiceSession on BackupService {
         if (f.existsSync()) await f.delete();
         return;
       }
-      final dir = Directory(BackupService._baseDir);
+      final dir = Directory(BackupService.baseDir);
       if (!dir.existsSync()) {
         dir.createSync(recursive: true);
       }

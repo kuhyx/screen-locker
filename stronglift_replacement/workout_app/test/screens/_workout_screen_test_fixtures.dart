@@ -10,6 +10,7 @@ import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/screens/workout_screen.dart';
 import 'package:workout_app/services/foreground_break_client.dart';
 import 'package:workout_app/ui/theme.dart';
+import 'package:workout_app/widgets/break_banner.dart';
 
 Map<String, dynamic> completeSaved() => {
   'workoutType': 'A',
@@ -29,7 +30,10 @@ Map<String, dynamic> completeSaved() => {
 ///
 /// Negative values describe a break that ended while the app was away — the
 /// case that used to be dropped in silence.
-Map<String, dynamic> savedWithBreak(int secondsFromNow, {int durationSecs = 180}) => {
+Map<String, dynamic> savedWithBreak(
+  int secondsFromNow, {
+  int durationSecs = 180,
+}) => {
   'workoutType': 'A',
   'startTimeMs': DateTime.now()
       .subtract(const Duration(minutes: 5))
@@ -101,3 +105,10 @@ Future<void> longPressReal(WidgetTester tester, Finder f) async {
   });
   await tester.pump();
 }
+
+/// Whether the (always present) rest strip is counting down.
+///
+/// The banner is a permanently reserved slot since 2026-09-20, so presence
+/// no longer says anything; `active` is the discriminator.
+bool restRunning(WidgetTester tester) =>
+    tester.widget<BreakBanner>(find.byType(BreakBanner)).active;

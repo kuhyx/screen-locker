@@ -8,16 +8,16 @@ void main() {
 
   setUp(() {
     tempDir = Directory.systemTemp.createTempSync('backup_service_test_');
-    BackupService.baseDirForTesting = tempDir.path;
+    BackupService.baseDir = tempDir.path;
   });
 
   tearDown(() {
-    BackupService.baseDirForTesting = kBackupDir;
+    BackupService.baseDir = kBackupDir;
     tempDir.deleteSync(recursive: true);
   });
 
-  test('baseDirForTesting getter reflects the last setter value', () {
-    expect(BackupService.baseDirForTesting, tempDir.path);
+  test('baseDir getter reflects the last setter value', () {
+    expect(BackupService.baseDir, tempDir.path);
   });
 
   test('export then readBackup round-trips the data', () async {
@@ -44,27 +44,33 @@ void main() {
     expect(await BackupService.instance.readSyncToken(), isNull);
   });
 
-  test('exportSyncToken with an empty token deletes an existing file', () async {
-    await BackupService.instance.exportSyncToken('gho_abc123');
-    await BackupService.instance.exportSyncToken('');
-    expect(await BackupService.instance.readSyncToken(), isNull);
-  });
+  test(
+    'exportSyncToken with an empty token deletes an existing file',
+    () async {
+      await BackupService.instance.exportSyncToken('gho_abc123');
+      await BackupService.instance.exportSyncToken('');
+      expect(await BackupService.instance.readSyncToken(), isNull);
+    },
+  );
 
-  test('exportSyncToken with an empty token is a no-op when no file exists', () async {
-    await BackupService.instance.exportSyncToken('');
-    expect(await BackupService.instance.readSyncToken(), isNull);
-  });
+  test(
+    'exportSyncToken with an empty token is a no-op when no file exists',
+    () async {
+      await BackupService.instance.exportSyncToken('');
+      expect(await BackupService.instance.readSyncToken(), isNull);
+    },
+  );
 
   test('export creates the target directory if missing', () async {
     final nested = Directory('${tempDir.path}/nested');
-    BackupService.baseDirForTesting = nested.path;
+    BackupService.baseDir = nested.path;
     await BackupService.instance.export({'x': 1});
     expect(await BackupService.instance.readBackup(), {'x': 1});
   });
 
   test('exportSyncToken creates the target directory if missing', () async {
     final nested = Directory('${tempDir.path}/nested2');
-    BackupService.baseDirForTesting = nested.path;
+    BackupService.baseDir = nested.path;
     await BackupService.instance.exportSyncToken('tok');
     expect(await BackupService.instance.readSyncToken(), 'tok');
   });
@@ -74,7 +80,7 @@ void main() {
     // throw -- export must swallow it, not crash the caller.
     final blocker = File('${tempDir.path}/blocker');
     blocker.writeAsStringSync('x');
-    BackupService.baseDirForTesting = blocker.path;
+    BackupService.baseDir = blocker.path;
     await BackupService.instance.export({'x': 1});
     // No exception reaching here is the assertion.
   });
@@ -84,7 +90,7 @@ void main() {
     () async {
       final blocker = File('${tempDir.path}/blocker2');
       blocker.writeAsStringSync('x');
-      BackupService.baseDirForTesting = blocker.path;
+      BackupService.baseDir = blocker.path;
       await BackupService.instance.exportSyncToken('tok');
     },
   );

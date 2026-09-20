@@ -39,8 +39,14 @@ class RepCircle extends StatelessWidget {
     required this.tapped,
     required this.onTap,
     required this.onLongPress,
+    this.semanticLabel,
     super.key,
   });
+
+  /// Accessibility name, e.g. "Dumbbell Lunge set 2"; the digit inside the
+  /// circle is the same on every set, so without this a screen reader (or a
+  /// UI driver) cannot tell the circles apart.
+  final String? semanticLabel;
 
   /// Number of reps the user is aiming for this set.
   final int targetReps;
@@ -109,12 +115,15 @@ class RepCircle extends StatelessWidget {
           // color already differentiates this circle from the page.
         ),
         alignment: Alignment.center,
-        child: Text(
-          label,
-          style: TextStyle(
-            color: fg,
-            fontWeight: FontWeight.bold,
-            fontSize: AppTextSize.body,
+        child: Semantics(
+          label: semanticLabel,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: fg,
+              fontWeight: FontWeight.bold,
+              fontSize: AppTextSize.body,
+            ),
           ),
         ),
       ),

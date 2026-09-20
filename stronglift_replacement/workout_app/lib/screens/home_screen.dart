@@ -4,6 +4,7 @@ library;
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:workout_app/models/exercise.dart';
+import 'package:workout_app/sandbox/sandbox_log.dart';
 import 'package:workout_app/screens/history_screen.dart';
 import 'package:workout_app/screens/manual_workout_screen.dart';
 import 'package:workout_app/screens/settings_screen.dart';
@@ -117,8 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final sync = widget.syncService ?? WorkoutSyncService();
     final now = (widget.clock ?? DateTime.now)();
     try {
-      final configured =
-          await (widget.configuredProbe ?? sync.isConfigured)();
+      final configured = await (widget.configuredProbe ?? sync.isConfigured)();
       final storedAt = await storage.getLastSyncedAt();
 
       // Show what the PERSISTED state says before the tick resolves. Without
@@ -174,18 +174,18 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           IconButton(
+            tooltip: 'History',
             icon: Icon(Icons.history, color: colorScheme.onSurface),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const HistoryScreen()),
             ),
           ),
           IconButton(
+            tooltip: 'Settings',
             icon: Icon(Icons.settings, color: colorScheme.onSurface),
             onPressed: () async {
               await Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const SettingsScreen(),
-                ),
+                MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
               );
               unawaited(_load());
             },

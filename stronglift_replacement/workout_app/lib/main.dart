@@ -1,9 +1,11 @@
-
 import 'dart:async';
-import 'dart:io' show Platform;
+import 'dart:io' show HttpOverrides, Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:workout_app/sandbox/sandbox.dart';
+import 'package:workout_app/sandbox/sandbox_http.dart';
+import 'package:workout_app/sandbox/sandbox_log.dart';
 import 'package:workout_app/screens/home_screen.dart';
 import 'package:workout_app/services/backup_service.dart';
 import 'package:workout_app/services/break_service_controller.dart';
@@ -13,6 +15,7 @@ import 'package:workout_app/services/lock_mode.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_device_id.dart';
+import 'package:workout_app/services/sync_service.dart';
 import 'package:workout_app/ui/theme.dart';
 
 // coverage:ignore-start
@@ -29,6 +32,16 @@ void main(List<String> args) async {
   // Must precede runApp: the UI reads this to decide whether to offer
   // any way out of the workout.
   lockModeEnabled = parseLockMode(args);
+  // Before any storage or network work: the sandbox flavor is offline by
+  // construction and keeps its /sdcard files beside the daily build's, and
+  // both facts have to hold before the first write, not after.
+  await Sandbox.init();
+  if (Sandbox.enabled) {
+    HttpOverrides.global = SandboxHttpOverrides();
+    BackupService.baseDir = Sandbox.backupDir;
+    SyncService.filePath = Sandbox.syncFilePath;
+    SandboxLog.event('startup', {'args': args});
+  }
   // Linux desktop has no sqflite plugin. The FFI factory runs the same
   // schema and migrations against the same SQL, so this is a transport
   // swap, not a second storage implementation. Must precede any DB open.
@@ -58,6 +71,12 @@ void main(List<String> args) async {
     );
   }
   await StorageService.init();
+  if (Sandbox.enabled) {
+    Sandbox.restSecs = await StorageService.instance.getSandboxRestSecs(
+      Sandbox.defaultRestSecs,
+    );
+    SandboxLog.event('rest override loaded', {'secs': Sandbox.restSecs});
+  }
   // Before the UI exists: a service left over from a crashed or force-stopped
   // workout must not sit in the status bar counting down nothing.
   await stopStaleBreakService(
@@ -78,22 +97,23 @@ void main(List<String> args) async {
   // Timing out is safe — it leaves `progression_synced_at` unset, so the next
   // launch retries and, until it succeeds, pushProgression refuses to
   // overwrite the remote copy.
-  final restored = await ProgressionSyncService()
-      .pullProgression()
-      .timeout(
-        const Duration(seconds: 20),
-        onTimeout: () => const ProgressionSyncResult(
-          changed: false,
-          reason:
-              'progression pull timed out after 20s — starting on local state; '
-              'the next launch will retry',
-        ),
-      );
+  final restored = await ProgressionSyncService().pullProgression().timeout(
+    const Duration(seconds: 20),
+    onTimeout: () => const ProgressionSyncResult(
+      changed: false,
+      reason:
+          'progression pull timed out after 20s — starting on local state; '
+          'the next launch will retry',
+    ),
+  );
   debugPrint('WorkoutApp: ${restored.reason}');
   // Android-only transport: it exists so the PC can pull today's workout off
   // the phone over LAN. On the PC itself it would bind the very port the PC
   // scans, so it is skipped rather than serving the machine to itself.
-  if (!Platform.isLinux) {
+  //
+  // Never in the sandbox: the PC scans the LAN for this port and would pull
+  // a sandbox workout as if it were real.
+  if (!Platform.isLinux && !Sandbox.enabled) {
     await HttpServerService.instance.start();
   }
   runApp(const WorkoutApp());
@@ -136,7 +156,7 @@ class _WorkoutAppState extends State<WorkoutApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // The socket is never started on Linux (see main()), so there is nothing
     // to stop or restart here either.
-    if (Platform.isLinux) return;
+    if (Platform.isLinux || Sandbox.enabled) return;
     switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
@@ -157,6 +177,16 @@ class _WorkoutAppState extends State<WorkoutApp> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       home: const HomeScreen(),
+      // The one thing that must never be mistaken for the daily build: a
+      // ribbon on every screen, in the error colour, on the sandbox only.
+      builder: (context, child) => Sandbox.enabled
+          ? Banner(
+              message: 'SANDBOX',
+              location: BannerLocation.topEnd,
+              color: Theme.of(context).colorScheme.error,
+              child: child,
+            )
+          : child!,
     );
   }
 }

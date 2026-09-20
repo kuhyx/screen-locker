@@ -12,6 +12,10 @@ const String kSyncFilePath = '/sdcard/workout_result.json';
 
 /// Handles writing completed workout sessions to disk and the HTTP server.
 class SyncService {
+  /// Where the result file is written; the sandbox flavor points this at
+  /// its own file so the PC's ADB pull never sees a sandbox workout.
+  static String filePath = kSyncFilePath;
+
   /// Writes [session] as JSON to external storage and updates the HTTP server.
   ///
   /// Falls back to app-external directory if /sdcard/ is not writable.
@@ -23,13 +27,13 @@ class SyncService {
 
     // Try the primary path first (/sdcard/ — ADB-accessible without root).
     try {
-      final file = File(kSyncFilePath);
+      final file = File(filePath);
       await file.writeAsString(json);
-      return const SyncResult(success: true, path: kSyncFilePath);
+      return SyncResult(success: true, path: filePath);
     } on Exception catch (error) {
       // Fallback: app-specific external directory (still ADB accessible).
       debugPrint(
-        'WorkoutApp: could not write $kSyncFilePath ($error) — trying the '
+        'WorkoutApp: could not write $filePath ($error) — trying the '
         'app-specific external directory next.',
       );
     }

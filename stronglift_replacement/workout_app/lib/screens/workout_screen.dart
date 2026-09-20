@@ -13,6 +13,8 @@ import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/exercise_result.dart';
 import 'package:workout_app/models/set_result.dart';
 import 'package:workout_app/models/workout_session.dart';
+import 'package:workout_app/sandbox/sandbox.dart';
+import 'package:workout_app/sandbox/sandbox_log.dart';
 import 'package:workout_app/services/break_clock.dart';
 import 'package:workout_app/services/break_intent_queue.dart';
 import 'package:workout_app/services/break_intent_store.dart';
@@ -37,15 +39,6 @@ part 'workout_screen_finish.dart';
 part 'workout_screen_intents.dart';
 part 'workout_screen_session.dart';
 part 'workout_screen_taps.dart';
-
-const _successBreakSecs = 180; // 3 min after successful set
-const _failBreakSecs = 300; // 5 min after failed set
-const _warmupBreakSecs = 180; // 3 min after warmup
-
-// How late a restored break's end cue may still be played. Long enough to
-// cover the app being killed and reopened mid-rest; short enough that
-// resuming yesterday's session does not blast the sound across the gym.
-const _expiredBreakGraceSecs = 120;
 
 /// Screen that drives an active workout session with per-rep tracking.
 class WorkoutScreen extends StatefulWidget {
@@ -98,8 +91,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   /// A break restored as already-expired, awaiting its cue after first frame.
   BreakClock? _expiredBreak;
 
-  int get _breakRemaining =>
-      _breakClock?.remainingSecsAt(DateTime.now()) ?? 0;
+  int get _breakRemaining => _breakClock?.remainingSecsAt(DateTime.now()) ?? 0;
 
   int get _breakDurationSecs => _breakClock?.durationSecs ?? 0;
 
@@ -200,6 +192,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   /// Only the `setState` lives here — `setState` is `@protected` and cannot be
   /// called from an extension, so the rest is in [_persistFinishedWorkout].
   Future<void> _finishWorkout() async {
+    SandboxLog.event('workout finish', {'type': widget.workoutType});
     _elapsedTimer.cancel();
     _breakTimer?.cancel();
     // Before the state flips: the service must not outlive the workout, and

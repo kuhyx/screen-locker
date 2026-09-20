@@ -131,7 +131,9 @@ void main() {
 
   testWidgets('elapsed timer shows time in app bar', (tester) async {
     await pumpWorkout(tester, wrapWorkout());
-    expect(find.textContaining('00:00'), findsOneWidget);
+    // The idle rest strip shows 00:00 too; the app bar's clock carries the
+    // workout type in the same string.
+    expect(find.textContaining('Workout A  ·  00:00'), findsOneWidget);
   });
 
   testWidgets('B workout type shows in app bar', (tester) async {

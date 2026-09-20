@@ -164,9 +164,9 @@ void main() {
       // stale keystore entry would otherwise shadow a good backup forever
       // and demand a pointless re-authorization.
       final tempDir = Directory.systemTemp.createTempSync('settings_recover_');
-      BackupService.baseDirForTesting = tempDir.path;
+      BackupService.baseDir = tempDir.path;
       addTearDown(() {
-        BackupService.baseDirForTesting = kBackupDir;
+        BackupService.baseDir = kBackupDir;
         tempDir.deleteSync(recursive: true);
       });
 

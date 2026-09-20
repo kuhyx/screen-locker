@@ -120,6 +120,7 @@ class ExerciseTile extends StatelessWidget {
               children: List.generate(
                 exercise.sets,
                 (s) => RepCircle(
+                  semanticLabel: '${exercise.name} set ${s + 1}',
                   targetReps: exercise.reps,
                   doneReps: doneReps[s],
                   tapped: tapped[s],

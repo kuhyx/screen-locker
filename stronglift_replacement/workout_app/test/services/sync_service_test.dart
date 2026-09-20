@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/models/exercise.dart';
@@ -63,6 +65,32 @@ void main() {
       // The HTTP server must be updated regardless of file write success.
       expect(
         HttpServerService.instance.latestWorkout,
+        contains('"workout_type": "A"'),
+      );
+    });
+
+    test('writes the result file where filePath points', () async {
+      final dir = Directory.systemTemp.createTempSync('sync_service_test');
+      addTearDown(() {
+        SyncService.filePath = kSyncFilePath;
+        dir.deleteSync(recursive: true);
+      });
+      // The sandbox flavor redirects this the same way, to keep its
+      // workouts out of the file the PC pulls.
+      SyncService.filePath = '${dir.path}/workout_result.json';
+      final session = WorkoutSession(
+        workoutType: 'A',
+        startTime: DateTime(2024),
+        endTime: DateTime(2024),
+        exercises: [],
+      );
+
+      final result = await SyncService().writeWorkoutResult(session);
+
+      expect(result.success, isTrue);
+      expect(result.path, SyncService.filePath);
+      expect(
+        File(SyncService.filePath).readAsStringSync(),
         contains('"workout_type": "A"'),
       );
     });

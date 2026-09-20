@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/main.dart';
+import 'package:workout_app/sandbox/sandbox.dart';
 import 'package:workout_app/services/http_server_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 
@@ -31,6 +32,29 @@ void main() {
     });
     await tester.pump();
     expect(find.text('Workout Tracker'), findsOneWidget);
+  });
+
+  testWidgets('the sandbox flavor wears its ribbon on every screen', (
+    tester,
+  ) async {
+    Sandbox.enabled = true;
+    addTearDown(() => Sandbox.enabled = false);
+    await tester.runAsync(() async {
+      await tester.pumpWidget(const WorkoutApp());
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await tester.pump();
+    expect(find.byType(Banner), findsOneWidget);
+    expect(tester.widget<Banner>(find.byType(Banner)).message, 'SANDBOX');
+  });
+
+  testWidgets('the daily build has no ribbon', (tester) async {
+    await tester.runAsync(() async {
+      await tester.pumpWidget(const WorkoutApp());
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await tester.pump();
+    expect(find.byType(Banner), findsNothing);
   });
 
   testWidgets('app-lifecycle changes drive the HTTP server', (tester) async {

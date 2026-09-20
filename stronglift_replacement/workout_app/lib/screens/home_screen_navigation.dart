@@ -8,9 +8,9 @@ part of 'home_screen.dart';
 /// The two routes the home screen pushes, and the reload each returns to.
 extension _HomeScreenNavigation on _HomeScreenState {
   Future<void> _openSyncSettings() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen()));
     unawaited(_load());
   }
 
@@ -28,6 +28,7 @@ extension _HomeScreenNavigation on _HomeScreenState {
     }
 
     if (!mounted) return;
+    SandboxLog.event('open workout', {'type': type, 'resume': resume});
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => WorkoutScreen(

@@ -46,22 +46,25 @@ void main() {
       expect(await _svc.loadActiveSession(), isNull);
     });
 
-    test('saveActiveSession persists and loadActiveSession retrieves', () async {
-      final data = {'workoutType': 'A', 'startTimeMs': 1000};
-      await _svc.saveActiveSession(data);
-      final loaded = await _svc.loadActiveSession();
-      expect(loaded, isNotNull);
-      expect(loaded!['workoutType'], 'A');
-    });
+    test(
+      'saveActiveSession persists and loadActiveSession retrieves',
+      () async {
+        final data = {'workoutType': 'A', 'startTimeMs': 1000};
+        await _svc.saveActiveSession(data);
+        final loaded = await _svc.loadActiveSession();
+        expect(loaded, isNotNull);
+        expect(loaded!['workoutType'], 'A');
+      },
+    );
 
     test('survives a full app-data wipe via the external mirror', () async {
       // Regression: `pm clear` (or an uninstall) wipes app-private SQLite,
       // which is where active_session lives — the user lost the exact set and
       // reps they were standing on mid-workout. The mirror must bring it back.
       final tmp = Directory.systemTemp.createTempSync('mw_active_wipe');
-      BackupService.baseDirForTesting = tmp.path;
+      BackupService.baseDir = tmp.path;
       addTearDown(() {
-        BackupService.baseDirForTesting = kBackupDir;
+        BackupService.baseDir = kBackupDir;
         tmp.deleteSync(recursive: true);
       });
 
@@ -92,9 +95,9 @@ void main() {
     test('clearActiveSession also clears the mirror', () async {
       // Otherwise a finished workout would be resurrected on next launch.
       final tmp = Directory.systemTemp.createTempSync('mw_active_clear');
-      BackupService.baseDirForTesting = tmp.path;
+      BackupService.baseDir = tmp.path;
       addTearDown(() {
-        BackupService.baseDirForTesting = kBackupDir;
+        BackupService.baseDir = kBackupDir;
         tmp.deleteSync(recursive: true);
       });
 

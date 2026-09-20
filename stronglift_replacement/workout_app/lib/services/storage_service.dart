@@ -15,6 +15,7 @@ import 'package:workout_app/services/progression_sync_service.dart';
 
 part 'storage_service_backup.dart';
 part 'storage_service_exercises.dart';
+part 'storage_service_sandbox.dart';
 part 'storage_service_schema.dart';
 part 'storage_service_sessions.dart';
 
@@ -131,11 +132,10 @@ class StorageService {
   }
 
   Future<void> _setSetting(String key, String value) async {
-    await _db.insert(
-      'settings',
-      {'key': key, 'value': value},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db.insert('settings', {
+      'key': key,
+      'value': value,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   /// Returns 'A' or 'B' — the type that should be done next.
@@ -158,11 +158,10 @@ class StorageService {
   /// uninstall or `pm clear` wipes it and the user loses the set they are
   /// standing on. The mirror survives both.
   Future<void> saveActiveSession(Map<String, dynamic> data) async {
-    await _db.insert(
-      'active_session',
-      {'id': 1, 'json': jsonEncode(data)},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db.insert('active_session', {
+      'id': 1,
+      'json': jsonEncode(data),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
     unawaited(BackupService.instance.exportActiveSession(data));
   }
 
@@ -186,11 +185,10 @@ class StorageService {
         await (remoteActiveSessionReader ??
             ProgressionSyncService().readActiveSession)();
     if (mirrored == null) return null;
-    await _db.insert(
-      'active_session',
-      {'id': 1, 'json': jsonEncode(mirrored)},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db.insert('active_session', {
+      'id': 1,
+      'json': jsonEncode(mirrored),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
     return mirrored;
   }
 
@@ -204,9 +202,7 @@ class StorageService {
   }
 
   /// Returns up to [limit] past sessions, newest first.
-  Future<List<Map<String, dynamic>>> getWorkoutHistory({
-    int limit = 60,
-  }) async {
+  Future<List<Map<String, dynamic>>> getWorkoutHistory({int limit = 60}) async {
     return await _db.rawQuery(
       'SELECT date, workout_type, duration_seconds, succeeded, json '
       'FROM workout_history ORDER BY date DESC LIMIT ?',

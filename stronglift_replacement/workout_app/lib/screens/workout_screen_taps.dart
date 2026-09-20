@@ -17,6 +17,12 @@ extension _WorkoutScreenTaps on _WorkoutScreenState {
     if (_finished) return;
 
     final wasNotTapped = !_tapped[exIdx][setIdx];
+    SandboxLog.event('tap set', {
+      'exercise': exIdx,
+      'set': setIdx,
+      'first': wasNotTapped,
+      'ignored': wasNotTapped && _inBreak,
+    });
     if (wasNotTapped && _inBreak) return;
 
     _applyBreakState(() {
@@ -42,6 +48,7 @@ extension _WorkoutScreenTaps on _WorkoutScreenState {
 
   /// Marks exercise [exIdx]'s warmup done and starts the warmup rest.
   void _tapWarmup(int exIdx) {
+    SandboxLog.event('tap warmup', {'exercise': exIdx});
     if (_finished || _warmupTapped[exIdx]) return;
     _applyBreakState(() => _warmupTapped[exIdx] = true);
     if (!_inBreak) {
@@ -52,6 +59,7 @@ extension _WorkoutScreenTaps on _WorkoutScreenState {
 
   /// Undoes set [setIdx] of [exIdx], restoring its full target reps.
   void _resetCircle(int exIdx, int setIdx) {
+    SandboxLog.event('reset set', {'exercise': exIdx, 'set': setIdx});
     if (_finished) return;
     _applyBreakState(() {
       _tapped[exIdx][setIdx] = false;

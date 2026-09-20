@@ -72,7 +72,7 @@ class HttpServerService {
   /// On startup, try to load the last saved workout JSON from disk so the
   /// HTTP endpoint is populated even before the next workout is completed.
   Future<void> _loadFromDisk() async {
-    final candidates = <String>[kSyncFilePath];
+    final candidates = <String>[SyncService.filePath];
     // External storage is Android-only; getExternalStorageDirectory() throws an
     // UnsupportedError (not an Exception) on other platforms (desktop / test
     // host), so guard the call rather than trying to catch it.
@@ -87,7 +87,7 @@ class HttpServerService {
         // Ignore; the /sdcard path is tried first.
         debugPrint(
           'WorkoutApp: could not resolve the external storage directory '
-          '($error) — only $kSyncFilePath will be tried.',
+          '($error) — only ${SyncService.filePath} will be tried.',
         );
       }
       // coverage:ignore-end

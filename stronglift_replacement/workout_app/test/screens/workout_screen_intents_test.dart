@@ -14,7 +14,6 @@ import 'package:workout_app/models/break_snapshot.dart';
 import 'package:workout_app/services/break_intent_queue.dart';
 import 'package:workout_app/services/break_intent_store.dart';
 import 'package:workout_app/services/storage_service.dart';
-import 'package:workout_app/widgets/break_banner.dart';
 import 'package:workout_app/widgets/rep_circle.dart';
 
 import '../fake_audio_platform.dart';
@@ -35,8 +34,8 @@ void main() {
     await StorageService.init();
     installFakeSecureStorage();
     installFakeAudioPlatform();
-    SharedPreferencesAsyncPlatform.instance = InMemorySharedPreferencesAsync
-        .empty();
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
     client = FakeForegroundBreakClient();
   });
 
@@ -104,7 +103,7 @@ void main() {
 
     await nudge(tester);
 
-    expect(find.byType(BreakBanner), findsOneWidget);
+    expect(restRunning(tester), isTrue);
     expect(lastPushed().setsRemaining, 5);
   });
 
@@ -112,7 +111,7 @@ void main() {
     tester,
   ) async {
     await pump(tester, saved: savedWithBreak(90));
-    expect(find.byType(BreakBanner), findsOneWidget);
+    expect(restRunning(tester), isTrue);
 
     // In-app, tapping a NEW set mid-break is refused. From the notification it
     // means "I am done resting and done with the set" -- both taps at once.
@@ -135,11 +134,11 @@ void main() {
 
   testWidgets('Skip break from the notification ends the rest', (tester) async {
     await pump(tester, saved: savedWithBreak(90));
-    expect(find.byType(BreakBanner), findsOneWidget);
+    expect(restRunning(tester), isTrue);
 
     await seed([(BreakIntentKind.skipBreak, 0, 0)]);
     await nudge(tester);
 
-    expect(find.byType(BreakBanner), findsNothing);
+    expect(restRunning(tester), isFalse);
   });
 }

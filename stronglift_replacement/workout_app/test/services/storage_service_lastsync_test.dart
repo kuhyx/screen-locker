@@ -28,11 +28,11 @@ void main() {
 
     setUp(() {
       tmp = Directory.systemTemp.createTempSync('mw_clobber');
-      BackupService.baseDirForTesting = tmp.path;
+      BackupService.baseDir = tmp.path;
     });
 
     tearDown(() {
-      BackupService.baseDirForTesting = kBackupDir;
+      BackupService.baseDir = kBackupDir;
       tmp.deleteSync(recursive: true);
     });
 
@@ -79,9 +79,8 @@ void main() {
       // The good backup must still be intact.
       expect(history.length, 1, reason: 'real session was clobbered');
       expect((history.first as Map)['date'], '2026-07-17');
-      final situp = exercises.firstWhere(
-        (e) => (e as Map)['name'] == 'Situp',
-      ) as Map;
+      final situp =
+          exercises.firstWhere((e) => (e as Map)['name'] == 'Situp') as Map;
       expect(situp['reps'], 31, reason: 'progression reps were clobbered');
     });
 
@@ -106,11 +105,11 @@ void main() {
 
     setUp(() {
       tmp = Directory.systemTemp.createTempSync('mw_restore');
-      BackupService.baseDirForTesting = tmp.path;
+      BackupService.baseDir = tmp.path;
     });
 
     tearDown(() {
-      BackupService.baseDirForTesting = kBackupDir;
+      BackupService.baseDir = kBackupDir;
       tmp.deleteSync(recursive: true);
     });
 

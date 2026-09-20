@@ -34,10 +34,10 @@ const kSyncUid = 'OvA2REQyLIhAHOEjzwS1o877rgG3';
 ///
 /// A plain const rather than a `--dart-define`, deliberately. As a
 /// compile-time environment value it was empty in every build that matters:
-/// the phone-deploy skill and CI both run a bare `flutter build apk
-/// --release`, so released APKs would have shown a Google button that always
-/// reported "cancelled" -- a visible control that can never succeed, which is
-/// the exact thing the web platform gate exists to prevent.
+/// the phone-deploy skill and CI both run `flutter build apk --release`
+/// with no defines, so released APKs would have shown a Google button that
+/// always reported "cancelled" -- a visible control that can never succeed,
+/// which is the exact thing the web platform gate exists to prevent.
 ///
 /// Fill this in from Firebase console -> Project settings -> the `syncs-rest`
 /// Web app's OAuth client (type "Web application"). Android must request a

@@ -29,9 +29,7 @@ void main() {
     installFakeSecureStorage();
     final (:httpClient, putCalls: _) = mockGitHub();
     expect(
-      await syncService(
-        httpClient: httpClient,
-      ).readMergedManualPayloads(),
+      await syncService(httpClient: httpClient).readMergedManualPayloads(),
       isEmpty,
     );
   });
@@ -162,9 +160,7 @@ void main() {
       (request) async => http.Response('', 500),
     );
     expect(
-      await syncService(
-        httpClient: httpClient,
-      ).readMergedManualPayloads(),
+      await syncService(httpClient: httpClient).readMergedManualPayloads(),
       isEmpty,
     );
   });
@@ -173,9 +169,9 @@ void main() {
     // A stale keystore token shadows a good backup (load() only falls back
     // when the keystore is EMPTY), which would leave history silently empty.
     final tempDir = Directory.systemTemp.createTempSync('sync_recover_');
-    BackupService.baseDirForTesting = tempDir.path;
+    BackupService.baseDir = tempDir.path;
     addTearDown(() {
-      BackupService.baseDirForTesting = kBackupDir;
+      BackupService.baseDir = kBackupDir;
       tempDir.deleteSync(recursive: true);
     });
 
@@ -199,10 +195,7 @@ void main() {
         );
       }
       return http.Response(
-        jsonEncode({
-          'content': base64Encode(utf8.encode(pcLog)),
-          'sha': 'sha',
-        }),
+        jsonEncode({'content': base64Encode(utf8.encode(pcLog)), 'sha': 'sha'}),
         200,
       );
     });
@@ -218,9 +211,9 @@ void main() {
 
   test('reports the failure when the backup token is rejected too', () async {
     final tempDir = Directory.systemTemp.createTempSync('sync_recover_fail_');
-    BackupService.baseDirForTesting = tempDir.path;
+    BackupService.baseDir = tempDir.path;
     addTearDown(() {
-      BackupService.baseDirForTesting = kBackupDir;
+      BackupService.baseDir = kBackupDir;
       tempDir.deleteSync(recursive: true);
     });
 

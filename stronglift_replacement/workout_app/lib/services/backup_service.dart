@@ -14,7 +14,7 @@ library;
 
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:permission_handler/permission_handler.dart';
 
@@ -46,25 +46,16 @@ class BackupService {
   /// The singleton instance.
   static final BackupService instance = BackupService._();
 
-  // Overridable for unit tests (set by resetForTesting) so round-trips can
-  // be verified against a real temp directory instead of `/sdcard`, which
-  // doesn't exist on the test host.
-  static String _baseDir = kBackupDir;
+  // Overridable: tests point it at a real temp directory instead of
+  // `/sdcard`, which doesn't exist on the test host, and the sandbox flavor
+  // at its own `/sdcard/WorkoutTrackerSandbox` beside the daily build's.
+  /// The directory backup files are written to and read from.
+  static String baseDir = kBackupDir;
 
-  /// The directory backup files are currently written to/read from.
-  /// Test-only.
-  @visibleForTesting
-  static String get baseDirForTesting => _baseDir;
+  String get _backupPath => '$baseDir/backup.json';
+  String get _syncTokenPath => '$baseDir/sync_token';
 
-  /// Points the backup files at this directory instead of [kBackupDir].
-  /// Test-only.
-  @visibleForTesting
-  static set baseDirForTesting(String dir) => _baseDir = dir;
-
-  String get _backupPath => '$_baseDir/backup.json';
-  String get _syncTokenPath => '$_baseDir/sync_token';
-
-  String get _activeSessionPath => '$_baseDir/active_session.json';
+  String get _activeSessionPath => '$baseDir/active_session.json';
 
   // ── Permission ─────────────────────────────────────────────────────────────
 
@@ -122,7 +113,7 @@ class BackupService {
   /// Returns true if the backup was written.
   Future<bool> export(Map<String, dynamic> data) async {
     try {
-      final dir = Directory(_baseDir);
+      final dir = Directory(baseDir);
       if (!dir.existsSync()) {
         dir.createSync(recursive: true);
       }

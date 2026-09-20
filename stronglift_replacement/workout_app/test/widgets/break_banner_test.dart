@@ -14,6 +14,7 @@ void main() {
       await tester.pumpWidget(
         _wrap(
           BreakBanner(
+            active: true,
             breakRemaining: 90,
             breakLabel: 'Rest',
             onSkip: () {},
@@ -28,6 +29,7 @@ void main() {
       await tester.pumpWidget(
         _wrap(
           BreakBanner(
+            active: true,
             breakRemaining: 5,
             breakLabel: 'Warmup rest',
             onSkip: () {},
@@ -42,6 +44,7 @@ void main() {
       await tester.pumpWidget(
         _wrap(
           BreakBanner(
+            active: true,
             breakRemaining: 60,
             breakLabel: 'Rest',
             onSkip: () => skipped = true,
@@ -52,10 +55,36 @@ void main() {
       expect(skipped, isTrue);
     });
 
+    testWidgets('keeps its height and hides Skip while idle', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          BreakBanner(
+            active: false,
+            breakRemaining: 0,
+            breakLabel: 'Rest',
+            onSkip: () {},
+          ),
+        ),
+      );
+      expect(
+        tester.getSize(find.byType(BreakBanner)).height,
+        BreakBanner.height,
+      );
+      expect(find.text('00:00'), findsOneWidget);
+      // Skip keeps its space (nothing may move when a rest starts) but is
+      // neither visible nor tappable.
+      final skip = tester.widget<Visibility>(
+        find.ancestor(of: find.text('Skip'), matching: find.byType(Visibility)),
+      );
+      expect(skip.visible, isFalse);
+      expect(skip.maintainSize, isTrue);
+    });
+
     testWidgets('zero seconds formats as 00:00', (tester) async {
       await tester.pumpWidget(
         _wrap(
           BreakBanner(
+            active: true,
             breakRemaining: 0,
             breakLabel: 'Rest',
             onSkip: () {},

@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/services/storage_service.dart';
-import 'package:workout_app/widgets/break_banner.dart';
 
 import '../fake_audio_platform.dart';
 import '../fake_secure_storage.dart';
@@ -46,10 +45,11 @@ void main() {
     expect(
       audio.resumedSources.where((s) => s.contains('break_end')),
       isNotEmpty,
-      reason: 'the rest ended 45s ago, inside the grace window, so the user '
+      reason:
+          'the rest ended 45s ago, inside the grace window, so the user '
           'should hear the cue they were waiting for',
     );
-    expect(find.byType(BreakBanner), findsNothing);
+    expect(restRunning(tester), isFalse);
   });
 
   testWidgets('a long-expired break is not replayed, only logged', (
@@ -64,10 +64,11 @@ void main() {
     expect(
       audio.resumedSources.where((s) => s.contains('break_end')),
       isEmpty,
-      reason: 'two hours late is past the grace window — replaying the sound '
+      reason:
+          'two hours late is past the grace window — replaying the sound '
           'would just be startling',
     );
-    expect(find.byType(BreakBanner), findsNothing);
+    expect(restRunning(tester), isFalse);
   });
 
   testWidgets('a break still running is restored and keeps counting', (
@@ -75,7 +76,7 @@ void main() {
   ) async {
     await pumpWorkout(tester, wrapWorkout(savedState: savedWithBreak(90)));
 
-    expect(find.byType(BreakBanner), findsOneWidget);
+    expect(restRunning(tester), isTrue);
     expect(find.textContaining('well done'), findsOneWidget);
     expect(
       audio.resumedSources.where((s) => s.contains('break_end')),
@@ -91,7 +92,7 @@ void main() {
     // it comes back. Waiting for the next tick would delay the cue by a second
     // on a good day and forever on a Dozing phone.
     await pumpWorkout(tester, wrapWorkout(savedState: savedWithBreak(1)));
-    expect(find.byType(BreakBanner), findsOneWidget);
+    expect(restRunning(tester), isTrue);
 
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 1200)),
@@ -103,7 +104,7 @@ void main() {
     });
     await tester.pump();
 
-    expect(find.byType(BreakBanner), findsNothing);
+    expect(restRunning(tester), isFalse);
   });
 
   testWidgets('resuming with no rest running is harmless', (tester) async {
@@ -113,7 +114,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 200));
     });
     await tester.pump();
-    expect(find.byType(BreakBanner), findsNothing);
+    expect(restRunning(tester), isFalse);
   });
 
   testWidgets('a dead audio route does not take the workout down with it', (
@@ -140,7 +141,7 @@ void main() {
       isNotEmpty,
       reason: 'a cue that cannot sound must say so, not fail in silence',
     );
-    expect(find.byType(BreakBanner), findsNothing);
+    expect(restRunning(tester), isFalse);
     expect(tester.takeException(), isNull);
   });
 }

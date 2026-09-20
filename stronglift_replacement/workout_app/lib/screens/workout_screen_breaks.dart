@@ -5,13 +5,33 @@
 // state class's `_applyBreakState` shim instead.
 part of 'workout_screen.dart';
 
+// Rest lengths (the sandbox flavor overrides them all in _startBreak).
+const _successBreakSecs = 180; // 3 min after successful set
+const _failBreakSecs = 300; // 5 min after failed set
+const _warmupBreakSecs = 180; // 3 min after warmup
+
+// How late a restored break's end cue may still be played. Long enough to
+// cover the app being killed and reopened mid-rest; short enough that
+// resuming yesterday's session does not blast the sound across the gym.
+const _expiredBreakGraceSecs = 120;
+
 /// Starting, ticking, cancelling and finishing the rest period between sets.
 extension _WorkoutScreenBreaks on _WorkoutScreenState {
   void _startBreak(int secs, String label, int exIdx, int setIdx) {
+    // The one place every rest is born, so the sandbox's short override
+    // applies to warmup, success and fail rests alike.
+    final restSecs = Sandbox.rest(secs);
+    final restLabel = Sandbox.restLabel(label);
+    SandboxLog.event('break start', {
+      'secs': restSecs,
+      'label': restLabel,
+      'exercise': exIdx,
+      'set': setIdx,
+    });
     _breakTimer?.cancel();
     _applyBreakState(() {
-      _breakClock = BreakClock.startingAt(DateTime.now(), secs);
-      _breakLabel = label;
+      _breakClock = BreakClock.startingAt(DateTime.now(), restSecs);
+      _breakLabel = restLabel;
       _breakForExIdx = exIdx;
       _breakForSetIdx = setIdx;
     });
@@ -46,6 +66,7 @@ extension _WorkoutScreenBreaks on _WorkoutScreenState {
   }
 
   void _cancelBreak() {
+    SandboxLog.event('break cancel');
     _breakTimer?.cancel();
     _applyBreakState(() {
       _breakClock = null;
@@ -55,6 +76,7 @@ extension _WorkoutScreenBreaks on _WorkoutScreenState {
   }
 
   Future<void> _onBreakFinished() async {
+    SandboxLog.event('break end');
     await _playBreakEndCue();
     _applyBreakState(() {
       _breakClock = null;
@@ -64,11 +86,7 @@ extension _WorkoutScreenBreaks on _WorkoutScreenState {
     unawaited(_saveActiveSession());
   }
 
-  Future<void> _onThresholdChanged(
-    String name,
-    int success,
-    int fail,
-  ) async {
+  Future<void> _onThresholdChanged(String name, int success, int fail) async {
     await StorageService.instance.setExerciseThresholds(
       name,
       successThreshold: success,

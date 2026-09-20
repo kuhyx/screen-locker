@@ -14,6 +14,8 @@ import 'package:http/http.dart' as http;
 import 'package:sync_settings_ui/sync_settings_ui.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/workout_plan.dart';
+import 'package:workout_app/sandbox/sandbox.dart';
+import 'package:workout_app/sandbox/sandbox_log.dart';
 import 'package:workout_app/screens/github_mirror_screen.dart';
 import 'package:workout_app/services/backup_service.dart';
 import 'package:workout_app/services/firebase_backend.dart';
@@ -25,6 +27,7 @@ import 'package:workout_app/ui/theme.dart';
 part 'settings_screen_actions.dart';
 part 'settings_screen_exercise_sections.dart';
 part 'settings_screen_rows.dart';
+part 'settings_screen_sandbox.dart';
 part 'settings_screen_sections.dart';
 part 'settings_screen_thresholds.dart';
 part 'settings_screen_widget.dart';
@@ -204,6 +207,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   storageGranted: _storageGranted,
                   onGrantStorage: _grantStorage,
                 ),
+                if (Sandbox.enabled) ...[
+                  const SizedBox(height: 20),
+                  const _SandboxSection(),
+                ],
               ],
             ),
     );

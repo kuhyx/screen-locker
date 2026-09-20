@@ -14,6 +14,7 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
   /// parked in `_expiredBreak` so the screen can say so and, if the user only
   /// just missed it, play the cue they were waiting for.
   void _restoreFromSaved(Map<String, dynamic> s) {
+    SandboxLog.event('session restore', {'keys': s.keys.toList()});
     _startTime = DateTime.fromMillisecondsSinceEpoch(s['startTimeMs'] as int);
     _tapped = (s['tapped'] as List)
         .map((row) => (row as List).cast<bool>())
@@ -84,6 +85,7 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
   /// sync revision cache exists to avoid — so the remote copy is debounced to
   /// the events that actually change which set the user is standing on.
   Future<void> _saveActiveSession({bool toFirebase = false}) async {
+    SandboxLog.event('session save', {'toFirebase': toFirebase});
     final data = _activeSessionData();
     await StorageService.instance.saveActiveSession(data);
     // The one seam the notification is fed from. Every event that moves the
@@ -132,13 +134,15 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
     if (_breakForSetIdx == -1) return; // warmup break, never recompute
 
     final succeeded = _doneReps[exIdx][setIdx] >= widget.exercises[exIdx].reps;
-    final newDuration = succeeded ? _successBreakSecs : _failBreakSecs;
+    final newDuration = Sandbox.rest(
+      succeeded ? _successBreakSecs : _failBreakSecs,
+    );
     if (newDuration == clock.durationSecs) return;
 
     _breakClock = clock.withDuration(newDuration);
-    _breakLabel = succeeded
-        ? 'Rest (3 min — well done!)'
-        : 'Rest (5 min — keep going!)';
+    _breakLabel = Sandbox.restLabel(
+      succeeded ? 'Rest (3 min — well done!)' : 'Rest (5 min — keep going!)',
+    );
   }
 
   /// True when [setIdx] is the last untapped set of exercise [exIdx].
@@ -164,14 +168,14 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
 
   /// Plays the sound and haptic that tell the user the rest period is over.
   Future<void> _playBreakEndCue() async {
-    await _audio
-        .play(AssetSource('sounds/break_end.mp3'))
-        .catchError((Object error) {
-          // Never fatal: a missing audio route must not interrupt the workout.
-          // But it is the break-end cue, so a silent failure looks like the
-          // timer itself is broken.
-          debugPrint('WorkoutApp: break-end sound failed to play ($error).');
-        });
+    await _audio.play(AssetSource('sounds/break_end.mp3')).catchError((
+      Object error,
+    ) {
+      // Never fatal: a missing audio route must not interrupt the workout.
+      // But it is the break-end cue, so a silent failure looks like the
+      // timer itself is broken.
+      debugPrint('WorkoutApp: break-end sound failed to play ($error).');
+    });
     if (await Vibration.hasVibrator()) {
       // Android/iOS-only: hasVibrator() returns false on the Linux test host
       // (no Platform.isAndroid/isIOS), so this body never runs there.
@@ -203,6 +207,7 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
 
   /// Ends the break early at the user's request and re-persists the session.
   void _skipBreak() {
+    SandboxLog.event('break skip');
     _cancelBreak();
     unawaited(_saveActiveSession());
   }

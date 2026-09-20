@@ -10,7 +10,6 @@ import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/screens/workout_screen.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/ui/theme.dart';
-import 'package:workout_app/widgets/break_banner.dart';
 import 'package:workout_app/widgets/exercise_tile.dart';
 import 'package:workout_app/widgets/rep_circle.dart';
 import 'package:workout_app/widgets/workout_summary_dialog.dart';
@@ -51,12 +50,12 @@ void main() {
   ) async {
     await pumpWorkout(tester, wrapWorkout());
     await tapReal(tester, find.byType(RepCircle).first);
-    expect(find.byType(BreakBanner), findsOneWidget);
+    expect(restRunning(tester), isTrue);
     // Success break (5 done >= 5 target).
     expect(find.textContaining('well done'), findsOneWidget);
 
     await tapReal(tester, find.text('Skip'));
-    expect(find.byType(BreakBanner), findsNothing);
+    expect(restRunning(tester), isFalse);
   });
 
   testWidgets('tapping warmup starts a warmup break', (tester) async {
@@ -83,10 +82,10 @@ void main() {
     await pumpWorkout(tester, wrapWorkout());
     final circle = find.byType(RepCircle).first;
     await tapReal(tester, circle);
-    expect(find.byType(BreakBanner), findsOneWidget);
+    expect(restRunning(tester), isTrue);
 
     await longPressReal(tester, circle);
-    expect(find.byType(BreakBanner), findsNothing);
+    expect(restRunning(tester), isFalse);
   });
 
   testWidgets('finishing a completed workout saves and shows the summary', (
@@ -188,7 +187,7 @@ void main() {
       'breakEndMs': now.add(const Duration(seconds: 2)).millisecondsSinceEpoch,
     };
     await pumpWorkout(tester, wrapWorkout(savedState: saved));
-    expect(find.byType(BreakBanner), findsOneWidget); // break restored
+    expect(restRunning(tester), isTrue); // break restored
 
     // The break timer is a real periodic timer (initState ran under pumpWorkout's
     // runAsync). Wait out its ~2s remaining so _tickBreak reaches 0 and
@@ -199,6 +198,6 @@ void main() {
     });
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.byType(BreakBanner), findsNothing);
+    expect(restRunning(tester), isFalse);
   });
 }

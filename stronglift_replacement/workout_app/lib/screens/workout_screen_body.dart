@@ -1,9 +1,14 @@
-// The active-workout body: optional break banner over the exercise list.
+// The active-workout body: a reserved break strip over the exercise column.
 //
 // See workout_screen_session.dart for why this is a `part`.
 part of 'workout_screen.dart';
 
-/// Scrolling exercise list for [WorkoutScreen], with the rest banner above it.
+/// Non-scrolling exercise column for [WorkoutScreen] under a reserved rest
+/// strip.
+///
+/// Every tile stays visible and in place under all circumstances: the strip
+/// is always laid out (so a rest starting moves nothing), and the column is
+/// scaled down as a whole when it would not fit, instead of scrolling.
 ///
 /// A widget rather than a method so the state class stays under the
 /// file-length cap. It holds no state of its own — every value and callback is
@@ -69,37 +74,54 @@ class _WorkoutBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        if (inBreak)
-          BreakBanner(
-            breakRemaining: breakRemaining,
-            breakLabel: breakLabel,
-            onSkip: onSkipBreak,
-          ),
+        BreakBanner(
+          active: inBreak,
+          breakRemaining: breakRemaining,
+          breakLabel: inBreak ? breakLabel : 'Rest',
+          onSkip: onSkipBreak,
+        ),
         Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.all(12),
-            itemCount: exercises.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (_, i) {
-              final exName = exercises[i].name;
-              final state = exerciseStates[exName];
-              return ExerciseTile(
-                exercise: exercises[i],
-                tapped: tapped[i],
-                doneReps: doneReps[i],
-                warmupTapped: warmupTapped[i],
-                successThreshold: state?.successThreshold ?? 3,
-                failThreshold: state?.failThreshold ?? 2,
-                onTapCircle: (s) => onTapCircle(i, s),
-                onLongPressCircle: (s) => onLongPressCircle(i, s),
-                onTapWarmup: () => onTapWarmup(i),
-                onThresholdChanged: (success, fail) =>
-                    onThresholdChanged(exName, success, fail),
-              );
-            },
+          child: LayoutBuilder(
+            builder: (context, constraints) => FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: constraints.maxWidth,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var i = 0; i < exercises.length; i++) ...[
+                        if (i > 0) const SizedBox(height: 8),
+                        _tile(i),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _tile(int i) {
+    final exName = exercises[i].name;
+    final state = exerciseStates[exName];
+    return ExerciseTile(
+      exercise: exercises[i],
+      tapped: tapped[i],
+      doneReps: doneReps[i],
+      warmupTapped: warmupTapped[i],
+      successThreshold: state?.successThreshold ?? 3,
+      failThreshold: state?.failThreshold ?? 2,
+      onTapCircle: (s) => onTapCircle(i, s),
+      onLongPressCircle: (s) => onLongPressCircle(i, s),
+      onTapWarmup: () => onTapWarmup(i),
+      onThresholdChanged: (success, fail) =>
+          onThresholdChanged(exName, success, fail),
     );
   }
 }

@@ -59,6 +59,31 @@ android {
         }
     }
 
+    // Two installs of the same code, side by side. The sandbox flavor has its
+    // own package name, so Android gives it its own app data: it physically
+    // cannot read or write the daily build's database, secure storage or
+    // notification channels, which is what makes it safe to poke at during a
+    // real training block. Everything else the sandbox must not touch (the
+    // LAN server the PC pulls from, Firebase/GitHub, the /sdcard mirrors) is
+    // switched off in Dart from BuildConfig.FLAVOR via MainActivity.
+    flavorDimensions += "store"
+    productFlavors {
+        create("daily") {
+            dimension = "store"
+            manifestPlaceholders["appLabel"] = "workout_app"
+        }
+        create("sandbox") {
+            dimension = "store"
+            applicationIdSuffix = ".sandbox"
+            versionNameSuffix = "-sandbox"
+            manifestPlaceholders["appLabel"] = "Workout SANDBOX"
+        }
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
     buildTypes {
         release {
             // Falls back to the debug key only when key.properties is absent
