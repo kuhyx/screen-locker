@@ -13,6 +13,7 @@ import 'package:workout_app/sandbox/sandbox.dart';
 /// also go through [debugPrint], which is what `flutter run` shows.
 abstract final class SandboxLog {
   static bool _channelDown = false;
+  static Future<void> _last = Future<void>.value();
 
   /// Records [event] with optional [details], e.g.
   /// `SandboxLog.event('tap set', {'exercise': 'Squat', 'set': 2})`.
@@ -20,7 +21,8 @@ abstract final class SandboxLog {
     if (!Sandbox.enabled) return;
     final line = details.isEmpty ? event : '$event $details';
     debugPrint('WorkoutSandbox: $line');
-    unawaited(_toLogcat(line));
+    _last = _toLogcat(line);
+    unawaited(_last);
   }
 
   static Future<void> _toLogcat(String line) async {
@@ -37,6 +39,13 @@ abstract final class SandboxLog {
       );
     }
   }
+
+  /// Completes when the most recent event has reached (or given up on)
+  /// logcat. The write is fire-and-forget for callers; a test that asserts on
+  /// its outcome awaits this instead of guessing how many event-loop turns
+  /// the channel needs -- one was enough locally and not on CI (2026-09-20).
+  @visibleForTesting
+  static Future<void> flush() => _last;
 
   /// Forgets a failed channel so the next event retries it.
   @visibleForTesting

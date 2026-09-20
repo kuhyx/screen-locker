@@ -21,7 +21,8 @@ void main() {
   setUp(() {
     printed.clear();
     sent.clear();
-    debugPrint = (String? message, {int? wrapWidth}) => printed.add(message ?? '');
+    debugPrint = (String? message, {int? wrapWidth}) =>
+        printed.add(message ?? '');
     SandboxLog.resetForTesting();
     Sandbox.enabled = true;
   });
@@ -36,7 +37,7 @@ void main() {
     Sandbox.enabled = false;
     channelUp();
     SandboxLog.event('tap set', {'set': 1});
-    await Future<void>.delayed(Duration.zero);
+    await SandboxLog.flush();
     expect(printed, isEmpty);
     expect(sent, isEmpty);
   });
@@ -45,18 +46,24 @@ void main() {
     channelUp();
     SandboxLog.event('break start', {'secs': 5});
     SandboxLog.event('break end');
-    await Future<void>.delayed(Duration.zero);
-    expect(printed, ['WorkoutSandbox: break start {secs: 5}', 'WorkoutSandbox: break end']);
+    await SandboxLog.flush();
+    expect(printed, [
+      'WorkoutSandbox: break start {secs: 5}',
+      'WorkoutSandbox: break end',
+    ]);
     expect(sent.map((c) => c.method), ['log', 'log']);
     expect(sent.first.arguments, 'break start {secs: 5}');
   });
 
   test('says once that logcat is unreachable, then keeps printing', () async {
     SandboxLog.event('one');
-    await Future<void>.delayed(Duration.zero);
+    await SandboxLog.flush();
     SandboxLog.event('two');
-    await Future<void>.delayed(Duration.zero);
-    expect(printed.where((l) => l.contains('logcat channel unavailable')), hasLength(1));
+    await SandboxLog.flush();
+    expect(
+      printed.where((l) => l.contains('logcat channel unavailable')),
+      hasLength(1),
+    );
     expect(printed.where((l) => l == 'WorkoutSandbox: two'), hasLength(1));
   });
 }
