@@ -49,3 +49,36 @@ jobs:
         # Run as a module (like the screen-fits gate) so scripts/ resolves as a
         # package and the check can import the helpers it was split into.
         run: python3 -m scripts.verify_lock_popup_safety
+
+  # The two coverage bars below used to run only in the local pre-push hook,
+  # which became a 1-second stamp check on 2026-09-20 (pre-commit's manual
+  # stage holds them now). Nothing else in CI runs the Flutter or web suites,
+  # so these jobs are the only place the 100% bars are enforced on every push.
+  flutter-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.5
+          channel: stable
+
+      - name: flutter test --coverage, 100% of lib/ (workout app)
+        run: bash scripts/check_flutter_coverage.sh
+
+  web-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: vitest --coverage, 100% (status web UI)
+        run: |
+          npm --prefix web ci
+          npm --prefix web run coverage
