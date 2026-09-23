@@ -89,6 +89,20 @@ class TestIsRelaxedDay:
         result = is_relaxed_day()
         assert isinstance(result, bool)
 
+    def test_a_workday_penalty_overrides_a_relaxed_day(self) -> None:
+        """A missed prior-day ring costs Tue/Wed/Thu their leniency."""
+        target = "screen_locker._weekly_check.workday_penalty_today"
+        with patch(target, return_value=True):
+            assert is_relaxed_day(today=_dt(1)) is False
+
+    def test_an_enforced_day_is_unaffected_by_the_penalty_check(self) -> None:
+        """The penalty is never even consulted on a day that was already enforced."""
+        with patch(
+            "screen_locker._weekly_check.workday_penalty_today",
+            side_effect=AssertionError("must not be called"),
+        ):
+            assert is_relaxed_day(today=_dt(0)) is False
+
 
 # ---------------------------------------------------------------------------
 # count_weekly_workouts

@@ -17,6 +17,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from screen_locker._log_io import load_workout_log
+from screen_locker._workday_penalty import workday_penalty_today
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -77,14 +78,20 @@ RELAXED_DAY_SKIP_TYPE: str = "relaxed_day_skip"
 def is_relaxed_day(*, today: datetime | None = None) -> bool:
     """Return True if today is a relaxed day (Tue, Wed, or Thu).
 
+    False when a missed wake-alarm ring on a prior stick-day cost today its
+    leniency -- see :func:`screen_locker._workday_penalty.workday_penalty_today`.
+
     Args:
         today: Override for the current local datetime (for testing).
 
     Returns:
-        True when the current weekday is Tuesday, Wednesday, or Thursday.
+        True when the current weekday is Tuesday, Wednesday, or Thursday and
+        no penalty is in force.
     """
     dt = today if today is not None else datetime.now(tz=UTC).astimezone()
-    return dt.weekday() in _RELAXED_WEEKDAYS
+    if dt.weekday() not in _RELAXED_WEEKDAYS:
+        return False
+    return not workday_penalty_today(dt)
 
 
 def credit_key(

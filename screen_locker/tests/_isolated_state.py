@@ -79,4 +79,10 @@ ISOLATED_STATE: tuple[tuple[str, tuple[str, ...]], ...] = (
         "leetcode_ledger.json",
         ("_leetcode_bonus.LEETCODE_LEDGER_FILE",),
     ),
+    # wake-alarm's workday-stick file. A test that forgot this would read
+    # the developer's real penalty state.
+    (
+        "workday_penalty.json",
+        ("_constants.WORKDAY_PENALTY_FILE", "_workday_penalty.WORKDAY_PENALTY_FILE"),
+    ),
 )

@@ -149,6 +149,15 @@ MORNING_SESSION_FILE = (
     Path.home() / ".local" / "state" / "wake_alarm" / "morning_session.json"
 )
 
+# A separate file from MORNING_SESSION_FILE: that one always describes
+# *today* and is overwritten at the date rollover, so it cannot carry a
+# marker forward to tomorrow. wake-alarm writes this one when a Tue/Wed/Thu
+# ring goes unanswered; today == penalty_date means today's relaxed-day
+# leniency is off. Keep the path in step with wake_alarm/_constants.py.
+WORKDAY_PENALTY_FILE = (
+    Path.home() / ".local" / "state" / "wake_alarm" / "workday_penalty.json"
+)
+
 # Directories where RunnerUp writes per-activity TCX exports (File Synchronizer).
 # Listed in preference order; both resolve to the same path on most devices.
 RUNNERUP_EXPORT_DIRS: tuple[str, ...] = (
