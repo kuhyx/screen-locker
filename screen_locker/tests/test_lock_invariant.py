@@ -74,7 +74,7 @@ class TestEnforcePathChokepoint:
                 "screen_locker._startup_checks.reset_to_base_if_new_day",
                 return_value=False,
             ),
-            patch("screen_locker._startup_checks.apply_leetcode_bonus_if_new"),
+            patch("screen_locker._startup_checks.apply_flat_bonuses_if_new"),
         ):
             stack.enter_context(patcher)
         return stack

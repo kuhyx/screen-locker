@@ -181,6 +181,9 @@ def _isolate_state_files(tmp_path: Path) -> Iterator[None]:
         yield
 
 
+_SEEDED_STAMPS = ("last_reset_date", "leetcode_bonus_date", "reading_bonus_date")
+
+
 @pytest.fixture(autouse=True)
 def _isolate_shutdown_base(tmp_path: Path) -> Iterator[None]:
     """Redirect SHUTDOWN_BASE_FILE to tmp_path so tests cannot touch real state.
@@ -188,14 +191,13 @@ def _isolate_shutdown_base(tmp_path: Path) -> Iterator[None]:
     Pre-seeded with today's date so reset_to_base_if_new_day() is a no-op by
     default (matching the real file's steady state) -- tests that want to
     exercise the actual reset path patch reset_to_base_if_new_day directly,
-    same as the rest of the suite already does. The LeetCode stamp is seeded
-    too, so apply_leetcode_bonus_if_new() never reads a ledger by default.
+    same as the rest of the suite already does. The LeetCode and reading
+    stamps are seeded too, so apply_flat_bonuses_if_new() never reads a
+    ledger (or the host's real HMAC key) by default.
     """
     target = tmp_path / "shutdown_base.json"
     today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
-    target.write_text(
-        json.dumps({"last_reset_date": today, "leetcode_bonus_date": today})
-    )
+    target.write_text(json.dumps(dict.fromkeys(_SEEDED_STAMPS, today)))
     with (
         patch("screen_locker._constants.SHUTDOWN_BASE_FILE", target),
         patch("screen_locker._startup_checks.SHUTDOWN_BASE_FILE", target),

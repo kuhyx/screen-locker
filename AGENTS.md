@@ -36,7 +36,8 @@ weeks because a missing token `return`ed `[]` and real errors only logged at
 
 `/etc/shutdown-schedule.conf` is recomputed from scratch by
 `_shutdown_base.reset_to_base_if_new_day` on each new day:
-`BASE_HOUR (20) + today's workout hours + the LeetCode hour`, capped at 23.
+`BASE_HOUR (19) + today's workout hours + the LeetCode hour + the reading hour`,
+capped at 23.
 Anything that pushes the hour with a plain read-add-write and is *not* a term
 of that derivation gets wiped by the next reset -- that is how a 00:02 workout
 lost its hours on 2026-09-13. Add a new bonus source as a term first, then
@@ -49,6 +50,14 @@ The LeetCode hour is read from leetcode-guard's ledger
 own `submitted_at`, flat +1h/day, and *fail closed* -- an unreadable ledger or
 key earns nothing. leetcode-guard itself stays read-only; it never writes
 the config.
+
+The reading hour is the same shape, from book-guard's ledger
+(`_reading_bonus.py`): HMAC-verified `credit` entries with `detail.bonus ==
+"1"`, dated by `detail.ended_at` (when the reading happened, not when the quiz
+was passed), flat +1h/day, fail closed. The base moves 20 -> 19 on
+2026-10-01 (`base_hour()`, `READING_BASE_FROM`) -- book-guard's start date, so
+the cut never lands before the hour that pays for it; the 23:00 best case is
+unchanged.
 
 ## The morning session is the carrot — and the early-bird window is it
 

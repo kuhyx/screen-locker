@@ -79,6 +79,12 @@ ISOLATED_STATE: tuple[tuple[str, tuple[str, ...]], ...] = (
         "leetcode_ledger.json",
         ("_leetcode_bonus.LEETCODE_LEDGER_FILE",),
     ),
+    # book-guard's ledger, for the same reason: a real reading credit would
+    # earn a fake shutdown hour inside an assertion.
+    (
+        "reading_ledger.json",
+        ("_reading_bonus.READING_LEDGER_FILE",),
+    ),
     # wake-alarm's workday-stick file. A test that forgot this would read
     # the developer's real penalty state.
     (

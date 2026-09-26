@@ -15,6 +15,7 @@ from unittest.mock import MagicMock
 
 from screen_locker._day import today_str
 from screen_locker._shutdown_base import (
+    base_hour,
     reset_to_base_if_new_day,
     today_earned_bonus_hours,
 )
@@ -157,18 +158,23 @@ class TestResetReplaysTodaysCredit:
         return state
 
     def test_writes_base_plus_todays_earned_hours(self, tmp_path: Path) -> None:
-        """The 2026-09-13 case: base 20 + one football → 22, not 20."""
+        """The 2026-09-13 case: base + one football (2h), not the bare base."""
         log = _write_log(tmp_path / "log.json", today_str(), _real_2026_09_13())
         mixin = self._mixin()
         assert (
             reset_to_base_if_new_day(self._state(tmp_path), mixin, log_file=log) is True
         )
-        mixin._write_shutdown_config.assert_called_once_with(22, 22, 5, restore=True)
+        mixin._write_shutdown_config.assert_called_once_with(
+            base_hour() + 2, base_hour() + 2, 5, restore=True
+        )
 
     def test_without_log_file_writes_plain_base(self, tmp_path: Path) -> None:
         mixin = self._mixin()
         assert reset_to_base_if_new_day(self._state(tmp_path), mixin) is True
-        mixin._write_shutdown_config.assert_called_once_with(20, 20, 5, restore=True)
+        base = base_hour()
+        mixin._write_shutdown_config.assert_called_once_with(
+            base, base, 5, restore=True
+        )
 
     def test_empty_day_writes_plain_base(self, tmp_path: Path) -> None:
         log = _write_log(tmp_path / "log.json", "2000-01-01", _real_2026_09_13())
@@ -176,16 +182,20 @@ class TestResetReplaysTodaysCredit:
         assert (
             reset_to_base_if_new_day(self._state(tmp_path), mixin, log_file=log) is True
         )
-        mixin._write_shutdown_config.assert_called_once_with(20, 20, 5, restore=True)
+        base = base_hour()
+        mixin._write_shutdown_config.assert_called_once_with(
+            base, base, 5, restore=True
+        )
 
     def test_earned_hours_are_capped_at_the_restore_ceiling(
         self, tmp_path: Path
     ) -> None:
-        """base 20 + 2h football + 2 extra workouts = 24; the script clamps at 23."""
+        """base + 2h football + 3 extra workouts > 23 under either base; clamped."""
         entries = [
             *_real_2026_09_13(),
             _manual("manual:2026-09-13T12:00"),
             _manual("manual:2026-09-13T18:00"),
+            _manual("manual:2026-09-13T20:00"),
         ]
         log = _write_log(tmp_path / "log.json", today_str(), entries)
         mixin = self._mixin()
@@ -193,7 +203,7 @@ class TestResetReplaysTodaysCredit:
         mixin._write_shutdown_config.assert_called_once_with(23, 23, 5, restore=True)
 
     def test_state_file_records_only_the_date(self, tmp_path: Path) -> None:
-        """Tomorrow's reset must start from the constant, not from today's 22."""
+        """Tomorrow's reset must start from the constant, not from today's total."""
         log = _write_log(tmp_path / "log.json", today_str(), _real_2026_09_13())
         state = self._state(tmp_path)
         reset_to_base_if_new_day(state, self._mixin(), log_file=log)

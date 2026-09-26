@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 from screen_locker._shutdown_base import (
-    BASE_HOUR,
     _load_state,
+    base_hour,
     reset_to_base_if_new_day,
 )
 
@@ -60,7 +60,7 @@ class TestLoadState:
         mixin._write_shutdown_config.return_value = True
         assert reset_to_base_if_new_day(f, mixin) is True
         mixin._write_shutdown_config.assert_called_once_with(
-            BASE_HOUR, BASE_HOUR, 5, restore=True
+            base_hour(), base_hour(), 5, restore=True
         )
         assert "base_mon_wed_hour" not in json.loads(f.read_text())
 
@@ -88,7 +88,10 @@ class TestResetToBaseIfNewDay:
         f.write_text(json.dumps({"last_reset_date": "2000-01-01"}))
         mixin = self._make_mixin()
         assert reset_to_base_if_new_day(f, mixin) is True
-        mixin._write_shutdown_config.assert_called_once_with(20, 20, 5, restore=True)
+        base = base_hour()
+        mixin._write_shutdown_config.assert_called_once_with(
+            base, base, 5, restore=True
+        )
 
     def test_resets_when_no_state_file(self, tmp_path: Path) -> None:
         """No state file → treated as new day, reset performed (lines 67-100)."""
@@ -112,7 +115,10 @@ class TestResetToBaseIfNewDay:
         mixin._read_shutdown_config.return_value = None
         mixin._write_shutdown_config.return_value = True
         reset_to_base_if_new_day(f, mixin)
-        mixin._write_shutdown_config.assert_called_once_with(20, 20, 5, restore=True)
+        base = base_hour()
+        mixin._write_shutdown_config.assert_called_once_with(
+            base, base, 5, restore=True
+        )
 
     def test_clears_sick_day_state_file_on_reset(self, tmp_path: Path) -> None:
         """Existing sick-day file is deleted during reset (lines 79-82)."""

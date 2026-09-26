@@ -98,11 +98,12 @@ def _landed_today(entry: dict[str, object], *, window: tuple[float, float]) -> b
     return entry.get("day") == today
 
 
-def _read_entries(ledger_path: Path) -> list[object] | None:
+def _read_entries(ledger_path: Path, label: str = "LeetCode") -> list[object] | None:
     """Read the ledger's entry list, or ``None`` when it cannot be read.
 
     Args:
-        ledger_path: leetcode-guard's ledger file.
+        ledger_path: leetcode-guard's (or book-guard's) ledger file.
+        label: Whose ledger, for the log line.
 
     Returns:
         The raw entries, or ``None`` -- which is never "no entries".
@@ -110,16 +111,16 @@ def _read_entries(ledger_path: Path) -> list[object] | None:
     try:
         raw = json.loads(ledger_path.read_text(encoding="utf-8"))
     except OSError as exc:
-        _logger.warning("Cannot read the LeetCode ledger at %s (%s)", ledger_path, exc)
+        _logger.warning("Cannot read the %s ledger at %s (%s)", label, ledger_path, exc)
         return None
     except ValueError as exc:
         _logger.warning(
-            "LeetCode ledger at %s is not valid JSON (%s)", ledger_path, exc
+            "%s ledger at %s is not valid JSON (%s)", label, ledger_path, exc
         )
         return None
     rows = raw.get("entries") if isinstance(raw, dict) else None
     if not isinstance(rows, list):
-        _logger.warning("LeetCode ledger at %s has no entries array", ledger_path)
+        _logger.warning("%s ledger at %s has no entries array", label, ledger_path)
         return None
     return rows
 

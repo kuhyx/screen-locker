@@ -172,3 +172,24 @@ class TestBonusHours:
         ):
             assert leetcode_bonus_hours() == 0
         assert "could not be checked" in caplog.text
+
+
+class TestReadEntriesLabel:
+    """_read_entries is shared with book-guard's reader; the label names whose."""
+
+    def test_default_label_is_leetcode(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level(logging.WARNING):
+            assert _leetcode_bonus._read_entries(tmp_path / "missing.json") is None
+        assert "Cannot read the LeetCode ledger" in caplog.text
+
+    def test_custom_label_names_the_ledger(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        path = tmp_path / "ledger.json"
+        path.write_text(json.dumps({"no": "entries"}))
+        with caplog.at_level(logging.WARNING):
+            assert _leetcode_bonus._read_entries(path, "book-guard") is None
+        assert "book-guard ledger at" in caplog.text
+        assert "LeetCode" not in caplog.text

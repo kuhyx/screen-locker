@@ -6,10 +6,14 @@ until a RunnerUp-verified (or explicitly justified) workout is logged.
 
 ## Shutdown time
 
-Every day starts at **20:00** (`BASE_HOUR` in `screen_locker/_shutdown_base.py`)
+Every day starts at **19:00** from 2026-10-01, 20:00 before it (`base_hour()` in
+`screen_locker/_shutdown_base.py`)
 and bonuses push it later, capped at 23:00: the first counted workout +2h,
-each further one +1h, and an accepted LeetCode submission that day +1h (flat,
-read from leetcode-guard's ledger, once per day). The config is re-derived from
+each further one +1h, an accepted LeetCode submission that day +1h (flat,
+read from leetcode-guard's ledger, once per day), and a credited paper-book
+reading session of 20+ pages / 20+ minutes +1h (flat, read from
+[book-guard](https://github.com/kuhyx/book-guard)'s ledger, once per day, keyed
+on when the reading ended). The config is re-derived from
 those sources on each new day, so nothing has to be "remembered" across reboots.
 
 A RunnerUp run is credited from its TCX export, found in the WebDAV drop

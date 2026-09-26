@@ -14,8 +14,8 @@ from unittest.mock import MagicMock, patch
 from screen_locker import _shutdown_base
 from screen_locker._day import today_str
 from screen_locker._shutdown_base import (
-    BASE_HOUR,
     apply_leetcode_bonus_if_new,
+    base_hour,
     reset_to_base_if_new_day,
 )
 
@@ -28,10 +28,17 @@ import pytest
 
 def _mixin(*, adjust_ok: bool = True) -> MagicMock:
     mixin = MagicMock()
-    mixin._read_shutdown_config.return_value = (BASE_HOUR, BASE_HOUR, 5)
+    mixin._read_shutdown_config.return_value = (base_hour(), base_hour(), 5)
     mixin._write_shutdown_config.return_value = True
     mixin._adjust_shutdown_time_by.return_value = adjust_ok
     return mixin
+
+
+@pytest.fixture(autouse=True)
+def _no_reading() -> Iterator[None]:
+    """Zero the reading hour so the stamps asserted here are LeetCode's only."""
+    with patch.object(_shutdown_base, "reading_bonus_hours", return_value=0):
+        yield
 
 
 @pytest.fixture
@@ -54,7 +61,7 @@ class TestResetIncludesTheHour:
         mixin = _mixin()
         assert reset_to_base_if_new_day(state, mixin) is True
         mixin._write_shutdown_config.assert_called_once_with(
-            BASE_HOUR + 1, BASE_HOUR + 1, 5, restore=True
+            base_hour() + 1, base_hour() + 1, 5, restore=True
         )
         assert json.loads(state.read_text()) == {
             "last_reset_date": today_str(),
@@ -121,7 +128,7 @@ class TestLivePass:
         assert apply_leetcode_bonus_if_new(state, mixin) is True
         assert reset_to_base_if_new_day(state, mixin) is True
         mixin._write_shutdown_config.assert_called_once_with(
-            BASE_HOUR + 1, BASE_HOUR + 1, 5, restore=True
+            base_hour() + 1, base_hour() + 1, 5, restore=True
         )
         assert apply_leetcode_bonus_if_new(state, mixin) is False
         mixin._adjust_shutdown_time_by.assert_called_once()

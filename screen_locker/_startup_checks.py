@@ -31,7 +31,7 @@ from screen_locker._degraded_sources import degraded_sources
 from screen_locker._extra_benefits import process_week_transition
 from screen_locker._lock_invariant import refuse_to_lock_over_logged_workout
 from screen_locker._shutdown_base import (
-    apply_leetcode_bonus_if_new,
+    apply_flat_bonuses_if_new,
     reset_to_base_if_new_day,
 )
 from screen_locker._sync_mixin import SyncMixin
@@ -109,7 +109,7 @@ class StartupChecksMixin(SyncMixin):
         # in time for _apply_weekly_shutdown_bonus below to see it.
         for reward_msg in process_week_transition(self.log_file, EXTRA_BENEFITS_FILE):
             _logger.info("Weekly reward: %s", reward_msg)
-        # Reset shutdown config to base (20:00) at the start of each new day,
+        # Reset shutdown config to base (19:00) at the start of each new day,
         # then layer this week's earned bonus back on top of the fresh base.
         if reset_to_base_if_new_day(
             SHUTDOWN_BASE_FILE,
@@ -118,9 +118,9 @@ class StartupChecksMixin(SyncMixin):
             log_file=self.log_file,
         ):
             self._apply_weekly_shutdown_bonus()
-        # A LeetCode solve usually lands hours after the reset; this 5-minute
-        # tick is what turns it into the extra hour the same day.
-        apply_leetcode_bonus_if_new(SHUTDOWN_BASE_FILE, self)
+        # A LeetCode solve or a reading credit usually lands hours after the
+        # reset; this 5-minute tick turns it into the extra hour the same day.
+        apply_flat_bonuses_if_new(SHUTDOWN_BASE_FILE, self)
         # Ingest any manual workouts synced from the phone (or another device)
         # before the early-exit checks, so a manual logged off-app still counts
         # toward today's/this week's minimum.
