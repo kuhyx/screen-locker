@@ -7,8 +7,31 @@ on:
     branches: [main]
 
 jobs:
+  # One ~120 s job used to install Flutter, Node and all of requirements.txt
+  # and then run every hook in series; mypy (~20 s), flutter analyze (~13 s
+  # plus the SDK) and pylint (~12 s) dominated it. Each now gets its own runner
+  # with only the toolchain it needs, and the other hooks share `rest`; the
+  # workflow takes as long as the slowest group rather than the sum.
   pre-commit:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: mypy
+            hooks: mypy
+            skip: ""
+          # Both pylint hooks (source and tests) share the id `pylint`.
+          - group: pylint
+            hooks: pylint
+            skip: ""
+          - group: flutter
+            hooks: flutter-analyze
+            skip: ""
+          - group: rest
+            hooks: ""
+            skip: mypy,pylint,flutter-analyze
+    name: pre-commit (${{ matrix.group }})
     steps:
       - uses: actions/checkout@v4
 
@@ -26,32 +49,69 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
-      # The flutter-analyze pre-commit hook shells out to `flutter analyze` in
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: requirements.txt
+
+      # The flutter-analyze hook shells out to `flutter analyze` in
       # stronglift_replacement/workout_app. Pin to the version the app is
       # developed against (Dart SDK ^3.12.2) so CI's analyzer matches local.
       - uses: subosito/flutter-action@v2
+        if: matrix.group == 'flutter'
         with:
           flutter-version: 3.47.5
           channel: stable
           cache: true
-      # The web-lint / web-typecheck / web-coverage hooks run npm inside web/.
-      # Without its installed packages `tsc --build` cannot find the
-      # 'vite/client' and 'node' type libraries and fails with TS2688 -- which
-      # is what this workflow had been doing on every run since the status UI
-      # landed in 8f91158.
+      # analyze needs resolved packages (.dart_tool); the hook runs analyze
+      # only, so fetch deps here first.
+      - name: Resolve Flutter packages
+        if: matrix.group == 'flutter'
+        run: flutter pub get
+        working-directory: stronglift_replacement/workout_app
+
+      # The web-lint / web-typecheck hooks run npm inside web/. Without its
+      # installed packages `tsc --build` cannot find the 'vite/client' and
+      # 'node' type libraries and fails with TS2688 -- which is what this
+      # workflow had been doing on every run since the status UI landed in
+      # 8f91158.
       - uses: actions/setup-node@v4
+        if: matrix.group == 'rest'
         with:
           node-version: "24.21.0"
           cache: npm
           cache-dependency-path: web/package-lock.json
       - name: Install status-UI packages
+        if: matrix.group == 'rest'
         run: npm ci
         working-directory: web
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      # analyze needs resolved packages (.dart_tool); the hook runs analyze
-      # only, so fetch deps here first.
-      - name: Resolve Flutter packages
-        run: flutter pub get
-        working-directory: stronglift_replacement/workout_app
-      - uses: pre-commit/action@v3.0.1
+
+      # Every hook brings its own environment except the language: system
+      # ones, and those all run in `rest`: screens-fit imports screen_locker
+      # (and so its runtime deps) and dependency-freshness needs pyyaml and
+      # packaging. The other groups need pre-commit alone. uv with a cached
+      # wheel store replaces a ~27 s pip install.
+      - name: Install requirements for the system hooks
+        if: matrix.group == 'rest'
+        run: uv pip install --system -r requirements.txt pyyaml packaging
+      - name: Install pre-commit
+        if: matrix.group != 'rest'
+        run: uv pip install --system pre-commit
+
+      # One cache per group: a shared key would hold whichever group saved
+      # first, and the others would rebuild their hook envs on every run. The
+      # restore key falls back to the old single pre-commit/action cache,
+      # which already holds every hook env, so a group's first run does not
+      # rebuild pylint's git dependencies from scratch.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ matrix.group }}-${{ env.pythonLocation }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            pre-commit-${{ matrix.group }}-${{ env.pythonLocation }}-
+            pre-commit-3|${{ env.pythonLocation }}|
+
+      - name: pre-commit run (${{ matrix.group }})
+        env:
+          SKIP: ${{ matrix.skip }}
+        run: pre-commit run ${{ matrix.hooks }} --all-files --show-diff-on-failure --color=always

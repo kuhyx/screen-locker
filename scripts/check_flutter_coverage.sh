@@ -6,30 +6,143 @@
 #      file — the 100% would be fake without this check).
 #   2. Line coverage across all lib/ files is below 100%.
 #
-# Usage: scripts/check_flutter_coverage.sh
+# Usage:
+#   scripts/check_flutter_coverage.sh               whole suite, then both checks
+#   scripts/check_flutter_coverage.sh --shard I/N   test bucket I of N (0-based)
+#                                                   only; leaves its lcov.info,
+#                                                   checks nothing
+#   scripts/check_flutter_coverage.sh --merged N LCOV...
+#                                                   union N shards' lcov files
+#                                                   into coverage/lcov.info,
+#                                                   then both checks
+#
+# Why shards: the suite took ~150 s on one 4-core runner, almost all of it
+# compiling 77 test files. `flutter test --total-shards` cannot help -- it
+# splits the test CASES inside every file, so each shard still compiles all
+# 77 -- hence buckets of whole files, one per CI runner, and a fan-in job that
+# runs the same two checks on their union.
 set -euo pipefail
 
 APP_DIR="stronglift_replacement/workout_app"
 LCOV_INFO="$APP_DIR/coverage/lcov.info"
 
-cd "$APP_DIR"
+die() {
+  echo "ERROR: $*" >&2
+  exit 1
+}
 
-echo "Running flutter test --coverage ..."
-# env -u GIT_DIR: git exports it to hooks, and the flutter tool shells out to
-# git to identify its own SDK. With it set, flutter reads THIS repository as
-# the SDK -- reporting our HEAD as the framework revision -- and pub then
-# resolves every version constraint against "0.0.0-unknown" and fails.
-# FLUTTER_TEST_CONCURRENCY: one test isolate per core is the default and peaks
-# well over 4 GiB on this suite, which the 4 GiB resource cap (capped.sh)
-# OOM-kills. Set it to 1-2 when running under the cap; unset keeps the default.
-concurrency=()
-if [[ -n "${FLUTTER_TEST_CONCURRENCY:-}" ]]; then
-  concurrency=(--concurrency "$FLUTTER_TEST_CONCURRENCY")
-fi
-env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
-  flutter test --coverage "${concurrency[@]}"
+# Runs `flutter test --coverage` in the app, on the given test files (none =
+# the whole suite).
+run_flutter_tests() {
+  echo "Running flutter test --coverage ..."
+  # env -u GIT_DIR: git exports it to hooks, and the flutter tool shells out to
+  # git to identify its own SDK. With it set, flutter reads THIS repository as
+  # the SDK -- reporting our HEAD as the framework revision -- and pub then
+  # resolves every version constraint against "0.0.0-unknown" and fails.
+  # FLUTTER_TEST_CONCURRENCY: one test isolate per core is the default and
+  # peaks well over 4 GiB on this suite, which the 4 GiB resource cap
+  # (capped.sh) OOM-kills. Set it to 1-2 under the cap; unset keeps the default.
+  local concurrency=()
+  if [[ -n "${FLUTTER_TEST_CONCURRENCY:-}" ]]; then
+    concurrency=(--concurrency "$FLUTTER_TEST_CONCURRENCY")
+  fi
+  (cd "$APP_DIR" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
+    flutter test --coverage "${concurrency[@]}" "$@")
+}
 
-cd - > /dev/null
+# Prints bucket INDEX of TOTAL: every TOTAL-th test file, in a fixed sort
+# order, so the N buckets partition the suite exactly.
+shard_files() {
+  local index=$1 total=$2 i=0 file
+  while IFS= read -r file; do
+    if (( i % total == index )); then
+      printf '%s\n' "$file"
+    fi
+    i=$(( i + 1 ))
+  done < <(cd "$APP_DIR" && find test -name '*_test.dart' | LC_ALL=C sort)
+}
+
+# Writes to OUT the union of the given lcov files: per source file, every
+# line any shard instrumented, hit if any shard hit it -- which is what one
+# unsharded run reports, since flutter merges its test isolates the same way.
+# LF/LH are recomputed from that union rather than summed, because a lib file
+# loaded by two shards would otherwise count its lines twice.
+merge_lcov() {
+  local out=$1 file line sf="" rest ln hits key lf lh
+  shift
+  local -A hit=() lines_of=() seen=()
+  local -a order=()
+  for file in "$@"; do
+    while IFS= read -r line; do
+      case $line in
+        SF:*)
+          sf=${line#SF:}
+          if [[ -z ${seen[$sf]:-} ]]; then
+            seen[$sf]=1
+            order+=("$sf")
+          fi
+          ;;
+        DA:*)
+          rest=${line#DA:}
+          ln=${rest%%,*}
+          rest=${rest#*,}
+          hits=${rest%%,*}
+          key="$sf|$ln"
+          if [[ -z ${hit[$key]:-} ]]; then
+            hit[$key]=$hits
+            lines_of[$sf]+="$ln "
+          else
+            hit[$key]=$(( hit[$key] + hits ))
+          fi
+          ;;
+      esac
+    done < "$file"
+  done
+  mkdir -p "$(dirname "$out")"
+  for sf in "${order[@]}"; do
+    echo "SF:$sf"
+    lf=0
+    lh=0
+    for ln in ${lines_of[$sf]:-}; do
+      echo "DA:$ln,${hit[$sf|$ln]}"
+      lf=$(( lf + 1 ))
+      if (( hit[$sf|$ln] > 0 )); then
+        lh=$(( lh + 1 ))
+      fi
+    done
+    echo "LF:$lf"
+    echo "LH:$lh"
+    echo "end_of_record"
+  done > "$out"
+}
+
+case "${1:-}" in
+  "")
+    run_flutter_tests
+    ;;
+  --shard)
+    [[ ${2:-} =~ ^([0-9]+)/([1-9][0-9]*)$ ]] || die "--shard wants I/N, got '${2:-}'"
+    index=${BASH_REMATCH[1]}
+    total=${BASH_REMATCH[2]}
+    (( index < total )) || die "shard index $index is not below $total"
+    mapfile -t files < <(shard_files "$index" "$total")
+    (( ${#files[@]} > 0 )) || die "shard $index/$total has no test files"
+    echo "Shard $index/$total: ${#files[@]} test files"
+    run_flutter_tests "${files[@]}"
+    exit 0
+    ;;
+  --merged)
+    [[ ${2:-} =~ ^[1-9][0-9]*$ ]] || die "--merged wants a shard count first"
+    expected=$2
+    shift 2
+    # A shard whose artifact went missing would quietly shrink the union.
+    (( $# == expected )) || die "expected $expected shard lcov files, got $#"
+    merge_lcov "$LCOV_INFO" "$@"
+    ;;
+  *)
+    die "unknown argument '$1' (see the usage at the top of $0)"
+    ;;
+esac
 
 if [[ ! -f "$LCOV_INFO" ]]; then
   echo "ERROR: $LCOV_INFO not found — did flutter test run?" >&2

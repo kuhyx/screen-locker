@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  # Bucket count for the Flutter suite; the matrix below lists 0..N-1.
+  FLUTTER_SHARDS: 8
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -17,11 +21,22 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      # uv with a cached wheel store installs requirements.txt in seconds;
+      # plain pip took ~26 s of a ~70 s job.
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: requirements.txt
 
+      - name: Install dependencies
+        run: uv pip install --system -r requirements.txt
+
+      # -n auto spreads the suite over every runner core (pytest-xdist is in
+      # requirements.txt); pytest-cov merges the workers' coverage, and every
+      # worker loads conftest.py, so the state-file redirects hold in each.
+      # -q cancels pyproject's -v: 1368 test names were most of the log.
       - name: Run tests with coverage
-        run: python -m pytest -v
+        run: python -m pytest -n auto -p no:sugar -q
 
   # The pytest suite replaces the whole `tk` module so it can never reach a
   # display, which means the lock-screen widget behaviour it guards cannot be
@@ -35,15 +50,23 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: requirements.txt
 
+      # No apt step: the runner image already ships xvfb-run, and
+      # setup-python's interpreter has its own tkinter (python3-tk is for the
+      # system python, which this job never runs). The apt-get update +
+      # install cost ~35 s. If either ever goes missing the check does not
+      # skip -- _xvfb_reexec returns 1 without xvfb-run, and the import fails
+      # without tkinter.
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb python3-tk
-          pip install -r requirements.txt
+          uv pip install --system -r requirements.txt
           # The script imports screen_locker directly rather than through
           # pytest, which would put the rootdir on sys.path for it.
-          pip install -e . --no-deps
+          uv pip install --system -e . --no-deps
 
       - name: Sport selector survives gatelock's recovery tick
         # Run as a module (like the screen-fits gate) so scripts/ resolves as a
@@ -54,18 +77,52 @@ jobs:
   # which became a 1-second stamp check on 2026-09-20 (pre-commit's manual
   # stage holds them now). Nothing else in CI runs the Flutter or web suites,
   # so these jobs are the only place the 100% bars are enforced on every push.
-  flutter-coverage:
+  #
+  # The Flutter suite took ~150 s on one runner, nearly all of it compiling 77
+  # test files, so it runs as FLUTTER_SHARDS buckets of whole files in
+  # parallel and flutter-coverage applies the unchanged 100% bar and
+  # every-lib-file-present guard to their union.
+  flutter-shard:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    name: flutter test (shard ${{ matrix.shard }})
     steps:
       - uses: actions/checkout@v4
 
+      # cache: true keeps the SDK and ~/.pub-cache between runs; without it
+      # the SDK download alone was ~57 s.
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.47.5
           channel: stable
+          cache: true
+
+      - name: flutter test --coverage, bucket ${{ matrix.shard }}
+        run: bash scripts/check_flutter_coverage.sh --shard "${{ matrix.shard }}/$FLUTTER_SHARDS"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flutter-lcov-${{ matrix.shard }}
+          path: stronglift_replacement/workout_app/coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 1
+
+  flutter-coverage:
+    needs: flutter-shard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: flutter-lcov-*
+          path: lcov-shards
 
       - name: flutter test --coverage, 100% of lib/ (workout app)
-        run: bash scripts/check_flutter_coverage.sh
+        run: bash scripts/check_flutter_coverage.sh --merged "$FLUTTER_SHARDS" lcov-shards/*/lcov.info
 
   web-coverage:
     runs-on: ubuntu-latest
