@@ -20,6 +20,7 @@ import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
+import 'package:workout_app/services/desktop_config_dir.dart';
 import 'package:workout_app/services/google_sign_in_backend.dart';
 
 part 'firebase_backend_desktop.dart';
@@ -58,11 +59,14 @@ SecureCredentialStore credentialStore() {
     return SecureCredentialStore(
       read: (key) async {
         final file = _desktopCredentialFile();
-        if (!file.existsSync()) return null;
+        if (file == null || !file.existsSync()) return null;
         return await file.readAsString();
       },
       write: (key, value) async {
         final file = _desktopCredentialFile();
+        if (file == null) {
+          throw StateError('HOME is unset: nowhere to store the session.');
+        }
         await file.parent.create(recursive: true);
         await file.writeAsString(value);
         // The refresh token is the secret worth protecting; keep it 0600 the
@@ -71,7 +75,7 @@ SecureCredentialStore credentialStore() {
       },
       delete: (key) async {
         final file = _desktopCredentialFile();
-        if (file.existsSync()) await file.delete();
+        if (file != null && file.existsSync()) await file.delete();
       },
     );
   }

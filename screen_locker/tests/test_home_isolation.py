@@ -17,10 +17,16 @@ which is the only warning that arrives before the credential is already gone.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+import importlib
 import os
 from pathlib import Path
+import pkgutil
+import pwd
+import sys
 
 from crdt_sync import FirebaseCredentials, credential_store_for
+
+import screen_locker
 
 
 def _fixture_credentials() -> FirebaseCredentials:
@@ -73,3 +79,27 @@ def test_saving_a_credential_writes_only_inside_tmp_path(tmp_path: Path) -> None
     written = tmp_path / ".config" / "screen_locker" / "firebase_auth.json"
     assert written.is_file()
     assert "fixture-refresh-token" in written.read_text()
+
+
+def test_no_module_binds_a_path_inside_the_real_app_config() -> None:
+    """Import-time bindings of ``~/.config/screen_locker`` must all be redirected.
+
+    ``_isolate_home`` only reaches paths built from ``Path.home()`` at *call*
+    time. A module constant such as ``SYNC_TOKEN_FILE`` was bound at import,
+    before any fixture ran, and keeps the real path unless every module that
+    holds it is patched. This scans every runtime module for such a binding,
+    so a new one fails here instead of silently writing to the live dir.
+    """
+    real_config = Path(pwd.getpwuid(os.getuid()).pw_dir) / ".config" / "screen_locker"
+    for info in pkgutil.walk_packages(screen_locker.__path__, "screen_locker."):
+        if ".tests" not in info.name:
+            importlib.import_module(info.name)
+    offenders = sorted(
+        f"{name}.{attr}"
+        for name, module in list(sys.modules.items())
+        if name.startswith("screen_locker.") and ".tests" not in name
+        for attr, value in vars(module).items()
+        if isinstance(value, Path)
+        and (value == real_config or real_config in value.parents)
+    )
+    assert offenders == []

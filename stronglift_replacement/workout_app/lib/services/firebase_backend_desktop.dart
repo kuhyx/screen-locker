@@ -16,14 +16,15 @@ part of 'firebase_backend.dart';
 /// Deliberately the SAME file the PC's own sync already uses: the fleet holds
 /// one long-lived refresh token per app, and a second copy would drift out of
 /// date the first time either half refreshed it.
-File _desktopCredentialFile() => File(
-  p.join(
-    Platform.environment['HOME'] ?? '',
-    '.config',
-    'screen_locker',
-    'firebase_auth.json',
-  ),
-);
+///
+/// Resolved through [desktopConfigRoot], which throws under `flutter test`
+/// rather than let a test reach the live file. Null when HOME is unset; the
+/// old `HOME ?? ''` silently resolved a cwd-relative `.config/` instead.
+File? _desktopCredentialFile() {
+  final root = desktopConfigRoot();
+  if (root == null) return null;
+  return File(p.join(root, 'screen_locker', 'firebase_auth.json'));
+}
 
 /// Reads the shared desktop credential from `~/.config/crdt-sync/`.
 ///
@@ -37,9 +38,11 @@ File _desktopCredentialFile() => File(
 /// Returns null when the files are absent or malformed; the caller then
 /// reports the device as not connected, exactly as an empty keystore would.
 Future<FirebaseAccount?> _accountFromDesktopConfig() async {
+  // Resolved outside the try: its flutter-test guard must fail the test, not
+  // be logged and swallowed as "not connected" by the catch-all below.
+  final root = desktopConfigRoot();
   try {
-    final home = Platform.environment['HOME'];
-    if (home == null || home.isEmpty) {
+    if (root == null) {
       log(
         'WorkoutApp: HOME is unset — cannot locate ~/.config/crdt-sync, so '
         'this desktop is NOT connected to sync.',
@@ -47,7 +50,7 @@ Future<FirebaseAccount?> _accountFromDesktopConfig() async {
       );
       return null;
     }
-    final dir = Directory(p.join(home, '.config', 'crdt-sync'));
+    final dir = Directory(p.join(root, 'crdt-sync'));
     final configFile = File(p.join(dir.path, 'firebase.json'));
     final passwordFile = File(p.join(dir.path, 'password'));
     if (!configFile.existsSync() || !passwordFile.existsSync()) {

@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart' as http_testing;
+import 'package:path/path.dart' as p;
+import 'package:workout_app/services/desktop_config_dir.dart';
 import 'package:workout_app/services/firebase_backend.dart';
 import 'package:workout_app/services/google_sign_in_backend.dart';
 
@@ -66,6 +69,18 @@ void main() {
       // No password to store: this device authenticates with the refresh
       // token, and openFirebase() must not later try to sign in with ''.
       expect(saved.single.password, isEmpty);
+      // The session itself went through credentialStore(), which on this
+      // Linux host is the desktop file -- redirected by flutter_test_config.
+      // Before that redirect, this very test overwrote the live
+      // ~/.config/screen_locker/firebase_auth.json with 'refresh'.
+      final session = File(
+        p.join(
+          desktopConfigRootOverride!,
+          'screen_locker',
+          'firebase_auth.json',
+        ),
+      );
+      expect(session.readAsStringSync(), contains('"refresh"'));
       client!.close();
     });
 

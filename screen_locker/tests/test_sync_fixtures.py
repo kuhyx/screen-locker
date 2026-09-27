@@ -7,6 +7,7 @@ for every test in this directory.
 
 from __future__ import annotations
 
+from contextlib import ExitStack
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
@@ -15,6 +16,17 @@ import pytest
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
+
+
+# Every module that holds SYNC_TOKEN_FILE (~/.config/screen_locker/sync_token)
+# by value, bound at import before any fixture could redirect Path.home().
+_SYNC_TOKEN_BINDINGS = (
+    "_constants",
+    "_manual_push",
+    "_sync_client",
+    "_sync_status",
+    "_workout_sync",
+)
 
 
 @pytest.fixture(autouse=True)
@@ -30,12 +42,13 @@ def isolate_sync_token(tmp_path: Path) -> Iterator[None]:
     """
     # read_sync_token moved to _sync_client when _workout_sync was split;
     # _workout_sync still re-exports the constant, so both names must be
-    # redirected or a real token on the host leaks into the tests.
+    # redirected or a real token on the host leaks into the tests. The rest
+    # bind it by value too (only for messages today); patching every binding
+    # is what test_home_isolation's module scan checks.
     token = tmp_path / "sync_token"
-    with (
-        patch("screen_locker._sync_client.SYNC_TOKEN_FILE", token),
-        patch("screen_locker._workout_sync.SYNC_TOKEN_FILE", token),
-    ):
+    with ExitStack() as stack:
+        for module in _SYNC_TOKEN_BINDINGS:
+            stack.enter_context(patch(f"screen_locker.{module}.SYNC_TOKEN_FILE", token))
         yield
 
 
