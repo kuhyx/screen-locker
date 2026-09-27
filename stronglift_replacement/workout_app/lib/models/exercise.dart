@@ -7,6 +7,9 @@ const double kDefaultMaxWeight = 27.5;
 /// Weight increment used for progression steps (kg).
 const double kWeightIncrement = 2.5;
 
+/// Reps in every warmup set. Even on purpose: the user alternates sides.
+const int kWarmupReps = 6;
+
 /// Immutable definition of a single exercise and its current target state.
 class Exercise {
   /// Creates an exercise with the given parameters.

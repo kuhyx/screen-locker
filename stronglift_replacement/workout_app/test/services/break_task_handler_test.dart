@@ -7,69 +7,22 @@ import 'package:workout_app/services/break_service_port.dart';
 import 'package:workout_app/services/break_task_handler.dart';
 
 import '../fake_break_service.dart';
-
-class _MemStore implements BreakIntentStore {
-  final ints = <String, int>{};
-  final lists = <String, List<String>>{};
-
-  @override
-  Future<int> readInt(String key) async => ints[key] ?? 0;
-
-  @override
-  Future<void> writeInt(String key, int value) async => ints[key] = value;
-
-  @override
-  Future<List<String>> readStringList(String key) async =>
-      lists[key] ?? const [];
-
-  @override
-  Future<void> writeStringList(String key, List<String> value) async =>
-      lists[key] = List.of(value);
-}
+import '_break_task_handler_fixtures.dart';
 
 void main() {
   final now = DateTime(2026, 9, 12, 14);
 
   late FakeBreakServicePort port;
-  late _MemStore store;
+  late MemIntentStore store;
   late BreakIntentQueue queue;
   late BreakTaskHandler handler;
 
   setUp(() {
     port = FakeBreakServicePort();
-    store = _MemStore();
+    store = MemIntentStore();
     queue = BreakIntentQueue(store);
     handler = BreakTaskHandler(port, queue);
   });
-
-  Map<String, Object?> snapMap({
-    int breakEndMs = 0,
-    int breakDurationSecs = 180,
-    int nextExIdx = 0,
-    int nextSetIdx = 1,
-    int lastExIdx = 0,
-    int lastSetIdx = 0,
-    int breakForExIdx = 0,
-    int breakForSetIdx = 0,
-    int setsRemaining = 4,
-  }) => BreakSnapshot(
-    workoutType: 'A',
-    breakEndMs: breakEndMs,
-    breakDurationSecs: breakDurationSecs,
-    breakLabel: 'Rest (3 min — well done!)',
-    breakForExIdx: breakForExIdx,
-    breakForSetIdx: breakForSetIdx,
-    nextExIdx: nextExIdx,
-    nextSetIdx: nextSetIdx,
-    nextExName: 'Squat',
-    nextSetNumber: nextSetIdx + 1,
-    nextTotalSets: 5,
-    nextReps: 5,
-    nextWeight: 40,
-    lastExIdx: lastExIdx,
-    lastSetIdx: lastSetIdx,
-    setsRemaining: setsRemaining,
-  ).toMap();
 
   Future<List<BreakIntent>> queued() async {
     final raw = await store.readStringList(BreakIntentQueue.intentsKey);
@@ -140,35 +93,41 @@ void main() {
       expect(port.nudges, 1);
     });
 
-    test('− 1 rep targets the set recorded last, resolved at press time',
-        () async {
-      await handler.start(snapMap(lastExIdx: 2, lastSetIdx: 3), now);
-      await handler.pressButton(BreakNotificationAction.minusRep, now);
+    test(
+      '− 1 rep targets the set recorded last, resolved at press time',
+      () async {
+        await handler.start(snapMap(lastExIdx: 2, lastSetIdx: 3), now);
+        await handler.pressButton(BreakNotificationAction.minusRep, now);
 
-      final intents = await queued();
-      expect(intents.single.kind, BreakIntentKind.minusRep);
-      expect(intents.single.exIdx, 2);
-      expect(intents.single.setIdx, 3);
-    });
+        final intents = await queued();
+        expect(intents.single.kind, BreakIntentKind.minusRep);
+        expect(intents.single.exIdx, 2);
+        expect(intents.single.setIdx, 3);
+      },
+    );
 
-    test('− 1 rep stretches a running rest to the failure length', () async {
-      final endMs = now.add(const Duration(seconds: 120)).millisecondsSinceEpoch;
+    test('− 1 rep stretches a running rest to the exercise\'s failure '
+        'length', () async {
+      final endMs = now
+          .add(const Duration(seconds: 120))
+          .millisecondsSinceEpoch;
       await handler.start(
-        snapMap(breakEndMs: endMs, breakDurationSecs: 180),
+        snapMap(breakEndMs: endMs, breakDurationSecs: 180, breakFailSecs: 270),
         now,
       );
       await handler.pressButton(BreakNotificationAction.minusRep, now);
 
       final s = handler.snapshot!;
-      expect(s.breakDurationSecs, 300);
+      // The exercise's own fail rest from the snapshot, not a fixed 5 min.
+      expect(s.breakDurationSecs, 270);
       // No "5 min — keep going!" any more: the countdown says it.
       expect(s.breakLabel, 'Rest');
-      // Re-cut from the original start: 60s in, so 240s left of 300.
+      // Re-cut from the original start: 60s in, so 210s left of 270.
       expect(
-        DateTime.fromMillisecondsSinceEpoch(s.breakEndMs)
-            .difference(now)
-            .inSeconds,
-        240,
+        DateTime.fromMillisecondsSinceEpoch(
+          s.breakEndMs,
+        ).difference(now).inSeconds,
+        210,
       );
     });
 
@@ -181,12 +140,14 @@ void main() {
       expect(handler.snapshot!.hasBreak, isFalse);
     });
 
-    test('Done on the last set stops the service instead of carrying on',
-        () async {
-      await handler.start(snapMap(setsRemaining: 1), now);
-      await handler.pressButton(BreakNotificationAction.done, now);
-      expect(port.stopped, isTrue);
-    });
+    test(
+      'Done on the last set stops the service instead of carrying on',
+      () async {
+        await handler.start(snapMap(setsRemaining: 1), now);
+        await handler.pressButton(BreakNotificationAction.done, now);
+        expect(port.stopped, isTrue);
+      },
+    );
 
     test('ignores presses that no longer refer to anything', () async {
       await handler.start(

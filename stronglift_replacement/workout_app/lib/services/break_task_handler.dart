@@ -187,8 +187,9 @@ class BreakTaskHandler {
       case BreakIntentKind.minusRep:
         if (!s.hasBreak || s.breakForSetIdx < 0) return s;
         // A decrement turns a success into a failure, which is the longer
-        // rest. Re-cut from the start, exactly as the screen does.
-        const failSecs = 300;
+        // rest. Re-cut from the start, exactly as the screen does, to the
+        // length the screen sent for this exercise.
+        final failSecs = s.breakFailSecs;
         final clock = BreakClock(
           endTime: DateTime.fromMillisecondsSinceEpoch(s.breakEndMs),
           durationSecs: s.breakDurationSecs,

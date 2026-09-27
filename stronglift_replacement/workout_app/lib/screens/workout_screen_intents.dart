@@ -17,6 +17,11 @@ extension _WorkoutScreenIntents on _WorkoutScreenState {
       workoutType: widget.workoutType,
       breakEndMs: _breakClock?.endTime.millisecondsSinceEpoch ?? 0,
       breakDurationSecs: _breakDurationSecs,
+      breakFailSecs: Sandbox.rest(
+        _breakForExIdx >= 0 && _breakForExIdx < widget.exercises.length
+            ? _stateOf(_breakForExIdx).restFailSecs
+            : kDefaultRestFailSecs,
+      ),
       breakLabel: _breakLabel,
       breakForExIdx: _breakForExIdx,
       breakForSetIdx: _breakForSetIdx,

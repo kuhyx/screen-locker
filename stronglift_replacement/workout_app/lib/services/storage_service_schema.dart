@@ -4,6 +4,12 @@
 // See storage_service_backup.dart for why these are `part` extensions.
 part of 'storage_service.dart';
 
+/// The v6 rest-length columns, shared by create and migrate.
+const _restColumns =
+    'rest_success_secs INTEGER NOT NULL DEFAULT $kDefaultRestSuccessSecs, '
+    'rest_fail_secs INTEGER NOT NULL DEFAULT $kDefaultRestFailSecs, '
+    'rest_warmup_secs INTEGER NOT NULL DEFAULT $kDefaultRestWarmupSecs';
+
 /// Schema creation, migration, and seeding.
 extension StorageServiceSchema on StorageService {
   Future<void> _createSchema(Database db, int version) async {
@@ -21,7 +27,8 @@ extension StorageServiceSchema on StorageService {
         reps_high INTEGER NOT NULL DEFAULT $kDefaultRepsHigh,
         reps_low INTEGER NOT NULL DEFAULT $kDefaultRepsLow,
         has_warmup INTEGER,
-        paused_until TEXT
+        paused_until TEXT,
+        $_restColumns
       )
     ''');
     await db.execute('''
@@ -91,6 +98,13 @@ extension StorageServiceSchema on StorageService {
         'ALTER TABLE exercise_state ADD COLUMN paused_until TEXT',
       );
     }
+    if (oldVersion < 6) {
+      // NOT NULL with a default, so every existing row -- and every v5 row a
+      // raw backup restore inserts later -- gets the old fixed rests.
+      for (final column in _restColumns.split(', ')) {
+        await db.execute('ALTER TABLE exercise_state ADD COLUMN $column');
+      }
+    }
   }
 
   Future<void> _seedDefaultsIfNeeded() async {
@@ -114,6 +128,9 @@ extension StorageServiceSchema on StorageService {
           'reps_high': kDefaultRepsHigh,
           'reps_low': kDefaultRepsLow,
           'has_warmup': ex.hasWarmup ? 1 : 0,
+          'rest_success_secs': kDefaultRestSuccessSecs,
+          'rest_fail_secs': kDefaultRestFailSecs,
+          'rest_warmup_secs': kDefaultRestWarmupSecs,
         });
       }
     }

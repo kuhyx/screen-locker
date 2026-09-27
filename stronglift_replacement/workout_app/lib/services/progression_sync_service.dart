@@ -108,10 +108,13 @@ class ProgressionSyncService {
       null => null,
       final d => formatPauseDate(d),
     },
+    'rest_success_secs': s.restSuccessSecs,
+    'rest_fail_secs': s.restFailSecs,
+    'rest_warmup_secs': s.restWarmupSecs,
   };
 
-  // The last five fields are lenient: records pushed before they existed
-  // must still restore, with the same meaning a NULL column has locally.
+  // Every field after fail_threshold is lenient: records pushed before it
+  // existed must still restore, with the meaning a NULL column has locally.
   static ExerciseState _stateFromJson(Map<String, dynamic> j) => ExerciseState(
     name: j['name']! as String,
     weight: (j['weight']! as num).toDouble(),
@@ -126,6 +129,12 @@ class ProgressionSyncService {
     repsLow: (j['reps_low'] as num?)?.toInt() ?? kDefaultRepsLow,
     hasWarmup: j['has_warmup'] as bool? ?? planHasWarmup(j['name']! as String),
     pausedUntil: parsePauseDate(j['paused_until']),
+    restSuccessSecs:
+        (j['rest_success_secs'] as num?)?.toInt() ?? kDefaultRestSuccessSecs,
+    restFailSecs:
+        (j['rest_fail_secs'] as num?)?.toInt() ?? kDefaultRestFailSecs,
+    restWarmupSecs:
+        (j['rest_warmup_secs'] as num?)?.toInt() ?? kDefaultRestWarmupSecs,
   );
 
   /// The remote path holding [name]'s progression record.

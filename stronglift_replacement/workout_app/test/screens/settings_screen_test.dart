@@ -84,18 +84,16 @@ void main() {
     expect(find.text('Settings'), findsOneWidget);
   });
 
-  testWidgets('shows WEIGHTS, TARGET REPS and PROGRESSION THRESHOLDS', (
-    tester,
-  ) async {
+  testWidgets('shows WEIGHTS, TARGET REPS and PER EXERCISE', (tester) async {
     await _pump(tester, _wrap());
     expect(find.text('WEIGHTS'), findsOneWidget);
-    // TARGET REPS and the thresholds below it are off-screen at the test
+    // TARGET REPS and the per-exercise list below it are off-screen at the test
     // viewport height, so scroll them into view rather than asserting on
     // whatever happens to be built.
     await tester.scrollUntilVisible(find.text('TARGET REPS'), 200);
     expect(find.text('TARGET REPS'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('PROGRESSION THRESHOLDS'), 200);
-    expect(find.text('PROGRESSION THRESHOLDS'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('PER EXERCISE'), 200);
+    expect(find.text('PER EXERCISE'), findsOneWidget);
   });
 
   testWidgets('increment reps button increases the target reps', (
@@ -108,10 +106,7 @@ void main() {
     expect(find.text('30 reps'), findsOneWidget);
     final plus = find.descendant(
       of: find
-          .ancestor(
-            of: find.text('30 reps'),
-            matching: find.byType(Row),
-          )
+          .ancestor(of: find.text('30 reps'), matching: find.byType(Row))
           .first,
       matching: find.byIcon(Icons.add),
     );
@@ -163,9 +158,6 @@ void main() {
     await tester.tap(find.byIcon(Icons.remove).first);
     await tester.pump();
 
-    expect(
-      find.textContaining('${before - kWeightIncrement}kg'),
-      findsWidgets,
-    );
+    expect(find.textContaining('${before - kWeightIncrement}kg'), findsWidgets);
   });
 }

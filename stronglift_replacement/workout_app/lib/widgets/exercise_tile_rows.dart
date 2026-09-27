@@ -66,7 +66,7 @@ class _ModeChip extends StatelessWidget {
 }
 
 /// The warmup as the first circle of the set row: outlined, the size of a
-/// set circle, showing `W×5` over the warmup weight.
+/// set circle, showing `W×6` over the warmup weight.
 class _WarmupCircle extends StatelessWidget {
   const _WarmupCircle({
     required this.semanticLabel,
@@ -113,7 +113,7 @@ class _WarmupCircle extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'W×5',
+                'W×$kWarmupReps',
                 style: small.copyWith(fontWeight: FontWeight.bold, height: 1.1),
               ),
               Text('$warmupWeight', style: small.copyWith(height: 1.1)),

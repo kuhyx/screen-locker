@@ -1,4 +1,4 @@
-// The WEIGHTS, TARGET REPS and PROGRESSION THRESHOLDS sections.
+// The WEIGHTS and TARGET REPS sections.
 //
 // A `part` for the same reason as settings_screen_sections.dart: these stay
 // library-private. Each takes the ordered names plus the one map it reads, so
@@ -97,62 +97,6 @@ class _RepsSection extends StatelessWidget {
             name: name,
             reps: r,
             onChanged: (v) => onRepsChanged(name, v),
-          );
-        }),
-      ],
-    );
-  }
-}
-
-/// The PROGRESSION THRESHOLDS section: streak lengths before a weight change.
-class _ThresholdsSection extends StatelessWidget {
-  const _ThresholdsSection({
-    required this.orderedNames,
-    required this.successThresholds,
-    required this.failThresholds,
-    required this.onThresholdChanged,
-  });
-
-  /// Exercise names in display order.
-  final List<String> orderedNames;
-
-  /// Successes before a weight increase, per exercise; defaults to 3.
-  final Map<String, int> successThresholds;
-
-  /// Failures before a weight decrease, per exercise; defaults to 2.
-  final Map<String, int> failThresholds;
-
-  /// Invoked with (name, successThreshold, failThreshold) on either change.
-  final void Function(String name, int success, int fail) onThresholdChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const _SectionHeader('PROGRESSION THRESHOLDS'),
-        const SizedBox(height: 4),
-        Text(
-          'Consecutive successes (↑) or failures (↓) '
-          'before weight changes.',
-          style: TextStyle(
-            color: colorScheme.onSurfaceVariant,
-            fontSize: AppTextSize.caption,
-          ),
-        ),
-        const SizedBox(height: 12),
-        ...orderedNames.map((name) {
-          final sThresh = successThresholds[name] ?? 3;
-          final fThresh = failThresholds[name] ?? 2;
-          return _ExerciseThresholdCard(
-            name: name,
-            successThreshold: sThresh,
-            failThreshold: fThresh,
-            onSuccessChanged: (v) =>
-                onThresholdChanged(name, v, failThresholds[name]!),
-            onFailChanged: (v) =>
-                onThresholdChanged(name, successThresholds[name]!, v),
           );
         }),
       ],

@@ -61,6 +61,8 @@ class _Stepper extends StatelessWidget {
     required this.min,
     required this.max,
     required this.onChanged,
+    this.step = 1,
+    this.format,
   });
 
   /// What is being stepped; names the buttons for screen readers and
@@ -71,9 +73,17 @@ class _Stepper extends StatelessWidget {
   final int max;
   final ValueChanged<int> onChanged;
 
+  /// How far one press moves [value].
+  final int step;
+
+  /// Renders [value]; plain digits when null. A formatted value gets a
+  /// wider box so `10:00` fits.
+  final String Function(int)? format;
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final fmt = format;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -81,12 +91,12 @@ class _Stepper extends StatelessWidget {
           context,
           '$name down',
           Icons.remove,
-          value > min ? value - 1 : null,
+          value > min ? value - step : null,
         ),
         SizedBox(
-          width: 28,
+          width: fmt == null ? 28 : 44,
           child: Text(
-            '$value',
+            fmt == null ? '$value' : fmt(value),
             textAlign: TextAlign.center,
             style: TextStyle(
               color: colorScheme.onSurface,
@@ -95,7 +105,7 @@ class _Stepper extends StatelessWidget {
             ),
           ),
         ),
-        _btn(context, '$name up', Icons.add, value < max ? value + 1 : null),
+        _btn(context, '$name up', Icons.add, value < max ? value + step : null),
       ],
     );
   }

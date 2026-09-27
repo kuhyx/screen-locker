@@ -1,5 +1,6 @@
-/// Bottom sheet for one exercise's progression mode, rep range, warmup and
-/// streak thresholds — opened from the mode chip on its workout tile.
+/// Bottom sheet for one exercise's progression mode, rep range, warmup,
+/// streak thresholds, rest lengths and injury pause — opened from the mode
+/// chip on its workout tile and from the Settings screen.
 library;
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import 'package:workout_app/models/exercise_state.dart';
 import 'package:workout_app/models/progression.dart';
 import 'package:workout_app/ui/theme.dart';
 
+part 'exercise_settings_sheet_rest.dart';
 part 'exercise_settings_sheet_rows.dart';
 
 /// Opens the settings sheet for [state]; [onChanged] runs on every edit.
@@ -21,6 +23,9 @@ Future<void> showExerciseSettingsSheet(
   required ValueChanged<ExerciseState> onChanged,
 }) => showModalBottomSheet<void>(
   context: context,
+  // Taller than the default 9/16-of-the-screen cap once the rest rows are
+  // in; the sheet sizes to its content and scrolls on a short screen.
+  isScrollControlled: true,
   builder: (_) => ExerciseSettingsSheet(state: state, onChanged: onChanged),
 );
 
@@ -77,7 +82,7 @@ class _ExerciseSettingsSheetState extends State<ExerciseSettingsSheet> {
     );
     final isDouble = _s.mode == ProgressionMode.doubleProgression;
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -168,6 +173,8 @@ class _ExerciseSettingsSheetState extends State<ExerciseSettingsSheet> {
               ),
               onChanged: (v) => _update(_s.copyWith(successThreshold: v)),
             ),
+            const SizedBox(height: 8),
+            _RestRows(state: _s, onChanged: _update),
             const SizedBox(height: 8),
             _PauseRow(
               pausedUntil: _s.isPausedAt(DateTime.now())

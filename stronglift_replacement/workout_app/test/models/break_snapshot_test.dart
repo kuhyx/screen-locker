@@ -5,6 +5,7 @@ const _full = BreakSnapshot(
   workoutType: 'B',
   breakEndMs: 1789432100123,
   breakDurationSecs: 180,
+  breakFailSecs: 300,
   breakLabel: 'Rest (3 min — well done!)',
   breakForExIdx: 0,
   breakForSetIdx: 1,
@@ -29,6 +30,7 @@ void main() {
     expect(decoded.breakLabel, contains('well done'));
     expect(decoded.nextWeight, 42.5);
     expect(decoded.setsRemaining, 7);
+    expect(decoded.breakFailSecs, 300);
     expect(decoded.finished, isTrue);
   });
 
@@ -50,13 +52,16 @@ void main() {
       BreakSnapshot.tryFromMap(_full.toMap()..['workoutType'] = 1),
       isNull,
     );
+    expect(BreakSnapshot.tryFromMap(_full.toMap()..['nextExName'] = 1), isNull);
+    expect(BreakSnapshot.tryFromMap(_full.toMap()..['breakLabel'] = 1), isNull);
     expect(
-      BreakSnapshot.tryFromMap(_full.toMap()..['nextExName'] = 1),
+      BreakSnapshot.tryFromMap(_full.toMap()..['nextWeight'] = 'x'),
       isNull,
     );
-    expect(BreakSnapshot.tryFromMap(_full.toMap()..['breakLabel'] = 1), isNull);
-    expect(BreakSnapshot.tryFromMap(_full.toMap()..['nextWeight'] = 'x'), isNull);
-    expect(BreakSnapshot.tryFromMap(_full.toMap()..['breakEndMs'] = 'x'), isNull);
+    expect(
+      BreakSnapshot.tryFromMap(_full.toMap()..['breakEndMs'] = 'x'),
+      isNull,
+    );
   });
 
   test('a missing finished flag reads as not finished', () {
@@ -89,6 +94,7 @@ void main() {
     expect(same.breakEndMs, _full.breakEndMs);
     expect(same.breakLabel, _full.breakLabel);
     expect(same.breakDurationSecs, _full.breakDurationSecs);
+    expect(same.breakFailSecs, _full.breakFailSecs);
     expect(same.setsRemaining, _full.setsRemaining);
     expect(same.finished, _full.finished);
   });
@@ -98,6 +104,7 @@ void main() {
       workoutType: 'A',
       breakEndMs: 0,
       breakDurationSecs: 0,
+      breakFailSecs: 300,
       breakLabel: '',
       breakForExIdx: -1,
       breakForSetIdx: -1,

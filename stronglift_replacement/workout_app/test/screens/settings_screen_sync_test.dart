@@ -79,17 +79,6 @@ void main() {
     ),
   );
 
-  testWidgets('threshold circles show values 1-5', (tester) async {
-    await _pump(tester, _wrap());
-    // The threshold cards sit below WEIGHTS and TARGET REPS, past the test
-    // viewport's fold, so they are not built until scrolled to.
-    await tester.scrollUntilVisible(find.text('PROGRESSION THRESHOLDS'), 200);
-    await tester.pumpAndSettle();
-    for (int i = 1; i <= 5; i++) {
-      expect(find.text('$i'), findsWidgets);
-    }
-  });
-
   testWidgets('Reset dialog shows on tap and cancels', (tester) async {
     await _pump(tester, _wrap());
     await tester.tap(find.text('Reset defaults'));

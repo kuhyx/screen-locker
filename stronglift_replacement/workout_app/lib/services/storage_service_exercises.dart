@@ -32,6 +32,9 @@ extension StorageServiceExercises on StorageService {
       repsLow: r['reps_low'] as int? ?? kDefaultRepsLow,
       hasWarmup: warmup == null ? planHasWarmup(name) : warmup != 0,
       pausedUntil: parsePauseDate(r['paused_until']),
+      restSuccessSecs: r['rest_success_secs']! as int,
+      restFailSecs: r['rest_fail_secs']! as int,
+      restWarmupSecs: r['rest_warmup_secs']! as int,
     );
   }
 
@@ -60,7 +63,8 @@ extension StorageServiceExercises on StorageService {
     );
   }
 
-  /// Updates how [state]'s exercise progresses and whether it warms up.
+  /// Updates how [state]'s exercise progresses, whether it warms up and how
+  /// long it rests.
   ///
   /// Streaks are kept: they count workouts, not a mode, and switching mode
   /// mid-streak should not cost the user the sessions already banked. The
@@ -77,12 +81,19 @@ extension StorageServiceExercises on StorageService {
         'reps_low': state.repsLow,
         'has_warmup': state.hasWarmup ? 1 : 0,
         'paused_until': _pauseColumn(state),
+        ..._restColumnValues(state),
       },
       where: 'name = ?',
       whereArgs: [state.name],
     );
     unawaited(_backupNow());
   }
+
+  Map<String, int> _restColumnValues(ExerciseState s) => {
+    'rest_success_secs': s.restSuccessSecs,
+    'rest_fail_secs': s.restFailSecs,
+    'rest_warmup_secs': s.restWarmupSecs,
+  };
 
   String? _pauseColumn(ExerciseState s) {
     final until = s.pausedUntil;
@@ -131,6 +142,7 @@ extension StorageServiceExercises on StorageService {
       'reps_low': state.repsLow,
       'has_warmup': state.hasWarmup ? 1 : 0,
       'paused_until': _pauseColumn(state),
+      ..._restColumnValues(state),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 

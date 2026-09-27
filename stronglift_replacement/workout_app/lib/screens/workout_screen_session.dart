@@ -123,7 +123,7 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
   }
 
   /// When the user decrements reps on the set that triggered the current break,
-  /// switch between 3-min (success) and 5-min (fail) durations.
+  /// switch between the exercise's success and fail rest lengths.
   void _recomputeBreakIfNeeded(int exIdx, int setIdx) {
     // Read the clock ONCE. `_inBreak` re-reads DateTime.now() every time it is
     // touched, so guarding on it and then dereferencing `_breakClock!` is a
@@ -134,8 +134,9 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
     if (_breakForSetIdx == -1) return; // warmup break, never recompute
 
     final succeeded = _doneReps[exIdx][setIdx] >= widget.exercises[exIdx].reps;
+    final state = _stateOf(exIdx);
     final newDuration = Sandbox.rest(
-      succeeded ? _successBreakSecs : _failBreakSecs,
+      succeeded ? state.restSuccessSecs : state.restFailSecs,
     );
     if (newDuration == clock.durationSecs) return;
 
@@ -159,9 +160,11 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
   _Rest? _restAfterSet(int exIdx, int setIdx) {
     if (_isLastSetOfExercise(exIdx, setIdx)) return null;
     final succeeded = _doneReps[exIdx][setIdx] >= widget.exercises[exIdx].reps;
-    return succeeded
-        ? const _Rest(_successBreakSecs, 'Rest')
-        : const _Rest(_failBreakSecs, 'Rest');
+    final state = _stateOf(exIdx);
+    return _Rest(
+      succeeded ? state.restSuccessSecs : state.restFailSecs,
+      'Rest',
+    );
   }
 
   /// Plays the sound and haptic that tell the user the rest period is over.

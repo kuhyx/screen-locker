@@ -18,6 +18,7 @@ BreakSnapshot snap({
   workoutType: 'A',
   breakEndMs: breakEndMs,
   breakDurationSecs: breakDurationSecs,
+  breakFailSecs: 300,
   breakLabel: 'Rest',
   breakForExIdx: 0,
   breakForSetIdx: 1,
@@ -40,7 +41,9 @@ void main() {
   test('shows the countdown in the title, which Android shows collapsed', () {
     final copy = BreakNotificationText.render(
       snap(
-        breakEndMs: now.add(const Duration(seconds: 107)).millisecondsSinceEpoch,
+        breakEndMs: now
+            .add(const Duration(seconds: 107))
+            .millisecondsSinceEpoch,
         breakDurationSecs: 180,
       ),
       now,
@@ -52,7 +55,9 @@ void main() {
   test('says the break is over once the deadline has passed', () {
     final copy = BreakNotificationText.render(
       snap(
-        breakEndMs: now.subtract(const Duration(seconds: 5)).millisecondsSinceEpoch,
+        breakEndMs: now
+            .subtract(const Duration(seconds: 5))
+            .millisecondsSinceEpoch,
         breakDurationSecs: 180,
       ),
       now,

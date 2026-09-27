@@ -5,11 +5,6 @@
 // state class's `_applyBreakState` shim instead.
 part of 'workout_screen.dart';
 
-// Rest lengths (the sandbox flavor overrides them all in _startBreak).
-const _successBreakSecs = 180; // 3 min after successful set
-const _failBreakSecs = 300; // 5 min after failed set
-const _warmupBreakSecs = 180; // 3 min after warmup
-
 // How late a restored break's end cue may still be played. Long enough to
 // cover the app being killed and reopened mid-rest; short enough that
 // resuming yesterday's session does not blast the sound across the gym.
@@ -17,6 +12,13 @@ const _expiredBreakGraceSecs = 120;
 
 /// Starting, ticking, cancelling and finishing the rest period between sets.
 extension _WorkoutScreenBreaks on _WorkoutScreenState {
+  /// Exercise [exIdx]'s stored state, or its defaults while the states are
+  /// still loading: that is where its rest lengths live.
+  ExerciseState _stateOf(int exIdx) {
+    final ex = widget.exercises[exIdx];
+    return _exerciseStates[ex.name] ?? ExerciseState.initial(ex);
+  }
+
   void _startBreak(int secs, String label, int exIdx, int setIdx) {
     // The one place every rest is born, so the sandbox's short override
     // applies to warmup, success and fail rests alike.
@@ -24,6 +26,9 @@ extension _WorkoutScreenBreaks on _WorkoutScreenState {
     final restLabel = Sandbox.restLabel(label);
     SandboxLog.event('break start', {
       'secs': restSecs,
+      // The exercise's own rest, before the sandbox override: the only way
+      // to see per-exercise rest lengths in the sandbox flavor.
+      'planned': secs,
       'label': restLabel,
       'exercise': exIdx,
       'set': setIdx,
@@ -99,6 +104,9 @@ extension _WorkoutScreenBreaks on _WorkoutScreenState {
       'repsLow': updated.repsLow,
       'warmup': updated.hasWarmup,
       'pausedUntil': updated.pausedUntil?.toIso8601String(),
+      'restSuccess': updated.restSuccessSecs,
+      'restFail': updated.restFailSecs,
+      'restWarmup': updated.restWarmupSecs,
     });
     await StorageService.instance.setExerciseSettings(updated);
     if (!mounted) return;

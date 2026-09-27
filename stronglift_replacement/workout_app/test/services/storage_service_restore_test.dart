@@ -55,6 +55,11 @@ void main() {
     expect(st, isNotNull);
     expect(st!.successThreshold, 3);
     expect(st.failThreshold, 2);
+    // … and the <6 block added the rest columns at the old fixed lengths.
+    expect(
+      (st.restSuccessSecs, st.restFailSecs, st.restWarmupSecs),
+      (180, 300, 180),
+    );
 
     await dir.delete(recursive: true);
   });

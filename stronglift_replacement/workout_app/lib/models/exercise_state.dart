@@ -7,6 +7,24 @@ import 'dart:developer';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/progression.dart';
 
+/// Default rest after a set that hit its target reps.
+const int kDefaultRestSuccessSecs = 180;
+
+/// Default rest after a set that fell short: the longer one.
+const int kDefaultRestFailSecs = 300;
+
+/// Default rest after the warmup set.
+const int kDefaultRestWarmupSecs = 180;
+
+/// Shortest rest the settings sheet offers.
+const int kMinRestSecs = 30;
+
+/// Longest rest the settings sheet offers.
+const int kMaxRestSecs = 600;
+
+/// Step of the settings sheet's rest steppers.
+const int kRestStepSecs = 15;
+
 /// Per-exercise progression state stored in SQLite.
 ///
 /// Every field is `required` deliberately: a state rebuilt field by field
@@ -28,6 +46,9 @@ class ExerciseState implements ProgressionInputs {
     required this.repsLow,
     required this.hasWarmup,
     required this.pausedUntil,
+    required this.restSuccessSecs,
+    required this.restFailSecs,
+    required this.restWarmupSecs,
   });
 
   /// The state a never-trained [ex] starts from.
@@ -45,6 +66,9 @@ class ExerciseState implements ProgressionInputs {
     repsLow: kDefaultRepsLow,
     hasWarmup: ex.hasWarmup,
     pausedUntil: null,
+    restSuccessSecs: kDefaultRestSuccessSecs,
+    restFailSecs: kDefaultRestFailSecs,
+    restWarmupSecs: kDefaultRestWarmupSecs,
   );
 
   /// Exercise name (matches [Exercise.name], used as primary key).
@@ -95,6 +119,15 @@ class ExerciseState implements ProgressionInputs {
   /// exercise coming back at the load it left with.
   final DateTime? pausedUntil;
 
+  /// Rest after a set that hit its target reps, in seconds.
+  final int restSuccessSecs;
+
+  /// Rest after a set that fell short, in seconds.
+  final int restFailSecs;
+
+  /// Rest after the warmup set, in seconds.
+  final int restWarmupSecs;
+
   /// Whether the exercise is paused at [now].
   bool isPausedAt(DateTime now) {
     final until = pausedUntil;
@@ -114,6 +147,9 @@ class ExerciseState implements ProgressionInputs {
     int? repsLow,
     bool? hasWarmup,
     DateTime? pausedUntil,
+    int? restSuccessSecs,
+    int? restFailSecs,
+    int? restWarmupSecs,
     bool resume = false,
   }) => ExerciseState(
     name: name,
@@ -130,6 +166,9 @@ class ExerciseState implements ProgressionInputs {
     hasWarmup: hasWarmup ?? this.hasWarmup,
     // `resume` exists because a null argument cannot mean "clear it".
     pausedUntil: resume ? null : (pausedUntil ?? this.pausedUntil),
+    restSuccessSecs: restSuccessSecs ?? this.restSuccessSecs,
+    restFailSecs: restFailSecs ?? this.restFailSecs,
+    restWarmupSecs: restWarmupSecs ?? this.restWarmupSecs,
   );
 }
 
@@ -178,3 +217,7 @@ const _months = [
 
 /// `11 Oct`: how a pause's end date is shown.
 String formatShortDate(DateTime d) => '${d.day} ${_months[d.month - 1]}';
+
+/// `3:00`: how a rest length is shown.
+String formatRest(int secs) =>
+    '${secs ~/ 60}:${(secs % 60).toString().padLeft(2, '0')}';

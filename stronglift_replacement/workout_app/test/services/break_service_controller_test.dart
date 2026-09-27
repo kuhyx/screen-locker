@@ -31,6 +31,7 @@ const _snapshot = BreakSnapshot(
   workoutType: 'A',
   breakEndMs: 0,
   breakDurationSecs: 0,
+  breakFailSecs: 300,
   breakLabel: '',
   breakForExIdx: -1,
   breakForSetIdx: -1,
@@ -62,12 +63,14 @@ void main() {
   Future<BreakServiceStartResult> start() =>
       controller.start(_snapshot, onDrainNudge: () {});
 
-  test('starts and reports success when the permission is already held',
-      () async {
-    expect(await start(), BreakServiceStartResult.started);
-    expect(controller.isStarted, isTrue);
-    expect(client.calls, ['init', 'hasPermission', 'listen', 'start']);
-  });
+  test(
+    'starts and reports success when the permission is already held',
+    () async {
+      expect(await start(), BreakServiceStartResult.started);
+      expect(controller.isStarted, isTrue);
+      expect(client.calls, ['init', 'hasPermission', 'listen', 'start']);
+    },
+  );
 
   test('asks for the permission when it is not held yet', () async {
     client.permissionGranted = false;
@@ -86,21 +89,25 @@ void main() {
     expect(controller.isStarted, isTrue);
   });
 
-  test('reports failure and stops listening when the service refuses to start',
-      () async {
-    client.startSucceeds = false;
-    expect(await start(), BreakServiceStartResult.failed);
-    expect(controller.isStarted, isFalse);
-    expect(client.calls.last, 'unlisten');
-  });
+  test(
+    'reports failure and stops listening when the service refuses to start',
+    () async {
+      client.startSucceeds = false;
+      expect(await start(), BreakServiceStartResult.failed);
+      expect(controller.isStarted, isFalse);
+      expect(client.calls.last, 'unlisten');
+    },
+  );
 
-  test('does nothing at all on a platform with no foreground service',
-      () async {
-    client.isSupported = false;
-    expect(await start(), BreakServiceStartResult.unsupported);
-    expect(client.calls, isEmpty);
-    expect(controller.isStarted, isFalse);
-  });
+  test(
+    'does nothing at all on a platform with no foreground service',
+    () async {
+      client.isSupported = false;
+      expect(await start(), BreakServiceStartResult.unsupported);
+      expect(client.calls, isEmpty);
+      expect(controller.isStarted, isFalse);
+    },
+  );
 
   test('push is a no-op until the service has started', () async {
     await controller.push(_snapshot);
@@ -183,21 +190,26 @@ void main() {
       expect(client.calls, contains('stop'));
     });
 
-    test('leaves a service alone while its workout is still in progress',
-        () async {
-      client.running = true;
-      final stopped = await stopStaleBreakService(
-        client,
-        hasActiveWorkout: () async => true,
-      );
-      expect(stopped, isFalse);
-      expect(client.calls, isNot(contains('stop')));
-    });
+    test(
+      'leaves a service alone while its workout is still in progress',
+      () async {
+        client.running = true;
+        final stopped = await stopStaleBreakService(
+          client,
+          hasActiveWorkout: () async => true,
+        );
+        expect(stopped, isFalse);
+        expect(client.calls, isNot(contains('stop')));
+      },
+    );
 
     test('does nothing when no service is running', () async {
       client.running = false;
       expect(
-        await stopStaleBreakService(client, hasActiveWorkout: () async => false),
+        await stopStaleBreakService(
+          client,
+          hasActiveWorkout: () async => false,
+        ),
         isFalse,
       );
       expect(client.calls, isNot(contains('stop')));
@@ -208,7 +220,10 @@ void main() {
         ..isSupported = false
         ..running = true;
       expect(
-        await stopStaleBreakService(client, hasActiveWorkout: () async => false),
+        await stopStaleBreakService(
+          client,
+          hasActiveWorkout: () async => false,
+        ),
         isFalse,
       );
       expect(client.calls, isEmpty);

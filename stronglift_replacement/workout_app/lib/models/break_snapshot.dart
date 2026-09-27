@@ -15,6 +15,7 @@ class BreakSnapshot {
     required this.workoutType,
     required this.breakEndMs,
     required this.breakDurationSecs,
+    required this.breakFailSecs,
     required this.breakLabel,
     required this.breakForExIdx,
     required this.breakForSetIdx,
@@ -49,6 +50,7 @@ class BreakSnapshot {
     final keys = [
       'breakEndMs',
       'breakDurationSecs',
+      'breakFailSecs',
       'breakForExIdx',
       'breakForSetIdx',
       'nextExIdx',
@@ -67,6 +69,7 @@ class BreakSnapshot {
       workoutType: workoutType,
       breakEndMs: i('breakEndMs')!,
       breakDurationSecs: i('breakDurationSecs')!,
+      breakFailSecs: i('breakFailSecs')!,
       breakLabel: breakLabel,
       breakForExIdx: i('breakForExIdx')!,
       breakForSetIdx: i('breakForSetIdx')!,
@@ -92,6 +95,10 @@ class BreakSnapshot {
 
   /// Full length of the running rest, for the countdown's denominator.
   final int breakDurationSecs;
+
+  /// The running rest's exercise's fail rest, so a `−1 rep` press can re-cut
+  /// the rest while the UI is dead.
+  final int breakFailSecs;
 
   /// Human label of the running rest, e.g. 'Rest' or 'Warmup rest'.
   final String breakLabel;
@@ -146,6 +153,7 @@ class BreakSnapshot {
     'workoutType': workoutType,
     'breakEndMs': breakEndMs,
     'breakDurationSecs': breakDurationSecs,
+    'breakFailSecs': breakFailSecs,
     'breakLabel': breakLabel,
     'breakForExIdx': breakForExIdx,
     'breakForSetIdx': breakForSetIdx,
@@ -173,6 +181,7 @@ class BreakSnapshot {
     workoutType: workoutType,
     breakEndMs: breakEndMs ?? this.breakEndMs,
     breakDurationSecs: breakDurationSecs ?? this.breakDurationSecs,
+    breakFailSecs: breakFailSecs,
     breakLabel: breakLabel ?? this.breakLabel,
     breakForExIdx: breakForExIdx,
     breakForSetIdx: breakForSetIdx,

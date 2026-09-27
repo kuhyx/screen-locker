@@ -17,7 +17,10 @@ Future<List<ExerciseState>> _pump(
     MaterialApp(
       theme: buildAppTheme(),
       home: Scaffold(
-        body: ExerciseSettingsSheet(state: state ?? _base, onChanged: edits.add),
+        body: ExerciseSettingsSheet(
+          state: state ?? _base,
+          onChanged: edits.add,
+        ),
       ),
     ),
   );
@@ -95,6 +98,44 @@ void main() {
     expect(edits.last.failThreshold, 3);
     // Every edit carries the earlier ones, not just its own field.
     expect(edits.last.hasWarmup, isFalse);
+  });
+
+  testWidgets('rests step by 15 s as m:ss and stop at the bounds', (
+    tester,
+  ) async {
+    final edits = await _pump(
+      tester,
+      _base.copyWith(restSuccessSecs: kMaxRestSecs, restFailSecs: kMinRestSecs),
+    );
+    expect(find.text('10:00'), findsOneWidget);
+    expect(find.text('0:30'), findsOneWidget);
+    // Already at the bounds: nothing to report.
+    await _tapLabel(tester, 'Success rest up');
+    await _tapLabel(tester, 'Fail rest down');
+    expect(edits, isEmpty);
+
+    await _tapLabel(tester, 'Success rest down');
+    expect(edits.last.restSuccessSecs, kMaxRestSecs - kRestStepSecs);
+    expect(find.text('9:45'), findsOneWidget);
+    await _tapLabel(tester, 'Fail rest up');
+    expect(edits.last.restFailSecs, kMinRestSecs + kRestStepSecs);
+    await _tapLabel(tester, 'Warmup rest down');
+    expect(edits.last.restWarmupSecs, kDefaultRestWarmupSecs - kRestStepSecs);
+    // Every edit carries the earlier ones.
+    expect(edits.last.restSuccessSecs, kMaxRestSecs - kRestStepSecs);
+  });
+
+  testWidgets('the warmup rest hides with the warmup, keeping the height', (
+    tester,
+  ) async {
+    await _pump(tester);
+    final before = tester.getSize(find.byType(ExerciseSettingsSheet));
+    final warmupRest = find.bySemanticsLabel('Warmup rest up').hitTestable();
+    expect(warmupRest, findsOneWidget);
+    await tester.tap(find.text('Warmup set'));
+    await tester.pump();
+    expect(warmupRest, findsNothing);
+    expect(tester.getSize(find.byType(ExerciseSettingsSheet)), before);
   });
 
   testWidgets('pause length steps from 14 and sets the end date', (

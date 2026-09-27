@@ -1,5 +1,5 @@
-/// Settings screen: per-exercise streak thresholds and manual weight
-/// overrides, plus links to the sync surfaces.
+/// Settings screen: manual weight and rep overrides, each exercise's
+/// settings sheet, plus links to the sync surfaces.
 ///
 /// "Sync settings" is the shared `sync_settings_ui` package (Firebase sync;
 /// no Backup section -- see the class doc on [SettingsScreen] for why).
@@ -23,20 +23,20 @@ import 'package:workout_app/services/google_sign_in_backend.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/ui/theme.dart';
+import 'package:workout_app/widgets/exercise_settings_sheet.dart';
 
 part 'settings_screen_actions.dart';
+part 'settings_screen_exercise_list.dart';
 part 'settings_screen_exercise_sections.dart';
 part 'settings_screen_rows.dart';
 part 'settings_screen_sandbox.dart';
 part 'settings_screen_sections.dart';
-part 'settings_screen_thresholds.dart';
 part 'settings_screen_widget.dart';
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _loading = true;
 
-  final Map<String, int> _successThresholds = {};
-  final Map<String, int> _failThresholds = {};
+  final Map<String, ExerciseState> _states = {};
   final Map<String, double> _weights = {};
   final Map<String, int> _reps = {};
 
@@ -97,8 +97,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     setState(() {
       for (final s in states) {
-        _successThresholds[s.name] = s.successThreshold;
-        _failThresholds[s.name] = s.failThreshold;
+        _states[s.name] = s;
         _weights[s.name] = s.weight;
         _reps[s.name] = s.reps;
       }
@@ -153,15 +152,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
-  Future<void> _onThresholdChanged(String name, int success, int fail) async {
-    setState(() {
-      _successThresholds[name] = success;
-      _failThresholds[name] = fail;
-    });
-    await StorageService.instance.setExerciseThresholds(
-      name,
-      successThreshold: success,
-      failThreshold: fail,
+  /// Opens [state]'s settings sheet. Every edit is saved as it happens, the
+  /// same as from the workout tile; once the sheet closes the result goes to
+  /// Firebase, so a reinstall before the next workout keeps it.
+  Future<void> _openExercise(ExerciseState state) async {
+    var edited = false;
+    await showExerciseSettingsSheet(
+      context,
+      state: state,
+      onChanged: (updated) {
+        edited = true;
+        setState(() => _states[updated.name] = updated);
+        unawaited(StorageService.instance.setExerciseSettings(updated));
+      },
+    );
+    if (!edited) return;
+    final pushed =
+        await (widget.progressionPusher ??
+            ProgressionSyncService().pushProgression)();
+    if (!mounted || pushed.changed) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Saved on this phone, not synced: ${pushed.reason}'),
+      ),
     );
   }
 
@@ -189,12 +202,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onRepsChanged: _onRepsChanged,
                 ),
                 const SizedBox(height: 20),
-                _ThresholdsSection(
+                _ExercisesSection(
                   orderedNames: _orderedNames,
-                  successThresholds: _successThresholds,
-                  failThresholds: _failThresholds,
-                  onThresholdChanged: (name, success, fail) =>
-                      unawaited(_onThresholdChanged(name, success, fail)),
+                  states: _states,
+                  onOpen: (s) => unawaited(_openExercise(s)),
                 ),
                 const SizedBox(height: 20),
                 _SyncSection(

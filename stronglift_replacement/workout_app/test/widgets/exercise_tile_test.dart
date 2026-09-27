@@ -51,7 +51,7 @@ void main() {
 
     testWidgets('warmup is the first circle, with its weight', (tester) async {
       await tester.pumpWidget(_wrap(_tile()));
-      expect(find.text('W×5'), findsOneWidget);
+      expect(find.text('W×6'), findsOneWidget);
       expect(find.text('${_exercise.warmupWeight}'), findsOneWidget);
       final warmup = tester.getRect(find.bySemanticsLabel('Squat warmup'));
       final firstSet = tester.getRect(find.byType(RepCircle).first);
@@ -95,10 +95,7 @@ void main() {
       await tester.pumpWidget(
         _wrap(_tile(state: _state.copyWith(hasWarmup: false))),
       );
-      expect(
-        find.bySemanticsLabel('Squat warmup').hitTestable(),
-        findsNothing,
-      );
+      expect(find.bySemanticsLabel('Squat warmup').hitTestable(), findsNothing);
       expect(tester.getRect(find.byType(RepCircle).first), setsWith);
       expect(tester.getSize(find.byType(ExerciseTile)), tileWith);
     });

@@ -144,7 +144,15 @@ void main() {
     expect(tester.getRect(find.byType(ExerciseSettingsSheet)), sheetIdle);
     await tapReal(tester, find.text('Warmup set'));
     expect(tester.getRect(find.byType(ExerciseSettingsSheet)), sheetIdle);
-    expect(find.byType(Scrollable), findsNothing);
+    // The sheet scrolls only as a fallback for a short screen; on the phone
+    // everything, rest rows included, fits with nothing to scroll.
+    final sheetScroll = tester.state<ScrollableState>(
+      find.descendant(
+        of: find.byType(ExerciseSettingsSheet),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(sheetScroll.position.maxScrollExtent, 0);
     await _shot(tester, 'sheet');
     Navigator.of(tester.element(find.byType(ExerciseSettingsSheet))).pop();
     await tester.pumpAndSettle();
@@ -164,12 +172,15 @@ void main() {
       if (!circle.tapped) await tapReal(tester, find.byType(RepCircle).at(i));
     }
     expect(
-      tester.widgetList<RepCircle>(find.byType(RepCircle)).every(
-        (c) => c.tapped,
-      ),
+      tester
+          .widgetList<RepCircle>(find.byType(RepCircle))
+          .every((c) => c.tapped),
       isTrue,
     );
-    expect(tester.widget<BreakBanner>(find.byType(BreakBanner)).canFinish, true);
+    expect(
+      tester.widget<BreakBanner>(find.byType(BreakBanner)).canFinish,
+      true,
+    );
     expect(tileRects(), idle);
     await _shot(tester, 'all_done');
   });

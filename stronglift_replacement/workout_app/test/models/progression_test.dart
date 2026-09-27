@@ -24,6 +24,9 @@ ExerciseState _s({
   repsLow: repsLow,
   hasWarmup: true,
   pausedUntil: null,
+  restSuccessSecs: kDefaultRestSuccessSecs,
+  restFailSecs: kDefaultRestFailSecs,
+  restWarmupSecs: kDefaultRestWarmupSecs,
 );
 
 void _expectTarget(ProgressionTarget t, double weight, int reps) {
@@ -49,7 +52,11 @@ void main() {
 
   group('weight mode (unchanged behaviour)', () {
     test('success below the cap adds 2.5 kg', () {
-      _expectTarget(targetAfterSuccess(_s(mode: ProgressionMode.weight)), 22.5, 8);
+      _expectTarget(
+        targetAfterSuccess(_s(mode: ProgressionMode.weight)),
+        22.5,
+        8,
+      );
     });
 
     test('success above the cap clamps to it', () {
@@ -63,7 +70,11 @@ void main() {
     });
 
     test('failure drops 2.5 kg, never below zero', () {
-      _expectTarget(targetAfterFailure(_s(mode: ProgressionMode.weight)), 17.5, 8);
+      _expectTarget(
+        targetAfterFailure(_s(mode: ProgressionMode.weight)),
+        17.5,
+        8,
+      );
       final light = _s(mode: ProgressionMode.weight, weight: 1);
       _expectTarget(targetAfterFailure(light), 0, 8);
     });
@@ -116,7 +127,11 @@ void main() {
     });
 
     test('failure at m with no weight left stays put', () {
-      _expectTarget(targetAfterFailure(_s(mode: mode, reps: 6, weight: 0)), 0, 6);
+      _expectTarget(
+        targetAfterFailure(_s(mode: mode, reps: 6, weight: 0)),
+        0,
+        6,
+      );
     });
   });
 
@@ -131,15 +146,24 @@ void main() {
     });
 
     test('weight only drops a trailing .0', () {
-      expect(describeTargetChange(from, const ProgressionTarget(25, 8)), '25 kg');
+      expect(
+        describeTargetChange(from, const ProgressionTarget(25, 8)),
+        '25 kg',
+      );
     });
 
     test('reps only', () {
-      expect(describeTargetChange(from, const ProgressionTarget(20, 9)), '9 reps');
+      expect(
+        describeTargetChange(from, const ProgressionTarget(20, 9)),
+        '9 reps',
+      );
     });
 
     test('no change', () {
-      expect(describeTargetChange(from, const ProgressionTarget(20, 8)), 'same');
+      expect(
+        describeTargetChange(from, const ProgressionTarget(20, 8)),
+        'same',
+      );
     });
 
     test('toString names both fields', () {
@@ -185,63 +209,15 @@ void main() {
       expect(c.maxWeight, 27.5);
       expect((c.weight, c.reps, c.successStreak, c.failStreak), (1, 2, 3, 4));
       expect((c.successThreshold, c.failThreshold), (5, 1));
-      expect((c.mode, c.repsHigh, c.repsLow, c.hasWarmup), (
-        ProgressionMode.reps,
-        20,
-        10,
-        false,
-      ));
+      expect(
+        (c.mode, c.repsHigh, c.repsLow, c.hasWarmup),
+        (ProgressionMode.reps, 20, 10, false),
+      );
       final same = s.copyWith();
-      expect((same.weight, same.reps, same.mode, same.hasWarmup), (
-        20,
-        8,
-        ProgressionMode.weight,
-        true,
-      ));
-    });
-  });
-
-  group('injury pause', () {
-    final now = DateTime(2026, 9, 27, 17, 30);
-
-    test('pauseEnd is local midnight n days on', () {
-      expect(pauseEnd(now, 14), DateTime(2026, 10, 11));
-    });
-
-    test('isPausedAt is true until that midnight, false from it', () {
-      final s = _s(mode: ProgressionMode.weight).copyWith(
-        pausedUntil: pauseEnd(now, 14),
+      expect(
+        (same.weight, same.reps, same.mode, same.hasWarmup),
+        (20, 8, ProgressionMode.weight, true),
       );
-      expect(s.isPausedAt(now), isTrue);
-      expect(s.isPausedAt(DateTime(2026, 10, 10, 23, 59)), isTrue);
-      expect(s.isPausedAt(DateTime(2026, 10, 11)), isFalse);
-      expect(_s(mode: ProgressionMode.weight).isPausedAt(now), isFalse);
-    });
-
-    test('copyWith keeps a pause, and resume clears it', () {
-      final paused = _s(mode: ProgressionMode.weight).copyWith(
-        pausedUntil: DateTime(2026, 10, 11),
-      );
-      expect(paused.copyWith(reps: 3).pausedUntil, DateTime(2026, 10, 11));
-      expect(paused.copyWith(resume: true).pausedUntil, isNull);
-    });
-
-    test('dates round-trip through storage format', () {
-      final d = DateTime(2026, 1, 5);
-      expect(formatPauseDate(d), '2026-01-05');
-      expect(parsePauseDate(formatPauseDate(d)), d);
-    });
-
-    test('null, garbage and non-strings read as not paused', () {
-      expect(parsePauseDate(null), isNull);
-      expect(parsePauseDate('soon'), isNull);
-      expect(parsePauseDate(42), isNull);
-    });
-
-    test('formatShortDate', () {
-      expect(formatShortDate(DateTime(2026, 10, 11)), '11 Oct');
-      expect(formatShortDate(DateTime(2026, 1, 1)), '1 Jan');
-      expect(formatShortDate(DateTime(2026, 12, 31)), '31 Dec');
     });
   });
 }

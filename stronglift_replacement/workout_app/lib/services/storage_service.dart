@@ -78,7 +78,7 @@ class StorageService {
     // coverage:ignore-end
     _db = await openDatabase(
       dbPath,
-      version: 5,
+      version: 6,
       onCreate: _createSchema,
       onUpgrade: _migrateSchema,
       // In tests resetForTesting() reopens a ':memory:' DB per test; sqflite's

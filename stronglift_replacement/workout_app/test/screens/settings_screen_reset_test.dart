@@ -98,61 +98,6 @@ void main() {
     },
   );
 
-  testWidgets('changing a success threshold persists it', (tester) async {
-    await _pump(tester, _wrap());
-    // Scroll to the section header first: the threshold rows below it are not
-    // built at all until then, so a `.first` finder for the label would throw
-    // "Bad state: No element" before it could match anything.
-    await tester.scrollUntilVisible(find.text('PROGRESSION THRESHOLDS'), 200);
-    await tester.pumpAndSettle();
-    final label = find.text('↑ Increase after N successes').first;
-    await tester.scrollUntilVisible(
-      label,
-      300,
-      scrollable: find.byType(Scrollable),
-    );
-    // The circles (1-5) live in the same Row as the label; tap the "5" circle.
-    final row = find.ancestor(of: label, matching: find.byType(Row)).first;
-    final five = find.descendant(of: row, matching: find.text('5')).first;
-    // The row can sit below the 800x600 test fold — bring the circle fully in.
-    await tester.ensureVisible(five);
-    await tester.pumpAndSettle();
-    // _onThresholdChanged awaits a DB write, so drive it on the real loop.
-    await tester.runAsync(() async {
-      await tester.tap(five);
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-    });
-    await tester.pump();
-
-    final states = await tester.runAsync(
-      () => StorageService.instance.getAllExerciseStates(),
-    );
-    expect(states!.any((s) => s.successThreshold == 5), isTrue);
-
-    // Also exercise the fail-threshold path (onFailChanged closure).
-    final failLabel = find.text('↓ Decrease after N failures').first;
-    await tester.ensureVisible(failLabel);
-    await tester.pumpAndSettle();
-    final failRow = find
-        .ancestor(of: failLabel, matching: find.byType(Row))
-        .first;
-    final failFour = find
-        .descendant(of: failRow, matching: find.text('4'))
-        .first;
-    await tester.ensureVisible(failFour);
-    await tester.pumpAndSettle();
-    await tester.runAsync(() async {
-      await tester.tap(failFour);
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-    });
-    await tester.pump();
-
-    final states2 = await tester.runAsync(
-      () => StorageService.instance.getAllExerciseStates(),
-    );
-    expect(states2!.any((s) => s.failThreshold == 4), isTrue);
-  });
-
   testWidgets('reps change is debounced then written to storage', (
     tester,
   ) async {

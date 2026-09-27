@@ -1,12 +1,12 @@
 // The public SettingsScreen widget and its injectable seams.
 //
 // A `part` so the widget stays in the same library as its private state class
-// while the constructor and its eleven test seams — each needing its own doc
+// while the constructor and its twelve test seams — each needing its own doc
 // comment under `public_member_api_docs` — live somewhere the state logic can
 // be read without scrolling past them.
 part of 'settings_screen.dart';
 
-/// Screen for editing per-exercise thresholds and manual weight overrides.
+/// Screen for per-exercise settings and manual weight/rep overrides.
 ///
 /// No [BackupSlot] is wired into the shared Sync settings screen: unlike the
 /// notes app and home_inventory, workout_app has no user-facing export/import
@@ -33,6 +33,7 @@ class SettingsScreen extends StatefulWidget {
     this.storageChecker,
     this.storageRequester,
     this.progressionPuller,
+    this.progressionPusher,
   });
 
   /// Injectable HTTP client, passed through to [GitHubMirrorScreen] so its
@@ -83,6 +84,10 @@ class SettingsScreen extends StatefulWidget {
   /// [_openSyncSettings] for why this fires on pop rather than being hooked
   /// into the shared screen's connect flow.
   final Future<ProgressionSyncResult> Function()? progressionPuller;
+
+  /// Pushes progression after an exercise's settings sheet closes with edits.
+  /// Injected so tests never reach Firebase.
+  final Future<ProgressionSyncResult> Function()? progressionPusher;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
