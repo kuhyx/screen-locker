@@ -12,7 +12,6 @@ from screen_locker._constants import (
 )
 from screen_locker._day import today_str
 from screen_locker._shutdown_sick_state import SickDayStateMixin
-from screen_locker._wake_alarm import WakeAlarmMixin
 from screen_locker._workout_credit import FIRST_WORKOUT_BONUS_HOURS
 
 if TYPE_CHECKING:
@@ -49,7 +48,7 @@ def read_shutdown_config(path: Path) -> tuple[int, int, int] | None:
     )
 
 
-class ShutdownMixin(SickDayStateMixin, WakeAlarmMixin):
+class ShutdownMixin(SickDayStateMixin):
     """Mixin providing shutdown schedule adjustment functionality."""
 
     def _apply_earlier_shutdown(self, today: str) -> bool:

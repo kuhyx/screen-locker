@@ -16,6 +16,8 @@ from datetime import UTC, datetime, timedelta
 import logging
 from typing import TYPE_CHECKING, Any
 
+import freedays
+
 from screen_locker._log_io import load_workout_log
 from screen_locker._workday_penalty import workday_penalty_today
 
@@ -26,8 +28,8 @@ _logger = logging.getLogger(__name__)
 
 WEEKLY_WORKOUT_MINIMUM: int = 5
 
-# Python weekday(): Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
-_RELAXED_WEEKDAYS: frozenset[int] = frozenset({1, 2, 3})  # Tue, Wed, Thu
+# Tue/Wed/Thu: the shared workday set every gate app reads (freedays).
+_RELAXED_WEEKDAYS: frozenset[int] = freedays.WORKDAYS
 
 # A StrongLifts session performed on the PC itself (the Linux build of
 # workout_app). Machine-checked exactly like ``phone_verified`` -- same

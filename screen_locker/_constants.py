@@ -128,16 +128,6 @@ SYNC_TOMBSTONES_FILE = Path(__file__).resolve().parent / "sync_tombstones.json"
 # it's a same-day pending flag, checked against its own "date" field.
 EARLY_BIRD_PENDING_FILE = Path(__file__).resolve().parent / "early_bird_pending.json"
 
-# ---------------------------------------------------------------------------
-# Wake-alarm integration (originally from wake_alarm._constants / _state).
-# These must match the values used by the companion wake_alarm service.
-# ---------------------------------------------------------------------------
-# Days on which the wake alarm fires (0=Mon … 6=Sun).
-ALARM_DAYS: frozenset[int] = frozenset({0, 4, 5, 6})
-# How many hours after midnight the alarm triggers (configurable in wake_alarm).
-WAKE_AFTER_HOURS: int = 8
-# Path to the rtcwake binary.
-RTCWAKE_BIN: str = "/usr/sbin/rtcwake"
 # The PC's copy of the phone's morning session, written HMAC-signed by
 # wake-alarm (`python -m wake_alarm._session --refresh`, every 2 min through
 # the morning). Read here, never fetched: wake-alarm is the only Firebase
