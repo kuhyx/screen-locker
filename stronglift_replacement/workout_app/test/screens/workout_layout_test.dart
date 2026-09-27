@@ -16,6 +16,7 @@ import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/sandbox/sandbox.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/widgets/break_banner.dart';
+import 'package:workout_app/widgets/exercise_settings_sheet.dart';
 import 'package:workout_app/widgets/exercise_tile.dart';
 import 'package:workout_app/widgets/rep_circle.dart';
 
@@ -115,7 +116,8 @@ void main() {
     expect(find.byType(Scrollable), findsNothing);
     expect(tester.getSize(find.byType(BreakBanner)).height, BreakBanner.height);
     expect(restRunning(tester), isFalse);
-    expect(find.text('Rest'), findsOneWidget);
+    // No label on the strip any more: the countdown alone says it.
+    expect(find.textContaining('Rest'), findsNothing);
     expect(find.text('00:00'), findsOneWidget);
     await _shot(tester, 'idle');
 
@@ -128,6 +130,48 @@ void main() {
     await tapReal(tester, find.text('Skip'));
     expect(restRunning(tester), isFalse);
     expect(tileRects(), idle);
+
+    // The settings sheet: opens over the column, fits without scrolling,
+    // and editing it moves nothing underneath.
+    await tapReal(
+      tester,
+      find.bySemanticsLabel('Dumbbell Romanian Deadlift progression settings'),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(ExerciseSettingsSheet), findsOneWidget);
+    final sheetIdle = tester.getRect(find.byType(ExerciseSettingsSheet));
+    await tapReal(tester, find.text('Reps→kg'));
+    expect(tester.getRect(find.byType(ExerciseSettingsSheet)), sheetIdle);
+    await tapReal(tester, find.text('Warmup set'));
+    expect(tester.getRect(find.byType(ExerciseSettingsSheet)), sheetIdle);
+    expect(find.byType(Scrollable), findsNothing);
+    await _shot(tester, 'sheet');
+    Navigator.of(tester.element(find.byType(ExerciseSettingsSheet))).pop();
+    await tester.pumpAndSettle();
+
+    expect(find.text('6→12'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('Dumbbell Romanian Deadlift warmup').hitTestable(),
+      findsNothing,
+    );
+    expect(tileRects(), idle);
+    await _shot(tester, 'double_no_warmup');
+
+    // Every set recorded: filled cards, Finish enabled, same geometry.
+    for (var i = 0; i < find.byType(RepCircle).evaluate().length; i++) {
+      if (restRunning(tester)) await tapReal(tester, find.text('Skip'));
+      final circle = tester.widget<RepCircle>(find.byType(RepCircle).at(i));
+      if (!circle.tapped) await tapReal(tester, find.byType(RepCircle).at(i));
+    }
+    expect(
+      tester.widgetList<RepCircle>(find.byType(RepCircle)).every(
+        (c) => c.tapped,
+      ),
+      isTrue,
+    );
+    expect(tester.widget<BreakBanner>(find.byType(BreakBanner)).canFinish, true);
+    expect(tileRects(), idle);
+    await _shot(tester, 'all_done');
   });
 
   testWidgets('landscape would need the scale floor; portrait is locked', (
@@ -162,7 +206,6 @@ void main() {
     });
     await pumpWorkout(tester, wrapWorkout(type: 'B', exercises: workoutB));
     await tapReal(tester, find.byType(RepCircle).first);
-    expect(find.text('Rest (7 s — sandbox)'), findsOneWidget);
     expect(find.text('00:07'), findsOneWidget);
   });
 }

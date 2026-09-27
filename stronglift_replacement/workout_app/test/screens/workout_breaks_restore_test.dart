@@ -77,7 +77,7 @@ void main() {
     await pumpWorkout(tester, wrapWorkout(savedState: savedWithBreak(90)));
 
     expect(restRunning(tester), isTrue);
-    expect(find.textContaining('well done'), findsOneWidget);
+    expect(restSecs(tester), inInclusiveRange(80, 90));
     expect(
       audio.resumedSources.where((s) => s.contains('break_end')),
       isEmpty,

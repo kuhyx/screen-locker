@@ -1,129 +1,81 @@
-// Threshold row, mini stepper and warm-up row for ExerciseTile.
+// Mode chip, inline warmup circle and progress line for ExerciseTile.
 //
 // `part` file: these widgets are library-private and stay that way.
 // See history_screen_charts.dart for the full reasoning.
 part of 'exercise_tile.dart';
 
-class _ThresholdRow extends StatelessWidget {
-  const _ThresholdRow({
-    required this.successThreshold,
-    required this.failThreshold,
-    required this.onSuccessChanged,
-    required this.onFailChanged,
+/// Tappable chip naming the progression mode; opens the settings sheet.
+///
+/// Fixed width, so switching mode never moves the header's other text.
+class _ModeChip extends StatelessWidget {
+  const _ModeChip({
+    required this.state,
+    required this.color,
+    required this.onTap,
   });
 
-  final int successThreshold;
-  final int failThreshold;
-  final ValueChanged<int> onSuccessChanged;
-  final ValueChanged<int> onFailChanged;
+  final ExerciseState state;
+  final Color color;
+  final VoidCallback onTap;
+
+  static const double width = 64;
+
+  String get _text => switch (state.mode) {
+    ProgressionMode.weight => 'kg',
+    ProgressionMode.reps => 'reps',
+    ProgressionMode.doubleProgression => '${state.repsLow}→${state.repsHigh}',
+  };
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final status = Theme.of(context).extension<AppStatusColors>()!;
-    final captionStyle = TextStyle(
-      color: colorScheme.onSurfaceVariant,
-      fontSize: AppTextSize.caption,
-    );
-    return Row(
-      children: [
-        Icon(Icons.trending_up, size: 13, color: status.success),
-        const SizedBox(width: 4),
-        Text('after', style: captionStyle),
-        const SizedBox(width: 6),
-        _MiniStepper(
-          value: successThreshold,
-          onChanged: onSuccessChanged,
-        ),
-        const SizedBox(width: 4),
-        Text('↑', style: captionStyle),
-        const Spacer(),
-        Icon(Icons.trending_down, size: 13, color: colorScheme.error),
-        const SizedBox(width: 4),
-        Text('after', style: captionStyle),
-        const SizedBox(width: 6),
-        _MiniStepper(
-          value: failThreshold,
-          onChanged: onFailChanged,
-        ),
-        const SizedBox(width: 4),
-        Text('↓', style: captionStyle),
-      ],
-    );
-  }
-}
-
-class _MiniStepper extends StatelessWidget {
-  const _MiniStepper({required this.value, required this.onChanged});
-
-  final int value;
-  final ValueChanged<int> onChanged;
-
-  static const _min = 1;
-  static const _max = 5;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _btn(
-          context,
-          Icons.remove,
-          value > _min ? () => onChanged(value - 1) : null,
-        ),
-        SizedBox(
-          width: 22,
-          child: Text(
-            '$value',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: colorScheme.onSurface,
-              fontSize: AppTextSize.caption,
-            ),
+    return Semantics(
+      container: true,
+      button: true,
+      label: '${state.name} progression settings',
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        child: Container(
+          width: width,
+          height: 26,
+          decoration: BoxDecoration(
+            border: Border.all(color: color),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
           ),
-        ),
-        _btn(
-          context,
-          Icons.add,
-          value < _max ? () => onChanged(value + 1) : null,
-        ),
-      ],
-    );
-  }
-
-  Widget _btn(BuildContext context, IconData icon, VoidCallback? onTap) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 22,
-        height: 22,
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        alignment: Alignment.center,
-        child: Icon(
-          icon,
-          size: 12,
-          color: onTap != null
-              ? colorScheme.onSurface
-              : colorScheme.onSurfaceVariant,
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.tune, size: 13, color: color),
+              const SizedBox(width: 3),
+              Flexible(
+                child: Text(
+                  _text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: color, fontSize: AppTextSize.caption),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _WarmupRow extends StatelessWidget {
-  const _WarmupRow({
+/// The warmup as the first circle of the set row: outlined, the size of a
+/// set circle, showing `W×5` over the warmup weight.
+class _WarmupCircle extends StatelessWidget {
+  const _WarmupCircle({
+    required this.semanticLabel,
     required this.warmupWeight,
     required this.tapped,
     required this.onTap,
   });
 
+  final String semanticLabel;
   final double warmupWeight;
   final bool tapped;
   final VoidCallback onTap;
@@ -132,51 +84,136 @@ class _WarmupRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final status = Theme.of(context).extension<AppStatusColors>()!;
-    final mutedStyle = TextStyle(
-      color: colorScheme.onSurfaceVariant,
-      fontSize: AppTextSize.caption,
-    );
-    return Row(
-      children: [
-        Text('Warmup  1×5×', style: mutedStyle),
-        Text('${warmupWeight}kg', style: mutedStyle),
-        const SizedBox(width: 10),
-        GestureDetector(
-          onTap: tapped ? null : onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              // Tapped = a completed milestone, same semantic as every other
-              // "done" indicator in this app (rep circles, calendar days).
-              color: tapped ? status.success : Colors.transparent,
-              border: Border.all(
-                color: tapped ? status.success : colorScheme.outline,
-                width: 2,
-              ),
-            ),
-            alignment: Alignment.center,
-            child: Icon(
-              tapped ? Icons.check : Icons.fitness_center,
-              // on-fill on the filled circle; muted on the empty outline one.
-              color: tapped
-                  ? colorScheme.onPrimary
-                  : colorScheme.onSurfaceVariant,
-              size: 16,
+    // Tapped = a completed milestone, same semantic as every other "done"
+    // indicator in this app. On-fill ink on the filled circle; muted on the
+    // outline-only one, which is what sets it apart from a working set.
+    final fg = tapped ? colorScheme.onPrimary : colorScheme.onSurfaceVariant;
+    final small = TextStyle(color: fg, fontSize: AppTextSize.caption);
+    return GestureDetector(
+      onTap: tapped ? null : onTap,
+      child: Semantics(
+        container: true,
+        button: true,
+        label: semanticLabel,
+        excludeSemantics: true,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: tapped ? status.success : Colors.transparent,
+            border: Border.all(
+              color: tapped ? status.success : colorScheme.outline,
+              width: 2,
             ),
           ),
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'W×5',
+                style: small.copyWith(fontWeight: FontWeight.bold, height: 1.1),
+              ),
+              Text('$warmupWeight', style: small.copyWith(height: 1.1)),
+            ],
+          ),
         ),
-        const SizedBox(width: 6),
-        Text(
-          tapped ? 'done' : 'optional',
-          style: TextStyle(
-            color: tapped ? status.success : colorScheme.onSurfaceVariant,
-            fontSize: AppTextSize.caption,
+      ),
+    );
+  }
+}
+
+/// `↑ 2/3 → 25 kg` … `↓ 0/2 → 20 kg`: both streaks against their
+/// thresholds, and what the next step up or down will set.
+///
+/// The targets come from the same rule `applyProgression` runs, so the
+/// line cannot promise a step the finish would not take.
+class _ProgressRow extends StatelessWidget {
+  const _ProgressRow({required this.state, required this.onFill});
+
+  final ExerciseState state;
+
+  /// Whether the card is a filled success/danger colour.
+  final bool onFill;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final status = Theme.of(context).extension<AppStatusColors>()!;
+    final textColor = onFill
+        ? colorScheme.onPrimary
+        : colorScheme.onSurfaceVariant;
+    final up = describeTargetChange(state, targetAfterSuccess(state));
+    final down = describeTargetChange(state, targetAfterFailure(state));
+    return Row(
+      children: [
+        Expanded(
+          child: _half(
+            Icons.trending_up,
+            onFill ? textColor : status.success,
+            '${state.successStreak}/${state.successThreshold} → $up',
+            textColor,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _half(
+            Icons.trending_down,
+            onFill ? textColor : colorScheme.error,
+            '${state.failStreak}/${state.failThreshold} → $down',
+            textColor,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _half(IconData icon, Color iconColor, String text, Color color) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: iconColor),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: color, fontSize: AppTextSize.caption),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Stands in for the set row while the exercise is paused: same height, so
+/// pausing moves nothing on the screen.
+class _PausedRow extends StatelessWidget {
+  const _PausedRow({required this.until, required this.color});
+
+  final DateTime until;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: ExerciseTile.setRowHeight,
+      child: Row(
+        children: [
+          Icon(Icons.pause_circle_outline, size: 20, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Paused — back on ${formatShortDate(until)} · counts as failed',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: color, fontSize: AppTextSize.label),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

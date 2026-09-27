@@ -1,32 +1,42 @@
-/// Card widget for a single exercise showing warmup and main-set rep circles.
+/// Card widget for a single exercise: header with the progression-mode chip,
+/// one row of warmup + set circles, and the progress line.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:workout_app/models/exercise.dart';
+import 'package:workout_app/models/exercise_state.dart';
+import 'package:workout_app/models/progression.dart';
 import 'package:workout_app/ui/theme.dart';
+import 'package:workout_app/widgets/exercise_settings_sheet.dart';
 import 'package:workout_app/widgets/rep_circle.dart';
 
 part 'exercise_tile_rows.dart';
 
 /// Card widget displaying warmup and working-set rep circles for one exercise.
+///
+/// Its height is the same in every state — warmup on or off, any mode, any
+/// streak, done or not — so the workout column never rescales mid-workout.
+/// A disabled warmup leaves its slot empty rather than closing it up.
 class ExerciseTile extends StatelessWidget {
   /// Creates an [ExerciseTile].
   const ExerciseTile({
     required this.exercise,
+    required this.state,
     required this.tapped,
     required this.doneReps,
     required this.warmupTapped,
-    required this.successThreshold,
-    required this.failThreshold,
     required this.onTapCircle,
     required this.onLongPressCircle,
     required this.onTapWarmup,
-    required this.onThresholdChanged,
+    required this.onSettingsChanged,
     super.key,
   });
 
-  /// The exercise definition to display.
+  /// The exercise definition to display (this session's targets).
   final Exercise exercise;
+
+  /// Progression state: mode, streaks, thresholds, warmup toggle.
+  final ExerciseState state;
 
   /// Per-set tap state; true when a set circle has been tapped.
   final List<bool> tapped;
@@ -37,12 +47,6 @@ class ExerciseTile extends StatelessWidget {
   /// Whether the warmup circle has been tapped.
   final bool warmupTapped;
 
-  /// Success streak threshold shown in the inline settings row.
-  final int successThreshold;
-
-  /// Fail streak threshold shown in the inline settings row.
-  final int failThreshold;
-
   /// Called when a working-set circle is tapped.
   final void Function(int setIdx) onTapCircle;
 
@@ -52,8 +56,14 @@ class ExerciseTile extends StatelessWidget {
   /// Called when the warmup circle is tapped.
   final VoidCallback onTapWarmup;
 
-  /// Called when the user changes thresholds inline (newSuccess, newFail).
-  final void Function(int success, int fail) onThresholdChanged;
+  /// Called with the edited state after every change in the settings sheet.
+  final ValueChanged<ExerciseState> onSettingsChanged;
+
+  /// Gap between circles in the set row.
+  static const double circleGap = 8;
+
+  /// Height of the set row; the paused placeholder takes exactly this.
+  static const double setRowHeight = 52;
 
   bool get _allCompleted => tapped.every((t) => t);
 
@@ -64,18 +74,24 @@ class ExerciseTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final status = Theme.of(context).extension<AppStatusColors>()!;
+    final paused = state.isPausedAt(DateTime.now());
     var headerColor = colorScheme.surfaceContainerHigh;
-    if (_allCompleted) {
+    // A paused card never turns green/red: its taps no longer count.
+    if (_allCompleted && !paused) {
       headerColor = _allSucceeded ? status.success : colorScheme.error;
     }
     // A filled success/danger card needs on-fill text throughout (tokens.md:
     // one on-fill value for all four fills, never a per-fill judgment call).
-    final onHeader = _allCompleted
-        ? colorScheme.onPrimary
-        : colorScheme.onSurface;
-    final onHeaderMuted = _allCompleted
+    final filled = _allCompleted && !paused;
+    final onHeaderMuted = filled
         ? colorScheme.onPrimary
         : colorScheme.onSurfaceVariant;
+    // Paused: the whole header recedes to the muted ink.
+    final onHeader = filled
+        ? colorScheme.onPrimary
+        : paused
+        ? onHeaderMuted
+        : colorScheme.onSurface;
 
     return Card(
       color: headerColor,
@@ -89,6 +105,8 @@ class ExerciseTile extends StatelessWidget {
                 Expanded(
                   child: Text(
                     exercise.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: onHeader,
                       fontWeight: FontWeight.bold,
@@ -96,6 +114,13 @@ class ExerciseTile extends StatelessWidget {
                     ),
                   ),
                 ),
+                const SizedBox(width: 6),
+                _ModeChip(
+                  state: state,
+                  color: onHeaderMuted,
+                  onTap: () => showExerciseSettings(context),
+                ),
+                const SizedBox(width: 8),
                 Text(
                   '${exercise.sets}×${exercise.reps}×${exercise.weight}kg',
                   style: TextStyle(
@@ -106,40 +131,53 @@ class ExerciseTile extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            if (exercise.hasWarmup) ...[
-              _WarmupRow(
-                warmupWeight: exercise.warmupWeight,
-                tapped: warmupTapped,
-                onTap: onTapWarmup,
+            // A Row, not a Wrap: a set row that spilled onto a second line
+            // would change the tile's height, and a Row overflowing fails
+            // loudly in tests instead.
+            if (paused)
+              _PausedRow(until: state.pausedUntil!, color: onHeaderMuted)
+            else
+              Row(
+                children: [
+                  Visibility(
+                    visible: state.hasWarmup,
+                    maintainSize: true,
+                    maintainAnimation: true,
+                    maintainState: true,
+                    child: _WarmupCircle(
+                      semanticLabel: '${exercise.name} warmup',
+                      warmupWeight: exercise.warmupWeight,
+                      tapped: warmupTapped,
+                      onTap: onTapWarmup,
+                    ),
+                  ),
+                  for (var s = 0; s < exercise.sets; s++) ...[
+                    const SizedBox(width: circleGap),
+                    RepCircle(
+                      semanticLabel: '${exercise.name} set ${s + 1}',
+                      targetReps: exercise.reps,
+                      doneReps: doneReps[s],
+                      tapped: tapped[s],
+                      onTap: () => onTapCircle(s),
+                      onLongPress: () => onLongPressCircle(s),
+                    ),
+                  ],
+                ],
               ),
-              const SizedBox(height: 10),
-            ],
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: List.generate(
-                exercise.sets,
-                (s) => RepCircle(
-                  semanticLabel: '${exercise.name} set ${s + 1}',
-                  targetReps: exercise.reps,
-                  doneReps: doneReps[s],
-                  tapped: tapped[s],
-                  onTap: () => onTapCircle(s),
-                  onLongPress: () => onLongPressCircle(s),
-                ),
-              ),
-            ),
             // Color inherited from the shared dividerTheme (line-dark).
             const Divider(height: 20),
-            _ThresholdRow(
-              successThreshold: successThreshold,
-              failThreshold: failThreshold,
-              onSuccessChanged: (v) => onThresholdChanged(v, failThreshold),
-              onFailChanged: (v) => onThresholdChanged(successThreshold, v),
-            ),
+            _ProgressRow(state: state, onFill: filled),
           ],
         ),
       ),
     );
   }
+
+  /// Opens the settings sheet for this exercise.
+  Future<void> showExerciseSettings(BuildContext context) =>
+      showExerciseSettingsSheet(
+        context,
+        state: state,
+        onChanged: onSettingsChanged,
+      );
 }

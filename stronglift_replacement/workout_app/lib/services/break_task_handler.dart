@@ -175,11 +175,7 @@ class BreakTaskHandler {
   /// The UI overwrites this with the truth as soon as it drains the queue —
   /// but it may be dead, and a button that visibly does nothing reads as
   /// broken. Only the fields the press certainly changes are moved.
-  BreakSnapshot _predict(
-    BreakIntentKind kind,
-    BreakSnapshot s,
-    DateTime now,
-  ) {
+  BreakSnapshot _predict(BreakIntentKind kind, BreakSnapshot s, DateTime now) {
     switch (kind) {
       case BreakIntentKind.skipBreak:
         return s.copyWith(breakEndMs: 0);
@@ -200,7 +196,7 @@ class BreakTaskHandler {
         return s.copyWith(
           breakEndMs: clock.endTime.millisecondsSinceEpoch,
           breakDurationSecs: failSecs,
-          breakLabel: 'Rest (5 min — keep going!)',
+          breakLabel: 'Rest',
         );
     }
   }

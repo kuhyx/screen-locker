@@ -123,12 +123,13 @@ void main() {
 
   testWidgets('− 1 rep stretches the rest from 3 minutes to 5', (tester) async {
     await pump(tester, saved: savedWithBreak(170));
-    expect(find.textContaining('well done'), findsOneWidget);
+    expect(restSecs(tester), lessThanOrEqualTo(170));
 
     await seed([(BreakIntentKind.minusRep, 0, 0)]);
     await nudge(tester);
 
-    expect(find.textContaining('keep going'), findsOneWidget);
+    // Re-cut to 300 from the same start: 10 s in, so about 290 left.
+    expect(restSecs(tester), inInclusiveRange(280, 290));
     expect(lastPushed().breakDurationSecs, 300);
   });
 

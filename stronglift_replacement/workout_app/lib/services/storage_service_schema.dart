@@ -6,7 +6,6 @@ part of 'storage_service.dart';
 
 /// Schema creation, migration, and seeding.
 extension StorageServiceSchema on StorageService {
-
   Future<void> _createSchema(Database db, int version) async {
     await db.execute('''
       CREATE TABLE exercise_state (
@@ -17,7 +16,12 @@ extension StorageServiceSchema on StorageService {
         fail_streak INTEGER NOT NULL DEFAULT 0,
         max_weight REAL NOT NULL,
         success_threshold INTEGER NOT NULL DEFAULT 3,
-        fail_threshold INTEGER NOT NULL DEFAULT 2
+        fail_threshold INTEGER NOT NULL DEFAULT 2,
+        progression_mode TEXT NOT NULL DEFAULT 'weight',
+        reps_high INTEGER NOT NULL DEFAULT $kDefaultRepsHigh,
+        reps_low INTEGER NOT NULL DEFAULT $kDefaultRepsLow,
+        has_warmup INTEGER,
+        paused_until TEXT
       )
     ''');
     await db.execute('''
@@ -69,6 +73,24 @@ extension StorageServiceSchema on StorageService {
         '(id INTEGER PRIMARY KEY CHECK (id = 1), json TEXT NOT NULL)',
       );
     }
+    if (oldVersion < 4) {
+      // has_warmup is left NULL: that reads as the plan's default (see
+      // planHasWarmup), so existing rows keep exactly the warmups they had.
+      for (final column in [
+        "progression_mode TEXT NOT NULL DEFAULT 'weight'",
+        'reps_high INTEGER NOT NULL DEFAULT $kDefaultRepsHigh',
+        'reps_low INTEGER NOT NULL DEFAULT $kDefaultRepsLow',
+        'has_warmup INTEGER',
+      ]) {
+        await db.execute('ALTER TABLE exercise_state ADD COLUMN $column');
+      }
+    }
+    if (oldVersion < 5) {
+      // NULL = not paused.
+      await db.execute(
+        'ALTER TABLE exercise_state ADD COLUMN paused_until TEXT',
+      );
+    }
   }
 
   Future<void> _seedDefaultsIfNeeded() async {
@@ -88,6 +110,10 @@ extension StorageServiceSchema on StorageService {
           'max_weight': ex.maxWeight,
           'success_threshold': 3,
           'fail_threshold': 2,
+          'progression_mode': ProgressionMode.weight.storageKey,
+          'reps_high': kDefaultRepsHigh,
+          'reps_low': kDefaultRepsLow,
+          'has_warmup': ex.hasWarmup ? 1 : 0,
         });
       }
     }
@@ -107,5 +133,4 @@ extension StorageServiceSchema on StorageService {
   // coverage:ignore-end
 
   // ── Settings ───────────────────────────────────────────────────────────────
-
 }

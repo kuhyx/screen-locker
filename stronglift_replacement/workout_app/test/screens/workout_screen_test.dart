@@ -35,9 +35,16 @@ void main() {
     installFakeAudioPlatform();
   });
 
-  testWidgets('shows Workout A in app bar', (tester) async {
+  testWidgets('has no app bar: no workout type, no elapsed clock', (
+    tester,
+  ) async {
+    // Dropped 2026-09-27 for room: Reset/Finish live in the rest strip.
     await pumpWorkout(tester, wrapWorkout());
-    expect(find.textContaining('Workout A'), findsOneWidget);
+    expect(find.byType(AppBar), findsNothing);
+    expect(find.textContaining('Workout A'), findsNothing);
+    // The strip's idle countdown is the only 00:00 on screen.
+    expect(find.text('00:00'), findsOneWidget);
+    expect(find.byType(SafeArea), findsWidgets);
   });
 
   testWidgets('shows exercise tiles for all exercises', (tester) async {
@@ -127,17 +134,5 @@ void main() {
     expect(find.text('Finish workout?'), findsOneWidget);
     await tester.tap(find.text('Cancel'));
     await tester.pump();
-  });
-
-  testWidgets('elapsed timer shows time in app bar', (tester) async {
-    await pumpWorkout(tester, wrapWorkout());
-    // The idle rest strip shows 00:00 too; the app bar's clock carries the
-    // workout type in the same string.
-    expect(find.textContaining('Workout A  ·  00:00'), findsOneWidget);
-  });
-
-  testWidgets('B workout type shows in app bar', (tester) async {
-    await pumpWorkout(tester, wrapWorkout(type: 'B'));
-    expect(find.textContaining('Workout B'), findsOneWidget);
   });
 }

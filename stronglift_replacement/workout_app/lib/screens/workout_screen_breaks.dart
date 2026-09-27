@@ -1,4 +1,4 @@
-// Rest-period timers and per-exercise threshold edits.
+// Rest-period timers and per-exercise settings edits.
 //
 // See workout_screen_session.dart for why this is a `part`. `setState` is
 // `@protected` and unreachable from an extension, so these mutate through the
@@ -86,16 +86,30 @@ extension _WorkoutScreenBreaks on _WorkoutScreenState {
     unawaited(_saveActiveSession());
   }
 
-  Future<void> _onThresholdChanged(String name, int success, int fail) async {
-    await StorageService.instance.setExerciseThresholds(
-      name,
-      successThreshold: success,
-      failThreshold: fail,
-    );
-    if (mounted) {
-      _applyBreakState(() {
-        _writeThresholds(name, success, fail);
-      });
+  /// Persists an edit from an exercise's settings sheet and shows it.
+  ///
+  /// Turning a warmup off while its own rest is running ends that rest: the
+  /// user just said the warmup is not part of this exercise any more.
+  /// Pausing the exercise ends any rest of it, for the same reason.
+  Future<void> _onSettingsChanged(ExerciseState updated) async {
+    SandboxLog.event('exercise settings', {
+      'exercise': updated.name,
+      'mode': updated.mode.storageKey,
+      'repsHigh': updated.repsHigh,
+      'repsLow': updated.repsLow,
+      'warmup': updated.hasWarmup,
+      'pausedUntil': updated.pausedUntil?.toIso8601String(),
+    });
+    await StorageService.instance.setExerciseSettings(updated);
+    if (!mounted) return;
+    _applyBreakState(() => _exerciseStates[updated.name] = updated);
+    final exIdx = widget.exercises.indexWhere((e) => e.name == updated.name);
+    final paused = updated.isPausedAt(DateTime.now());
+    final warmupRestGone = !updated.hasWarmup && _breakForSetIdx == -1;
+    if (_inBreak && _breakForExIdx == exIdx && (paused || warmupRestGone)) {
+      _cancelBreak();
     }
+    // Always: a pause changes the notification's "sets left" and next set.
+    unawaited(_saveActiveSession());
   }
 }

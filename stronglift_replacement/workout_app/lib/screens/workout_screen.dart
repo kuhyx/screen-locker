@@ -31,7 +31,6 @@ import 'package:workout_app/widgets/break_banner.dart';
 import 'package:workout_app/widgets/exercise_tile.dart';
 import 'package:workout_app/widgets/workout_summary_dialog.dart';
 
-part 'workout_screen_appbar.dart';
 part 'workout_screen_body.dart';
 part 'workout_screen_breaks.dart';
 part 'workout_screen_dialogs.dart';
@@ -74,8 +73,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   late List<List<int>> _doneReps;
   late List<bool> _warmupTapped;
   late DateTime _startTime;
-  late Timer _elapsedTimer;
-  Duration _elapsed = Duration.zero;
 
   Map<String, ExerciseState> _exerciseStates = {};
 
@@ -112,9 +109,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     } else {
       _initFresh();
     }
-    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() => _elapsed = DateTime.now().difference(_startTime));
-    });
     // Coming back to the foreground is the one moment the countdown is
     // guaranteed to be stale: ticks stop while the app is away, and the clock
     // has to be re-read before the user sees a frame.
@@ -149,12 +143,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       setState(() {
         _exerciseStates = {for (final s in states) s.name: s};
       });
+      // The first snapshot can go out before this load lands, and it would
+      // count a paused exercise's sets until the next tap. A no-op if the
+      // service has not started yet: start() builds its own, current one.
+      unawaited(_breaks.push(_buildSnapshot()));
     }
   }
 
   @override
   void dispose() {
-    _elapsedTimer.cancel();
     _breakTimer?.cancel();
     _lifecycle.dispose();
     // Deliberately NOT stopping the break service here. The back button pops
@@ -175,7 +172,21 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
-  bool get _allSetsCompleted => _tapped.every((row) => row.every((t) => t));
+  /// Every set recorded, not counting paused exercises: those have no sets
+  /// to tap and are recorded as failed at Finish.
+  bool get _allSetsCompleted {
+    for (var i = 0; i < _tapped.length; i++) {
+      if (!_isPaused(i) && !_tapped[i].every((t) => t)) return false;
+    }
+    return true;
+  }
+
+  /// Whether exercise [exIdx] is on an injury pause right now.
+  bool _isPaused(int exIdx) =>
+      _exerciseStates[widget.exercises[exIdx].name]?.isPausedAt(
+        DateTime.now(),
+      ) ??
+      false;
 
   /// Runs [fn] inside `setState` on behalf of this library's extensions.
   ///
@@ -193,7 +204,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   /// called from an extension, so the rest is in [_persistFinishedWorkout].
   Future<void> _finishWorkout() async {
     SandboxLog.event('workout finish', {'type': widget.workoutType});
-    _elapsedTimer.cancel();
     _breakTimer?.cancel();
     // Before the state flips: the service must not outlive the workout, and
     // with stopWithTask="false" nothing else will ever stop it.
@@ -212,30 +222,30 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       // finish, so the route is pinned until the workout is finished or reset.
       // Outside lock mode the back button behaves exactly as it always has.
       canPop: !lockModeEnabled,
+      // No app bar (2026-09-27): the workout type and clock were not worth
+      // their height, and Reset/Finish now live in the rest strip. SafeArea
+      // keeps that strip out from under the status bar the app bar used to
+      // pad away.
       child: Scaffold(
-        appBar: _WorkoutAppBar(
-          title:
-              'Workout ${widget.workoutType}  ·  ${_formatDuration(_elapsed)}',
-          finished: _finished,
-          allSetsCompleted: _allSetsCompleted,
-          onReset: () => unawaited(_confirmReset()),
-          onFinish: () => unawaited(_confirmFinish()),
-        ),
-        body: _WorkoutBody(
-          exercises: widget.exercises,
-          exerciseStates: _exerciseStates,
-          tapped: _tapped,
-          doneReps: _doneReps,
-          warmupTapped: _warmupTapped,
-          inBreak: _inBreak,
-          breakRemaining: _breakRemaining,
-          breakLabel: _breakLabel,
-          onSkipBreak: _skipBreak,
-          onTapCircle: _tapCircle,
-          onLongPressCircle: _resetCircle,
-          onTapWarmup: _tapWarmup,
-          onThresholdChanged: (name, success, fail) =>
-              unawaited(_onThresholdChanged(name, success, fail)),
+        body: SafeArea(
+          child: _WorkoutBody(
+            exercises: widget.exercises,
+            exerciseStates: _exerciseStates,
+            tapped: _tapped,
+            doneReps: _doneReps,
+            warmupTapped: _warmupTapped,
+            inBreak: _inBreak,
+            breakRemaining: _breakRemaining,
+            finished: _finished,
+            allSetsCompleted: _allSetsCompleted,
+            onSkipBreak: _skipBreak,
+            onReset: () => unawaited(_confirmReset()),
+            onFinish: () => unawaited(_confirmFinish()),
+            onTapCircle: _tapCircle,
+            onLongPressCircle: _resetCircle,
+            onTapWarmup: _tapWarmup,
+            onSettingsChanged: (s) => unawaited(_onSettingsChanged(s)),
+          ),
         ),
       ),
     );

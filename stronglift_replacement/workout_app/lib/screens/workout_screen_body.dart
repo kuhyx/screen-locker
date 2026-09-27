@@ -22,19 +22,22 @@ class _WorkoutBody extends StatelessWidget {
     required this.warmupTapped,
     required this.inBreak,
     required this.breakRemaining,
-    required this.breakLabel,
+    required this.finished,
+    required this.allSetsCompleted,
     required this.onSkipBreak,
+    required this.onReset,
+    required this.onFinish,
     required this.onTapCircle,
     required this.onLongPressCircle,
     required this.onTapWarmup,
-    required this.onThresholdChanged,
+    required this.onSettingsChanged,
   });
 
   /// The exercises in this session, in display order.
   final List<Exercise> exercises;
 
-  /// Progression state per exercise name; a missing entry falls back to
-  /// the tile's default thresholds.
+  /// Progression state per exercise name; a missing entry (not loaded yet)
+  /// falls back to [ExerciseState.initial] for this session's targets.
   final Map<String, ExerciseState> exerciseStates;
 
   /// Per-exercise, per-set completion flags.
@@ -52,11 +55,20 @@ class _WorkoutBody extends StatelessWidget {
   /// Seconds left in the current rest period.
   final int breakRemaining;
 
-  /// Human-readable label for the current rest period.
-  final String breakLabel;
+  /// Whether the workout is over; hides Reset and Finish.
+  final bool finished;
+
+  /// Whether every set is recorded; enables Finish.
+  final bool allSetsCompleted;
 
   /// Invoked when the user skips the rest period.
   final VoidCallback onSkipBreak;
+
+  /// Invoked when the user taps Reset.
+  final VoidCallback onReset;
+
+  /// Invoked when the user taps Finish.
+  final VoidCallback onFinish;
 
   /// Invoked with (exerciseIndex, setIndex) when a set circle is tapped.
   final void Function(int exIdx, int setIdx) onTapCircle;
@@ -67,8 +79,8 @@ class _WorkoutBody extends StatelessWidget {
   /// Invoked with the exercise index when its warmup is tapped.
   final void Function(int exIdx) onTapWarmup;
 
-  /// Invoked with (exerciseName, successThreshold, failThreshold) on edit.
-  final void Function(String name, int success, int fail) onThresholdChanged;
+  /// Invoked with the edited state after every settings-sheet change.
+  final ValueChanged<ExerciseState> onSettingsChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -77,8 +89,11 @@ class _WorkoutBody extends StatelessWidget {
         BreakBanner(
           active: inBreak,
           breakRemaining: breakRemaining,
-          breakLabel: inBreak ? breakLabel : 'Rest',
           onSkip: onSkipBreak,
+          finished: finished,
+          canFinish: allSetsCompleted,
+          onReset: onReset,
+          onFinish: onFinish,
         ),
         Expanded(
           child: LayoutBuilder(
@@ -108,20 +123,17 @@ class _WorkoutBody extends StatelessWidget {
   }
 
   Widget _tile(int i) {
-    final exName = exercises[i].name;
-    final state = exerciseStates[exName];
+    final ex = exercises[i];
     return ExerciseTile(
-      exercise: exercises[i],
+      exercise: ex,
+      state: exerciseStates[ex.name] ?? ExerciseState.initial(ex),
       tapped: tapped[i],
       doneReps: doneReps[i],
       warmupTapped: warmupTapped[i],
-      successThreshold: state?.successThreshold ?? 3,
-      failThreshold: state?.failThreshold ?? 2,
       onTapCircle: (s) => onTapCircle(i, s),
       onLongPressCircle: (s) => onLongPressCircle(i, s),
       onTapWarmup: () => onTapWarmup(i),
-      onThresholdChanged: (success, fail) =>
-          onThresholdChanged(exName, success, fail),
+      onSettingsChanged: onSettingsChanged,
     );
   }
 }

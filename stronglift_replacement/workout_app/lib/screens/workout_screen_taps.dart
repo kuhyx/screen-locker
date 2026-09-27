@@ -52,7 +52,7 @@ extension _WorkoutScreenTaps on _WorkoutScreenState {
     if (_finished || _warmupTapped[exIdx]) return;
     _applyBreakState(() => _warmupTapped[exIdx] = true);
     if (!_inBreak) {
-      _startBreak(_warmupBreakSecs, 'Warmup rest (3 min)', exIdx, -1);
+      _startBreak(_warmupBreakSecs, 'Warmup rest', exIdx, -1);
     }
     unawaited(_saveActiveSession(toFirebase: true));
   }

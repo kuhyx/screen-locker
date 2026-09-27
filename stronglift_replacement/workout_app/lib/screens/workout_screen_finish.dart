@@ -5,7 +5,6 @@ part of 'workout_screen.dart';
 
 /// The write-everything step that runs once a workout is marked finished.
 extension _WorkoutScreenFinish on _WorkoutScreenState {
-
   /// Writes the finished session, applies progression, and shows the summary.
   ///
   /// Called by [_WorkoutScreenState._finishWorkout], which owns the `setState`
@@ -16,15 +15,19 @@ extension _WorkoutScreenFinish on _WorkoutScreenState {
 
     for (var i = 0; i < widget.exercises.length; i++) {
       final ex = widget.exercises[i];
+      // A paused exercise is recorded as FAILED every time, whatever was
+      // tapped before the pause: the user asked for it to step down while
+      // they are injured, not to come back at the load it left with.
+      final paused = _isPaused(i);
       results.add(
         ExerciseResult(
           exercise: ex,
-          warmupDone: _warmupTapped[i],
+          warmupDone: !paused && _warmupTapped[i],
           sets: List.generate(
             ex.sets,
             (s) => SetResult(
               targetReps: ex.reps,
-              doneReps: _tapped[i][s] ? _doneReps[i][s] : 0,
+              doneReps: !paused && _tapped[i][s] ? _doneReps[i][s] : 0,
               weight: ex.weight,
             ),
           ),
@@ -100,10 +103,8 @@ extension _WorkoutScreenFinish on _WorkoutScreenState {
       showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (_) => WorkoutSummaryDialog(
-          session: session,
-          syncResult: syncResult,
-        ),
+        builder: (_) =>
+            WorkoutSummaryDialog(session: session, syncResult: syncResult),
       ),
     );
   }

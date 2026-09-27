@@ -140,9 +140,7 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
     if (newDuration == clock.durationSecs) return;
 
     _breakClock = clock.withDuration(newDuration);
-    _breakLabel = Sandbox.restLabel(
-      succeeded ? 'Rest (3 min — well done!)' : 'Rest (5 min — keep going!)',
-    );
+    _breakLabel = Sandbox.restLabel('Rest');
   }
 
   /// True when [setIdx] is the last untapped set of exercise [exIdx].
@@ -162,8 +160,8 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
     if (_isLastSetOfExercise(exIdx, setIdx)) return null;
     final succeeded = _doneReps[exIdx][setIdx] >= widget.exercises[exIdx].reps;
     return succeeded
-        ? const _Rest(_successBreakSecs, 'Rest (3 min — well done!)')
-        : const _Rest(_failBreakSecs, 'Rest (5 min — keep going!)');
+        ? const _Rest(_successBreakSecs, 'Rest')
+        : const _Rest(_failBreakSecs, 'Rest');
   }
 
   /// Plays the sound and haptic that tell the user the rest period is over.
@@ -185,39 +183,12 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
     }
   }
 
-  /// Rewrites [name]'s thresholds in `_exerciseStates`, in place.
-  ///
-  /// A no-op when the screen holds no state for [name], so editing an unloaded
-  /// exercise cannot insert a half-built entry.
-  void _writeThresholds(String name, int success, int fail) {
-    final s = _exerciseStates[name];
-    if (s != null) {
-      _exerciseStates[name] = ExerciseState(
-        name: s.name,
-        weight: s.weight,
-        reps: s.reps,
-        successStreak: s.successStreak,
-        failStreak: s.failStreak,
-        maxWeight: s.maxWeight,
-        successThreshold: success,
-        failThreshold: fail,
-      );
-    }
-  }
-
   /// Ends the break early at the user's request and re-persists the session.
   void _skipBreak() {
     SandboxLog.event('break skip');
     _cancelBreak();
     unawaited(_saveActiveSession());
   }
-}
-
-/// Formats [d] as `h:mm:ss`, dropping the hours part under an hour.
-String _formatDuration(Duration d) {
-  final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-  final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-  return '${d.inHours > 0 ? '${d.inHours}:' : ''}$m:$s';
 }
 
 /// A rest period's duration and the label shown on the break banner.
@@ -227,6 +198,6 @@ class _Rest {
   /// How long the rest lasts.
   final int seconds;
 
-  /// Banner text explaining why this rest length was chosen.
+  /// Notification text for this rest.
   final String label;
 }

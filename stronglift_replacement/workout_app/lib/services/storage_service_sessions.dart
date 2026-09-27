@@ -9,6 +9,10 @@ part of 'storage_service.dart';
 /// Progression application and session recording.
 extension StorageServiceSessions on StorageService {
   /// Applies progressive overload or regression based on [succeededExercises].
+  ///
+  /// The step itself comes from [targetAfterSuccess] / [targetAfterFailure],
+  /// the same functions the workout screen previews with, so what the tile
+  /// promises is what finishing does.
   Future<void> applyProgression({
     required Map<String, bool> succeededExercises,
     required DateTime lastWorkoutDate,
@@ -20,66 +24,47 @@ extension StorageServiceSessions on StorageService {
       final state = await getExerciseState(entry.key);
       if (state == null) continue;
 
+      final Map<String, Object> update;
       if (hadBreak) {
-        final newWeight = (state.weight - kWeightIncrement).clamp(
-          0.0,
-          state.maxWeight,
-        );
-        await _db.update(
-          'exercise_state',
-          {'weight': newWeight, 'success_streak': 0, 'fail_streak': 0},
-          where: 'name = ?',
-          whereArgs: [entry.key],
-        );
-        continue;
-      }
-
-      if (entry.value) {
+        // A week off is one regression step, in whatever mode is active.
+        final t = targetAfterFailure(state);
+        update = {
+          'weight': t.weight,
+          'reps': t.reps,
+          'success_streak': 0,
+          'fail_streak': 0,
+        };
+      } else if (entry.value) {
         final newStreak = state.successStreak + 1;
-        final shouldProgress = newStreak >= state.successThreshold;
-        var newWeight = state.weight;
-        var newReps = state.reps;
-
-        if (shouldProgress) {
-          if (state.weight >= state.maxWeight) {
-            newReps = state.reps + 1;
-          } else {
-            newWeight = (state.weight + kWeightIncrement).clamp(
-              0.0,
-              state.maxWeight,
-            );
-          }
-        }
-
-        await _db.update(
-          'exercise_state',
-          {
-            'weight': newWeight,
-            'reps': newReps,
-            'success_streak': shouldProgress ? 0 : newStreak,
-            'fail_streak': 0,
-          },
-          where: 'name = ?',
-          whereArgs: [entry.key],
-        );
+        final step = newStreak >= state.successThreshold;
+        final t = step
+            ? targetAfterSuccess(state)
+            : ProgressionTarget(state.weight, state.reps);
+        update = {
+          'weight': t.weight,
+          'reps': t.reps,
+          'success_streak': step ? 0 : newStreak,
+          'fail_streak': 0,
+        };
       } else {
         final newStreak = state.failStreak + 1;
-        final shouldRegress = newStreak >= state.failThreshold;
-        final newWeight = shouldRegress
-            ? (state.weight - kWeightIncrement).clamp(0.0, state.maxWeight)
-            : state.weight;
-
-        await _db.update(
-          'exercise_state',
-          {
-            'weight': newWeight,
-            'fail_streak': shouldRegress ? 0 : newStreak,
-            'success_streak': 0,
-          },
-          where: 'name = ?',
-          whereArgs: [entry.key],
-        );
+        final step = newStreak >= state.failThreshold;
+        final t = step
+            ? targetAfterFailure(state)
+            : ProgressionTarget(state.weight, state.reps);
+        update = {
+          'weight': t.weight,
+          'reps': t.reps,
+          'fail_streak': step ? 0 : newStreak,
+          'success_streak': 0,
+        };
       }
+      await _db.update(
+        'exercise_state',
+        update,
+        where: 'name = ?',
+        whereArgs: [entry.key],
+      );
     }
   }
 
@@ -124,9 +109,7 @@ extension StorageServiceSessions on StorageService {
   /// engine acted on.
   ///
   /// Returns the number of sessions restored.
-  Future<int> restoreSyncedSessions(
-    List<Map<String, dynamic>> payloads,
-  ) async {
+  Future<int> restoreSyncedSessions(List<Map<String, dynamic>> payloads) async {
     if (payloads.isEmpty) return 0;
     final existing = await _db.query('workout_history', columns: ['json']);
     final seen = <String>{

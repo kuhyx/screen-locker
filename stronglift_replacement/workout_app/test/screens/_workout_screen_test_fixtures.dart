@@ -112,3 +112,9 @@ Future<void> longPressReal(WidgetTester tester, Finder f) async {
 /// no longer says anything; `active` is the discriminator.
 bool restRunning(WidgetTester tester) =>
     tester.widget<BreakBanner>(find.byType(BreakBanner)).active;
+
+/// Seconds left on the rest strip. The strip carries no label any more, so
+/// "which rest is this" is read from the length: a success or warmup rest
+/// starts at 180, a failed set's at 300.
+int restSecs(WidgetTester tester) =>
+    tester.widget<BreakBanner>(find.byType(BreakBanner)).breakRemaining;

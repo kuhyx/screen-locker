@@ -11,7 +11,6 @@ import 'dart:math';
 import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/workout_sync_service.dart';
 import 'package:workout_app/ui/theme.dart';
@@ -143,10 +142,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: colorScheme.surfaceContainerHigh,
-        title: Text(
-          'Progress',
-          style: TextStyle(color: colorScheme.onSurface),
-        ),
+        title: Text('Progress', style: TextStyle(color: colorScheme.onSurface)),
         iconTheme: IconThemeData(color: colorScheme.onSurface),
       ),
       body: _loading
@@ -179,9 +175,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   List<Widget> _buildTotalView() => [
     const _SectionLabel('TOTAL VOLUME (2-session rolling avg, kg)'),
     const SizedBox(height: 6),
-    _WeightChart(
-      points: _rollingAvg2(_totalVolumePoints(_rows)),
-    ),
+    _WeightChart(points: _rollingAvg2(_totalVolumePoints(_rows))),
     const SizedBox(height: 16),
     WorkoutCalendar(
       workoutDates: _allWorkoutDates(_rows, _syncedRows),
@@ -218,9 +212,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     ],
     const _SectionLabel('WEIGHT OVER TIME'),
     const SizedBox(height: 6),
-    _WeightChart(
-      points: _exerciseWeightPoints(_rows, name),
-    ),
+    _WeightChart(points: _exerciseWeightPoints(_rows, name)),
     const SizedBox(height: 16),
     WorkoutCalendar(
       workoutDates: _exerciseDates(_rows, name),

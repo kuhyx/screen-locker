@@ -93,7 +93,7 @@ class BreakSnapshot {
   /// Full length of the running rest, for the countdown's denominator.
   final int breakDurationSecs;
 
-  /// Human label of the running rest, e.g. 'Rest (3 min — well done!)'.
+  /// Human label of the running rest, e.g. 'Rest' or 'Warmup rest'.
   final String breakLabel;
 
   /// Exercise the running rest belongs to, or -1.

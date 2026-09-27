@@ -51,8 +51,8 @@ void main() {
     await pumpWorkout(tester, wrapWorkout());
     await tapReal(tester, find.byType(RepCircle).first);
     expect(restRunning(tester), isTrue);
-    // Success break (5 done >= 5 target).
-    expect(find.textContaining('well done'), findsOneWidget);
+    // Success break (5 done >= 5 target): the 3-minute rest.
+    expect(restSecs(tester), inInclusiveRange(175, 180));
 
     await tapReal(tester, find.text('Skip'));
     expect(restRunning(tester), isFalse);
@@ -60,8 +60,9 @@ void main() {
 
   testWidgets('tapping warmup starts a warmup break', (tester) async {
     await pumpWorkout(tester, wrapWorkout());
-    await tapReal(tester, find.byIcon(Icons.fitness_center).first);
-    expect(find.textContaining('Warmup rest'), findsOneWidget);
+    await tapReal(tester, find.bySemanticsLabel(RegExp(r' warmup$')).first);
+    expect(restRunning(tester), isTrue);
+    expect(restSecs(tester), inInclusiveRange(175, 180));
   });
 
   testWidgets('re-tapping a set decrements reps and recomputes the break', (
@@ -70,10 +71,10 @@ void main() {
     await pumpWorkout(tester, wrapWorkout());
     final circle = find.byType(RepCircle).first;
     await tapReal(tester, circle); // done=5 -> success break
-    expect(find.textContaining('well done'), findsOneWidget);
+    expect(restSecs(tester), inInclusiveRange(175, 180));
 
     await tapReal(tester, circle); // done 5 -> 4, below target -> fail break
-    expect(find.textContaining('keep going'), findsOneWidget);
+    expect(restSecs(tester), inInclusiveRange(295, 300));
   });
 
   testWidgets('long-pressing a set resets it and cancels its break', (
@@ -152,18 +153,20 @@ void main() {
   testWidgets('changing a threshold in the workout persists it', (
     tester,
   ) async {
-    // A real exercise has a progression-state row, so _onThresholdChanged's
-    // state-update branch runs (and the write actually lands).
+    // A real exercise has a progression-state row, so the settings write
+    // actually lands.
     final name = workoutA.first.name;
     await pumpWorkout(tester, wrapWorkout(exercises: [workoutA.first]));
 
-    // The success stepper's "+" is the first Icons.add in the single tile.
-    await tapReal(tester, find.byIcon(Icons.add).first);
+    await tapReal(tester, find.bySemanticsLabel('$name progression settings'));
+    await tester.pumpAndSettle();
+    await tapReal(tester, find.bySemanticsLabel('Wins needed up'));
 
     final state = await tester.runAsync(
       () => StorageService.instance.getExerciseState(name),
     );
     expect(state!.successThreshold, 4); // default 3 -> +1
+    expect(find.textContaining('0/4'), findsOneWidget);
   });
 
   testWidgets('restores an in-progress break and finishes it', (tester) async {

@@ -17,8 +17,9 @@ extension StorageServiceExercises on StorageService {
     );
     if (rows.isEmpty) return null;
     final r = rows.first;
+    final warmup = r['has_warmup'] as int?;
     return ExerciseState(
-      name: r['name']! as String,
+      name: name,
       weight: r['weight']! as double,
       reps: r['reps']! as int,
       successStreak: r['success_streak']! as int,
@@ -26,6 +27,11 @@ extension StorageServiceExercises on StorageService {
       maxWeight: r['max_weight']! as double,
       successThreshold: r['success_threshold'] as int? ?? 3,
       failThreshold: r['fail_threshold'] as int? ?? 2,
+      mode: ProgressionMode.parse(r['progression_mode']),
+      repsHigh: r['reps_high'] as int? ?? kDefaultRepsHigh,
+      repsLow: r['reps_low'] as int? ?? kDefaultRepsLow,
+      hasWarmup: warmup == null ? planHasWarmup(name) : warmup != 0,
+      pausedUntil: parsePauseDate(r['paused_until']),
     );
   }
 
@@ -48,13 +54,39 @@ extension StorageServiceExercises on StorageService {
   }) async {
     await _db.update(
       'exercise_state',
-      {
-        'success_threshold': successThreshold,
-        'fail_threshold': failThreshold,
-      },
+      {'success_threshold': successThreshold, 'fail_threshold': failThreshold},
       where: 'name = ?',
       whereArgs: [name],
     );
+  }
+
+  /// Updates how [state]'s exercise progresses and whether it warms up.
+  ///
+  /// Streaks are kept: they count workouts, not a mode, and switching mode
+  /// mid-streak should not cost the user the sessions already banked. The
+  /// current weight and reps are untouched too — the new mode takes effect
+  /// at the next finished workout.
+  Future<void> setExerciseSettings(ExerciseState state) async {
+    await _db.update(
+      'exercise_state',
+      {
+        'success_threshold': state.successThreshold,
+        'fail_threshold': state.failThreshold,
+        'progression_mode': state.mode.storageKey,
+        'reps_high': state.repsHigh,
+        'reps_low': state.repsLow,
+        'has_warmup': state.hasWarmup ? 1 : 0,
+        'paused_until': _pauseColumn(state),
+      },
+      where: 'name = ?',
+      whereArgs: [state.name],
+    );
+    unawaited(_backupNow());
+  }
+
+  String? _pauseColumn(ExerciseState s) {
+    final until = s.pausedUntil;
+    return until == null ? null : formatPauseDate(until);
   }
 
   /// Sets the target reps for [name], resetting streaks.
@@ -94,6 +126,11 @@ extension StorageServiceExercises on StorageService {
       'max_weight': state.maxWeight,
       'success_threshold': state.successThreshold,
       'fail_threshold': state.failThreshold,
+      'progression_mode': state.mode.storageKey,
+      'reps_high': state.repsHigh,
+      'reps_low': state.repsLow,
+      'has_warmup': state.hasWarmup ? 1 : 0,
+      'paused_until': _pauseColumn(state),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
@@ -121,7 +158,13 @@ extension StorageServiceExercises on StorageService {
         result.add(ex);
         // coverage:ignore-end
       } else {
-        result.add(ex.copyWith(weight: state.weight, reps: state.reps));
+        result.add(
+          ex.copyWith(
+            weight: state.weight,
+            reps: state.reps,
+            hasWarmup: state.hasWarmup,
+          ),
+        );
       }
     }
     return result;

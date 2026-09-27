@@ -161,7 +161,8 @@ void main() {
 
       final s = handler.snapshot!;
       expect(s.breakDurationSecs, 300);
-      expect(s.breakLabel, contains('5 min'));
+      // No "5 min — keep going!" any more: the countdown says it.
+      expect(s.breakLabel, 'Rest');
       // Re-cut from the original start: 60s in, so 240s left of 300.
       expect(
         DateTime.fromMillisecondsSinceEpoch(s.breakEndMs)

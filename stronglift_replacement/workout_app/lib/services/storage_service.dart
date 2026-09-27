@@ -9,54 +9,22 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:workout_app/models/exercise.dart';
+import 'package:workout_app/models/exercise_state.dart';
+import 'package:workout_app/models/progression.dart';
 import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/services/backup_service.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
+
+// Re-exported: ExerciseState was defined here until it moved to models/, and
+// every caller still reaches it through this import.
+export 'package:workout_app/models/exercise_state.dart';
+export 'package:workout_app/models/progression.dart';
 
 part 'storage_service_backup.dart';
 part 'storage_service_exercises.dart';
 part 'storage_service_sandbox.dart';
 part 'storage_service_schema.dart';
 part 'storage_service_sessions.dart';
-
-/// Per-exercise progression state stored in SQLite.
-class ExerciseState {
-  /// Creates an [ExerciseState] with all required progression fields.
-  ExerciseState({
-    required this.name,
-    required this.weight,
-    required this.reps,
-    required this.successStreak,
-    required this.failStreak,
-    required this.maxWeight,
-    required this.successThreshold,
-    required this.failThreshold,
-  });
-
-  /// Exercise name (matches [Exercise.name], used as primary key).
-  final String name;
-
-  /// Current working weight in kg.
-  double weight;
-
-  /// Current target reps per set.
-  int reps;
-
-  /// Consecutive successful workouts since last progression.
-  int successStreak;
-
-  /// Consecutive failed workouts since last regression.
-  int failStreak;
-
-  /// Weight cap; reps increase instead of weight when this is reached.
-  final double maxWeight;
-
-  /// Successes needed in a row before weight/reps increase.
-  int successThreshold;
-
-  /// Failures needed in a row before weight decreases.
-  int failThreshold;
-}
 
 /// Singleton SQLite service for workout data persistence.
 class StorageService {
@@ -110,7 +78,7 @@ class StorageService {
     // coverage:ignore-end
     _db = await openDatabase(
       dbPath,
-      version: 3,
+      version: 5,
       onCreate: _createSchema,
       onUpgrade: _migrateSchema,
       // In tests resetForTesting() reopens a ':memory:' DB per test; sqflite's

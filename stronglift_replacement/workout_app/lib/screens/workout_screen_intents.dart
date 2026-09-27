@@ -52,6 +52,9 @@ extension _WorkoutScreenIntents on _WorkoutScreenState {
   }
 
   int? _firstUntappedIn(int exIdx) {
+    // A paused exercise has nothing left to do, so the notification never
+    // offers it as the next set.
+    if (_isPaused(exIdx)) return null;
     for (var s = 0; s < _tapped[exIdx].length; s++) {
       if (!_tapped[exIdx][s]) return s;
     }
@@ -74,8 +77,9 @@ extension _WorkoutScreenIntents on _WorkoutScreenState {
 
   int _setsRemaining() {
     var count = 0;
-    for (final row in _tapped) {
-      for (final done in row) {
+    for (var ex = 0; ex < _tapped.length; ex++) {
+      if (_isPaused(ex)) continue;
+      for (final done in _tapped[ex]) {
         if (!done) count++;
       }
     }
@@ -131,6 +135,10 @@ extension _WorkoutScreenIntents on _WorkoutScreenState {
         _skipBreak();
       case BreakIntentKind.done:
         if (!_isValidSet(intent)) return;
+        if (_isPaused(intent.exIdx)) {
+          _dropIntent(intent, 'that exercise is paused');
+          return;
+        }
         if (_tapped[intent.exIdx][intent.setIdx]) {
           _dropIntent(intent, 'that set was already recorded');
           return;
@@ -152,7 +160,8 @@ extension _WorkoutScreenIntents on _WorkoutScreenState {
 
   bool _isValidSet(BreakIntent intent) {
     final exOk = intent.exIdx >= 0 && intent.exIdx < widget.exercises.length;
-    if (!exOk || intent.setIdx < 0 ||
+    if (!exOk ||
+        intent.setIdx < 0 ||
         intent.setIdx >= _tapped[intent.exIdx].length) {
       _dropIntent(intent, 'it points at a set this workout does not have');
       return false;

@@ -100,8 +100,18 @@ class ProgressionSyncService {
     'max_weight': s.maxWeight,
     'success_threshold': s.successThreshold,
     'fail_threshold': s.failThreshold,
+    'progression_mode': s.mode.storageKey,
+    'reps_high': s.repsHigh,
+    'reps_low': s.repsLow,
+    'has_warmup': s.hasWarmup,
+    'paused_until': switch (s.pausedUntil) {
+      null => null,
+      final d => formatPauseDate(d),
+    },
   };
 
+  // The last five fields are lenient: records pushed before they existed
+  // must still restore, with the same meaning a NULL column has locally.
   static ExerciseState _stateFromJson(Map<String, dynamic> j) => ExerciseState(
     name: j['name']! as String,
     weight: (j['weight']! as num).toDouble(),
@@ -111,6 +121,11 @@ class ProgressionSyncService {
     maxWeight: (j['max_weight']! as num).toDouble(),
     successThreshold: (j['success_threshold'] as num?)?.toInt() ?? 3,
     failThreshold: (j['fail_threshold'] as num?)?.toInt() ?? 2,
+    mode: ProgressionMode.parse(j['progression_mode']),
+    repsHigh: (j['reps_high'] as num?)?.toInt() ?? kDefaultRepsHigh,
+    repsLow: (j['reps_low'] as num?)?.toInt() ?? kDefaultRepsLow,
+    hasWarmup: j['has_warmup'] as bool? ?? planHasWarmup(j['name']! as String),
+    pausedUntil: parsePauseDate(j['paused_until']),
   );
 
   /// The remote path holding [name]'s progression record.
@@ -149,9 +164,7 @@ class ProgressionSyncService {
     final text = await client.getFileText(path);
     if (text == null) return null;
     try {
-      final record = Record.fromJson(
-        jsonDecode(text) as Map<String, dynamic>,
-      );
+      final record = Record.fromJson(jsonDecode(text) as Map<String, dynamic>);
       final field = record.fields[_payloadField];
       if (field == null) return null;
       final payload = field.$1;

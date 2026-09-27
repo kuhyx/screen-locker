@@ -73,15 +73,6 @@ class _ProgressStatsCard extends StatelessWidget {
 
   final ExerciseState state;
 
-  String _nextWeightLabel(double current, double max, double inc) {
-    if (current >= max) return '+1 rep';
-    return '+${inc}kg (${(current + inc).clamp(0.0, max)}kg)';
-  }
-
-  String _prevWeightLabel(double current, double inc) {
-    return '-${inc}kg (${(current - inc).clamp(0.0, double.infinity)}kg)';
-  }
-
   @override
   Widget build(BuildContext context) {
     final successLeft = state.successThreshold - state.successStreak;
@@ -99,7 +90,7 @@ class _ProgressStatsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${state.name}  —  ${state.weight}kg',
+            '${state.name}  —  ${state.weight}kg × ${state.reps}',
             style: TextStyle(
               color: colorScheme.onSurface,
               fontWeight: FontWeight.bold,
@@ -113,11 +104,8 @@ class _ProgressStatsCard extends StatelessWidget {
             current: state.successStreak,
             threshold: state.successThreshold,
             leftLabel: '$successLeft more',
-            actionLabel: _nextWeightLabel(
-              state.weight,
-              state.maxWeight,
-              kWeightIncrement,
-            ),
+            // The same rule applyProgression runs, in every mode.
+            actionLabel: describeTargetChange(state, targetAfterSuccess(state)),
             direction: '↑',
           ),
           const SizedBox(height: 6),
@@ -127,7 +115,7 @@ class _ProgressStatsCard extends StatelessWidget {
             current: state.failStreak,
             threshold: state.failThreshold,
             leftLabel: '$failLeft more',
-            actionLabel: _prevWeightLabel(state.weight, kWeightIncrement),
+            actionLabel: describeTargetChange(state, targetAfterFailure(state)),
             direction: '↓',
           ),
         ],

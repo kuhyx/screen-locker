@@ -1,0 +1,188 @@
+/// Bottom sheet for one exercise's progression mode, rep range, warmup and
+/// streak thresholds — opened from the mode chip on its workout tile.
+library;
+
+import 'package:flutter/material.dart';
+import 'package:workout_app/models/exercise.dart';
+import 'package:workout_app/models/exercise_state.dart';
+import 'package:workout_app/models/progression.dart';
+import 'package:workout_app/ui/theme.dart';
+
+part 'exercise_settings_sheet_rows.dart';
+
+/// Opens the settings sheet for [state]; [onChanged] runs on every edit.
+///
+/// Edits apply immediately rather than on a Save button: the sheet is a
+/// quick mid-workout adjustment, and a dismissed sheet losing its changes
+/// would be the surprising outcome.
+Future<void> showExerciseSettingsSheet(
+  BuildContext context, {
+  required ExerciseState state,
+  required ValueChanged<ExerciseState> onChanged,
+}) => showModalBottomSheet<void>(
+  context: context,
+  builder: (_) => ExerciseSettingsSheet(state: state, onChanged: onChanged),
+);
+
+/// Upper bound for the double-progression rep ceiling `n`.
+const int _maxRepsHigh = 50;
+
+/// Default injury-pause length.
+const int kDefaultPauseDays = 14;
+
+/// The sheet's contents. Public so tests can pump it without a route.
+class ExerciseSettingsSheet extends StatefulWidget {
+  /// Creates an [ExerciseSettingsSheet].
+  const ExerciseSettingsSheet({
+    required this.state,
+    required this.onChanged,
+    super.key,
+  });
+
+  /// The state being edited, as it was when the sheet opened.
+  final ExerciseState state;
+
+  /// Called with the updated state after every edit.
+  final ValueChanged<ExerciseState> onChanged;
+
+  @override
+  State<ExerciseSettingsSheet> createState() => _ExerciseSettingsSheetState();
+}
+
+class _ExerciseSettingsSheetState extends State<ExerciseSettingsSheet> {
+  late ExerciseState _s = widget.state;
+  int _pauseDays = kDefaultPauseDays;
+
+  void _update(ExerciseState next) {
+    setState(() => _s = next);
+    widget.onChanged(next);
+  }
+
+  String get _modeHint => switch (_s.mode) {
+    ProgressionMode.weight =>
+      '+$kWeightIncrement kg per step; +1 rep once at the '
+          '${_s.maxWeight} kg cap',
+    ProgressionMode.reps => '+1 rep per step; the weight never changes',
+    ProgressionMode.doubleProgression =>
+      '+1 rep per step up to ${_s.repsHigh}, then +$kWeightIncrement kg '
+          'and back to ${_s.repsLow}',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final caption = TextStyle(
+      color: colorScheme.onSurfaceVariant,
+      fontSize: AppTextSize.caption,
+    );
+    final isDouble = _s.mode == ProgressionMode.doubleProgression;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _s.name,
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
+                fontSize: AppTextSize.body,
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<ProgressionMode>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(
+                    value: ProgressionMode.weight,
+                    label: Text('Weight'),
+                  ),
+                  ButtonSegment(
+                    value: ProgressionMode.reps,
+                    label: Text('Reps'),
+                  ),
+                  ButtonSegment(
+                    value: ProgressionMode.doubleProgression,
+                    label: Text('Reps→kg'),
+                  ),
+                ],
+                selected: {_s.mode},
+                onSelectionChanged: (m) => _update(_s.copyWith(mode: m.first)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Fixed two-line box: the hint's length differs per mode, and a
+            // sheet that changes height under the finger is the jump the
+            // user asked never to see.
+            SizedBox(
+              height: 34,
+              child: Text(_modeHint, style: caption, maxLines: 2),
+            ),
+            // Kept laid out in every mode for the same reason.
+            Visibility(
+              visible: isDouble,
+              maintainSize: true,
+              maintainAnimation: true,
+              maintainState: true,
+              child: _SettingRow(
+                label: '+kg at',
+                name: 'Top reps',
+                value: _s.repsHigh,
+                min: _s.repsLow + 1,
+                max: _maxRepsHigh,
+                suffix: 'reps, restart at',
+                trailing: _Stepper(
+                  name: 'Restart reps',
+                  value: _s.repsLow,
+                  min: 1,
+                  max: _s.repsHigh - 1,
+                  onChanged: (v) => _update(_s.copyWith(repsLow: v)),
+                ),
+                onChanged: (v) => _update(_s.copyWith(repsHigh: v)),
+              ),
+            ),
+            const SizedBox(height: 4),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Warmup set'),
+              value: _s.hasWarmup,
+              onChanged: (v) => _update(_s.copyWith(hasWarmup: v)),
+            ),
+            _SettingRow(
+              label: '↑ after',
+              name: 'Wins needed',
+              value: _s.successThreshold,
+              min: 1,
+              max: 5,
+              suffix: 'wins,  ↓ after',
+              trailing: _Stepper(
+                name: 'Fails allowed',
+                value: _s.failThreshold,
+                min: 1,
+                max: 5,
+                onChanged: (v) => _update(_s.copyWith(failThreshold: v)),
+              ),
+              onChanged: (v) => _update(_s.copyWith(successThreshold: v)),
+            ),
+            const SizedBox(height: 8),
+            _PauseRow(
+              pausedUntil: _s.isPausedAt(DateTime.now())
+                  ? _s.pausedUntil
+                  : null,
+              days: _pauseDays,
+              onDaysChanged: (v) => setState(() => _pauseDays = v),
+              onPause: () => _update(
+                _s.copyWith(pausedUntil: pauseEnd(DateTime.now(), _pauseDays)),
+              ),
+              onResume: () => _update(_s.copyWith(resume: true)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
