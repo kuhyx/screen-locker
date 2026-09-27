@@ -172,22 +172,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
-  /// Every set recorded, not counting paused exercises: those have no sets
-  /// to tap and are recorded as failed at Finish.
-  bool get _allSetsCompleted {
-    for (var i = 0; i < _tapped.length; i++) {
-      if (!_isPaused(i) && !_tapped[i].every((t) => t)) return false;
-    }
-    return true;
-  }
-
-  /// Whether exercise [exIdx] is on an injury pause right now.
-  bool _isPaused(int exIdx) =>
-      _exerciseStates[widget.exercises[exIdx].name]?.isPausedAt(
-        DateTime.now(),
-      ) ??
-      false;
-
   /// Runs [fn] inside `setState` on behalf of this library's extensions.
   ///
   /// `setState` is `@protected`, so an extension cannot call it directly. This

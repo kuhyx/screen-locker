@@ -1,4 +1,4 @@
-// Rest-period timers and per-exercise settings edits.
+// Rest-period timers, per-exercise state lookups and settings edits.
 //
 // See workout_screen_session.dart for why this is a `part`. `setState` is
 // `@protected` and unreachable from an extension, so these mutate through the
@@ -12,6 +12,22 @@ const _expiredBreakGraceSecs = 120;
 
 /// Starting, ticking, cancelling and finishing the rest period between sets.
 extension _WorkoutScreenBreaks on _WorkoutScreenState {
+  /// Every set recorded, not counting paused exercises: those have no sets
+  /// to tap and are recorded as failed at Finish.
+  bool get _allSetsCompleted {
+    for (var i = 0; i < _tapped.length; i++) {
+      if (!_isPaused(i) && !_tapped[i].every((t) => t)) return false;
+    }
+    return true;
+  }
+
+  /// Whether exercise [exIdx] is on an injury pause right now.
+  bool _isPaused(int exIdx) =>
+      _exerciseStates[widget.exercises[exIdx].name]?.isPausedAt(
+        DateTime.now(),
+      ) ??
+      false;
+
   /// Exercise [exIdx]'s stored state, or its defaults while the states are
   /// still loading: that is where its rest lengths live.
   ExerciseState _stateOf(int exIdx) {
