@@ -91,6 +91,19 @@ extension _WorkoutScreenIntents on _WorkoutScreenState {
     return count;
   }
 
+  /// Starts the foreground service once per screen, on the first event that
+  /// makes the workout real.
+  ///
+  /// A resumed session starts it on open. A fresh one waits for its first
+  /// set or warmup: launch now opens the workout by itself, and merely
+  /// opening the app must not leave a notification (or a session) behind.
+  ///
+  /// No `_finished` check: every save path already returns once the workout
+  /// is finished, and Finish stops the service itself.
+  void _ensureBreakService() {
+    _breakServiceStart ??= _startBreakService();
+  }
+
   /// Hands the workout to the foreground service, then applies anything the
   /// user already pressed on a notification from a previous run of the app.
   ///
@@ -102,6 +115,10 @@ extension _WorkoutScreenIntents on _WorkoutScreenState {
       _buildSnapshot(),
       onDrainNudge: () => unawaited(_drainIntents()),
     );
+    // `push` is a no-op until `start` returns, and `start` can sit on the
+    // notification-permission dialog while the user keeps tapping sets.
+    // Re-send the current state so none of those taps is lost.
+    await _breaks.push(_buildSnapshot());
     if (result.needsPermissionWarning && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

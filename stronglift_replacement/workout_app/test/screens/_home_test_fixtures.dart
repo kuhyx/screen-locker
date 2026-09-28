@@ -26,11 +26,19 @@ Future<void> pumpHome(WidgetTester tester, Widget w) async {
 // `flutter test`, so every test here would fail on a MissingPluginException
 // that has nothing to do with what it is asserting. Report "not
 // configured" instead: no credentials means no sync tick is attempted.
-Widget wrapHome({Future<bool> Function()? configuredProbe}) => MaterialApp(
+//
+// The launch-time auto-open is off by default here: these files test the
+// home screen itself, and a fresh database would otherwise skip straight
+// past it into the workout. home_launch_test.dart covers the auto-open.
+Widget wrapHome({
+  Future<bool> Function()? configuredProbe,
+  bool openWorkoutOnLaunch = false,
+}) => MaterialApp(
   theme: buildAppTheme(),
   home: HomeScreen(
     configuredProbe: configuredProbe ?? () async => false,
     clock: () => DateTime(2026, 8, 15, 18),
+    openWorkoutOnLaunch: openWorkoutOnLaunch,
   ),
 );
 

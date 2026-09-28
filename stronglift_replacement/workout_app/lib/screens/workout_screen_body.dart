@@ -23,6 +23,7 @@ class _WorkoutBody extends StatelessWidget {
     required this.inBreak,
     required this.breakRemaining,
     required this.finished,
+    required this.syncNotSetUp,
     required this.allSetsCompleted,
     required this.onSkipBreak,
     required this.onReset,
@@ -58,6 +59,9 @@ class _WorkoutBody extends StatelessWidget {
   /// Whether the workout is over; hides Reset and Finish.
   final bool finished;
 
+  /// Whether to show the "sync not set up" strip above the rest strip.
+  final bool syncNotSetUp;
+
   /// Whether every set is recorded; enables Finish.
   final bool allSetsCompleted;
 
@@ -86,6 +90,7 @@ class _WorkoutBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        if (syncNotSetUp) const SyncSetupBanner(),
         BreakBanner(
           active: inBreak,
           breakRemaining: breakRemaining,

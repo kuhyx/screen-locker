@@ -29,6 +29,7 @@ import 'package:workout_app/services/workout_sync_service.dart';
 import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/break_banner.dart';
 import 'package:workout_app/widgets/exercise_tile.dart';
+import 'package:workout_app/widgets/sync_setup_banner.dart';
 import 'package:workout_app/widgets/workout_summary_dialog.dart';
 
 part 'workout_screen_body.dart';
@@ -48,6 +49,7 @@ class WorkoutScreen extends StatefulWidget {
     super.key,
     this.savedState,
     this.breakClient,
+    this.syncNotSetUp = false,
   });
 
   /// 'A' or 'B' — used for history and progression.
@@ -63,6 +65,9 @@ class WorkoutScreen extends StatefulWidget {
   /// path on a host that has no foreground service. Null means the real one.
   @visibleForTesting
   final ForegroundBreakClient? breakClient;
+
+  /// Shows the "sync not set up" strip; the home card that says it is skipped.
+  final bool syncNotSetUp;
 
   @override
   State<WorkoutScreen> createState() => _WorkoutScreenState();
@@ -96,6 +101,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   late final AppLifecycleListener _lifecycle;
   late final BreakServiceController _breaks;
+
+  /// The one in-flight start of [_breaks]; see `_ensureBreakService`.
+  Future<void>? _breakServiceStart;
   final _audio = AudioPlayer();
   final _sync = SyncService();
   bool _finished = false;
@@ -120,7 +128,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     unawaited(_loadExerciseStates());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_settleExpiredBreak());
-      unawaited(_startBreakService());
+      // A fresh workout waits for its first tap; see `_ensureBreakService`.
+      if (saved != null) _ensureBreakService();
     });
   }
 
@@ -221,6 +230,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             inBreak: _inBreak,
             breakRemaining: _breakRemaining,
             finished: _finished,
+            syncNotSetUp: widget.syncNotSetUp,
             allSetsCompleted: _allSetsCompleted,
             onSkipBreak: _skipBreak,
             onReset: () => unawaited(_confirmReset()),

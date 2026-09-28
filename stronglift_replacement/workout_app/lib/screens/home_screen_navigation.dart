@@ -14,7 +14,16 @@ extension _HomeScreenNavigation on _HomeScreenState {
     unawaited(_load());
   }
 
-  Future<void> _openWorkout({bool resume = false}) async {
+  /// Pushes the workout, resuming the saved session when [resume].
+  ///
+  /// [auto] is the launch-time open: it replaces home without a transition,
+  /// so the first screen after loading is the workout itself. [syncNotSetUp]
+  /// carries the sync warning the skipped home card would have shown.
+  Future<void> _openWorkout({
+    bool resume = false,
+    bool auto = false,
+    bool syncNotSetUp = false,
+  }) async {
     final storage = StorageService.instance;
     Map<String, dynamic>? savedState;
     var type = _nextType;
@@ -28,15 +37,25 @@ extension _HomeScreenNavigation on _HomeScreenState {
     }
 
     if (!mounted) return;
-    SandboxLog.event('open workout', {'type': type, 'resume': resume});
+    SandboxLog.event('open workout', {
+      'type': type,
+      'resume': resume,
+      'auto': auto,
+    });
+    final screen = WorkoutScreen(
+      workoutType: type,
+      exercises: exercises,
+      savedState: savedState,
+      syncNotSetUp: syncNotSetUp,
+    );
     await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => WorkoutScreen(
-          workoutType: type,
-          exercises: exercises,
-          savedState: savedState,
-        ),
-      ),
+      auto
+          ? PageRouteBuilder<void>(
+              pageBuilder: (_, _, _) => screen,
+              transitionDuration: Duration.zero,
+              reverseTransitionDuration: Duration.zero,
+            )
+          : MaterialPageRoute<void>(builder: (_) => screen),
     );
     unawaited(_load());
   }

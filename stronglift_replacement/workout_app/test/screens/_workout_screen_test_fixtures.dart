@@ -56,6 +56,20 @@ Map<String, dynamic> savedWithBreak(
       .millisecondsSinceEpoch,
 };
 
+/// A saved session with nothing recorded yet, for [exercises].
+///
+/// The notification tests start from this rather than a fresh screen: a
+/// fresh workout no longer starts the break service until its first set, so
+/// only a restored session has the service (and its queued presses) live
+/// from the moment the screen opens.
+Map<String, dynamic> blankSaved([List<Exercise> exercises = testExercises]) => {
+  'workoutType': 'A',
+  'startTimeMs': DateTime.now().millisecondsSinceEpoch,
+  'tapped': [for (final e in exercises) List<bool>.filled(e.sets, false)],
+  'doneReps': [for (final e in exercises) List<int>.filled(e.sets, e.reps)],
+  'warmupTapped': List<bool>.filled(exercises.length, false),
+};
+
 const testExercises = [
   Exercise(name: 'Squat', sets: 3, reps: 5, weight: 20.0),
   Exercise(name: 'Press', sets: 3, reps: 5, weight: 15.0),

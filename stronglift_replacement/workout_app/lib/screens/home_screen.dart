@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/sandbox/sandbox_log.dart';
@@ -9,6 +10,8 @@ import 'package:workout_app/screens/history_screen.dart';
 import 'package:workout_app/screens/manual_workout_screen.dart';
 import 'package:workout_app/screens/settings_screen.dart';
 import 'package:workout_app/screens/workout_screen.dart';
+import 'package:workout_app/services/done_today.dart';
+import 'package:workout_app/services/lock_mode.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_status.dart';
 import 'package:workout_app/services/workout_sync_service.dart';
@@ -16,7 +19,9 @@ import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/sync_status_card.dart';
 
 part 'home_screen_cards.dart';
+part 'home_screen_launch.dart';
 part 'home_screen_navigation.dart';
+part 'home_screen_sync.dart';
 
 /// Home screen: auto-resumes active sessions and shows done-today status.
 class HomeScreen extends StatefulWidget {
@@ -30,6 +35,7 @@ class HomeScreen extends StatefulWidget {
     this.syncService,
     this.clock,
     this.configuredProbe,
+    this.openWorkoutOnLaunch = true,
   });
 
   /// Sync service to use; defaults to a real [WorkoutSyncService].
@@ -41,6 +47,10 @@ class HomeScreen extends StatefulWidget {
   /// Whether this device has sync credentials. Defaults to asking the
   /// service itself.
   final Future<bool> Function()? configuredProbe;
+
+  /// Whether the first load may skip home and open the workout. The app
+  /// always does; tests of the home screen itself switch it off.
+  final bool openWorkoutOnLaunch;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -58,9 +68,13 @@ class _HomeScreenState extends State<HomeScreen> {
   SyncStatus? _syncStatus;
   bool _syncing = false;
 
-  /// True after the first load auto-navigated to an in-progress workout,
-  /// so returning from workout does not auto-navigate again.
-  bool _hasAutoResumed = false;
+  /// True once the first load has decided whether to open the workout, so
+  /// returning from it (or from anywhere) lands on home.
+  bool _hasAutoOpened = false;
+
+  /// A synced record (manual workout, PC run) covers today. Sticky for the
+  /// process: only the launch reads the backends for it.
+  bool _syncedToday = false;
 
   @override
   void initState() {
@@ -75,19 +89,31 @@ class _HomeScreenState extends State<HomeScreen> {
     final saved = await storage.loadActiveSession();
     final lastDate = await storage.getLastWorkoutDate();
     final today = DateTime.now();
-    final doneToday =
+    final doneLocally =
         lastDate != null &&
         lastDate.year == today.year &&
         lastDate.month == today.month &&
         lastDate.day == today.day;
+    final firstLoad = !_hasAutoOpened;
+    _hasAutoOpened = true;
+    final launch = await _decideLaunch(
+      firstLoad: firstLoad,
+      hasSaved: saved != null,
+      doneLocally: doneLocally,
+      today: today,
+    );
+    _syncedToday = _syncedToday || launch.syncedToday;
 
     if (mounted) {
       setState(() {
         _nextType = nextType;
         _exercises = exercises;
         _savedSession = saved;
-        _doneToday = doneToday;
-        _loading = false;
+        _doneToday = doneLocally || _syncedToday;
+        // An auto-open keeps the spinner up and pushes with no transition,
+        // so the home card is never drawn under the workout first. The
+        // `_load` that runs when the workout pops clears it.
+        _loading = launch.open;
       });
 
       // Sync in the background on every open. Deliberately not awaited: a
@@ -95,63 +121,26 @@ class _HomeScreenState extends State<HomeScreen> {
       // changes what the card says when it lands.
       unawaited(_refreshSyncStatus());
 
-      // Auto-resume active session on first load (app launch).
-      if (saved != null && !_hasAutoResumed) {
-        _hasAutoResumed = true;
+      if (launch.open) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) unawaited(_openWorkout(resume: true));
-        });
-      }
-    }
-  }
-
-  /// Opens settings so the user can connect sync, then re-checks on return.
-  /// Runs a sync tick and folds the outcome into the status card.
-  ///
-  /// Never throws: [WorkoutSyncService.syncNow] reports failures as a
-  /// [PushResult] rather than an exception, and the card is where that
-  /// reason finally becomes visible to the user.
-  Future<void> _refreshSyncStatus() async {
-    if (_syncing) return; // a tick is already in flight
-    _syncing = true;
-    final storage = StorageService.instance;
-    final sync = widget.syncService ?? WorkoutSyncService();
-    final now = (widget.clock ?? DateTime.now)();
-    try {
-      final configured = await (widget.configuredProbe ?? sync.isConfigured)();
-      final storedAt = await storage.getLastSyncedAt();
-
-      // Show what the PERSISTED state says before the tick resolves. Without
-      // this pass the card can never say "out of date": by the time a tick
-      // has finished it has either stamped the time (so the age is zero) or
-      // failed (so the card is "Sync failed"), and a phone that has not
-      // synced for days would look healthy for the whole tick. This is also
-      // the honest reading while the network is still being waited on.
-      if (mounted) {
-        setState(() {
-          _syncStatus = computeSyncStatus(
-            configured: configured,
-            now: now,
-            lastSyncedAt: storedAt,
+          if (!mounted) return;
+          unawaited(
+            _openWorkout(
+              resume: saved != null,
+              auto: true,
+              syncNotSetUp: launch.syncNotSetUp,
+            ),
           );
         });
+      } else {
+        SandboxLog.event('home shown', {'doneToday': _doneToday});
       }
-
-      final result = configured ? await sync.syncNow() : null;
-      if (result != null && result.pushed) {
-        await storage.markSyncedNow(now);
-      }
-      final status = computeSyncStatus(
-        configured: configured,
-        now: now,
-        lastResult: result,
-        lastSyncedAt: await storage.getLastSyncedAt(),
-      );
-      if (mounted) setState(() => _syncStatus = status);
-    } finally {
-      _syncing = false;
     }
   }
+
+  /// Runs [fn] inside `setState` on behalf of this library's extensions,
+  /// which cannot call the `@protected` original.
+  void _applyState(VoidCallback fn) => setState(fn);
 
   @override
   Widget build(BuildContext context) {

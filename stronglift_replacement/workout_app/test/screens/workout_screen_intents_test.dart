@@ -53,7 +53,10 @@ void main() {
   }
 
   Future<void> pump(WidgetTester tester, {Map<String, dynamic>? saved}) =>
-      pumpWorkout(tester, wrapWorkout(savedState: saved, breakClient: client));
+      pumpWorkout(
+        tester,
+        wrapWorkout(savedState: saved ?? blankSaved(), breakClient: client),
+      );
 
   BreakSnapshot lastPushed() => client.pushed.last;
 

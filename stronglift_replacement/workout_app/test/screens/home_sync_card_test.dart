@@ -56,6 +56,7 @@ void main() {
         MaterialApp(
           theme: buildAppTheme(),
           home: HomeScreen(
+            openWorkoutOnLaunch: false,
             configuredProbe: () async => true,
             syncService: FailingSyncService(),
             clock: () => DateTime(2026, 8, 15, 18),
@@ -85,6 +86,7 @@ void main() {
           MaterialApp(
             theme: buildAppTheme(),
             home: HomeScreen(
+              openWorkoutOnLaunch: false,
               configuredProbe: () async => true,
               syncService: HangingSyncService(),
               clock: () => now,
@@ -127,6 +129,7 @@ void main() {
         MaterialApp(
           theme: buildAppTheme(),
           home: HomeScreen(
+            openWorkoutOnLaunch: false,
             configuredProbe: () async => true,
             syncService: CountingSyncService(() => ticks++),
             clock: () => DateTime(2026, 8, 15, 18),
@@ -152,6 +155,7 @@ void main() {
         MaterialApp(
           theme: buildAppTheme(),
           home: HomeScreen(
+            openWorkoutOnLaunch: false,
             configuredProbe: () async => true,
             syncService: OkSyncService(),
             clock: () => now,

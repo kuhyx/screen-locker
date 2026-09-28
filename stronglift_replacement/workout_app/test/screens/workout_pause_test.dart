@@ -52,7 +52,11 @@ void main() {
     await tester.runAsync(() => _pause('Situp'));
     await pumpWorkout(
       tester,
-      wrapWorkout(exercises: const [_lunge, _situp], breakClient: client),
+      wrapWorkout(
+        exercises: const [_lunge, _situp],
+        savedState: blankSaved(const [_lunge, _situp]),
+        breakClient: client,
+      ),
     );
   }
 

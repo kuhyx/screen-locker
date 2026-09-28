@@ -33,8 +33,8 @@ void main() {
     await StorageService.init();
     installFakeSecureStorage();
     installFakeAudioPlatform();
-    SharedPreferencesAsyncPlatform.instance = InMemorySharedPreferencesAsync
-        .empty();
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
     client = FakeForegroundBreakClient();
   });
 
@@ -51,7 +51,10 @@ void main() {
   }
 
   Future<void> pump(WidgetTester tester, {Map<String, dynamic>? saved}) =>
-      pumpWorkout(tester, wrapWorkout(savedState: saved, breakClient: client));
+      pumpWorkout(
+        tester,
+        wrapWorkout(savedState: saved ?? blankSaved(), breakClient: client),
+      );
 
   BreakSnapshot lastPushed() => client.pushed.last;
 
@@ -75,32 +78,32 @@ void main() {
     }
 
     testWidgets('an exercise index this workout does not have', (tester) async {
-        await pump(tester);
+      await pump(tester);
       await expectNoChange(tester, [(BreakIntentKind.done, 99, 0)]);
     });
 
     testWidgets('a set index this exercise does not have', (tester) async {
-        await pump(tester);
+      await pump(tester);
       await expectNoChange(tester, [(BreakIntentKind.done, 0, 99)]);
     });
 
     testWidgets('a negative index', (tester) async {
-        await pump(tester);
+      await pump(tester);
       await expectNoChange(tester, [(BreakIntentKind.minusRep, -1, 0)]);
     });
 
     testWidgets('Done on a set that is already recorded', (tester) async {
-        await pump(tester, saved: savedWithBreak(90));
+      await pump(tester, saved: savedWithBreak(90));
       await expectNoChange(tester, [(BreakIntentKind.done, 0, 0)]);
     });
 
     testWidgets('− 1 rep on a set that was never recorded', (tester) async {
-        await pump(tester);
+      await pump(tester);
       await expectNoChange(tester, [(BreakIntentKind.minusRep, 1, 2)]);
     });
 
     testWidgets('Skip break with no rest running', (tester) async {
-        await pump(tester);
+      await pump(tester);
       await expectNoChange(tester, [(BreakIntentKind.skipBreak, 0, 0)]);
     });
   });
@@ -116,10 +119,7 @@ void main() {
       ..grantOnRequest = false;
     await pump(tester);
 
-    expect(
-      find.textContaining('Notifications are off'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Notifications are off'), findsOneWidget);
   });
 
   testWidgets('no warning when notifications were allowed', (tester) async {

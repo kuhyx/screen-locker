@@ -105,14 +105,27 @@ void main() {
     await tester.runAsync(
       () => StorageService.instance.saveActiveSession({
         'workoutType': 'A',
-        'startTime': DateTime.now().toIso8601String(),
-        'exercises': <dynamic>[],
+        'startTimeMs': DateTime.now().millisecondsSinceEpoch,
+        'tapped': [for (final e in workoutA) List<bool>.filled(e.sets, false)],
+        'doneReps': [
+          for (final e in workoutA) List<int>.filled(e.sets, e.reps),
+        ],
+        'warmupTapped': List<bool>.filled(workoutA.length, false),
       }),
     );
-    await pumpHome(tester, wrapHome());
+    // The launch decision awaits the sync probe before the post-frame push,
+    // so both run on the real loop (sqflite hangs under fake async).
+    await tester.runAsync(() async {
+      await tester.pumpWidget(wrapHome(openWorkoutOnLaunch: true));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      await tester.pump(); // fire the post-frame auto-resume callback
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
     await tester.pump(const Duration(milliseconds: 300));
-    // The post-frame auto-resume pushed the workout screen.
-    expect(find.textContaining('Workout A'), findsWidgets);
+    // The post-frame auto-resume pushed the workout screen. Asserted by
+    // type: the screen has no app bar, and the home card that used to supply
+    // a matching "Workout A" underneath is no longer drawn.
+    expect(find.byType(WorkoutScreen), findsOneWidget);
   });
 
   testWidgets('active session shows Resume, returns (98) and re-enters (153)', (
@@ -134,7 +147,7 @@ void main() {
     // Drive the whole first-load + post-frame auto-resume push on the real loop
     // (auto-resume awaits getCurrentExercises, which hangs under FakeAsync).
     await tester.runAsync(() async {
-      await tester.pumpWidget(wrapHome());
+      await tester.pumpWidget(wrapHome(openWorkoutOnLaunch: true));
       await Future<void>.delayed(const Duration(milliseconds: 300));
       await tester.pump(); // fire the post-frame auto-resume callback
       await Future<void>.delayed(const Duration(milliseconds: 300));

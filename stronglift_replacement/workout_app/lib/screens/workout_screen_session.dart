@@ -88,6 +88,7 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
     SandboxLog.event('session save', {'toFirebase': toFirebase});
     final data = _activeSessionData();
     await StorageService.instance.saveActiveSession(data);
+    _ensureBreakService();
     // The one seam the notification is fed from. Every event that moves the
     // workout on -- a set, a warmup, a rep decrement, a skip, a reset, a
     // drained press -- already comes through here, so hanging the push on it
