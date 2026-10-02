@@ -8,7 +8,10 @@ on:
 
 env:
   # Bucket count for the Flutter suite; the matrix below lists 0..N-1.
-  FLUTTER_SHARDS: 12
+  # 10, not more: the account runs at most 20 jobs at once, and a push also
+  # starts ~10 others (pre-commit, freshness, the rest of this file). At 12
+  # three shards queued for up to 34 s and the workflow took 91 s.
+  FLUTTER_SHARDS: 10
 
 jobs:
   test:
@@ -87,7 +90,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     name: flutter test (shard ${{ matrix.shard }})
     steps:
       - uses: actions/checkout@v4
