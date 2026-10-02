@@ -57,12 +57,11 @@ jobs:
       # The flutter-analyze hook shells out to `flutter analyze` in
       # stronglift_replacement/workout_app. Pin to the version the app is
       # developed against (Dart SDK ^3.12.2) so CI's analyzer matches local.
-      - uses: subosito/flutter-action@v2
+      - uses: kuhyx/utils/flutter-setup@flutter-setup-v1
         if: matrix.group == 'flutter'
         with:
           flutter-version: 3.47.6
-          channel: stable
-          cache: true
+          working-directory: stronglift_replacement/workout_app
       # analyze needs resolved packages (.dart_tool); the hook runs analyze
       # only, so fetch deps here first.
       - name: Resolve Flutter packages

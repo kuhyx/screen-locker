@@ -92,13 +92,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # cache: true keeps the SDK and ~/.pub-cache between runs; without it
-      # the SDK download alone was ~57 s.
-      - uses: subosito/flutter-action@v2
+      # The slim cached SDK (utils/flutter-setup): subosito's full-SDK
+      # cache cost ~38 s to restore even on a hit.
+      - uses: kuhyx/utils/flutter-setup@flutter-setup-v1
         with:
           flutter-version: 3.47.6
-          channel: stable
-          cache: true
+          working-directory: stronglift_replacement/workout_app
 
       - name: flutter test --coverage, bucket ${{ matrix.shard }}
         run: bash scripts/check_flutter_coverage.sh --shard "${{ matrix.shard }}/$FLUTTER_SHARDS"
