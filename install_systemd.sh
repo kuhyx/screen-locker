@@ -89,7 +89,7 @@ fi
 rm -f "$USER_SERVICE_DIR/workout-locker.timer"
 
 # Seed shutdown_base.json if not already present. It holds only date stamps;
-# the base hour itself is BASE_HOUR in screen_locker/_shutdown_base.py.
+# the base hour itself comes from the earned_time registry (kuhyx/utils).
 SHUTDOWN_BASE="$SCRIPT_DIR/screen_locker/shutdown_base.json"
 if [[ ! -f "$SHUTDOWN_BASE" ]]; then
 	printf '{\n  "last_reset_date": ""\n}\n' > "$SHUTDOWN_BASE"

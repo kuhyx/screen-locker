@@ -20,6 +20,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from screen_locker._degraded_sources import clear_degraded_sources
+from screen_locker._earned import flat_earners
 from screen_locker.tests._gatelock_fixtures import (
     FAKE_OUTPUTS,
     TWO_OUTPUTS,
@@ -181,7 +182,8 @@ def _isolate_state_files(tmp_path: Path) -> Iterator[None]:
         yield
 
 
-_SEEDED_STAMPS = ("last_reset_date", "leetcode_bonus_date", "reading_bonus_date")
+# Every registered flat earner's live-pass stamp, so a future one is seeded too.
+_SEEDED_STAMPS = ("last_reset_date", *(f"{e.name}_bonus_date" for e in flat_earners()))
 
 
 @pytest.fixture(autouse=True)
@@ -191,9 +193,9 @@ def _isolate_shutdown_base(tmp_path: Path) -> Iterator[None]:
     Pre-seeded with today's date so reset_to_base_if_new_day() is a no-op by
     default (matching the real file's steady state) -- tests that want to
     exercise the actual reset path patch reset_to_base_if_new_day directly,
-    same as the rest of the suite already does. The LeetCode and reading
-    stamps are seeded too, so apply_flat_bonuses_if_new() never reads a
-    ledger (or the host's real HMAC key) by default.
+    same as the rest of the suite already does. Every flat earner's stamp is
+    seeded too, so apply_flat_bonuses_if_new() never reads a ledger (or the
+    host's real HMAC key) by default.
     """
     target = tmp_path / "shutdown_base.json"
     today = datetime.now(tz=UTC).strftime("%Y-%m-%d")

@@ -35,29 +35,31 @@ weeks because a missing token `return`ed `[]` and real errors only logged at
 ## The shutdown hour is derived, never incremented into
 
 `/etc/shutdown-schedule.conf` is recomputed from scratch by
-`_shutdown_base.reset_to_base_if_new_day` on each new day:
-`BASE_HOUR (19) + today's workout hours + the LeetCode hour + the reading hour`,
-capped at 23.
+`_shutdown_base.reset_to_base_if_new_day` on each new day: the base plus
+every earned term, capped at 23. The numbers are NOT in this repo: they live
+in the shared earner registry `earned_time` (kuhyx/utils, `earned_time/`),
+which steam-backlog-enforcer reads for gaming time too. Base = 20:00 minus
+each earner's cut once its `penalty_from` day arrives (reading, from
+2026-10-01 -> 19:00); terms = workout 2h + 1h per further session, LeetCode
+1h, reading 1h, plus whatever is registered later.
 Anything that pushes the hour with a plain read-add-write and is *not* a term
 of that derivation gets wiped by the next reset -- that is how a 00:02 workout
-lost its hours on 2026-09-13. Add a new bonus source as a term first, then
-(optionally) as a live pass stamped in `shutdown_base.json` so the two do not
-double-apply. The base is the constant, not the state file: the file once
-persisted `base_*_hour`, which made the code's default dead.
+lost its hours on 2026-09-13. A new bonus source is an `Earner` in the
+registry, never code here: the reset includes it as a term, and the live pass
+(`apply_flat_bonuses_if_new`, stamped `<name>_bonus_date` in
+`shutdown_base.json`) picks it up for flat earners. The base is the registry
+constant, not the state file: the file once persisted `base_*_hour`, which
+made the code's default dead.
 
-The LeetCode hour is read from leetcode-guard's ledger
-(`_leetcode_bonus.py`): HMAC-verified `credit` entries, keyed on LeetCode's
-own `submitted_at`, flat +1h/day, and *fail closed* -- an unreadable ledger or
-key earns nothing. leetcode-guard itself stays read-only; it never writes
-the config.
+Flat earners are read from their gate's ledger by `earned_time.done_today`
+via `_earned.py`: HMAC-verified `credit` rows matched by the earner's own
+rule (LeetCode's `submitted_at`, book-guard's `detail.bonus == "1"` +
+`ended_at`), and *fail closed* -- an unreadable ledger or key earns nothing,
+logged. The gates stay read-only; none writes the config.
 
-The reading hour is the same shape, from book-guard's ledger
-(`_reading_bonus.py`): HMAC-verified `credit` entries with `detail.bonus ==
-"1"`, dated by `detail.ended_at` (when the reading happened, not when the quiz
-was passed), flat +1h/day, fail closed. The base moves 20 -> 19 on
-2026-10-01 (`base_hour()`, `READING_BASE_FROM`) -- book-guard's start date, so
-the cut never lands before the hour that pays for it; the 23:00 best case is
-unchanged.
+The schedule stores whole hours; `_earned.to_hours` raises on a remainder
+instead of flooring, so a 30-minute earner needs the schedule to learn
+minutes first.
 
 ## The morning session is the carrot — and the early-bird window is it
 

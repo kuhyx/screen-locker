@@ -9,21 +9,22 @@ from __future__ import annotations
 
 import json
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-from screen_locker import _shutdown_base
+import earned_time
+import pytest
+
 from screen_locker._day import today_str
 from screen_locker._shutdown_base import (
-    apply_leetcode_bonus_if_new,
+    _apply_flat_bonus,
     base_hour,
     reset_to_base_if_new_day,
 )
+from screen_locker.tests._earned_fixtures import answering
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
-
-import pytest
 
 
 def _mixin(*, adjust_ok: bool = True) -> MagicMock:
@@ -34,22 +35,21 @@ def _mixin(*, adjust_ok: bool = True) -> MagicMock:
     return mixin
 
 
-@pytest.fixture(autouse=True)
-def _no_reading() -> Iterator[None]:
-    """Zero the reading hour so the stamps asserted here are LeetCode's only."""
-    with patch.object(_shutdown_base, "reading_bonus_hours", return_value=0):
-        yield
+def apply_leetcode_bonus_if_new(state: Path, mixin: MagicMock) -> bool:
+    """The live pass for the LeetCode earner alone."""
+    return _apply_flat_bonus(state, mixin, earned_time.LEETCODE)
 
 
 @pytest.fixture
 def solved() -> Iterator[MagicMock]:
-    with patch.object(_shutdown_base, "leetcode_bonus_hours", return_value=1) as m:
+    """LeetCode solved today; reading not, so the stamps here are LeetCode's."""
+    with answering({"leetcode": True, "reading": False}) as m:
         yield m
 
 
 @pytest.fixture
 def unsolved() -> Iterator[MagicMock]:
-    with patch.object(_shutdown_base, "leetcode_bonus_hours", return_value=0) as m:
+    with answering({"leetcode": False, "reading": False}) as m:
         yield m
 
 

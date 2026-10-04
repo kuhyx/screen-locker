@@ -72,18 +72,20 @@ ISOLATED_STATE: tuple[tuple[str, tuple[str, ...]], ...] = (
         "instance.lock",
         ("_constants.INSTANCE_LOCK_FILE", "screen_lock.INSTANCE_LOCK_FILE"),
     ),
-    # leetcode-guard's ledger. Read-only from here, but a test must never see
-    # the user's real solves: a real credit would earn a fake shutdown hour
-    # inside an assertion written against an empty day.
+    # The home every earner's ledger (leetcode-guard's, book-guard's, ...) is
+    # resolved under. Read-only from here, but a test must never see the
+    # user's real credits: one would earn a fake shutdown hour inside an
+    # assertion written against an empty day.
     (
-        "leetcode_ledger.json",
-        ("_leetcode_bonus.LEETCODE_LEDGER_FILE",),
+        "ledger_home",
+        ("_earned.LEDGER_HOME",),
     ),
-    # book-guard's ledger, for the same reason: a real reading credit would
-    # earn a fake shutdown hour inside an assertion.
+    # The key those ledgers are verified with, as ``_earned`` binds it. Absent
+    # by default, so a read no test asked for fails closed instead of using
+    # the host's real key; earner tests write their own (_earned_fixtures).
     (
-        "reading_ledger.json",
-        ("_reading_bonus.READING_LEDGER_FILE",),
+        "earned_hmac.key",
+        ("_earned.HMAC_KEY_FILE",),
     ),
     # wake-alarm's workday-stick file. A test that forgot this would read
     # the developer's real penalty state.

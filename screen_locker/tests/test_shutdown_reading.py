@@ -2,29 +2,29 @@
 
 Covers the base cut it pays for (20 -> 19 from 2026-10-01), the daily reset
 folding the hour in and stamping it, and the live pass that adds it once for a
-reading credit landing after the reset. Mirrors test_shutdown_leetcode.py.
+reading credit landing after the reset. Mirrors test_shutdown_leetcode.py; the
+pass over every flat earner is in test_shutdown_flat_earners.py.
 """
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+import earned_time
 import pytest
 
 from screen_locker import _shutdown_base
 from screen_locker._day import today_str
 from screen_locker._shutdown_base import (
-    READING_BASE_FROM,
+    _apply_flat_bonus,
     apply_flat_bonuses_if_new,
-    apply_reading_bonus_if_new,
     base_hour,
     reset_to_base_if_new_day,
 )
-from screen_locker._status_data import gather_status
-from screen_locker.tests.test_status_data import _files
+from screen_locker.tests._earned_fixtures import answering
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -39,14 +39,17 @@ def _mixin(*, adjust_ok: bool = True) -> MagicMock:
     return mixin
 
 
+def apply_reading_bonus_if_new(state: Path, mixin: MagicMock) -> bool:
+    """The live pass for the reading earner alone."""
+    return _apply_flat_bonus(state, mixin, earned_time.READING)
+
+
 @pytest.fixture
-def hours() -> Iterator[tuple[MagicMock, MagicMock]]:
-    """(leetcode, reading) hour sources, both 0 until a test sets them."""
-    with (
-        patch.object(_shutdown_base, "leetcode_bonus_hours", return_value=0) as lc,
-        patch.object(_shutdown_base, "reading_bonus_hours", return_value=0) as rd,
-    ):
-        yield lc, rd
+def answers() -> Iterator[tuple[dict[str, bool | None], MagicMock]]:
+    """(answers, earned_today mock): every flat earner says no until set."""
+    given: dict[str, bool | None] = {"leetcode": False, "reading": False}
+    with answering(given) as mock:
+        yield given, mock
 
 
 class TestBaseHour:
@@ -54,7 +57,7 @@ class TestBaseHour:
         assert base_hour(date(2026, 9, 30)) == 20
 
     def test_cut_day_is_nineteen(self) -> None:
-        assert date(2026, 10, 1) == READING_BASE_FROM
+        assert earned_time.READING.penalty_from == date(2026, 10, 1)
         assert base_hour(date(2026, 10, 1)) == 19
 
     def test_long_after_the_cut_stays_nineteen(self) -> None:
@@ -66,9 +69,9 @@ class TestBaseHour:
 
 class TestResetIncludesReading:
     def test_reset_writes_base_plus_reading_and_stamps_it(
-        self, tmp_path: Path, hours: tuple[MagicMock, MagicMock]
+        self, tmp_path: Path, answers: tuple[dict[str, bool | None], MagicMock]
     ) -> None:
-        hours[1].return_value = 1
+        answers[0]["reading"] = True
         state = tmp_path / "state.json"
         mixin = _mixin()
         assert reset_to_base_if_new_day(state, mixin) is True
@@ -81,10 +84,10 @@ class TestResetIncludesReading:
         }
 
     def test_reset_with_both_flat_hours_stamps_both(
-        self, tmp_path: Path, hours: tuple[MagicMock, MagicMock]
+        self, tmp_path: Path, answers: tuple[dict[str, bool | None], MagicMock]
     ) -> None:
-        hours[0].return_value = 1
-        hours[1].return_value = 1
+        answers[0]["leetcode"] = True
+        answers[0]["reading"] = True
         state = tmp_path / "state.json"
         mixin = _mixin()
         assert reset_to_base_if_new_day(state, mixin) is True
@@ -100,23 +103,57 @@ class TestResetIncludesReading:
         mixin._adjust_shutdown_time_by.assert_not_called()
 
     def test_reset_is_still_capped_at_the_ceiling(
-        self, tmp_path: Path, hours: tuple[MagicMock, MagicMock]
+        self, tmp_path: Path, answers: tuple[dict[str, bool | None], MagicMock]
     ) -> None:
-        hours[0].return_value = 1
-        hours[1].return_value = 1
+        answers[0]["leetcode"] = True
+        answers[0]["reading"] = True
         mixin = _mixin()
-        with patch.object(_shutdown_base, "today_earned_bonus_hours", return_value=9):
+        with patch.object(_shutdown_base, "today_credit_count", return_value=9):
             reset_to_base_if_new_day(
                 tmp_path / "state.json", mixin, log_file=tmp_path / "log.json"
             )
         mixin._write_shutdown_config.assert_called_once_with(23, 23, 5, restore=True)
 
+    def test_unknown_reading_earns_nothing_warns_and_is_not_stamped(
+        self,
+        tmp_path: Path,
+        answers: tuple[dict[str, bool | None], MagicMock],
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """The live pass must ask again: a stamp would forfeit the day's hour."""
+        answers[0]["reading"] = None
+        state = tmp_path / "state.json"
+        mixin = _mixin()
+        with caplog.at_level("WARNING"):
+            assert reset_to_base_if_new_day(state, mixin) is True
+        assert "reading state could not be checked" in caplog.text
+        base = base_hour()
+        mixin._write_shutdown_config.assert_called_once_with(
+            base, base, 5, restore=True
+        )
+        assert json.loads(state.read_text()) == {"last_reset_date": today_str()}
+
+    def test_reset_logs_every_term(
+        self,
+        tmp_path: Path,
+        answers: tuple[dict[str, bool | None], MagicMock],
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        answers[0]["reading"] = True
+        with caplog.at_level("INFO"):
+            reset_to_base_if_new_day(tmp_path / "state.json", _mixin())
+        base = base_hour()
+        assert (
+            f"Daily base reset: {base + 1:02d}:00 (base {base} + 0h workout + "
+            "0h LeetCode + 1h reading already earned today)."
+        ) in caplog.text
+
 
 class TestReadingLivePass:
     def test_applies_once_and_stamps(
-        self, tmp_path: Path, hours: tuple[MagicMock, MagicMock]
+        self, tmp_path: Path, answers: tuple[dict[str, bool | None], MagicMock]
     ) -> None:
-        hours[1].return_value = 1
+        answers[0]["reading"] = True
         state = tmp_path / "state.json"
         state.write_text(json.dumps({"last_reset_date": today_str()}))
         mixin = _mixin()
@@ -129,15 +166,15 @@ class TestReadingLivePass:
         }
 
     def test_stamped_today_never_reads_the_ledger(
-        self, tmp_path: Path, hours: tuple[MagicMock, MagicMock]
+        self, tmp_path: Path, answers: tuple[dict[str, bool | None], MagicMock]
     ) -> None:
         state = tmp_path / "state.json"
         state.write_text(json.dumps({"reading_bonus_date": today_str()}))
         assert apply_reading_bonus_if_new(state, _mixin()) is False
-        hours[1].assert_not_called()
+        answers[1].assert_not_called()
 
     def test_no_reading_no_write(
-        self, tmp_path: Path, hours: tuple[MagicMock, MagicMock]
+        self, tmp_path: Path, answers: tuple[dict[str, bool | None], MagicMock]
     ) -> None:
         mixin = _mixin()
         assert apply_reading_bonus_if_new(tmp_path / "state.json", mixin) is False
@@ -146,62 +183,41 @@ class TestReadingLivePass:
     def test_failed_write_leaves_no_stamp_and_warns(
         self,
         tmp_path: Path,
-        hours: tuple[MagicMock, MagicMock],
+        answers: tuple[dict[str, bool | None], MagicMock],
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         """A stamp without a write would silently forfeit the hour for the day."""
-        hours[1].return_value = 1
+        answers[0]["reading"] = True
         state = tmp_path / "state.json"
         mixin = _mixin(adjust_ok=False)
         with caplog.at_level("WARNING"):
             assert apply_reading_bonus_if_new(state, mixin) is False
-        assert "Reading bonus: failed to write" in caplog.text
+        assert "reading bonus: failed to write" in caplog.text
         assert not state.exists()
 
-
-class TestFlatBonuses:
-    def test_both_earned_apply_both_and_keep_both_stamps(
-        self, tmp_path: Path, hours: tuple[MagicMock, MagicMock]
+    def test_cannot_check_warns_and_leaves_no_stamp(
+        self,
+        tmp_path: Path,
+        answers: tuple[dict[str, bool | None], MagicMock],
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """The second save must not overwrite the first one's stamp."""
-        hours[0].return_value = 1
-        hours[1].return_value = 1
+        """Unknown is not "no": logged, no hour, and re-asked on the next tick."""
+        answers[0]["reading"] = None
         state = tmp_path / "state.json"
         mixin = _mixin()
-        apply_flat_bonuses_if_new(state, mixin)
-        assert mixin._adjust_shutdown_time_by.call_count == 2
-        assert json.loads(state.read_text()) == {
-            "leetcode_bonus_date": today_str(),
-            "reading_bonus_date": today_str(),
-        }
-        apply_flat_bonuses_if_new(state, mixin)
-        assert mixin._adjust_shutdown_time_by.call_count == 2
+        with caplog.at_level("WARNING"):
+            assert apply_reading_bonus_if_new(state, mixin) is False
+        assert "reading state could not be checked" in caplog.text
+        mixin._adjust_shutdown_time_by.assert_not_called()
+        assert not state.exists()
 
-    def test_only_reading_earned_applies_only_reading(
-        self, tmp_path: Path, hours: tuple[MagicMock, MagicMock]
+    def test_applied_hour_is_logged(
+        self,
+        tmp_path: Path,
+        answers: tuple[dict[str, bool | None], MagicMock],
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
-        hours[1].return_value = 1
-        state = tmp_path / "state.json"
-        mixin = _mixin()
-        apply_flat_bonuses_if_new(state, mixin)
-        mixin._adjust_shutdown_time_by.assert_called_once_with(1)
-        assert json.loads(state.read_text()) == {"reading_bonus_date": today_str()}
-
-
-class TestProjectionFollowsTheCut:
-    @pytest.mark.parametrize(
-        ("now", "expected"),
-        [
-            (datetime(2026, 9, 30, 12, 0, tzinfo=UTC), 20),
-            (datetime(2026, 10, 2, 12, 0, tzinfo=UTC), 19),
-        ],
-    )
-    def test_rest_of_week_uses_the_base_for_that_day(
-        self, tmp_path: Path, now: datetime, expected: int
-    ) -> None:
-        with patch(
-            "screen_locker._status_data.has_workout_skip_today", return_value=False
-        ):
-            snap = gather_status(**_files(tmp_path), now=now)
-        assert snap.shutdown.rest_of_week[0].hour == expected
-        assert snap.shutdown.next_week_preview[0].hour == expected
+        answers[0]["reading"] = True
+        with caplog.at_level("INFO"):
+            assert apply_reading_bonus_if_new(tmp_path / "state.json", _mixin())
+        assert "reading bonus: +1h shutdown time today." in caplog.text

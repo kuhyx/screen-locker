@@ -13,7 +13,10 @@ from dataclasses import dataclass
 import logging
 from typing import TYPE_CHECKING
 
+import earned_time
+
 from screen_locker import _sick_tracker
+from screen_locker._earned import to_hours
 from screen_locker._weekly_check import (
     COUNTED_WORKOUT_TYPES,
     PC_WORKOUT_TYPE,
@@ -25,21 +28,19 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
-# The shutdown reward for a day's workouts: the first counted workout pushes
-# shutdown later by FIRST_WORKOUT_BONUS_HOURS, every further one by
-# EXTRA_WORKOUT_BONUS_HOURS. Both the live credit paths below and the daily
-# base reset (``_shutdown_base``) derive from these two numbers, so a day's
-# earned hours can be recomputed from the log instead of being lost when the
-# credit landed before the reset ran.
-FIRST_WORKOUT_BONUS_HOURS = 2
-EXTRA_WORKOUT_BONUS_HOURS = 1
+# The shutdown reward for a day's workouts, from the shared registry
+# (``earned_time.WORKOUT``): the first counted workout pushes shutdown later by
+# FIRST_WORKOUT_BONUS_HOURS, every further one by EXTRA_WORKOUT_BONUS_HOURS.
+# The live credit paths below and the daily base reset (``_shutdown_base``)
+# both derive from the registry, so a day's earned hours can be recomputed
+# from the log instead of being lost when the credit landed before the reset.
+FIRST_WORKOUT_BONUS_HOURS = to_hours(earned_time.WORKOUT.shutdown_minutes)
+EXTRA_WORKOUT_BONUS_HOURS = to_hours(earned_time.WORKOUT.extra_shutdown_minutes)
 
 
 def earned_shutdown_bonus_hours(credit_count: int) -> int:
     """Return the shutdown hours a day with *credit_count* distinct workouts earned."""
-    if credit_count <= 0:
-        return 0
-    return FIRST_WORKOUT_BONUS_HOURS + (credit_count - 1) * EXTRA_WORKOUT_BONUS_HOURS
+    return to_hours(earned_time.WORKOUT.shutdown_for(credit_count))
 
 
 @dataclass(frozen=True)

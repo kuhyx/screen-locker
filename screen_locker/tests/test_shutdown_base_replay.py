@@ -17,7 +17,7 @@ from screen_locker._day import today_str
 from screen_locker._shutdown_base import (
     base_hour,
     reset_to_base_if_new_day,
-    today_earned_bonus_hours,
+    today_credit_count,
 )
 from screen_locker._weekly_check import (
     count_day_credits,
@@ -124,23 +124,24 @@ class TestSyncedCopySharesCredit:
         assert credit_key(_DAY, 0, entry, {"42": 5}) == ("manual_workout", f"{_DAY}#0")
 
 
-class TestTodayEarnedBonusHours:
-    """The log → hours derivation the reset relies on."""
+class TestTodayCreditCount:
+    """The log -> credit count the reset hands to the registry."""
 
-    def test_real_day_earns_two_hours(self, tmp_path: Path) -> None:
+    def test_real_day_counts_one_workout_worth_two_hours(self, tmp_path: Path) -> None:
         log = _write_log(tmp_path / "log.json", _DAY, _real_2026_09_13())
-        assert today_earned_bonus_hours(log, _DAY) == 2
+        assert today_credit_count(log, _DAY) == 1
+        assert earned_shutdown_bonus_hours(today_credit_count(log, _DAY)) == 2
 
-    def test_day_absent_from_log_earns_nothing(self, tmp_path: Path) -> None:
+    def test_day_absent_from_log_counts_nothing(self, tmp_path: Path) -> None:
         log = _write_log(tmp_path / "log.json", "2026-09-12", _real_2026_09_13())
-        assert today_earned_bonus_hours(log, _DAY) == 0
+        assert today_credit_count(log, _DAY) == 0
 
     def test_non_dict_entries_are_ignored(self, tmp_path: Path) -> None:
         log = tmp_path / "log.json"
         log.write_text(
             json.dumps({_DAY: ["garbage", _manual("manual:2026-09-13T08:00")]})
         )
-        assert today_earned_bonus_hours(log, _DAY) == 2
+        assert today_credit_count(log, _DAY) == 1
 
 
 class TestResetReplaysTodaysCredit:
