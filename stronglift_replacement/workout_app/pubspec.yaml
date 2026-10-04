@@ -43,7 +43,7 @@ dependencies:
       url: https://github.com/kuhyx/utils
       ref: sync_settings_ui-v0.4.1
       path: sync_settings_ui
-  url_launcher: 6.3.2
+  url_launcher: 6.3.3
   uuid: 4.6.0
   vibration: 3.2.1
 
