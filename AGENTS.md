@@ -79,3 +79,12 @@ now < exempt_until*; the 09:30/11:00 cutoffs live in wake-alarm
 (`DOCS-morning-session-pc.md`) and must not be re-derived here. The enforce
 path waits up to 30 s for a freshly booted PC's refresher; status paths never
 wait, and tests pin the retry to 0.
+
+## Commands
+
+- run: `./run.sh` (locks the screen; never launch on the live display for checks)
+- test: `python -m pytest -n auto -p no:sugar -q`
+- test-changed: `scripts/test_changed.sh`
+- lint: `pre-commit run ruff --all-files`
+- coverage: `python -m pytest -n auto -p no:sugar -q`
+- coverage-gaps: `coverage-gaps coverage.lcov`
