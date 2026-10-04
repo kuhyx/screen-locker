@@ -18,10 +18,11 @@ import pytest
 
 from screen_locker import _shutdown_base
 from screen_locker._day import today_str
+from screen_locker._earned import hhmm
 from screen_locker._shutdown_base import (
     _apply_flat_bonus,
     apply_flat_bonuses_if_new,
-    base_hour,
+    base_minutes,
     reset_to_base_if_new_day,
 )
 from screen_locker.tests._earned_fixtures import answering
@@ -33,7 +34,7 @@ if TYPE_CHECKING:
 
 def _mixin(*, adjust_ok: bool = True) -> MagicMock:
     mixin = MagicMock()
-    mixin._read_shutdown_config.return_value = (base_hour(), base_hour(), 5)
+    mixin._read_shutdown_config.return_value = (base_minutes(), base_minutes(), 300)
     mixin._write_shutdown_config.return_value = True
     mixin._adjust_shutdown_time_by.return_value = adjust_ok
     return mixin
@@ -54,17 +55,17 @@ def answers() -> Iterator[tuple[dict[str, bool | None], MagicMock]]:
 
 class TestBaseHour:
     def test_day_before_the_cut_keeps_twenty(self) -> None:
-        assert base_hour(date(2026, 9, 30)) == 20
+        assert base_minutes(date(2026, 9, 30)) == 20 * 60
 
     def test_cut_day_is_nineteen(self) -> None:
         assert earned_time.READING.penalty_from == date(2026, 10, 1)
-        assert base_hour(date(2026, 10, 1)) == 19
+        assert base_minutes(date(2026, 10, 1)) == 19 * 60
 
     def test_long_after_the_cut_stays_nineteen(self) -> None:
-        assert base_hour(date(2030, 1, 1)) == 19
+        assert base_minutes(date(2030, 1, 1)) == 19 * 60
 
     def test_default_is_the_local_today(self) -> None:
-        assert base_hour() == base_hour(datetime.now().astimezone().date())
+        assert base_minutes() == base_minutes(datetime.now().astimezone().date())
 
 
 class TestResetIncludesReading:
@@ -76,7 +77,7 @@ class TestResetIncludesReading:
         mixin = _mixin()
         assert reset_to_base_if_new_day(state, mixin) is True
         mixin._write_shutdown_config.assert_called_once_with(
-            base_hour() + 1, base_hour() + 1, 5, restore=True
+            base_minutes() + 60, base_minutes() + 60, 300, restore=True
         )
         assert json.loads(state.read_text()) == {
             "last_reset_date": today_str(),
@@ -92,7 +93,7 @@ class TestResetIncludesReading:
         mixin = _mixin()
         assert reset_to_base_if_new_day(state, mixin) is True
         mixin._write_shutdown_config.assert_called_once_with(
-            base_hour() + 2, base_hour() + 2, 5, restore=True
+            base_minutes() + 120, base_minutes() + 120, 300, restore=True
         )
         assert json.loads(state.read_text()) == {
             "last_reset_date": today_str(),
@@ -112,7 +113,9 @@ class TestResetIncludesReading:
             reset_to_base_if_new_day(
                 tmp_path / "state.json", mixin, log_file=tmp_path / "log.json"
             )
-        mixin._write_shutdown_config.assert_called_once_with(23, 23, 5, restore=True)
+        mixin._write_shutdown_config.assert_called_once_with(
+            1380, 1380, 300, restore=True
+        )
 
     def test_unknown_reading_earns_nothing_warns_and_is_not_stamped(
         self,
@@ -127,9 +130,9 @@ class TestResetIncludesReading:
         with caplog.at_level("WARNING"):
             assert reset_to_base_if_new_day(state, mixin) is True
         assert "reading state could not be checked" in caplog.text
-        base = base_hour()
+        base = base_minutes()
         mixin._write_shutdown_config.assert_called_once_with(
-            base, base, 5, restore=True
+            base, base, 300, restore=True
         )
         assert json.loads(state.read_text()) == {"last_reset_date": today_str()}
 
@@ -142,9 +145,9 @@ class TestResetIncludesReading:
         answers[0]["reading"] = True
         with caplog.at_level("INFO"):
             reset_to_base_if_new_day(tmp_path / "state.json", _mixin())
-        base = base_hour()
+        base = base_minutes()
         assert (
-            f"Daily base reset: {base + 1:02d}:00 (base {base} + 0h workout + "
+            f"Daily base reset: {hhmm(base + 60)} (base {hhmm(base)} + 0h workout + "
             "0h LeetCode + 1h reading already earned today)."
         ) in caplog.text
 
@@ -159,7 +162,7 @@ class TestReadingLivePass:
         mixin = _mixin()
         assert apply_reading_bonus_if_new(state, mixin) is True
         assert apply_reading_bonus_if_new(state, mixin) is False
-        mixin._adjust_shutdown_time_by.assert_called_once_with(1)
+        mixin._adjust_shutdown_time_by.assert_called_once_with(60)
         assert json.loads(state.read_text()) == {
             "last_reset_date": today_str(),
             "reading_bonus_date": today_str(),

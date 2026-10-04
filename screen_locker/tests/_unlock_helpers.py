@@ -68,6 +68,6 @@ def setup_unlock(
     object.__setattr__(
         locker,
         "_read_shutdown_config",
-        MagicMock(return_value=(22, 22, 5)),
+        MagicMock(return_value=(1320, 1320, 300)),
     )
     return locker

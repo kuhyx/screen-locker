@@ -46,8 +46,8 @@ class TestRestoreOriginalConfigIfNeeded:
             json.dumps(
                 {
                     "date": "2020-01-01",
-                    "original_mon_wed_hour": 21,
-                    "original_thu_sun_hour": 20,
+                    "original_mon_wed_minutes": 1260,
+                    "original_thu_sun_minutes": 1200,
                 }
             )
         )
@@ -59,7 +59,7 @@ class TestRestoreOriginalConfigIfNeeded:
             patch.object(locker, "_write_restored_config") as mock_restore,
         ):
             locker._restore_original_config_if_needed()
-        mock_restore.assert_called_once_with(21, 20, "2020-01-01")
+        mock_restore.assert_called_once_with(1260, 1200, "2020-01-01")
 
     def test_does_not_restore_when_state_from_today(
         self,
@@ -77,8 +77,8 @@ class TestRestoreOriginalConfigIfNeeded:
             json.dumps(
                 {
                     "date": today,
-                    "original_mon_wed_hour": 21,
-                    "original_thu_sun_hour": 20,
+                    "original_mon_wed_minutes": 1260,
+                    "original_thu_sun_minutes": 1200,
                 }
             )
         )
@@ -174,13 +174,15 @@ class TestReadShutdownConfig:
         """Test reads all three config values from file."""
         locker = create_locker(mock_tk, tmp_path)
         config_file = tmp_path / "shutdown.conf"
-        config_file.write_text("MON_WED_HOUR=21\nTHU_SUN_HOUR=20\nMORNING_END_HOUR=8\n")
+        config_file.write_text(
+            "MON_WED_MINUTES=1260\nTHU_SUN_MINUTES=1200\nMORNING_END_MINUTES=480\n"
+        )
         with patch(
             "screen_locker._shutdown.SHUTDOWN_CONFIG_FILE",
             config_file,
         ):
             result = locker._read_shutdown_config()
-        assert result == (21, 20, 8)
+        assert result == (1260, 1200, 480)
 
     def test_returns_none_when_values_missing(
         self,
@@ -211,13 +213,13 @@ class TestBuildShutdownCmd:
     ) -> None:
         """Test command without restore flag."""
         locker = create_locker(mock_tk, tmp_path)
-        cmd = locker._build_shutdown_cmd(21, 20, 8, restore=False)
+        cmd = locker._build_shutdown_cmd(1260, 1200, 480, restore=False)
         assert cmd == [
             "/usr/bin/sudo",
             str(ADJUST_SHUTDOWN_SCRIPT),
-            "21",
-            "20",
-            "8",
+            "21:00",
+            "20:00",
+            "08:00",
         ]
 
     def test_with_restore(
@@ -228,12 +230,12 @@ class TestBuildShutdownCmd:
     ) -> None:
         """Test command with restore flag."""
         locker = create_locker(mock_tk, tmp_path)
-        cmd = locker._build_shutdown_cmd(21, 20, 8, restore=True)
+        cmd = locker._build_shutdown_cmd(1260, 1200, 480, restore=True)
         assert cmd == [
             "/usr/bin/sudo",
             str(ADJUST_SHUTDOWN_SCRIPT),
             "--restore",
-            "21",
-            "20",
-            "8",
+            "21:00",
+            "20:00",
+            "08:00",
         ]

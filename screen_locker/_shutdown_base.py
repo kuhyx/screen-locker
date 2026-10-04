@@ -34,7 +34,13 @@ from typing import TYPE_CHECKING, Any
 import earned_time
 
 from screen_locker._day import today_str
-from screen_locker._earned import earned_today, flat_answers, flat_earners, to_hours
+from screen_locker._earned import (
+    earned_today,
+    flat_answers,
+    flat_earners,
+    hhmm,
+    span,
+)
 from screen_locker._log_io import load_workout_log
 from screen_locker._weekly_check import count_day_credits
 
@@ -43,11 +49,17 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
+# Morning end assumed when the live config cannot be read: 05:00.
+_DEFAULT_MORNING_END = 5 * 60
 
-def base_hour(day: date | None = None) -> int:
-    """The base for ``day`` (default today), every penalty in force taken off."""
+
+def base_minutes(day: date | None = None) -> int:
+    """The base shutdown for ``day`` (default today), in minutes after midnight.
+
+    Every penalty in force is already taken off.
+    """
     target = day or datetime.now().astimezone().date()
-    return to_hours(earned_time.base_for(target, earned_time.EARNERS).shutdown_minutes)
+    return earned_time.base_for(target, earned_time.EARNERS).shutdown_minutes
 
 
 def _stamp(earner: earned_time.Earner) -> str:
@@ -114,11 +126,11 @@ def reset_to_base_if_new_day(
     sick_day_state_file: Path | None = None,
     log_file: Path | None = None,
 ) -> bool:
-    """Reset the shutdown config to the base hour if a new calendar day began.
+    """Reset the shutdown config to the base if a new calendar day began.
 
     Writes the base plus whatever today has already earned -- the workout
-    hours in *log_file* (see :func:`today_credit_count`) and every flat
-    earner's hour -- via *mixin*._write_shutdown_config (with restore=True so
+    time in *log_file* (see :func:`today_credit_count`) and every flat
+    earner's time -- via *mixin*._write_shutdown_config (with restore=True so
     the script allows moving the time earlier), stamps ``last_reset_date`` in
     *state_file*, and removes *sick_day_state_file* if it exists so the
     sick-restore path does not fight with the fresh base on the same startup.
@@ -138,11 +150,11 @@ def reset_to_base_if_new_day(
     day = earned_time.resolve(
         answers, datetime.now().astimezone().date(), earned_time.EARNERS
     )
-    target = to_hours(day.shutdown_minutes)
+    target = day.shutdown_minutes
 
-    # Preserve the morning-end hour from the live config.
+    # Preserve the morning end from the live config.
     config = mixin._read_shutdown_config()
-    morning_end = config[2] if config else 5
+    morning_end = config[2] if config else _DEFAULT_MORNING_END
 
     ok: bool = mixin._write_shutdown_config(target, target, morning_end, restore=True)
     if not ok:
@@ -151,7 +163,7 @@ def reset_to_base_if_new_day(
 
     _clear_sick_day_state(sick_day_state_file)
 
-    # The flat hours are stamped here too: the reset already included them,
+    # The flat bonuses are stamped here too: the reset already included them,
     # so the live pass below must not add them a second time today.
     new_state: dict[str, Any] = {"last_reset_date": today}
     for term in day.terms:
@@ -160,12 +172,12 @@ def reset_to_base_if_new_day(
     _save_state(state_file, new_state)
 
     earned = " + ".join(
-        f"{to_hours(t.shutdown_minutes)}h {t.earner.label}" for t in day.terms
+        f"{span(t.shutdown_minutes)} {t.earner.label}" for t in day.terms
     )
     _logger.info(
-        "Daily base reset: %02d:00 (base %d + %s already earned today).",
-        target,
-        to_hours(day.base.shutdown_minutes),
+        "Daily base reset: %s (base %s + %s already earned today).",
+        hhmm(target),
+        hhmm(day.base.shutdown_minutes),
         earned,
     )
     return True
@@ -176,15 +188,15 @@ def _apply_flat_bonus(
     mixin: object,
     earner: earned_time.Earner,
 ) -> bool:
-    """Push shutdown later by one earner's once-per-day hour, if it is earned.
+    """Push shutdown later by one earner's once-per-day time, if it is earned.
 
     The daily reset only sees a bonus earned before it ran; this is the live
     counterpart for the usual case, where the solve or the reading lands
     hours later and is picked up by the next timer tick. Idempotent through
     the earner's stamp in *state_file*, which the reset sets as well when it
-    already included the hour.
+    already included the bonus.
 
-    Returns True if the hour was applied on this call.
+    Returns True if the bonus was applied on this call.
     """
     today = today_str()
     state = _load_state(state_file)
@@ -199,18 +211,18 @@ def _apply_flat_bonus(
         return False
     if not answer:
         return False
-    hours = to_hours(earner.shutdown_minutes)
-    if not mixin._adjust_shutdown_time_by(hours):
+    minutes = earner.shutdown_minutes
+    if not mixin._adjust_shutdown_time_by(minutes):
         _logger.warning("%s bonus: failed to write shutdown config.", earner.label)
         return False
     state[stamp] = today
     _save_state(state_file, state)
-    _logger.info("%s bonus: +%dh shutdown time today.", earner.label, hours)
+    _logger.info("%s bonus: +%s shutdown time today.", earner.label, span(minutes))
     return True
 
 
 def apply_flat_bonuses_if_new(state_file: Path, mixin: object) -> None:
-    """Every once-per-day flat hour, in registry order (LeetCode, reading, ...).
+    """Every once-per-day flat bonus, in registry order (LeetCode, reading, ...).
 
     The workout is not among them: it is counted, and its live credit is
     applied by :class:`~screen_locker._workout_credit.WorkoutCreditMixin`.

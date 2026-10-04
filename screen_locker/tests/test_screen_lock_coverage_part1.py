@@ -124,7 +124,7 @@ class TestCheckNonVerifyExitsExtras:
             patch("screen_locker.screen_lock.sys.exit"),
         ):
             locker._check_non_verify_exits()
-        locker._adjust_shutdown_time_by.assert_called_once_with(2)
+        locker._adjust_shutdown_time_by.assert_called_once_with(120)
 
     def test_no_weekly_bonus_applied_when_not_a_fresh_day(
         self,

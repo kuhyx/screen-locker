@@ -4,8 +4,10 @@ Split out of :mod:`screen_locker._shutdown` to keep every file under the
 250-line cap. Composed back into ``ShutdownMixin`` there, so callers see no
 change.
 
-Tracks the shutdown hours that were in force before a sick day moved them
-earlier, so the following day can put them back.
+Tracks the shutdown times (minutes after midnight) that were in force before
+a sick day moved them earlier, so the following day can put them back. A state
+file written before the minutes migration holds whole hours under
+``original_*_hour`` and is still read.
 """
 
 from __future__ import annotations
@@ -17,6 +19,19 @@ from screen_locker._constants import SICK_DAY_STATE_FILE
 from screen_locker._day import today_str
 
 _logger = logging.getLogger(__name__)
+
+_MINUTES_PER_HOUR = 60
+
+
+def _original_minutes(state: dict[str, object], band: str) -> int | None:
+    """The saved time for *band* (``mon_wed``/``thu_sun``) in minutes, if any."""
+    minutes = state.get(f"original_{band}_minutes")
+    if minutes is not None:
+        return int(str(minutes))
+    hours = state.get(f"original_{band}_hour")
+    if hours is not None:
+        return int(str(hours)) * _MINUTES_PER_HOUR
+    return None
 
 
 class SickDayStateMixin:
@@ -47,14 +62,14 @@ class SickDayStateMixin:
         orig_mon_wed: int,
         orig_thu_sun: int,
     ) -> bool:
-        """Save sick day state with original config values.
+        """Save sick day state with the original times, in minutes.
 
         Returns True if saved successfully, False otherwise.
         """
         state = {
             "date": date,
-            "original_mon_wed_hour": orig_mon_wed,
-            "original_thu_sun_hour": orig_thu_sun,
+            "original_mon_wed_minutes": orig_mon_wed,
+            "original_thu_sun_minutes": orig_thu_sun,
         }
         try:
             with SICK_DAY_STATE_FILE.open("w") as f:
@@ -69,16 +84,16 @@ class SickDayStateMixin:
     def _load_sick_day_state(self) -> tuple[str, int, int] | None:
         """Load sick day state file.
 
-        Returns (date, orig_mon_wed_hour, orig_thu_sun_hour) or None.
+        Returns (date, orig_mon_wed, orig_thu_sun) in minutes, or None.
         """
         with SICK_DAY_STATE_FILE.open() as f:
             state = json.load(f)
         date = state.get("date")
-        orig_mw = state.get("original_mon_wed_hour")
-        orig_ts = state.get("original_thu_sun_hour")
+        orig_mw = _original_minutes(state, "mon_wed")
+        orig_ts = _original_minutes(state, "thu_sun")
         if date is None or orig_mw is None or orig_ts is None:
             return None
-        return (str(date), int(orig_mw), int(orig_ts))
+        return (str(date), orig_mw, orig_ts)
 
     def _write_restored_config(
         self,

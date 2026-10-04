@@ -111,7 +111,7 @@ class TestApplyWorkoutCredit:
         object.__setattr__(
             locker,
             "_read_shutdown_config",
-            MagicMock(side_effect=[(21, 21, 5), (22, 22, 5)]),
+            MagicMock(side_effect=[(1260, 1260, 300), (1320, 1320, 300)]),
         )
         object.__setattr__(
             locker, "_adjust_shutdown_time_by", MagicMock(return_value=True)
@@ -126,9 +126,9 @@ class TestApplyWorkoutCredit:
 
         assert result.weekly_count == 5
         assert result.shutdown_adjusted is False
-        assert result.extra_bonus_delta == 1
+        assert result.extra_bonus_delta == 60
         locker._try_adjust_shutdown_for_workout.assert_not_called()
-        locker._adjust_shutdown_time_by.assert_called_once_with(1)
+        locker._adjust_shutdown_time_by.assert_called_once_with(60)
 
     def test_additional_verified_workout_earns_plus_one_hour(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -137,7 +137,7 @@ class TestApplyWorkoutCredit:
 
         prior_entries already holds a counted workout, so this isn't the first
         of the day; because the new type is verified it takes the +1h branch,
-        and extra_bonus_delta reflects the shutdown-config hour delta.
+        and extra_bonus_delta reflects the shutdown-config minute delta.
         """
         locker = create_locker(mock_tk, tmp_path)
         locker.workout_data = {"type": "phone_verified"}
@@ -153,7 +153,7 @@ class TestApplyWorkoutCredit:
         object.__setattr__(
             locker,
             "_read_shutdown_config",
-            MagicMock(side_effect=[(21, 21, 5), (22, 22, 5)]),
+            MagicMock(side_effect=[(1260, 1260, 300), (1320, 1320, 300)]),
         )
         object.__setattr__(
             locker, "_adjust_shutdown_time_by", MagicMock(return_value=True)
@@ -168,6 +168,6 @@ class TestApplyWorkoutCredit:
 
         assert result.weekly_count == 5
         assert result.shutdown_adjusted is False
-        assert result.extra_bonus_delta == 1
+        assert result.extra_bonus_delta == 60
         locker._try_adjust_shutdown_for_workout.assert_not_called()
-        locker._adjust_shutdown_time_by.assert_called_once_with(1)
+        locker._adjust_shutdown_time_by.assert_called_once_with(60)

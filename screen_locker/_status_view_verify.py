@@ -12,8 +12,10 @@ from concurrent.futures import ThreadPoolExecutor  # pylint: disable=no-name-in-
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from screen_locker._earned import span
 from screen_locker._status_data import gather_status
 from screen_locker._weekly_check import WEEKLY_WORKOUT_MINIMUM, count_weekly_workouts
+from screen_locker._workout_credit import EXTRA_WORKOUT_BONUS_MINUTES
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -81,7 +83,8 @@ def _backfill_week_and_apply_bonus(verifier: ScreenLocker) -> str | None:
     bonus = 0
     if sl_filled:
         new_count = count_weekly_workouts(verifier.log_file)
-        bonus = max(0, new_count - max(WEEKLY_WORKOUT_MINIMUM, prev_count + filled))
+        extra = max(0, new_count - max(WEEKLY_WORKOUT_MINIMUM, prev_count + filled))
+        bonus = extra * EXTRA_WORKOUT_BONUS_MINUTES
         if bonus > 0:
             verifier._adjust_shutdown_time_by(bonus)
     filled += sl_filled
@@ -90,7 +93,7 @@ def _backfill_week_and_apply_bonus(verifier: ScreenLocker) -> str | None:
     plural = "workout" if filled == 1 else "workouts"
     message = f"Auto-filled {filled} {plural} from earlier this week."
     if bonus > 0:
-        message += f" +{bonus}h shutdown time."
+        message += f" +{span(bonus)} shutdown time."
     return message
 
 
@@ -220,7 +223,9 @@ class PhoneCheckMixin:
         if credit.shutdown_adjusted:
             lines.append("Shutdown time +2h later!")
         if credit.extra_bonus_delta > 0:
-            lines.append(f"Extra workout today! +{credit.extra_bonus_delta}h tonight")
+            lines.append(
+                f"Extra workout today! +{span(credit.extra_bonus_delta)} tonight"
+            )
         if credit.new_debt is not None:
             lines.append(f"Workout debt: {credit.new_debt}")
         return lines

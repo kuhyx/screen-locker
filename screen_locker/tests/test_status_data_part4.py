@@ -73,7 +73,7 @@ class TestFormatSummaryLine:
         """Mon wed band used on monday."""
         files = _files(tmp_path)
         files["shutdown_config_file"].write_text(
-            "MON_WED_HOUR=20\nTHU_SUN_HOUR=23\nMORNING_END_HOUR=5\n"
+            "MON_WED_MINUTES=1200\nTHU_SUN_MINUTES=1380\nMORNING_END_MINUTES=300\n"
         )
         with patch(
             "screen_locker._status_data.has_workout_skip_today", return_value=False
@@ -86,7 +86,7 @@ class TestFormatSummaryLine:
         """Thu sun band used on friday."""
         files = _files(tmp_path)
         files["shutdown_config_file"].write_text(
-            "MON_WED_HOUR=20\nTHU_SUN_HOUR=23\nMORNING_END_HOUR=5\n"
+            "MON_WED_MINUTES=1200\nTHU_SUN_MINUTES=1380\nMORNING_END_MINUTES=300\n"
         )
         with patch(
             "screen_locker._status_data.has_workout_skip_today", return_value=False

@@ -57,9 +57,13 @@ rule (LeetCode's `submitted_at`, book-guard's `detail.bonus == "1"` +
 `ended_at`), and *fail closed* -- an unreadable ledger or key earns nothing,
 logged. The gates stay read-only; none writes the config.
 
-The schedule stores whole hours; `_earned.to_hours` raises on a remainder
-instead of flooring, so a 30-minute earner needs the schedule to learn
-minutes first.
+The schedule is in minutes after midnight end to end. `/etc/shutdown-schedule.conf`
+holds authoritative `MON_WED_MINUTES` / `THU_SUN_MINUTES` / `MORNING_END_MINUTES`
+plus strict-rounded legacy `*_HOUR` copies (evening floor, morning ceil) for old
+readers; `read_shutdown_config` prefers `*_MINUTES` and falls back to `*_HOUR` x 60.
+`adjust_shutdown_schedule.sh` takes `HH:MM` (or a legacy bare hour) and the
+helpers `_earned.hhmm` / `_earned.span` render times and durations, so a
+30-minute earner is applied exactly.
 
 ## The morning session is the carrot — and the early-bird window is it
 

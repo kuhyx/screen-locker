@@ -84,7 +84,7 @@ class TestUnlockScreenRewards:
         """new_cfg is None → branch 363->366: delta stays 0 even after adjust."""
         locker = setup_unlock(mock_tk, tmp_path)
         # First call (old_cfg): valid; second call (new_cfg after adjust): None
-        locker._read_shutdown_config.side_effect = [(22, 22, 5), None]
+        locker._read_shutdown_config.side_effect = [(1320, 1320, 300), None]
 
         with (
             patch(

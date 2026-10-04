@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from screen_locker._constants import EXTRA_BENEFITS_FILE
 from screen_locker._decision_log import record_no_decision
+from screen_locker._earned import hhmm
 from screen_locker._extra_benefits import (
     current_streak,
     has_extended_early_bird,
@@ -105,9 +106,9 @@ def run_status(locker: ScreenLocker) -> None:
     if n_filled > 0:
         print(f"  Auto-filled {n_filled} workout(s) from RunnerUp exports.")
         after_count = count_weekly_workouts(log_file)
-        _, mw_hour, _ = locker._read_shutdown_config() or (None, None, None)
-        if mw_hour is not None:
-            print(f"  Shutdown tonight: {mw_hour:02d}:00.")
+        _, thu_sun, _ = locker._read_shutdown_config() or (None, None, None)
+        if thu_sun is not None:
+            print(f"  Shutdown tonight: {hhmm(thu_sun)}.")
     else:
         print("  No new workouts found via RunnerUp scan.")
         after_count = before_count
@@ -162,7 +163,7 @@ def run_status(locker: ScreenLocker) -> None:
     cfg = locker._read_shutdown_config()
     if cfg:
         _mw, _ts, _morning = cfg
-        print(f"  Shutdown tonight    : {_mw:02d}:00")
+        print(f"  Shutdown tonight    : {hhmm(_mw)}")
 
     # --status is a read-out, not an enforcement run; make that explicit so the
     # journal never reads as though the locker evaluated and declined to lock.

@@ -68,16 +68,19 @@ class ManualWorkoutBudgetStatus:
 
 @dataclass(frozen=True)
 class ShutdownProjectionDay:
-    """One labeled row in a shutdown-time projection."""
+    """One labeled row in a shutdown-time projection (minutes after midnight)."""
 
     label: str
-    hour: int
+    minutes: int
     speculative: bool
 
 
 @dataclass(frozen=True)
 class ShutdownProjection:
-    """Tonight's live config plus deterministic/speculative week projections."""
+    """Tonight's live config plus deterministic/speculative week projections.
+
+    ``tonight`` is (mon_wed, thu_sun, morning_end), minutes after midnight.
+    """
 
     tonight: tuple[int, int, int] | None
     rest_of_week: tuple[ShutdownProjectionDay, ...]

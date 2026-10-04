@@ -3,16 +3,15 @@
 Every gate's reward -- the workout, the LeetCode hour, the reading hour and
 whatever is registered next -- is defined once in ``earned_time``, which
 steam-backlog-enforcer reads for gaming time too. This module is the
-screen-locker side of it: where the ledgers live, and the hour conversion.
+screen-locker side of it: where the ledgers live, and how minutes are shown.
 
 The gates publish facts only; none writes the shutdown config. Their ledgers
 are HMAC-verified against :data:`HMAC_KEY_FILE` and *fail closed* -- an
 unreadable ledger or key earns nothing, and says so.
 
-**Whole hours only, for now.** ``/etc/shutdown-schedule.conf`` stores hours,
-while the registry is in minutes. :func:`to_hours` refuses a remainder rather
-than flooring it, so a 30-minute earner cannot silently become 0 here before
-the schedule learns minutes.
+Minutes end to end: the registry, ``/etc/shutdown-schedule.conf`` (its
+``*_MINUTES`` keys) and every shutdown time in this package are minutes after
+midnight, so a 30-minute earner is applied exactly.
 """
 
 from __future__ import annotations
@@ -37,21 +36,20 @@ LEDGER_HOME: Final = Path.home()
 _MINUTES_PER_HOUR: Final = 60
 
 
-def to_hours(minutes: int) -> int:
-    """Convert a registry amount to the schedule's whole hours.
+def hhmm(minutes: int) -> str:
+    """A time of day, given in minutes after midnight, as ``HH:MM``."""
+    hours, rest = divmod(minutes, _MINUTES_PER_HOUR)
+    return f"{hours:02d}:{rest:02d}"
 
-    Raises:
-        ValueError: ``minutes`` is not a whole number of hours. The shutdown
-            schedule cannot express it, and flooring would quietly drop it.
-    """
-    hours, remainder = divmod(minutes, _MINUTES_PER_HOUR)
-    if remainder:
-        msg = (
-            f"{minutes} minutes is not a whole hour; /etc/shutdown-schedule.conf "
-            "stores hours only"
-        )
-        raise ValueError(msg)
-    return hours
+
+def span(minutes: int) -> str:
+    """A duration in minutes as ``2h``, ``30m`` or ``1h30m``."""
+    hours, rest = divmod(minutes, _MINUTES_PER_HOUR)
+    if not rest:
+        return f"{hours}h"
+    if not hours:
+        return f"{rest}m"
+    return f"{hours}h{rest:02d}m"
 
 
 def ledger_file(earner: earned_time.Earner) -> Path:

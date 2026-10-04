@@ -131,7 +131,7 @@ class TestRunStatusNormal:
     ) -> None:
         """Shutdown config present → shutdown time line shown."""
         eb_file = tmp_path / "eb.json"
-        locker = _make_locker(tmp_path / "log.json", cfg=(22, 22, 5))
+        locker = _make_locker(tmp_path / "log.json", cfg=(1320, 1320, 300))
         with (
             patch("screen_locker._status.EXTRA_BENEFITS_FILE", eb_file),
             patch("screen_locker._status.current_streak", return_value=0),

@@ -38,7 +38,7 @@ class TestUnlockScreenExtras:
         ):
             locker.unlock_screen()
 
-        locker._adjust_shutdown_time_by.assert_called_once_with(1)
+        locker._adjust_shutdown_time_by.assert_called_once_with(60)
 
     def test_extra_bonus_delta_displayed(
         self,
@@ -49,9 +49,9 @@ class TestUnlockScreenExtras:
         """extra_bonus_delta > 0 → _text called with 'Extra workout'."""
         locker = setup_unlock(mock_tk, tmp_path, seed_today_type="manual_workout")
 
-        # Simulate before=22, after=23 → delta=1
-        old_cfg = (22, 22, 5)
-        new_cfg = (23, 23, 5)
+        # Simulate before=22:00, after=23:00 → delta=60
+        old_cfg = (1320, 1320, 300)
+        new_cfg = (1380, 1380, 300)
         locker._read_shutdown_config.side_effect = [old_cfg, new_cfg]
 
         text_calls: list[str] = []
@@ -114,7 +114,7 @@ class TestUnlockScreenExtras:
         """Re-reading the shutdown config fails after the +1h → delta stays 0."""
         locker = setup_unlock(mock_tk, tmp_path, seed_today_type="manual_workout")
         # old_cfg readable, new_cfg unreadable → no delta can be computed.
-        locker._read_shutdown_config.side_effect = [(22, 22, 5), None]
+        locker._read_shutdown_config.side_effect = [(1320, 1320, 300), None]
 
         text_calls: list[str] = []
         object.__setattr__(locker, "_text", lambda msg, **kw: text_calls.append(msg))

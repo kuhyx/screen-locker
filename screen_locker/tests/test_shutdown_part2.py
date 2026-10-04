@@ -34,7 +34,9 @@ class TestApplyEarlierShutdown:
         """Test returns False when saving state fails."""
         locker = create_locker(mock_tk, tmp_path)
         with (
-            patch.object(locker, "_read_shutdown_config", return_value=(21, 20, 8)),
+            patch.object(
+                locker, "_read_shutdown_config", return_value=(1260, 1200, 480)
+            ),
             patch.object(locker, "_save_sick_day_state", return_value=False),
         ):
             assert locker._apply_earlier_shutdown("2026-03-21") is False
@@ -48,7 +50,9 @@ class TestApplyEarlierShutdown:
         """Test successful application of earlier shutdown hours."""
         locker = create_locker(mock_tk, tmp_path)
         with (
-            patch.object(locker, "_read_shutdown_config", return_value=(21, 20, 8)),
+            patch.object(
+                locker, "_read_shutdown_config", return_value=(1260, 1200, 480)
+            ),
             patch.object(locker, "_save_sick_day_state", return_value=True),
             patch.object(
                 locker, "_write_shutdown_config", return_value=True
@@ -56,7 +60,7 @@ class TestApplyEarlierShutdown:
         ):
             result = locker._apply_earlier_shutdown("2026-03-21")
         assert result is True
-        mock_write.assert_called_once_with(20, 19, 8)
+        mock_write.assert_called_once_with(1200, 1140, 480)
 
     def test_clamps_to_minimum_18(
         self,
@@ -67,14 +71,16 @@ class TestApplyEarlierShutdown:
         """Test hours are clamped to minimum of 18."""
         locker = create_locker(mock_tk, tmp_path)
         with (
-            patch.object(locker, "_read_shutdown_config", return_value=(18, 18, 8)),
+            patch.object(
+                locker, "_read_shutdown_config", return_value=(1080, 1080, 480)
+            ),
             patch.object(locker, "_save_sick_day_state", return_value=True),
             patch.object(
                 locker, "_write_shutdown_config", return_value=True
             ) as mock_write,
         ):
             locker._apply_earlier_shutdown("2026-03-21")
-        mock_write.assert_called_once_with(18, 18, 8)
+        mock_write.assert_called_once_with(1080, 1080, 480)
 
 
 class TestAdjustShutdownTimeEarlier:
@@ -171,14 +177,16 @@ class TestAdjustShutdownTimeLater:
         """Test successful later adjustment with restore flag."""
         locker = create_locker(mock_tk, tmp_path)
         with (
-            patch.object(locker, "_read_shutdown_config", return_value=(20, 19, 8)),
+            patch.object(
+                locker, "_read_shutdown_config", return_value=(1200, 1140, 480)
+            ),
             patch.object(
                 locker, "_write_shutdown_config", return_value=True
             ) as mock_write,
         ):
             result = locker._adjust_shutdown_time_later()
         assert result is True
-        mock_write.assert_called_once_with(22, 21, 8, restore=True)
+        mock_write.assert_called_once_with(1320, 1260, 480, restore=True)
 
     def test_clamps_to_max_23(
         self,
@@ -189,13 +197,15 @@ class TestAdjustShutdownTimeLater:
         """Test hours are clamped to maximum of 23."""
         locker = create_locker(mock_tk, tmp_path)
         with (
-            patch.object(locker, "_read_shutdown_config", return_value=(22, 23, 8)),
+            patch.object(
+                locker, "_read_shutdown_config", return_value=(1320, 1380, 480)
+            ),
             patch.object(
                 locker, "_write_shutdown_config", return_value=True
             ) as mock_write,
         ):
             locker._adjust_shutdown_time_later()
-        mock_write.assert_called_once_with(23, 23, 8, restore=True)
+        mock_write.assert_called_once_with(1380, 1380, 480, restore=True)
 
     def test_handles_oserror(
         self,

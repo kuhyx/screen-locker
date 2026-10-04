@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING
 import earned_time
 
 from screen_locker import _sick_tracker
-from screen_locker._earned import to_hours
 from screen_locker._weekly_check import (
     COUNTED_WORKOUT_TYPES,
     PC_WORKOUT_TYPE,
@@ -30,17 +29,17 @@ _logger = logging.getLogger(__name__)
 
 # The shutdown reward for a day's workouts, from the shared registry
 # (``earned_time.WORKOUT``): the first counted workout pushes shutdown later by
-# FIRST_WORKOUT_BONUS_HOURS, every further one by EXTRA_WORKOUT_BONUS_HOURS.
+# FIRST_WORKOUT_BONUS_MINUTES, every further one by EXTRA_WORKOUT_BONUS_MINUTES.
 # The live credit paths below and the daily base reset (``_shutdown_base``)
-# both derive from the registry, so a day's earned hours can be recomputed
+# both derive from the registry, so a day's earned time can be recomputed
 # from the log instead of being lost when the credit landed before the reset.
-FIRST_WORKOUT_BONUS_HOURS = to_hours(earned_time.WORKOUT.shutdown_minutes)
-EXTRA_WORKOUT_BONUS_HOURS = to_hours(earned_time.WORKOUT.extra_shutdown_minutes)
+FIRST_WORKOUT_BONUS_MINUTES = earned_time.WORKOUT.shutdown_minutes
+EXTRA_WORKOUT_BONUS_MINUTES = earned_time.WORKOUT.extra_shutdown_minutes
 
 
-def earned_shutdown_bonus_hours(credit_count: int) -> int:
-    """Return the shutdown hours a day with *credit_count* distinct workouts earned."""
-    return to_hours(earned_time.WORKOUT.shutdown_for(credit_count))
+def earned_shutdown_bonus_minutes(credit_count: int) -> int:
+    """Return the shutdown minutes a day with *credit_count* workouts earned."""
+    return earned_time.WORKOUT.shutdown_for(credit_count)
 
 
 @dataclass(frozen=True)
@@ -71,7 +70,7 @@ class WorkoutCreditMixin:
             return False
         adjusted = self._adjust_shutdown_time_later()
         if adjusted:
-            _logger.info("Shutdown time moved 2 hours later as workout reward")
+            _logger.info("Shutdown time moved later as workout reward")
         return adjusted
 
     def _clear_debt_on_verified_workout(self) -> int | None:
@@ -129,7 +128,7 @@ class WorkoutCreditMixin:
             shutdown_adjusted = self._try_adjust_shutdown_for_workout()
         elif self.workout_data.get("type") in COUNTED_WORKOUT_TYPES:
             old_cfg = self._read_shutdown_config()
-            if old_cfg and self._adjust_shutdown_time_by(EXTRA_WORKOUT_BONUS_HOURS):
+            if old_cfg and self._adjust_shutdown_time_by(EXTRA_WORKOUT_BONUS_MINUTES):
                 new_cfg = self._read_shutdown_config()
                 if new_cfg:
                     extra_bonus_delta = new_cfg[1] - old_cfg[1]

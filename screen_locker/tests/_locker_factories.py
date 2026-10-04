@@ -24,7 +24,7 @@ def _make_locker(
     *,
     n_filled: int = 0,
     bonus_applied: bool = False,
-    cfg: tuple | None = (22, 22, 5),
+    cfg: tuple | None = (1320, 1320, 300),
 ):
     """Build a minimal locker-like namespace for _status.run_status()."""
     locker = SimpleNamespace(

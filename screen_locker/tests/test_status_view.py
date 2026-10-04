@@ -187,7 +187,7 @@ class TestSectionShutdown:
 
     def test_tonight_present_shows_live_config(self, mock_tk: MagicMock) -> None:
         """Tonight present shows live config."""
-        snap = _snapshot(shutdown=_shutdown(tonight=(22, 23, 5)))
+        snap = _snapshot(shutdown=_shutdown(tonight=(1320, 1380, 300)))
         _make_window(mock_tk, snap)
         assert any("22:00" in t and "23:00" in t for t in _texts(mock_tk))
 

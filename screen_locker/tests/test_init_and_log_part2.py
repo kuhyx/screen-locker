@@ -166,7 +166,7 @@ class TestAdjustShutdownTimeLater:
         """Test _adjust_shutdown_time_later adds hours successfully."""
         locker = create_locker(mock_tk, tmp_path)
         object.__setattr__(
-            locker, "_read_shutdown_config", MagicMock(return_value=(21, 22, 8))
+            locker, "_read_shutdown_config", MagicMock(return_value=(1260, 1320, 480))
         )
         object.__setattr__(
             locker, "_write_shutdown_config", MagicMock(return_value=True)
@@ -175,7 +175,9 @@ class TestAdjustShutdownTimeLater:
         result = locker._adjust_shutdown_time_later()
 
         assert result is True
-        locker._write_shutdown_config.assert_called_once_with(23, 23, 8, restore=True)
+        locker._write_shutdown_config.assert_called_once_with(
+            1380, 1380, 480, restore=True
+        )
 
     def test_adjust_shutdown_time_later_caps_at_23(
         self,
@@ -186,7 +188,7 @@ class TestAdjustShutdownTimeLater:
         """Test _adjust_shutdown_time_later caps hours at 23."""
         locker = create_locker(mock_tk, tmp_path)
         object.__setattr__(
-            locker, "_read_shutdown_config", MagicMock(return_value=(22, 23, 8))
+            locker, "_read_shutdown_config", MagicMock(return_value=(1320, 1380, 480))
         )
         object.__setattr__(
             locker, "_write_shutdown_config", MagicMock(return_value=True)
@@ -196,7 +198,9 @@ class TestAdjustShutdownTimeLater:
 
         assert result is True
         # 22+2=24 capped to 23, 23+2=25 capped to 23
-        locker._write_shutdown_config.assert_called_once_with(23, 23, 8, restore=True)
+        locker._write_shutdown_config.assert_called_once_with(
+            1380, 1380, 480, restore=True
+        )
 
     def test_adjust_shutdown_time_later_no_config(
         self,

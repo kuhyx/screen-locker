@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from screen_locker._earned import hhmm
 from screen_locker._sync_status import format_sync_line, gather_sync_status
 
 if TYPE_CHECKING:
@@ -156,10 +157,9 @@ class StatusSectionsMixin:
         del parent
         self._label("Shutdown Time", role="body", pad="sm")
         if shutdown.tonight is not None:
-            mon_wed_hour, thu_sun_hour, _morning = shutdown.tonight
+            mon_wed, thu_sun, _morning = shutdown.tonight
             self._text(
-                f"Live config — Mon-Wed {mon_wed_hour:02d}:00, "
-                f"Thu-Sun {thu_sun_hour:02d}:00",
+                f"Live config — Mon-Wed {hhmm(mon_wed)}, Thu-Sun {hhmm(thu_sun)}",
                 role="body",
             )
         else:
@@ -173,7 +173,7 @@ class StatusSectionsMixin:
         # exception to the 16px floor, all sharing one muted tone instead of
         # three unrelated ad hoc grays.
         rest_line = ", ".join(
-            f"{d.label} {d.hour:02d}:00" for d in shutdown.rest_of_week
+            f"{d.label} {hhmm(d.minutes)}" for d in shutdown.rest_of_week
         )
         self._text(
             f"Rest of week: {rest_line}",
@@ -181,7 +181,7 @@ class StatusSectionsMixin:
             color=self._colors.palette.muted,
         )
         next_line = ", ".join(
-            f"{d.label} {d.hour:02d}:00" for d in shutdown.next_week_preview
+            f"{d.label} {hhmm(d.minutes)}" for d in shutdown.next_week_preview
         )
         self._text(
             f"Next week (speculative): {next_line}",

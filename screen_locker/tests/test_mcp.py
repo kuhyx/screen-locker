@@ -62,12 +62,12 @@ def _snapshot() -> StatusSnapshot:
         streak=1,
         early_bird_extended=False,
         shutdown=ShutdownProjection(
-            tonight=(22, 22, 5),
+            tonight=(1320, 1320, 300),
             rest_of_week=(
-                ShutdownProjectionDay(label="Mon", hour=21, speculative=False),
+                ShutdownProjectionDay(label="Mon", minutes=1260, speculative=False),
             ),
             next_week_preview=(
-                ShutdownProjectionDay(label="Mon", hour=21, speculative=True),
+                ShutdownProjectionDay(label="Mon", minutes=1260, speculative=True),
             ),
             explanation="explanation text",
         ),

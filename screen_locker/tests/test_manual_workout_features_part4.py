@@ -79,7 +79,7 @@ class TestApplyWorkoutCredit:
             locker, "_try_adjust_shutdown_for_workout", MagicMock(return_value=True)
         )
         object.__setattr__(
-            locker, "_read_shutdown_config", MagicMock(return_value=(21, 21, 5))
+            locker, "_read_shutdown_config", MagicMock(return_value=(1260, 1260, 300))
         )
         object.__setattr__(
             locker, "_adjust_shutdown_time_by", MagicMock(return_value=True)

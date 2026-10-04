@@ -130,7 +130,7 @@ class TestSyncPassCreditsRunnerUp:
                 "2026-09-16", log, on_ingested
             ),
         )
-        config = {"hours": (20, 20, 5)}
+        config = {"hours": (1200, 1200, 300)}
 
         def write(mw: int, ts: int, me: int, restore: bool = False) -> bool:
             config["hours"] = (mw, ts, me)
@@ -153,5 +153,5 @@ class TestSyncPassCreditsRunnerUp:
             locker._auto_fill_week_runnerup_bonus()
             locker._auto_fill_week_runnerup_bonus()
 
-        assert config["hours"] == (22, 22, 5)
+        assert config["hours"] == (1320, 1320, 300)
         assert locker.workout_data == {}

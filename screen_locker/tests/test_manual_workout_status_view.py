@@ -106,7 +106,7 @@ class TestOnManualWorkoutSaved:
         credit = WorkoutCreditResult(
             shutdown_adjusted=False,
             new_debt=1,
-            extra_bonus_delta=1,
+            extra_bonus_delta=60,
             weekly_count=5,
             already_counted_today=False,
         )

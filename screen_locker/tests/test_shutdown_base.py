@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 from screen_locker._shutdown_base import (
     _load_state,
-    base_hour,
+    base_minutes,
     reset_to_base_if_new_day,
 )
 
@@ -56,11 +56,11 @@ class TestLoadState:
             )
         )
         mixin = MagicMock()
-        mixin._read_shutdown_config.return_value = (21, 21, 5)
+        mixin._read_shutdown_config.return_value = (21 * 60, 21 * 60, 300)
         mixin._write_shutdown_config.return_value = True
         assert reset_to_base_if_new_day(f, mixin) is True
         mixin._write_shutdown_config.assert_called_once_with(
-            base_hour(), base_hour(), 5, restore=True
+            base_minutes(), base_minutes(), 300, restore=True
         )
         assert "base_mon_wed_hour" not in json.loads(f.read_text())
 
@@ -71,7 +71,7 @@ class TestResetToBaseIfNewDay:
     def _make_mixin(self, write_ok: bool = True) -> MagicMock:
         """Build a minimal mixin mock."""
         mixin = MagicMock()
-        mixin._read_shutdown_config.return_value = (21, 21, 5)
+        mixin._read_shutdown_config.return_value = (21 * 60, 21 * 60, 300)
         mixin._write_shutdown_config.return_value = write_ok
         return mixin
 
@@ -88,9 +88,9 @@ class TestResetToBaseIfNewDay:
         f.write_text(json.dumps({"last_reset_date": "2000-01-01"}))
         mixin = self._make_mixin()
         assert reset_to_base_if_new_day(f, mixin) is True
-        base = base_hour()
+        base = base_minutes()
         mixin._write_shutdown_config.assert_called_once_with(
-            base, base, 5, restore=True
+            base, base, 300, restore=True
         )
 
     def test_resets_when_no_state_file(self, tmp_path: Path) -> None:
@@ -108,16 +108,16 @@ class TestResetToBaseIfNewDay:
         assert reset_to_base_if_new_day(f, mixin) is False
 
     def test_uses_default_morning_end_when_config_is_none(self, tmp_path: Path) -> None:
-        """_read_shutdown_config returns None → morning_end defaults to 5 (line 71 else)."""
+        """_read_shutdown_config returns None → morning_end defaults to 05:00 (300 minutes)."""
         f = tmp_path / "state.json"
         f.write_text(json.dumps({"last_reset_date": "2000-01-01"}))
         mixin = MagicMock()
         mixin._read_shutdown_config.return_value = None
         mixin._write_shutdown_config.return_value = True
         reset_to_base_if_new_day(f, mixin)
-        base = base_hour()
+        base = base_minutes()
         mixin._write_shutdown_config.assert_called_once_with(
-            base, base, 5, restore=True
+            base, base, 300, restore=True
         )
 
     def test_clears_sick_day_state_file_on_reset(self, tmp_path: Path) -> None:

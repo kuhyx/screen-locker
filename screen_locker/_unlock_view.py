@@ -9,6 +9,7 @@ commitment prompt or the close), which is exactly the kind of thing the other
 from __future__ import annotations
 
 from screen_locker._constants import EXTRA_BENEFITS_FILE
+from screen_locker._earned import span
 from screen_locker._extra_benefits import current_streak
 
 _UNLOCK_DELAY_MS = 1500
@@ -42,7 +43,7 @@ class UnlockViewMixin:
             )
         if credit.extra_bonus_delta > 0:
             self._text(
-                f"Extra workout today! +{credit.extra_bonus_delta}h tonight",
+                f"Extra workout today! +{span(credit.extra_bonus_delta)} tonight",
                 role="subtitle",
                 color=self._colors.palette.warning,
             )

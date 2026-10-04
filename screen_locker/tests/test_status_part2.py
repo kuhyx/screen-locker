@@ -32,7 +32,7 @@ class TestRunStatusFill:
         callback; the CLI just reports the resulting shutdown hour.
         """
         eb_file = tmp_path / "eb.json"
-        locker = _make_locker(tmp_path / "log.json", n_filled=2, cfg=(22, 22, 5))
+        locker = _make_locker(tmp_path / "log.json", n_filled=2, cfg=(1320, 1320, 300))
         with (
             patch("screen_locker._status.EXTRA_BENEFITS_FILE", eb_file),
             patch("screen_locker._status.current_streak", return_value=0),

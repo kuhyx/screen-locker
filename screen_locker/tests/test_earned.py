@@ -4,7 +4,7 @@ Which rows count -- forged rows, yesterday's solve, an unparsable stamp -- is
 ``earned_time``'s rule and is tested there. Pinned here is screen-locker's
 side of it: the ledger lives under ``LEDGER_HOME``, the key is
 ``HMAC_KEY_FILE``, an unreadable one fails closed to ``None`` and is logged,
-and the schedule's hours are whole.
+and the schedule's times are shown exactly (``hhmm`` / ``span``).
 """
 
 from __future__ import annotations
@@ -22,8 +22,9 @@ from screen_locker._earned import (
     earned_today,
     flat_answers,
     flat_earners,
+    hhmm,
     ledger_file,
-    to_hours,
+    span,
 )
 from screen_locker.tests._earned_fixtures import (
     EXTRA,
@@ -48,15 +49,33 @@ def key(tmp_path: Path) -> Iterator[Path]:
         yield path
 
 
-class TestToHours:
-    def test_whole_hours_convert(self) -> None:
-        assert to_hours(0) == 0
-        assert to_hours(120) == 2
+class TestHhmm:
+    def test_whole_hours_are_zero_padded(self) -> None:
+        assert hhmm(0) == "00:00"
+        assert hhmm(9 * 60) == "09:00"
+        assert hhmm(21 * 60) == "21:00"
 
-    def test_a_remainder_raises_instead_of_flooring(self) -> None:
-        """A 30-minute earner must not silently become 0 hours here."""
-        with pytest.raises(ValueError, match="not a whole hour"):
-            to_hours(90)
+    def test_minutes_are_kept_exactly(self) -> None:
+        """A 30-minute earner shows as :30, never floored to the hour."""
+        assert hhmm(18 * 60 + 30) == "18:30"
+        assert hhmm(5) == "00:05"
+
+    def test_midnight_cap_is_24_00(self) -> None:
+        assert hhmm(24 * 60) == "24:00"
+
+
+class TestSpan:
+    def test_whole_hours(self) -> None:
+        assert span(0) == "0h"
+        assert span(60) == "1h"
+        assert span(120) == "2h"
+
+    def test_minutes_only(self) -> None:
+        assert span(30) == "30m"
+
+    def test_hours_and_minutes_combine(self) -> None:
+        assert span(90) == "1h30m"
+        assert span(125) == "2h05m"
 
 
 class TestLedgerFile:

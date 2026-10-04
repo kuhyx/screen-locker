@@ -108,7 +108,7 @@ class TestIngestSyncedManualWorkouts:
         with patch.object(
             locker,
             "_apply_credit_for_written_entry",
-            return_value=MagicMock(shutdown_adjusted=False, extra_bonus_delta=1),
+            return_value=MagicMock(shutdown_adjusted=False, extra_bonus_delta=60),
         ) as apply_credit:
             locker._credit_ingested_workout(entry, prior)
         assert locker.workout_data == entry

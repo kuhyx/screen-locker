@@ -15,7 +15,7 @@ from unittest.mock import MagicMock
 
 from screen_locker._day import today_str
 from screen_locker._shutdown_base import (
-    base_hour,
+    base_minutes,
     reset_to_base_if_new_day,
     today_credit_count,
 )
@@ -24,7 +24,7 @@ from screen_locker._weekly_check import (
     credit_key,
     day_workout_index,
 )
-from screen_locker._workout_credit import earned_shutdown_bonus_hours
+from screen_locker._workout_credit import earned_shutdown_bonus_minutes
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -57,20 +57,20 @@ def _write_log(log_file: Path, day: str, entries: list[dict[str, Any]]) -> Path:
     return log_file
 
 
-class TestEarnedShutdownBonusHours:
+class TestEarnedShutdownBonusMinutes:
     """First credit is worth 2h, every further one 1h."""
 
     def test_no_credits_earn_nothing(self) -> None:
-        assert earned_shutdown_bonus_hours(0) == 0
+        assert earned_shutdown_bonus_minutes(0) == 0
 
     def test_negative_is_treated_as_nothing(self) -> None:
-        assert earned_shutdown_bonus_hours(-1) == 0
+        assert earned_shutdown_bonus_minutes(-1) == 0
 
     def test_first_credit_is_two_hours(self) -> None:
-        assert earned_shutdown_bonus_hours(1) == 2
+        assert earned_shutdown_bonus_minutes(1) == 120
 
     def test_further_credits_add_one_hour_each(self) -> None:
-        assert earned_shutdown_bonus_hours(3) == 4
+        assert earned_shutdown_bonus_minutes(3) == 240
 
 
 class TestSyncedCopySharesCredit:
@@ -130,7 +130,7 @@ class TestTodayCreditCount:
     def test_real_day_counts_one_workout_worth_two_hours(self, tmp_path: Path) -> None:
         log = _write_log(tmp_path / "log.json", _DAY, _real_2026_09_13())
         assert today_credit_count(log, _DAY) == 1
-        assert earned_shutdown_bonus_hours(today_credit_count(log, _DAY)) == 2
+        assert earned_shutdown_bonus_minutes(today_credit_count(log, _DAY)) == 120
 
     def test_day_absent_from_log_counts_nothing(self, tmp_path: Path) -> None:
         log = _write_log(tmp_path / "log.json", "2026-09-12", _real_2026_09_13())
@@ -149,7 +149,7 @@ class TestResetReplaysTodaysCredit:
 
     def _mixin(self) -> MagicMock:
         mixin = MagicMock()
-        mixin._read_shutdown_config.return_value = (20, 20, 5)
+        mixin._read_shutdown_config.return_value = (20, 20, 300)
         mixin._write_shutdown_config.return_value = True
         return mixin
 
@@ -166,15 +166,15 @@ class TestResetReplaysTodaysCredit:
             reset_to_base_if_new_day(self._state(tmp_path), mixin, log_file=log) is True
         )
         mixin._write_shutdown_config.assert_called_once_with(
-            base_hour() + 2, base_hour() + 2, 5, restore=True
+            base_minutes() + 120, base_minutes() + 120, 300, restore=True
         )
 
     def test_without_log_file_writes_plain_base(self, tmp_path: Path) -> None:
         mixin = self._mixin()
         assert reset_to_base_if_new_day(self._state(tmp_path), mixin) is True
-        base = base_hour()
+        base = base_minutes()
         mixin._write_shutdown_config.assert_called_once_with(
-            base, base, 5, restore=True
+            base, base, 300, restore=True
         )
 
     def test_empty_day_writes_plain_base(self, tmp_path: Path) -> None:
@@ -183,9 +183,9 @@ class TestResetReplaysTodaysCredit:
         assert (
             reset_to_base_if_new_day(self._state(tmp_path), mixin, log_file=log) is True
         )
-        base = base_hour()
+        base = base_minutes()
         mixin._write_shutdown_config.assert_called_once_with(
-            base, base, 5, restore=True
+            base, base, 300, restore=True
         )
 
     def test_earned_hours_are_capped_at_the_restore_ceiling(
@@ -201,7 +201,9 @@ class TestResetReplaysTodaysCredit:
         log = _write_log(tmp_path / "log.json", today_str(), entries)
         mixin = self._mixin()
         assert reset_to_base_if_new_day(self._state(tmp_path), mixin, log_file=log)
-        mixin._write_shutdown_config.assert_called_once_with(23, 23, 5, restore=True)
+        mixin._write_shutdown_config.assert_called_once_with(
+            1380, 1380, 300, restore=True
+        )
 
     def test_state_file_records_only_the_date(self, tmp_path: Path) -> None:
         """Tomorrow's reset must start from the constant, not from today's total."""

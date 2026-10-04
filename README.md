@@ -6,7 +6,7 @@ until a RunnerUp-verified (or explicitly justified) workout is logged.
 
 ## Shutdown time
 
-Every day starts at **19:00** from 2026-10-01, 20:00 before it (`base_hour()` in
+Every day starts at **19:00** from 2026-10-01, 20:00 before it (`base_minutes()` in
 `screen_locker/_shutdown_base.py`)
 and bonuses push it later, capped at 23:00: the first counted workout +2h,
 each further one +1h, an accepted LeetCode submission that day +1h (flat,

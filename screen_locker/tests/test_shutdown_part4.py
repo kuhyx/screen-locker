@@ -28,12 +28,12 @@ class TestSaveSickDayState:
             "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE",
             state_file,
         ):
-            result = locker._save_sick_day_state("2026-03-21", 21, 20)
+            result = locker._save_sick_day_state("2026-03-21", 1260, 1200)
         assert result is True
         data = json.loads(state_file.read_text())
         assert data["date"] == "2026-03-21"
-        assert data["original_mon_wed_hour"] == 21
-        assert data["original_thu_sun_hour"] == 20
+        assert data["original_mon_wed_minutes"] == 1260
+        assert data["original_thu_sun_minutes"] == 1200
 
     def test_returns_false_on_oserror(
         self,
@@ -49,7 +49,7 @@ class TestSaveSickDayState:
             "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE",
             mock_path,
         ):
-            result = locker._save_sick_day_state("2026-03-21", 21, 20)
+            result = locker._save_sick_day_state("2026-03-21", 1260, 1200)
         assert result is False
 
 
@@ -69,8 +69,8 @@ class TestLoadSickDayState:
             json.dumps(
                 {
                     "date": "2026-03-20",
-                    "original_mon_wed_hour": 21,
-                    "original_thu_sun_hour": 20,
+                    "original_mon_wed_minutes": 1260,
+                    "original_thu_sun_minutes": 1200,
                 }
             )
         )
@@ -79,7 +79,7 @@ class TestLoadSickDayState:
             state_file,
         ):
             result = locker._load_sick_day_state()
-        assert result == ("2026-03-20", 21, 20)
+        assert result == ("2026-03-20", 1260, 1200)
 
     def test_returns_none_when_fields_missing(
         self,
@@ -113,7 +113,9 @@ class TestWriteRestoredConfig:
         state_file = tmp_path / "state.json"
         state_file.write_text("{}")
         with (
-            patch.object(locker, "_read_shutdown_config", return_value=(20, 19, 8)),
+            patch.object(
+                locker, "_read_shutdown_config", return_value=(1200, 1140, 480)
+            ),
             patch.object(
                 locker, "_write_shutdown_config", return_value=True
             ) as mock_write,
@@ -122,8 +124,8 @@ class TestWriteRestoredConfig:
                 state_file,
             ),
         ):
-            locker._write_restored_config(21, 20, "2026-03-20")
-        mock_write.assert_called_once_with(21, 20, 8, restore=True)
+            locker._write_restored_config(1260, 1200, "2026-03-20")
+        mock_write.assert_called_once_with(1260, 1200, 480, restore=True)
         assert not state_file.exists()
 
     def test_still_removes_state_when_config_read_fails(
@@ -143,7 +145,7 @@ class TestWriteRestoredConfig:
                 state_file,
             ),
         ):
-            locker._write_restored_config(21, 20, "2026-03-20")
+            locker._write_restored_config(1260, 1200, "2026-03-20")
         assert not state_file.exists()
 
 
@@ -159,30 +161,34 @@ class TestAdjustShutdownTimeBy:
         """Normal path: reads config, increments both hours, writes back."""
         locker = create_locker(mock_tk, tmp_path)
         object.__setattr__(
-            locker, "_read_shutdown_config", MagicMock(return_value=(21, 21, 5))
+            locker, "_read_shutdown_config", MagicMock(return_value=(1260, 1260, 300))
         )
         object.__setattr__(
             locker, "_write_shutdown_config", MagicMock(return_value=True)
         )
-        assert locker._adjust_shutdown_time_by(1) is True
-        locker._write_shutdown_config.assert_called_once_with(22, 22, 5, restore=True)
+        assert locker._adjust_shutdown_time_by(60) is True
+        locker._write_shutdown_config.assert_called_once_with(
+            1320, 1320, 300, restore=True
+        )
 
-    def test_caps_hours_at_24(
+    def test_caps_at_midnight(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Hours are capped at 24 (midnight-safe shutdown)."""
+        """Times are capped at 1440 minutes (midnight-safe shutdown)."""
         locker = create_locker(mock_tk, tmp_path)
         object.__setattr__(
-            locker, "_read_shutdown_config", MagicMock(return_value=(23, 23, 5))
+            locker, "_read_shutdown_config", MagicMock(return_value=(1380, 1380, 300))
         )
         object.__setattr__(
             locker, "_write_shutdown_config", MagicMock(return_value=True)
         )
-        locker._adjust_shutdown_time_by(2)
-        locker._write_shutdown_config.assert_called_once_with(24, 24, 5, restore=True)
+        locker._adjust_shutdown_time_by(120)
+        locker._write_shutdown_config.assert_called_once_with(
+            1440, 1440, 300, restore=True
+        )
 
     def test_returns_false_when_config_is_none(
         self,

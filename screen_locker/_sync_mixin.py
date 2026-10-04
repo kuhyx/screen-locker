@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 
 from screen_locker._constants import EXTRA_BENEFITS_FILE, SHUTDOWN_BASE_FILE
+from screen_locker._earned import span
 from screen_locker._extra_benefits import weekly_shutdown_bonus_hours
 from screen_locker._manual_push import push_pc_workouts
 from screen_locker._manual_sync import ingest_manual_records
@@ -24,6 +25,9 @@ from screen_locker._workout_sync import (
 __all__ = ["SyncMixin"]
 
 _logger = logging.getLogger(__name__)
+
+# The weekly streak bonus is banked in whole hours; the schedule takes minutes.
+_MINUTES_PER_HOUR = 60
 
 
 class SyncMixin:
@@ -103,13 +107,13 @@ class SyncMixin:
         credit = self._apply_credit_for_written_entry(prior_entries)
         if credit.shutdown_adjusted:
             _logger.info(
-                "Ingested workout pushed shutdown time +2h: %s",
+                "Ingested workout pushed shutdown time later: %s",
                 entry.get("source", ""),
             )
         elif credit.extra_bonus_delta:
             _logger.info(
-                "Ingested workout added +%dh shutdown time: %s",
-                credit.extra_bonus_delta,
+                "Ingested workout added +%s shutdown time: %s",
+                span(credit.extra_bonus_delta),
                 entry.get("source", ""),
             )
 
@@ -133,5 +137,5 @@ class SyncMixin:
     def _apply_weekly_shutdown_bonus(self) -> None:
         """Layer this week's earned shutdown bonus back on top of the fresh base."""
         bonus = weekly_shutdown_bonus_hours(EXTRA_BENEFITS_FILE)
-        if bonus > 0 and self._adjust_shutdown_time_by(bonus):
+        if bonus > 0 and self._adjust_shutdown_time_by(bonus * _MINUTES_PER_HOUR):
             _logger.info("Weekly bonus: +%dh shutdown time this week.", bonus)

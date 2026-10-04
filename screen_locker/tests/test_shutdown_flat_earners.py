@@ -19,7 +19,7 @@ import pytest
 from screen_locker._day import today_str
 from screen_locker._shutdown_base import (
     apply_flat_bonuses_if_new,
-    base_hour,
+    base_minutes,
     reset_to_base_if_new_day,
 )
 from screen_locker._status_data import gather_status
@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
 def _mixin() -> MagicMock:
     mixin = MagicMock()
-    mixin._read_shutdown_config.return_value = (base_hour(), base_hour(), 5)
+    mixin._read_shutdown_config.return_value = (base_minutes(), base_minutes(), 300)
     mixin._write_shutdown_config.return_value = True
     mixin._adjust_shutdown_time_by.return_value = True
     return mixin
@@ -84,7 +84,7 @@ class TestFlatBonuses:
         state = tmp_path / "state.json"
         mixin = _mixin()
         apply_flat_bonuses_if_new(state, mixin)
-        mixin._adjust_shutdown_time_by.assert_called_once_with(1)
+        mixin._adjust_shutdown_time_by.assert_called_once_with(60)
         assert json.loads(state.read_text()) == {"reading_bonus_date": today_str()}
 
 
@@ -98,7 +98,7 @@ class TestANewlyRegisteredEarner:
         mixin = _mixin()
         assert reset_to_base_if_new_day(state, mixin) is True
         mixin._write_shutdown_config.assert_called_once_with(
-            base_hour() + 1, base_hour() + 1, 5, restore=True
+            base_minutes() + 60, base_minutes() + 60, 300, restore=True
         )
         assert json.loads(state.read_text()) == {
             "last_reset_date": today_str(),
@@ -113,7 +113,7 @@ class TestANewlyRegisteredEarner:
         mixin = _mixin()
         apply_flat_bonuses_if_new(state, mixin)
         apply_flat_bonuses_if_new(state, mixin)
-        mixin._adjust_shutdown_time_by.assert_called_once_with(1)
+        mixin._adjust_shutdown_time_by.assert_called_once_with(60)
         assert json.loads(state.read_text()) == {"extra_bonus_date": today_str()}
 
     def test_its_ledger_is_read_like_any_other(self, tmp_path: Path) -> None:
@@ -121,7 +121,7 @@ class TestANewlyRegisteredEarner:
         mixin = _mixin()
         with signing_key(tmp_path):
             apply_flat_bonuses_if_new(tmp_path / "state.json", mixin)
-        mixin._adjust_shutdown_time_by.assert_called_once_with(1)
+        mixin._adjust_shutdown_time_by.assert_called_once_with(60)
 
     def test_a_penalised_earner_lowers_the_base_from_its_day(
         self, monkeypatch: pytest.MonkeyPatch
@@ -135,9 +135,9 @@ class TestANewlyRegisteredEarner:
             shutdown_minutes=60,
             penalty_from=cut,
         )
-        before = (base_hour(eve), base_hour(cut))
+        before = (base_minutes(eve), base_minutes(cut))
         monkeypatch.setattr(earned_time, "EARNERS", (*earned_time.EARNERS, penalised))
-        assert (base_hour(eve), base_hour(cut)) == (before[0], before[1] - 1)
+        assert (base_minutes(eve), base_minutes(cut)) == (before[0], before[1] - 60)
 
 
 class TestRealLedgers:
@@ -150,7 +150,7 @@ class TestRealLedgers:
         with signing_key(tmp_path):
             assert reset_to_base_if_new_day(state, mixin) is True
         mixin._write_shutdown_config.assert_called_once_with(
-            base_hour() + 2, base_hour() + 2, 5, restore=True
+            base_minutes() + 120, base_minutes() + 120, 300, restore=True
         )
         assert json.loads(state.read_text()) == {
             "last_reset_date": today_str(),
@@ -163,8 +163,8 @@ class TestProjectionFollowsTheCut:
     @pytest.mark.parametrize(
         ("now", "expected"),
         [
-            (datetime(2026, 9, 30, 12, 0, tzinfo=UTC), 20),
-            (datetime(2026, 10, 2, 12, 0, tzinfo=UTC), 19),
+            (datetime(2026, 9, 30, 12, 0, tzinfo=UTC), 20 * 60),
+            (datetime(2026, 10, 2, 12, 0, tzinfo=UTC), 19 * 60),
         ],
     )
     def test_rest_of_week_uses_the_base_for_that_day(
@@ -174,5 +174,5 @@ class TestProjectionFollowsTheCut:
             "screen_locker._status_data.has_workout_skip_today", return_value=False
         ):
             snap = gather_status(**_files(tmp_path), now=now)
-        assert snap.shutdown.rest_of_week[0].hour == expected
-        assert snap.shutdown.next_week_preview[0].hour == expected
+        assert snap.shutdown.rest_of_week[0].minutes == expected
+        assert snap.shutdown.next_week_preview[0].minutes == expected

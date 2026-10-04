@@ -65,7 +65,7 @@ class TestBackfillWeekAndApplyBonus:
         assert message == (
             "Auto-filled 2 workouts from earlier this week. +2h shutdown time."
         )
-        verifier._adjust_shutdown_time_by.assert_called_once_with(2)
+        verifier._adjust_shutdown_time_by.assert_called_once_with(120)
 
     def test_stronglifts_fill_below_minimum_earns_no_surplus(self) -> None:
         """A StrongLifts fill that leaves the week under the minimum adds nothing."""

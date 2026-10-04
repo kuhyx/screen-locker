@@ -112,14 +112,14 @@ def _manual_workout_budget(
 
 
 def _shutdown(
-    *, tonight: tuple[int, int, int] | None = (21, 21, 5)
+    *, tonight: tuple[int, int, int] | None = (1260, 1260, 300)
 ) -> ShutdownProjection:
     rest = tuple(
-        ShutdownProjectionDay(label=lbl, hour=21, speculative=False)
+        ShutdownProjectionDay(label=lbl, minutes=1260, speculative=False)
         for lbl in _WEEKDAY_LABELS
     )
     preview = tuple(
-        ShutdownProjectionDay(label=lbl, hour=21, speculative=True)
+        ShutdownProjectionDay(label=lbl, minutes=1260, speculative=True)
         for lbl in _WEEKDAY_LABELS
     )
     return ShutdownProjection(

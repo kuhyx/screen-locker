@@ -13,13 +13,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from screen_locker._earned import hhmm
 from screen_locker._extra_benefits import (
     current_streak,
     preview_bonus_if_week_ended_now,
     weekly_shutdown_bonus_hours,
 )
 from screen_locker._shutdown import read_shutdown_config
-from screen_locker._shutdown_base import base_hour
+from screen_locker._shutdown_base import base_minutes
 from screen_locker._status_types import ShutdownProjection, ShutdownProjectionDay
 from screen_locker._weekly_check import count_weekly_workouts
 
@@ -35,16 +36,18 @@ _RELAXED_DAY_EXPLANATION = (
 )
 _WEEKDAY_LABELS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 _MON_WED_WEEKDAYS = frozenset({0, 1, 2})
+# The weekly streak bonus is banked in whole hours.
+_MINUTES_PER_HOUR = 60
 
 
 def _week_rows(
-    mon_wed_hour: int, thu_sun_hour: int, *, speculative: bool
+    mon_wed: int, thu_sun: int, *, speculative: bool
 ) -> tuple[ShutdownProjectionDay, ...]:
     """Build 7 labeled rows, one per weekday, from a Mon-Wed/Thu-Sun band pair."""
     return tuple(
         ShutdownProjectionDay(
             label=label,
-            hour=mon_wed_hour if weekday in _MON_WED_WEEKDAYS else thu_sun_hour,
+            minutes=mon_wed if weekday in _MON_WED_WEEKDAYS else thu_sun,
             speculative=speculative,
         )
         for weekday, label in enumerate(_WEEKDAY_LABELS)
@@ -60,8 +63,11 @@ def _shutdown_projection(
 ) -> ShutdownProjection:
     """Build the shutdown-time projection: tonight, rest of week, next week."""
     tonight = read_shutdown_config(shutdown_config_file)
-    bonus = weekly_shutdown_bonus_hours(extra_benefits_file, today=today_local)
-    base = base_hour(today_local.date())
+    bonus = (
+        weekly_shutdown_bonus_hours(extra_benefits_file, today=today_local)
+        * _MINUTES_PER_HOUR
+    )
+    base = base_minutes(today_local.date())
     rest_of_week = _week_rows(base + bonus, base + bonus, speculative=False)
 
     this_week_count = count_weekly_workouts(log_file, today=today_local)
@@ -69,9 +75,8 @@ def _shutdown_projection(
     _would_be_streak, would_be_bonus = preview_bonus_if_week_ended_now(
         this_week_count, streak
     )
-    next_week_preview = _week_rows(
-        base + would_be_bonus, base + would_be_bonus, speculative=True
-    )
+    would_be = base + would_be_bonus * _MINUTES_PER_HOUR
+    next_week_preview = _week_rows(would_be, would_be, speculative=True)
 
     return ShutdownProjection(
         tonight=tonight,
@@ -81,27 +86,27 @@ def _shutdown_projection(
     )
 
 
-def _tonight_hour(snapshot: StatusSnapshot) -> int | None:
-    """Pick the shutdown hour band (Mon-Wed vs Thu-Sun) matching today.
+def _tonight_minutes(snapshot: StatusSnapshot) -> int | None:
+    """Pick the shutdown band (Mon-Wed vs Thu-Sun) matching today, in minutes.
 
     Uses ``snapshot.generated_at`` (not a fresh ``datetime.now()``) so the
     summary line is a pure function of the snapshot it was handed.
     """
     if snapshot.shutdown.tonight is None:
         return None
-    mon_wed_hour, thu_sun_hour, _morning = snapshot.shutdown.tonight
+    mon_wed, thu_sun, _morning = snapshot.shutdown.tonight
     generated_weekday = (
         datetime.fromisoformat(snapshot.generated_at).astimezone().weekday()
     )
-    return mon_wed_hour if generated_weekday in _MON_WED_WEEKDAYS else thu_sun_hour
+    return mon_wed if generated_weekday in _MON_WED_WEEKDAYS else thu_sun
 
 
 def format_summary_line(snapshot: StatusSnapshot) -> str:
     """Cheap one-liner for the i3blocks summary (e.g. before/after a click)."""
     week = snapshot.week
     mark = "✓" if week.remaining == 0 else "…"
-    tonight_hour = _tonight_hour(snapshot)
-    tonight_str = f"{tonight_hour:02d}:00" if tonight_hour is not None else "?"
+    tonight = _tonight_minutes(snapshot)
+    tonight_str = hhmm(tonight) if tonight is not None else "?"
     sick = snapshot.sick_budget
     return (
         f"{mark} {week.counted_count}/{week.minimum} workouts · "

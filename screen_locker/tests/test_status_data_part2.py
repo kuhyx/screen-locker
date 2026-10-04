@@ -40,7 +40,7 @@ class TestGatherStatus:
         assert snap.week.remaining == 5
         assert snap.week.extra == 0
         assert snap.shutdown.tonight is None
-        assert snap.shutdown.rest_of_week[0].hour == 20
+        assert snap.shutdown.rest_of_week[0].minutes == 20 * 60
         assert snap.shutdown.rest_of_week[0].speculative is False
         assert snap.sick_budget.used_7d == 0
         assert snap.sick_budget.exhausted is False
@@ -93,14 +93,14 @@ class TestGatherStatus:
         """Shutdown config present reflected in tonight."""
         files = _files(tmp_path)
         files["shutdown_config_file"].write_text(
-            "MON_WED_HOUR=22\nTHU_SUN_HOUR=23\nMORNING_END_HOUR=5\n"
+            "MON_WED_MINUTES=1320\nTHU_SUN_MINUTES=1380\nMORNING_END_MINUTES=300\n"
         )
         with patch(
             "screen_locker._status_data.has_workout_skip_today", return_value=False
         ):
             snap = gather_status(**files, now=_FRIDAY_NOON_UTC)
 
-        assert snap.shutdown.tonight == (22, 23, 5)
+        assert snap.shutdown.tonight == (1320, 1380, 300)
 
     def test_bonus_streak_and_extended_early_bird_reflected(
         self, tmp_path: Path
@@ -124,7 +124,7 @@ class TestGatherStatus:
         assert snap.bonus_hours_this_week == 3
         assert snap.streak == 2
         assert snap.early_bird_extended is True
-        assert snap.shutdown.rest_of_week[0].hour == 23  # 20 base + 3 bonus
+        assert snap.shutdown.rest_of_week[0].minutes == 23 * 60  # 20h base + 3h bonus
 
     def test_next_week_preview_is_speculative_rest_of_week_is_not(
         self, tmp_path: Path
