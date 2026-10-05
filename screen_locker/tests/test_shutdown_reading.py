@@ -18,7 +18,7 @@ import pytest
 
 from screen_locker import _shutdown_base
 from screen_locker._day import today_str
-from screen_locker._earned import hhmm
+from screen_locker._earned import flat_earners, hhmm
 from screen_locker._shutdown_base import (
     _apply_flat_bonus,
     apply_flat_bonuses_if_new,
@@ -30,6 +30,9 @@ from screen_locker.tests._earned_fixtures import answering
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
+
+# Terms the reset log spells out by hand; every later earner follows them.
+_NAMED = frozenset({"leetcode", "reading"})
 
 
 def _mixin(*, adjust_ok: bool = True) -> MagicMock:
@@ -62,8 +65,14 @@ class TestBaseHour:
         assert base_minutes(date(2026, 10, 1)) == 19 * 60
 
     def test_long_after_the_cut_stays_lowered(self) -> None:
-        """No drift back to 20:00; Anki's cut (from 2026-10-06) holds too."""
-        later_cuts = earned_time.ANKI.shutdown_minutes
+        """No drift back to 20:00; every later earner's cut holds too."""
+        cut = earned_time.READING.penalty_from
+        assert cut is not None
+        later_cuts = sum(
+            e.shutdown_minutes
+            for e in earned_time.EARNERS
+            if e.penalty_from is not None and e.penalty_from > cut
+        )
         assert base_minutes(date(2030, 1, 1)) == 19 * 60 - later_cuts
 
     def test_default_is_the_local_today(self) -> None:
@@ -148,9 +157,12 @@ class TestResetIncludesReading:
         with caplog.at_level("INFO"):
             reset_to_base_if_new_day(tmp_path / "state.json", _mixin())
         base = base_minutes()
+        later = "".join(
+            f" + 0h {e.label}" for e in flat_earners() if e.name not in _NAMED
+        )
         assert (
             f"Daily base reset: {hhmm(base + 60)} (base {hhmm(base)} + 0h workout + "
-            "0h LeetCode + 1h reading + 0h Anki already earned today)."
+            f"0h LeetCode + 1h reading{later} already earned today)."
         ) in caplog.text
 
 

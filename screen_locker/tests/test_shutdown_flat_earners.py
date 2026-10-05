@@ -180,8 +180,11 @@ class TestProjectionFollowsTheCut:
     def test_next_week_preview_includes_a_cut_dated_after_today(
         self, tmp_path: Path
     ) -> None:
-        """On Mon 2026-10-05, Anki's cut from Tue already shows; next week has it."""
+        """On Mon 2026-10-05, the cuts from Tue already show; next week has them."""
         shutdown = self._shutdown(tmp_path, datetime(2026, 10, 5, 12, 0, tzinfo=UTC))
-        lowered = 19 * 60 - earned_time.ANKI.shutdown_minutes
+        tuesday = date(2026, 10, 6)
+        lowered = 19 * 60 - sum(
+            e.shutdown_minutes for e in earned_time.EARNERS if e.penalty_from == tuesday
+        )
         assert [d.minutes for d in shutdown.rest_of_week] == [19 * 60] + [lowered] * 6
         assert [d.minutes for d in shutdown.next_week_preview] == [lowered] * 7
