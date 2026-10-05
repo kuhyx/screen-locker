@@ -61,8 +61,10 @@ class TestBaseHour:
         assert earned_time.READING.penalty_from == date(2026, 10, 1)
         assert base_minutes(date(2026, 10, 1)) == 19 * 60
 
-    def test_long_after_the_cut_stays_nineteen(self) -> None:
-        assert base_minutes(date(2030, 1, 1)) == 19 * 60
+    def test_long_after_the_cut_stays_lowered(self) -> None:
+        """No drift back to 20:00; Anki's cut (from 2026-10-06) holds too."""
+        later_cuts = earned_time.ANKI.shutdown_minutes
+        assert base_minutes(date(2030, 1, 1)) == 19 * 60 - later_cuts
 
     def test_default_is_the_local_today(self) -> None:
         assert base_minutes() == base_minutes(datetime.now().astimezone().date())
@@ -148,7 +150,7 @@ class TestResetIncludesReading:
         base = base_minutes()
         assert (
             f"Daily base reset: {hhmm(base + 60)} (base {hhmm(base)} + 0h workout + "
-            "0h LeetCode + 1h reading already earned today)."
+            "0h LeetCode + 1h reading + 0h Anki already earned today)."
         ) in caplog.text
 
 

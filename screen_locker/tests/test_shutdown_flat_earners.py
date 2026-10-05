@@ -36,6 +36,8 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
 
+    from screen_locker._status_types import ShutdownProjection
+
 
 def _mixin() -> MagicMock:
     mixin = MagicMock()
@@ -160,19 +162,26 @@ class TestRealLedgers:
 
 
 class TestProjectionFollowsTheCut:
-    @pytest.mark.parametrize(
-        ("now", "expected"),
-        [
-            (datetime(2026, 9, 30, 12, 0, tzinfo=UTC), 20 * 60),
-            (datetime(2026, 10, 2, 12, 0, tzinfo=UTC), 19 * 60),
-        ],
-    )
-    def test_rest_of_week_uses_the_base_for_that_day(
-        self, tmp_path: Path, now: datetime, expected: int
-    ) -> None:
+    """Every projected row is priced on its own date, not on today's base."""
+
+    def _shutdown(self, tmp_path: Path, now: datetime) -> ShutdownProjection:
         with patch(
             "screen_locker._status_data.has_workout_skip_today", return_value=False
         ):
-            snap = gather_status(**_files(tmp_path), now=now)
-        assert snap.shutdown.rest_of_week[0].minutes == expected
-        assert snap.shutdown.next_week_preview[0].minutes == expected
+            return gather_status(**_files(tmp_path), now=now).shutdown
+
+    def test_the_reading_cut_lands_mid_week(self, tmp_path: Path) -> None:
+        """Wed 2026-09-30 is the last 20:00 day; Thu 2026-10-01 is the first 19:00."""
+        shutdown = self._shutdown(tmp_path, datetime(2026, 9, 30, 12, 0, tzinfo=UTC))
+        assert [d.minutes for d in shutdown.rest_of_week] == [20 * 60] * 3 + [
+            19 * 60
+        ] * 4
+
+    def test_next_week_preview_includes_a_cut_dated_after_today(
+        self, tmp_path: Path
+    ) -> None:
+        """On Mon 2026-10-05, Anki's cut from Tue already shows; next week has it."""
+        shutdown = self._shutdown(tmp_path, datetime(2026, 10, 5, 12, 0, tzinfo=UTC))
+        lowered = 19 * 60 - earned_time.ANKI.shutdown_minutes
+        assert [d.minutes for d in shutdown.rest_of_week] == [19 * 60] + [lowered] * 6
+        assert [d.minutes for d in shutdown.next_week_preview] == [lowered] * 7

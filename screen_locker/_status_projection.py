@@ -10,7 +10,7 @@ and renders the compact status line.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from screen_locker._earned import hhmm
@@ -41,13 +41,17 @@ _MINUTES_PER_HOUR = 60
 
 
 def _week_rows(
-    mon_wed: int, thu_sun: int, *, speculative: bool
+    monday: date, bonus: int, *, speculative: bool
 ) -> tuple[ShutdownProjectionDay, ...]:
-    """Build 7 labeled rows, one per weekday, from a Mon-Wed/Thu-Sun band pair."""
+    """Build 7 labeled rows, Mon-Sun from ``monday``, each on its own day's base.
+
+    Each row asks ``base_minutes`` for its own date, so a registry cut dated
+    mid-week (or next week) shows on the day it lands, not from today's base.
+    """
     return tuple(
         ShutdownProjectionDay(
             label=label,
-            minutes=mon_wed if weekday in _MON_WED_WEEKDAYS else thu_sun,
+            minutes=base_minutes(monday + timedelta(days=weekday)) + bonus,
             speculative=speculative,
         )
         for weekday, label in enumerate(_WEEKDAY_LABELS)
@@ -67,16 +71,19 @@ def _shutdown_projection(
         weekly_shutdown_bonus_hours(extra_benefits_file, today=today_local)
         * _MINUTES_PER_HOUR
     )
-    base = base_minutes(today_local.date())
-    rest_of_week = _week_rows(base + bonus, base + bonus, speculative=False)
+    monday = today_local.date() - timedelta(days=today_local.weekday())
+    rest_of_week = _week_rows(monday, bonus, speculative=False)
 
     this_week_count = count_weekly_workouts(log_file, today=today_local)
     streak = current_streak(extra_benefits_file)
     _would_be_streak, would_be_bonus = preview_bonus_if_week_ended_now(
         this_week_count, streak
     )
-    would_be = base + would_be_bonus * _MINUTES_PER_HOUR
-    next_week_preview = _week_rows(would_be, would_be, speculative=True)
+    next_week_preview = _week_rows(
+        monday + timedelta(weeks=1),
+        would_be_bonus * _MINUTES_PER_HOUR,
+        speculative=True,
+    )
 
     return ShutdownProjection(
         tonight=tonight,

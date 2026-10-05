@@ -101,7 +101,11 @@ class TestLedgerFile:
 
 class TestFlatEarners:
     def test_registry_order_without_the_counted_workout(self) -> None:
-        assert flat_earners() == (earned_time.LEETCODE, earned_time.READING)
+        assert flat_earners() == (
+            earned_time.LEETCODE,
+            earned_time.READING,
+            earned_time.ANKI,
+        )
 
     def test_a_newly_registered_earner_is_picked_up(
         self, monkeypatch: pytest.MonkeyPatch
@@ -211,7 +215,7 @@ class TestCannotCheck:
 class TestFlatAnswers:
     def test_every_flat_earner_answers_by_name(self, key: Path) -> None:
         write_ledger(earned_time.LEETCODE, [credit(earned_time.LEETCODE)])
-        assert flat_answers() == {"leetcode": True, "reading": False}
+        assert flat_answers() == {"leetcode": True, "reading": False, "anki": False}
 
     def test_an_unknown_answer_is_none_and_warned(
         self,
@@ -221,14 +225,19 @@ class TestFlatAnswers:
     ) -> None:
         monkeypatch.setattr(_earned, "HMAC_KEY_FILE", tmp_path / "no.key")
         with caplog.at_level(logging.WARNING):
-            assert flat_answers() == {"leetcode": None, "reading": None}
+            assert flat_answers() == {"leetcode": None, "reading": None, "anki": None}
         assert "LeetCode state could not be checked" in caplog.text
         assert "reading state could not be checked" in caplog.text
+        assert "Anki state could not be checked" in caplog.text
 
     def test_a_no_is_not_warned(
         self, key: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
         write_ledger(earned_time.LEETCODE, [])
         with caplog.at_level(logging.WARNING):
-            assert flat_answers() == {"leetcode": False, "reading": False}
+            assert flat_answers() == {
+                "leetcode": False,
+                "reading": False,
+                "anki": False,
+            }
         assert "could not be checked" not in caplog.text
