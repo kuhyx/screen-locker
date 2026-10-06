@@ -47,7 +47,12 @@ of that derivation gets wiped by the next reset -- that is how a 00:02 workout
 lost its hours on 2026-09-13. A new bonus source is an `Earner` in the
 registry, never code here: the reset includes it as a term, and the live pass
 (`apply_flat_bonuses_if_new`, stamped `<name>_bonus_date` in
-`shutdown_base.json`) picks it up for flat earners. The base is the registry
+`shutdown_base.json`) picks it up for flat earners. That pass runs the moment
+a gate writes its ledger: `earner-bonus.path` (rendered from the registry by
+`_earner_units`, re-synced by every `--sync-only` pass) starts
+`earner-bonus.service` (`--apply-bonuses`). The 15-minute `workout-sync` is
+only the fallback. The reset and the pass hold `_bonus_lock`, since three
+processes can run them at once. The base is the registry
 constant, not the state file: the file once persisted `base_*_hour`, which
 made the code's default dead.
 

@@ -1,0 +1,11 @@
+[Unit]
+Description=Apply newly earned flat shutdown bonuses (LeetCode, reading, Anki, ...)
+
+[Service]
+Type=oneshot
+# Started by earner-bonus.path the moment a gate writes its ledger. Only the
+# flat-bonus pass: no phone sync, no Tk, no lock screen, so a solve moves the
+# shutdown time within seconds instead of at the next 15-minute workout-sync.
+# The path unit itself is generated from the earned_time registry
+# (screen_locker._earner_units), so it is not a file in this repo.
+ExecStart=/usr/bin/python3 -m screen_locker.screen_lock --apply-bonuses
