@@ -56,6 +56,8 @@ clear_disarm_marker() {
 		"early-bird-workout-check.timer"
 		"workout-sync.service"
 		"workout-sync.timer"
+		"earner-bonus.path"
+		"earner-bonus.service"
 	)
 
 	if [[ -f $DISARM_MARKER ]]; then

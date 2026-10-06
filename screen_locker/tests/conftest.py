@@ -192,10 +192,10 @@ def _isolate_shutdown_base(tmp_path: Path) -> Iterator[None]:
 
     Pre-seeded with today's date so reset_to_base_if_new_day() is a no-op by
     default (matching the real file's steady state) -- tests that want to
-    exercise the actual reset path patch reset_to_base_if_new_day directly,
-    same as the rest of the suite already does. Every flat earner's stamp is
-    seeded too, so apply_flat_bonuses_if_new() never reads a ledger (or the
-    host's real HMAC key) by default.
+    exercise the actual reset path patch reset_to_base_if_new_day directly.
+    Every flat earner's stamp is seeded too, so apply_flat_bonuses_if_new()
+    never reads a ledger (or the real HMAC key), and sync_now's ledger-watch
+    refresh sees an empty unit dir, never the real one.
     """
     target = tmp_path / "shutdown_base.json"
     today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
@@ -204,6 +204,8 @@ def _isolate_shutdown_base(tmp_path: Path) -> Iterator[None]:
         patch("screen_locker._constants.SHUTDOWN_BASE_FILE", target),
         patch("screen_locker._startup_checks.SHUTDOWN_BASE_FILE", target),
         patch("screen_locker._sync_mixin.SHUTDOWN_BASE_FILE", target),
+        patch("screen_locker._cli.SHUTDOWN_BASE_FILE", target),
+        patch("screen_locker._earner_units.USER_UNIT_DIR", tmp_path / "units"),
     ):
         yield
 

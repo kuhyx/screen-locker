@@ -33,13 +33,16 @@ readonly UNITS=(
 	"early-bird-workout-check.timer"
 	"workout-sync.service"
 	"workout-sync.timer"
+	"earner-bonus.service"
 )
 
-# Only the timers get enabled; the service is triggered by them and by login.
+# Only the timers (and the ledger watch) get enabled; the services are
+# triggered by them and by login.
 readonly TIMERS=(
 	"early-bird-workout-check.timer"
 	"workout-locker.timer"
 	"workout-sync.timer"
+	"earner-bonus.path"
 )
 
 SKIP_TODAY=0
@@ -87,6 +90,8 @@ main() {
 	for unit in "${UNITS[@]}"; do
 		cp "$SCRIPT_DIR/$unit" "$USER_UNIT_DIR/$unit"
 	done
+	# Rendered from the earned_time registry rather than copied.
+	PYTHONPATH="$SCRIPT_DIR" python3 -m screen_locker._earner_units "$USER_UNIT_DIR"
 
 	systemctl --user daemon-reload
 

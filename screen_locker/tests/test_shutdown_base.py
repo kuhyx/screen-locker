@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from datetime import UTC, datetime
 import json
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from screen_locker._shutdown_base import (
     _load_state,
@@ -155,7 +156,11 @@ class TestResetToBaseIfNewDay:
         state_mock.open.side_effect = OSError("disk full")
         mixin = self._make_mixin()
         # _write_shutdown_config succeeds, so True is returned even if state write fails.
-        assert reset_to_base_if_new_day(state_mock, mixin) is True
+        # The lock file would come from the same failing mock; lock elsewhere.
+        with patch(
+            "screen_locker._shutdown_base.bonus_lock", return_value=nullcontext()
+        ):
+            assert reset_to_base_if_new_day(state_mock, mixin) is True
 
     def test_sick_day_state_file_not_deleted_when_absent(self, tmp_path: Path) -> None:
         """No sick-day file passed → branch skipped, no AttributeError (line 79 branch False)."""

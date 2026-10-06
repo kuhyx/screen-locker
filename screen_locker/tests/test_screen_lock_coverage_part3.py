@@ -189,7 +189,10 @@ class TestSyncNow:
                 "screen_locker._sync_mixin.ingest_manual_records",
                 return_value=["manual:x"],
             ) as ingest,
+            patch("screen_locker._sync_mixin.sync_path_unit") as refresh,
         ):
             locker.sync_now()
         push.assert_called_once()
         ingest.assert_called_once()
+        # Every sync pass keeps the ledger watch in step with the registry.
+        refresh.assert_called_once_with()

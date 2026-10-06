@@ -13,6 +13,8 @@ EARLY_BIRD_TIMER_NAME="early-bird-workout-check.timer"
 LOCKER_TIMER_NAME="workout-locker.timer"
 SYNC_SERVICE_NAME="workout-sync.service"
 SYNC_TIMER_NAME="workout-sync.timer"
+BONUS_SERVICE_NAME="earner-bonus.service"
+BONUS_PATH_NAME="earner-bonus.path"
 
 # Runtime dependencies. screen_lock.py imports tkinter at module scope. On Arch
 # the tkinter MODULE ships inside the `python` package, but the shared library
@@ -113,6 +115,12 @@ cp "$LOCKER_TIMER_FILE" "$USER_SERVICE_DIR/$LOCKER_TIMER_NAME"
 cp "$SYNC_SERVICE_FILE" "$USER_SERVICE_DIR/$SYNC_SERVICE_NAME"
 cp "$SYNC_TIMER_FILE" "$USER_SERVICE_DIR/$SYNC_TIMER_NAME"
 
+# The ledger watch: a gate writing its ledger applies the earned shutdown
+# bonus at once instead of at the next 15-minute sync. The .path unit is
+# rendered from the earned_time registry, so it is generated, not copied.
+cp "$SCRIPT_DIR/$BONUS_SERVICE_NAME" "$USER_SERVICE_DIR/$BONUS_SERVICE_NAME"
+PYTHONPATH="$SCRIPT_DIR" python3 -m screen_locker._earner_units "$USER_SERVICE_DIR"
+
 # Update paths in the service file to use absolute paths
 REPO_ROOT="$SCRIPT_DIR"
 sed -i "s|WorkingDirectory=.*|WorkingDirectory=$REPO_ROOT|" "$USER_SERVICE_DIR/$SERVICE_NAME"
@@ -133,6 +141,9 @@ systemctl --user enable --now "$LOCKER_TIMER_NAME"
 
 # Enable the periodic workout sync
 systemctl --user enable --now "$SYNC_TIMER_NAME"
+
+# Enable the instant bonus pass on ledger writes
+systemctl --user enable --now "$BONUS_PATH_NAME"
 
 # Verify enforcement is actually armed. enable can silently no-op when systemd
 # breaks an ordering cycle by deleting the timer's job -- exactly what happened

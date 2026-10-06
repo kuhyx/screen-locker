@@ -13,6 +13,8 @@ UNITS=(
 	"early-bird-workout-check.timer"
 	"workout-sync.timer"
 	"workout-sync.service"
+	"earner-bonus.path"
+	"earner-bonus.service"
 )
 
 for unit in "${UNITS[@]}"; do

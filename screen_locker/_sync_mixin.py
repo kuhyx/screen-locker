@@ -12,6 +12,7 @@ import logging
 
 from screen_locker._constants import EXTRA_BENEFITS_FILE, SHUTDOWN_BASE_FILE
 from screen_locker._earned import span
+from screen_locker._earner_units import sync_path_unit
 from screen_locker._extra_benefits import weekly_shutdown_bonus_hours
 from screen_locker._manual_push import push_pc_workouts
 from screen_locker._manual_sync import ingest_manual_records
@@ -53,6 +54,8 @@ class SyncMixin:
         # Same reason: a LeetCode solve or a reading session made after login
         # must not wait for the next login to earn its hour.
         apply_flat_bonuses_if_new(SHUTDOWN_BASE_FILE, self)
+        # The ledger watch that makes that pass instant follows the registry.
+        sync_path_unit()
 
     def _ingest_synced_manual_workouts(self) -> None:
         """Sync manual workouts: publish this PC's, ingest everyone else's.

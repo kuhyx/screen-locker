@@ -129,6 +129,28 @@ class TestSyncOnlyMode:
         assert synced == [True]
 
 
+class TestApplyBonusesMode:
+    """--apply-bonuses runs only the flat-bonus pass, headless, and exits 0."""
+
+    def test_applies_flat_bonuses_then_exits_zero(self) -> None:
+        """The pass gets the state file and a headless locker; nothing syncs."""
+        with (
+            patch.object(_cli.logging, "basicConfig"),
+            patch.object(_cli.sys, "exit") as sys_exit,
+            patch.object(_cli, "apply_flat_bonuses_if_new") as apply_bonuses,
+            patch.object(_cli, "record_no_decision") as no_decision,
+        ):
+            _cli.main(_FakeLocker, ["screen_lock.py", "--apply-bonuses"])
+
+        state_file, locker = apply_bonuses.call_args.args
+        assert state_file == _cli.SHUTDOWN_BASE_FILE
+        assert isinstance(locker, _FakeLocker)
+        # Headless: __init__ never ran, so no UI and no lock screen.
+        assert not hasattr(locker, "demo_mode")
+        no_decision.assert_called_once_with("--apply-bonuses")
+        sys_exit.assert_any_call(0)
+
+
 class TestLockMode:
     """With no subcommand flag, the real locker is built and run."""
 

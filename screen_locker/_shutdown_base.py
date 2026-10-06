@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING, Any
 
 import earned_time
 
+from screen_locker._bonus_lock import bonus_lock
 from screen_locker._day import today_str
 from screen_locker._earned import (
     earned_today,
@@ -137,6 +138,17 @@ def reset_to_base_if_new_day(
 
     Returns True if a reset was performed, False if today was already reset.
     """
+    with bonus_lock(state_file):
+        return _reset(state_file, mixin, sick_day_state_file, log_file)
+
+
+def _reset(
+    state_file: Path,
+    mixin: object,
+    sick_day_state_file: Path | None,
+    log_file: Path | None,
+) -> bool:
+    """:func:`reset_to_base_if_new_day`'s body; the caller holds the lock."""
     today = today_str()
     if _load_state(state_file).get("last_reset_date") == today:
         return False
@@ -227,5 +239,6 @@ def apply_flat_bonuses_if_new(state_file: Path, mixin: object) -> None:
     The workout is not among them: it is counted, and its live credit is
     applied by :class:`~screen_locker._workout_credit.WorkoutCreditMixin`.
     """
-    for earner in flat_earners():
-        _apply_flat_bonus(state_file, mixin, earner)
+    with bonus_lock(state_file):
+        for earner in flat_earners():
+            _apply_flat_bonus(state_file, mixin, earner)

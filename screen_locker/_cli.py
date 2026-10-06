@@ -13,14 +13,18 @@ from pathlib import Path
 import sys
 from typing import TYPE_CHECKING
 
+from screen_locker._constants import SHUTDOWN_BASE_FILE
 from screen_locker._decision_log import record_no_decision
 from screen_locker._manual_cli import run_manual_log
+from screen_locker._shutdown_base import apply_flat_bonuses_if_new
 from screen_locker._status import run_status
 
 if TYPE_CHECKING:
     from screen_locker.screen_lock import ScreenLocker
 
 __all__ = ["main"]
+
+_logger = logging.getLogger(__name__)
 
 _LOG_FILE_NAME = "log.json"
 _LOG_MANUAL_FLAG = "--log-manual-workout"
@@ -71,6 +75,15 @@ def main(locker_cls: type[ScreenLocker], argv: list[str]) -> None:
         # didn't it lock?" through the journal must not mistake a sync run for
         # an enforcement run that decided to skip.
         record_no_decision("--sync-only")
+        sys.exit(0)
+
+    if "--apply-bonuses" in argv:
+        # earner-bonus.service, started by earner-bonus.path when a gate
+        # writes its ledger: only the flat-bonus pass, no phone sync, so a
+        # solve moves shutdown within seconds rather than at the next sync.
+        _logger.info("Ledger changed: applying any newly earned flat bonus.")
+        apply_flat_bonuses_if_new(SHUTDOWN_BASE_FILE, _headless_locker(locker_cls))
+        record_no_decision("--apply-bonuses")
         sys.exit(0)
 
     locker = locker_cls(
