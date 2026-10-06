@@ -33,8 +33,8 @@ dependencies:
   path: 1.9.1
   path_provider: 2.1.6
   permission_handler: 13.0.2
-  shared_preferences: 2.5.5
-  sqflite: 2.4.4
+  shared_preferences: 2.5.6
+  sqflite: 2.4.4+1
   # Linux desktop has no sqflite plugin; the FFI factory drives the same
   # schema (and already backed the test suite before the desktop target).
   sqflite_common_ffi: 2.4.3
