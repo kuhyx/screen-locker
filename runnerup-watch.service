@@ -1,0 +1,13 @@
+[Unit]
+Description=Credit a RunnerUp run the moment its TCX upload lands (starts workout-sync)
+
+[Service]
+# Long-running inotify watcher on ~/data/cloud/RunnerUp: idle until dufs
+# finishes writing a *.tcx, then starts workout-sync.service. See the script
+# header for why this is not a .path unit.
+ExecStart=%h/src/screen-locker/scripts/runnerup_watch.sh
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=default.target

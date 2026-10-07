@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import ExitStack
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 import json
@@ -11,6 +12,7 @@ from typing import TYPE_CHECKING
 from gatelock.log_integrity import compute_entry_hmac
 
 from screen_locker import _compliance_state
+from screen_locker._bonus_lock import bonus_lock
 from screen_locker._day import today_str
 from screen_locker._log_io import load_workout_log
 from screen_locker._manual_workout import MANUAL_WORKOUT_TYPE, manual_sync_record_id
@@ -111,7 +113,30 @@ def write_signed_entry(
 
     Returns a :class:`RecordResult` so the credit path can tell an appended
     workout from a duplicate and a first-of-day workout from an additional one.
+
+    The read-dedup-write runs under an exclusive lock beside the log: the
+    5-minute locker pass, the 15-minute sync and the RunnerUp upload watcher
+    all backfill the same run, and two of them reading before either wrote
+    would both see it missing -- two entries and, since only an appended
+    result is credited, two shutdown rewards.
     """
+    with ExitStack() as stack:
+        try:
+            stack.enter_context(bonus_lock(log_file))
+        except OSError as e:
+            _logger.warning(
+                "Could not lock workout log %s (%s) — writing without the lock; "
+                "a pass running at the same moment could record this twice",
+                log_file,
+                e,
+            )
+        return _write_signed_entry_locked(log_file, date, workout_data)
+
+
+def _write_signed_entry_locked(
+    log_file: Path, date: str, workout_data: Mapping[str, object]
+) -> RecordResult:
+    """Body of :func:`write_signed_entry`; the caller holds the log lock."""
     logs = load_workout_log(log_file)
     entries = logs.setdefault(date, [])
     prior = list(entries)

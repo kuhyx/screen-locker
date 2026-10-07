@@ -15,6 +15,7 @@ UNITS=(
 	"workout-sync.service"
 	"earner-bonus.path"
 	"earner-bonus.service"
+	"runnerup-watch.service"
 )
 
 for unit in "${UNITS[@]}"; do

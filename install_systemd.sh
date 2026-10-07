@@ -15,6 +15,7 @@ SYNC_SERVICE_NAME="workout-sync.service"
 SYNC_TIMER_NAME="workout-sync.timer"
 BONUS_SERVICE_NAME="earner-bonus.service"
 BONUS_PATH_NAME="earner-bonus.path"
+RUNNERUP_WATCH_NAME="runnerup-watch.service"
 
 # Runtime dependencies. screen_lock.py imports tkinter at module scope. On Arch
 # the tkinter MODULE ships inside the `python` package, but the shared library
@@ -34,6 +35,20 @@ ensure_runtime_deps() {
 			fi
 		else
 			echo "WARNING: tkinter missing and pacman unavailable - install tk manually" >&2
+		fi
+	fi
+
+	# inotifywait drives runnerup-watch.service (instant RunnerUp credit).
+	if ! command -v inotifywait >/dev/null 2>&1; then
+		if command -v pacman >/dev/null 2>&1; then
+			echo "Installing missing system dependency: inotify-tools"
+			if [ "$(id -u)" -eq 0 ]; then
+				pacman -S --needed --noconfirm inotify-tools
+			else
+				sudo pacman -S --needed --noconfirm inotify-tools
+			fi
+		else
+			echo "WARNING: inotifywait missing and pacman unavailable - RunnerUp runs are credited only by the 15-min timer" >&2
 		fi
 	fi
 
@@ -121,6 +136,10 @@ cp "$SYNC_TIMER_FILE" "$USER_SERVICE_DIR/$SYNC_TIMER_NAME"
 cp "$SCRIPT_DIR/$BONUS_SERVICE_NAME" "$USER_SERVICE_DIR/$BONUS_SERVICE_NAME"
 PYTHONPATH="$SCRIPT_DIR" python3 -m screen_locker._earner_units "$USER_SERVICE_DIR"
 
+# The RunnerUp upload watch: a TCX landing in ~/data/cloud/RunnerUp starts
+# workout-sync at once instead of waiting for the next timer tick.
+cp "$SCRIPT_DIR/$RUNNERUP_WATCH_NAME" "$USER_SERVICE_DIR/$RUNNERUP_WATCH_NAME"
+
 # Update paths in the service file to use absolute paths
 REPO_ROOT="$SCRIPT_DIR"
 sed -i "s|WorkingDirectory=.*|WorkingDirectory=$REPO_ROOT|" "$USER_SERVICE_DIR/$SERVICE_NAME"
@@ -144,6 +163,10 @@ systemctl --user enable --now "$SYNC_TIMER_NAME"
 
 # Enable the instant bonus pass on ledger writes
 systemctl --user enable --now "$BONUS_PATH_NAME"
+
+# Enable the instant RunnerUp credit on upload (restart picks up a new script)
+systemctl --user enable "$RUNNERUP_WATCH_NAME"
+systemctl --user restart "$RUNNERUP_WATCH_NAME"
 
 # Verify enforcement is actually armed. enable can silently no-op when systemd
 # breaks an ordering cycle by deleting the timer's job -- exactly what happened
