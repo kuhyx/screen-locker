@@ -44,7 +44,7 @@ def describe_staleness(
     """Return a finding when *name*'s newest record is too old, else None.
 
     Args:
-        name: The backend, as the user would name it ("GitHub mirror").
+        name: The backend, as the user would name it ("Firebase").
         newest: Timestamp of the most recent record it returned, or None when
             it returned nothing at all.
         now: Injected for tests.

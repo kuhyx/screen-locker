@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 
 from crdt_sync import CONFIG_FILE as FIREBASE_CONFIG_FILE
 
-from screen_locker._constants import SYNC_STATE_FILE, SYNC_TOKEN_FILE
+from screen_locker._constants import SYNC_STATE_FILE
 from screen_locker._device import device_identity
 
 _logger = logging.getLogger(__name__)
@@ -36,9 +36,9 @@ class SyncStatus:
 
     Attributes:
         device_id: The uuid this machine publishes under.
-        backend: ``"firebase"``, ``"github"``, or ``"none"`` -- the highest
-            backend this machine is configured for. Firebase is primary and
-            GitHub is the cutover mirror, so Firebase wins when both exist.
+        backend: ``"firebase"`` or ``"none"`` -- whether this machine is
+            configured for sync at all. Firebase is the only transport since
+            2026-10-09; the old GitHub mirror is a frozen archive.
         pushed: Whether this machine has ever completed a push.
         peer_count: How many other devices' logs it has merged.
         last_push: ISO-ish local timestamp of the last push, or None.
@@ -86,26 +86,22 @@ def _read_state(path: Path) -> dict[str, object]:
     return parsed if isinstance(parsed, dict) else {}
 
 
-def _backend(*, firebase_config: Path, token_file: Path) -> str:
-    """Return the highest backend this machine is configured for."""
+def _backend(*, firebase_config: Path) -> str:
+    """Return the backend this machine is configured for, or ``"none"``."""
     if firebase_config.is_file():
         return "firebase"
-    if token_file.is_file():
-        return "github"
     return "none"
 
 
 def gather_sync_status(
     *,
     state_file: Path = SYNC_STATE_FILE,
-    token_file: Path = SYNC_TOKEN_FILE,
     firebase_config: Path = FIREBASE_CONFIG_FILE,
 ) -> SyncStatus:
     """Read this machine's sync posture from local state only.
 
     Args:
         state_file: The revision cache written after each push.
-        token_file: The GitHub PAT, present only on the mirror path.
         firebase_config: The shared Firebase credential.
 
     Returns:
@@ -138,7 +134,7 @@ def gather_sync_status(
 
     return SyncStatus(
         device_id=device_identity().device_id,
-        backend=_backend(firebase_config=firebase_config, token_file=token_file),
+        backend=_backend(firebase_config=firebase_config),
         pushed=bool(state.get("pushed_rev")),
         peer_count=peer_count,
         last_push=last_push,

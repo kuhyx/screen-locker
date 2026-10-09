@@ -1,8 +1,8 @@
 """Tests for the phone-workout sync pull (crdt-sync transport).
 
-Covers the token read, the payload predicates, the per-log record extractors
-and the cross-device merge. The backend selection (``sync_client`` /
-``remote_client``) and the two public pulls live in ``_part2``.
+Covers the payload predicates, the per-log record extractors
+and the cross-device merge. The backend selection (``sync_client``)
+and the two public pulls live in ``_part2``.
 """
 
 from __future__ import annotations
@@ -21,31 +21,9 @@ from screen_locker.tests._workout_sync_fixtures import (
     _session_record_dict,
 )
 
-# The autouse `isolate_sync_token` fixture (registered repo-wide via the
-# `pytest_plugins` entry for `screen_locker.tests.test_sync_fixtures` in
-# pyproject.toml) already redirects `_workout_sync.SYNC_TOKEN_FILE` into a
-# per-test tmp_path, so tests here can write to it directly without needing
-# their own isolation fixture. The autouse `_no_real_firebase_config` fixture
-# in conftest.py likewise points `CONFIG_FILE` at a nonexistent path, so tests
-# that want the Firebase branch must monkeypatch it back at a file they own.
-
-
-class TestReadSyncToken:
-    """ReadSyncToken."""
-
-    def test_returns_none_when_file_is_missing(self) -> None:
-        """Returns none when file is missing."""
-        assert _workout_sync.read_sync_token() is None
-
-    def test_returns_none_when_file_is_empty(self) -> None:
-        """Returns none when file is empty."""
-        _workout_sync.SYNC_TOKEN_FILE.write_text("   \n")
-        assert _workout_sync.read_sync_token() is None
-
-    def test_returns_the_stripped_token(self) -> None:
-        """Returns the stripped token."""
-        _workout_sync.SYNC_TOKEN_FILE.write_text("  abc123  \n")
-        assert _workout_sync.read_sync_token() == "abc123"
+# The autouse `_no_real_firebase_config` fixture in conftest.py points
+# `_sync_client.CONFIG_FILE` at a nonexistent path, so tests that want the
+# Firebase branch must monkeypatch it back at a file they own.
 
 
 class TestIsSessionPayload:

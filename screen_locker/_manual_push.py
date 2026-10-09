@@ -1,7 +1,7 @@
-"""Push the PC's workouts to the shared sync repo.
+"""Push the PC's workouts to the shared Firebase sync store.
 
 ``log.json`` is the single source of truth: this module derives the
-crdt-sync log directly from it and pushes to ``devices/pc/log.json``, so the
+crdt-sync log directly from it and pushes to this device's log, so the
 phone converges on the SAME history the PC has — manual workouts *and*
 machine-verified ones (StrongLifts sessions, RunnerUp runs).
 
@@ -10,11 +10,11 @@ workout is published automatically no matter when or how it was recorded,
 including entries logged before this module existed. Idempotence comes from two
 properties: the record id is the workout's own stable ``workout_id``, and its
 HLC is derived deterministically from the entry's own timestamp — so re-pushing
-an unchanged log produces a byte-identical record set and no repo churn.
+an unchanged log produces a byte-identical record set and no store churn.
 
 This reverses the old "the PC only ever reads, never pushes" invariant (it had
-no data of its own to contribute). Pushing needs a sync token with
-**contents:write** on the repo — a read-only token 403s. Nothing here fails
+no data of its own to contribute). Firebase is the only transport since
+2026-10-09; the old GitHub mirror is a frozen archive. Nothing here fails
 silently: every path returns a :class:`PushResult` whose ``reason`` says exactly
 what happened, and logs it.
 """
@@ -29,33 +29,23 @@ from typing import TYPE_CHECKING
 
 from crdt_sync import (
     FileSyncStateStore,
-    GitHubSyncClient,
-    GitHubSyncError,
     Hlc,
     LogCodec,
     Record,
     RemoteSyncError,
-    RepoNotFoundError,
     RevisionTracking,
     SyncTarget,
     sync_log,
 )
 
-from screen_locker._constants import (
-    SYNC_REPO_NAME,
-    SYNC_REPO_OWNER,
-    SYNC_STATE_FILE,
-    SYNC_TIMEOUT_SECONDS,
-    SYNC_TOKEN_FILE,
-)
+from screen_locker._constants import SYNC_STATE_FILE
 from screen_locker._device import device_identity
 from screen_locker._log_io import load_workout_log
 from screen_locker._log_mixin import _derive_workout_id
-from screen_locker._push_outcome import describe_push
 from screen_locker._sync_retry import with_sync_retry
 from screen_locker._sync_tombstones import tombstone_records
 from screen_locker._weekly_check import COUNTED_WORKOUT_TYPES
-from screen_locker._workout_sync import _DEVICES_PREFIX, read_sync_token, remote_client
+from screen_locker._workout_sync import _DEVICES_PREFIX, sync_client_or_reason
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -172,32 +162,20 @@ def push_pc_workouts(log_file: Path) -> PushResult:
     the returned :class:`PushResult` and a WARNING say why a push did not happen.
     """
     identity = device_identity()
-    token = read_sync_token()
-    if token is None:
-        reason = f"no sync token at {SYNC_TOKEN_FILE}"
-        _logger.warning(
-            "Workouts NOT synced: %s — create a fine-grained GitHub PAT with "
-            "contents:write on %s/%s and save it there (chmod 600)",
-            reason,
-            SYNC_REPO_OWNER,
-            SYNC_REPO_NAME,
-        )
-        return PushResult(pushed=False, record_count=0, reason=reason)
-
     log = records_from_workout_log(log_file)
     if not log:
         reason = f"no counted workouts in {log_file}"
         _logger.warning("Workouts NOT synced: %s", reason)
         return PushResult(pushed=False, record_count=0, reason=reason)
 
-    client = remote_client(
-        GitHubSyncClient(
-            SYNC_REPO_OWNER,
-            SYNC_REPO_NAME,
-            token,
-            timeout_seconds=SYNC_TIMEOUT_SECONDS,
+    client, reason = sync_client_or_reason()
+    if client is None:
+        # sync_client_or_reason has already said why, in full; this line
+        # ties that cause to the records it just stranded.
+        _logger.warning(
+            "Workouts NOT synced: %d workout(s) stay local — %s", len(log), reason
         )
-    )
+        return PushResult(pushed=False, record_count=len(log), reason=reason)
     try:
         with_sync_retry(
             lambda: sync_log(
@@ -218,32 +196,14 @@ def push_pc_workouts(log_file: Path) -> PushResult:
             ),
             description="push PC workouts",
         )
-    except (GitHubSyncError, RemoteSyncError) as exc:
+    except RemoteSyncError as exc:
+        # Report what actually happened, nothing more: this used to assert
+        # "a 403 means the token lacks contents:write" for every failure,
+        # including a plain network error, which sent a 2026-07-20
+        # investigation chasing a permissions bug that did not exist.
         reason = f"sync error: {exc}"
-        # Report what actually happened. This used to assert "a 403 here means
-        # the token lacks contents:write" for *every* failure, including a
-        # plain network error — which sent a 2026-07-20 investigation chasing a
-        # permissions bug that did not exist (the token could write fine; the
-        # network was simply not up yet). Only RepoNotFoundError actually
-        # implicates the repo or the token.
-        if isinstance(exc, RepoNotFoundError):
-            _logger.warning(
-                "Workout sync push FAILED for %d workout(s): %s — check the "
-                "token has contents:write on %s/%s",
-                len(log),
-                exc,
-                SYNC_REPO_OWNER,
-                SYNC_REPO_NAME,
-            )
-        else:
-            _logger.warning(
-                "Workout sync push FAILED for %d workout(s): %s",
-                len(log),
-                exc,
-            )
+        _logger.warning("Workout sync push FAILED for %d workout(s): %s", len(log), exc)
         return PushResult(pushed=False, record_count=len(log), reason=reason)
 
-    # Delegated so a half-landed push can never be logged as a clean one;
-    # see _push_outcome for why that distinction is load-bearing.
-    _, reason = describe_push(len(log))
-    return PushResult(pushed=True, record_count=len(log), reason=reason)
+    _logger.info("Synced %d workout(s) to Firebase", len(log))
+    return PushResult(pushed=True, record_count=len(log), reason="pushed")

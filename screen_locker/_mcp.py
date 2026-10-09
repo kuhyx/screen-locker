@@ -23,8 +23,8 @@ Safety invariants (do not break when adding tools):
     calls must never write to stdout. All logging is routed to STDERR below,
     and no tool calls ``screen_lock.py`` / ``status_view.main`` (which
     ``print`` / open Tk windows / ``sys.exit``).
-  * **No secret ever leaves.** No tool returns the sync token
-    (``~/.config/screen_locker/sync_token``) or any HMAC key; the predicates
+  * **No secret ever leaves.** No tool returns the Firebase session
+    (``~/.config/screen_locker/firebase_auth.json``) or any HMAC key; the predicates
     load only status/state and return booleans, and the status snapshot
     carries no secret material.
 """

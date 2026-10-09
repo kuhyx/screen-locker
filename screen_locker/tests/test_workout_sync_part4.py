@@ -1,8 +1,8 @@
 """Tests for the phone-workout sync pull (crdt-sync transport).
 
-Covers the token read, the payload predicates, the per-log record extractors
-and the cross-device merge. The backend selection (``sync_client`` /
-``remote_client``) and the two public pulls live in ``_part2``.
+Covers the payload predicates, the per-log record extractors and the
+cross-device merge. The backend selection (``sync_client``) and the two
+public pulls live in ``_part2``.
 """
 
 from __future__ import annotations

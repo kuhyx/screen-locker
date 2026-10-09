@@ -2,8 +2,8 @@
 
 Regression tests for 2026-06-12 and 2026-08-24, when a completed ~2h workout
 sat in Firebase while the PC locked the screen anyway. The PC's Firebase
-credential no longer authenticated, so ``remote_client`` degraded to the
-GitHub mirror -- which the phone had stopped writing to on 2026-08-15. The
+credential no longer authenticated, so the PC degraded to the (since
+retired) GitHub mirror -- which the phone had stopped writing to on 2026-08-15. The
 pull then returned zero records and the lock chain read that as "you did not
 train today" rather than "I could not read the place your workouts live".
 
@@ -101,11 +101,10 @@ class TestFirebaseDegradationIsVisible:
             message = "failed to sign in: HTTP 400 (INVALID_LOGIN_CREDENTIALS)"
             raise FirebaseAuthError(message)
 
-        monkeypatch.setattr(_sync_client, "mirror_client_for", _boom)
+        monkeypatch.setattr(_sync_client, "firebase_client_for", _boom)
         _sync_client.clear_degraded_sources()
-        github = object()
 
-        assert _workout_sync.remote_client(github) is github
+        assert _workout_sync.sync_client() is None
         degraded = _sync_client.degraded_sources()
         assert degraded, "a failed Firebase sign-in must be recorded"
         assert "INVALID_LOGIN_CREDENTIALS" in degraded[0].reason
@@ -117,12 +116,12 @@ class TestFirebaseDegradationIsVisible:
         _firebase_config(_sync_client, tmp_path, monkeypatch)
         monkeypatch.setattr(
             _sync_client,
-            "mirror_client_for",
-            lambda _app, client: ReachableClient(("mirror", client)),
+            "firebase_client_for",
+            lambda *_a, **_k: ReachableClient(),
         )
         _sync_client.clear_degraded_sources()
 
-        _workout_sync.remote_client(object())
+        _workout_sync.sync_client()
 
         assert _sync_client.degraded_sources() == []
 
@@ -139,24 +138,23 @@ class TestFirebaseDegradationIsVisible:
         _firebase_config(_sync_client, tmp_path, monkeypatch)
         attempts: list[int] = []
 
-        def _dead_then_alive(_app: object, client: object) -> object:
+        def _dead_then_alive(*_args: object, **_kwargs: object) -> object:
             attempts.append(1)
             if len(attempts) == 1:
                 message = "failed to sign in: HTTP 400 (INVALID_LOGIN_CREDENTIALS)"
                 raise FirebaseAuthError(message)
-            return ReachableClient(("mirror", client))
+            return ReachableClient()
 
-        monkeypatch.setattr(_sync_client, "mirror_client_for", _dead_then_alive)
+        monkeypatch.setattr(_sync_client, "firebase_client_for", _dead_then_alive)
         monkeypatch.setattr(
             _sync_client,
             "try_recover_firebase_session",
             lambda: RecoveryResult(recovered=True, reason="rebuilt from a sibling"),
         )
         _sync_client.clear_degraded_sources()
-        github = object()
 
-        recovered = _workout_sync.remote_client(github)
-        assert recovered.identity == ("mirror", github)
+        recovered = _workout_sync.sync_client()
+        assert isinstance(recovered, ReachableClient)
         assert _sync_client.degraded_sources() == [], (
             "a source that recovered is not degraded"
         )
@@ -168,8 +166,8 @@ class TestFirebaseDegradationIsVisible:
 
         Recovery reporting success is not proof the backend is readable, so
         the retry is what decides. If it raises too, this is the same lockout
-        as before and must be recorded -- silently returning the GitHub
-        mirror is exactly how 2026-08-24 stayed invisible.
+        as before and must be recorded -- silently handing back a dead
+        client is exactly how 2026-08-24 stayed invisible.
         """
         _firebase_config(_sync_client, tmp_path, monkeypatch)
 
@@ -177,16 +175,15 @@ class TestFirebaseDegradationIsVisible:
             msg = "still 400 after refresh"
             raise FirebaseAuthError(msg)
 
-        monkeypatch.setattr(_sync_client, "mirror_client_for", _always_dead)
+        monkeypatch.setattr(_sync_client, "firebase_client_for", _always_dead)
         monkeypatch.setattr(
             _sync_client,
             "try_recover_firebase_session",
             lambda: RecoveryResult(recovered=True, reason="rebuilt from a sibling"),
         )
         _sync_client.clear_degraded_sources()
-        github = object()
 
-        assert _workout_sync.remote_client(github) is github
+        assert _workout_sync.sync_client() is None
         degraded = _sync_client.degraded_sources()
         assert degraded, "a retry that still fails must be recorded"
         assert "still 400 after refresh" in degraded[0].reason
@@ -206,7 +203,7 @@ class TestFirebaseDegradationIsVisible:
             msg = "HTTP 400 (INVALID_LOGIN_CREDENTIALS)"
             raise FirebaseAuthError(msg)
 
-        monkeypatch.setattr(_sync_client, "mirror_client_for", _boom)
+        monkeypatch.setattr(_sync_client, "firebase_client_for", _boom)
         monkeypatch.setattr(
             _sync_client,
             "try_recover_firebase_session",
@@ -215,9 +212,8 @@ class TestFirebaseDegradationIsVisible:
             ),
         )
         _sync_client.clear_degraded_sources()
-        github = object()
 
-        assert _workout_sync.remote_client(github) is github
+        assert _workout_sync.sync_client() is None
         reason = _sync_client.degraded_sources()[0].reason
         assert "INVALID_LOGIN_CREDENTIALS" in reason
         assert "no sibling app" in reason
@@ -227,10 +223,10 @@ class TestFirebaseDegradationIsVisible:
     ) -> None:
         """No Firebase config is a choice, not a failure -- do not cry wolf."""
         monkeypatch.setattr(
-            _workout_sync, "CONFIG_FILE", Path("/nonexistent/firebase.json")
+            _sync_client, "CONFIG_FILE", Path("/nonexistent/firebase.json")
         )
         _sync_client.clear_degraded_sources()
 
-        _workout_sync.remote_client(object())
+        _workout_sync.sync_client()
 
         assert _sync_client.degraded_sources() == []

@@ -236,15 +236,14 @@ def _mock_weekly_logic() -> Iterator[None]:
 def _no_real_firebase_config(monkeypatch: pytest.MonkeyPatch) -> None:
     """Point the Firebase config at a path that does not exist.
 
-    ``remote_client`` reads ``crdt_sync.CONFIG_FILE`` to decide whether to
-    build a Firebase-primary mirror. On a developer machine that file *does*
-    exist, so without this the sync tests would reach the real database and
-    assert against live data instead of their own fakes. Tests that want the
-    Firebase path point it back at a file they control.
+    ``sync_client`` (the ONLY way push, pull and the tombstone script get a
+    client) reads ``_sync_client.CONFIG_FILE`` to decide whether to build the
+    Firebase client. On a developer machine that file *does* exist, so
+    without this the sync tests would reach the real database and assert
+    against live data. Tests wanting Firebase point it at a file they own.
     """
-    # CONFIG_FILE is read by remote_client, which lives in _sync_client since
-    # _workout_sync was split. Patching the old module would leave the real
-    # config in play and the sync tests would assert against live data.
+    # Patch _sync_client's binding: crdt_sync's own CONFIG_FILE is bound to
+    # the real home at import, which _isolate_home cannot redirect.
     from screen_locker import _sync_client
 
     monkeypatch.setattr(_sync_client, "CONFIG_FILE", Path("/nonexistent/firebase.json"))

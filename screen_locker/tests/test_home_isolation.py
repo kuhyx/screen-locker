@@ -85,7 +85,7 @@ def test_no_module_binds_a_path_inside_the_real_app_config() -> None:
     """Import-time bindings of ``~/.config/screen_locker`` must all be redirected.
 
     ``_isolate_home`` only reaches paths built from ``Path.home()`` at *call*
-    time. A module constant such as ``SYNC_TOKEN_FILE`` was bound at import,
+    time. A module constant such as the old ``SYNC_TOKEN_FILE`` was bound at import,
     before any fixture ran, and keeps the real path unless every module that
     holds it is patched. This scans every runtime module for such a binding,
     so a new one fails here instead of silently writing to the live dir.

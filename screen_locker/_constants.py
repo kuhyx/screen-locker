@@ -186,15 +186,12 @@ RUNNERUP_WEBDAV_DIRS: tuple[Path, ...] = (
 )
 
 # ---------------------------------------------------------------------------
-# Sync (phone workout data) — Workstream C, built on the shared crdt-sync
-# library. GitHub is used purely as dumb file storage via the REST Contents
-# API (not a git clone), same pattern as diet_guard's cross-device sync. The
-# phone app pushes to devices/<SYNC_PHONE_DEVICE_ID>/log.json; the PC reads
-# every device's log and pushes its OWN manual workouts to devices/pc/log.json
-# (see _manual_push) — which needs a token with contents:write, not read-only.
+# Sync (phone workout data) — built on the shared crdt-sync library, Firebase
+# RTDB only since 2026-10-09 (the shared ~/.config/crdt-sync/ credential). The
+# old GitHub repo kuhyx/syncs/screen-locker-sync is a frozen archive: nothing
+# reads or writes it. Every device pushes to devices/<device id>/log.json; the
+# PC reads every device's log and pushes its OWN workouts (see _manual_push).
 # ---------------------------------------------------------------------------
-SYNC_REPO_OWNER: str = "kuhyx"
-SYNC_REPO_NAME: str = "syncs"
 # The phone's pre-uuid device id. Still read (the phone may not have migrated
 # yet), but no longer the only path the reader knows about -- it discovers
 # every device directory.
@@ -209,12 +206,6 @@ SYNC_LEGACY_DEVICE_ID: str | None = "pc"
 SYNC_DEVICE_ID_FILE: Path = (
     Path.home() / ".local" / "share" / "screen_locker" / ".device_id"
 )
-# A fine-grained GitHub PAT, scoped to just SYNC_REPO_NAME's contents. The
-# user creates this once via github.com and saves it here, mode 600. Never
-# committed — this path is outside the repo entirely. Unlike diet_guard,
-# this file being absent is a normal, expected state (sync is optional here).
-SYNC_TOKEN_FILE: Path = Path.home() / ".config" / "screen_locker" / "sync_token"
-
 # Revision cache for cross-device sync. Without it every push re-uploads and
 # every pull re-downloads regardless of change, which is the traffic the
 # Firebase free tier's monthly budget depends on not happening.

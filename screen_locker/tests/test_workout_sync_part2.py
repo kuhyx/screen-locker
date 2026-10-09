@@ -18,7 +18,6 @@ import pytest
 
 from screen_locker import _sync_client, _workout_sync
 from screen_locker.tests._workout_sync_fixtures import (
-    ReachableClient,
     _firebase_config,
 )
 
@@ -27,7 +26,7 @@ if TYPE_CHECKING:
 
 
 class TestSyncClient:
-    """Every configuration of (GitHub token, Firebase config), plus failure."""
+    """Firebase is the only backend: configured, missing, or unusable."""
 
     def test_returns_none_when_nothing_is_configured(self) -> None:
         """Returns none when nothing is configured."""
@@ -36,41 +35,36 @@ class TestSyncClient:
     def test_warns_when_nothing_is_configured(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """Warns when nothing is configured."""
+        """The warning names BOTH directions that stop syncing."""
         with caplog.at_level("WARNING"):
             _workout_sync.sync_client()
-        assert "sync is OFF" in caplog.text
+        assert "Sync is OFF" in caplog.text
+        assert "will NOT be pushed" in caplog.text
+        assert "NOT be pulled" in caplog.text
 
-    def test_uses_github_alone_when_only_the_token_exists(self) -> None:
-        """Uses github alone when only the token exists."""
-        _workout_sync.SYNC_TOKEN_FILE.write_text("tok")
-        github = MagicMock()
-        with patch.object(_sync_client, "GitHubSyncClient", return_value=github):
-            assert _workout_sync.sync_client() is github
+    def test_reason_names_the_missing_config(self) -> None:
+        """The reason is a sentence a caller can put into its own result."""
+        client, reason = _workout_sync.sync_client_or_reason()
+        assert client is None
+        assert reason.startswith("no Firebase config at ")
 
-    def test_mirrors_when_both_the_token_and_firebase_exist(
+    def test_never_builds_a_client_without_config(self) -> None:
+        """An unconfigured machine must not reach the network at all."""
+        with patch.object(_sync_client, "firebase_client_for") as build:
+            _workout_sync.sync_client()
+        build.assert_not_called()
+
+    def test_uses_firebase_when_the_config_exists(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Mirrors when both the token and firebase exist."""
-        _workout_sync.SYNC_TOKEN_FILE.write_text("tok")
-        _firebase_config(_sync_client, tmp_path, monkeypatch)
-        github = MagicMock()
-        monkeypatch.setattr(
-            _sync_client,
-            "mirror_client_for",
-            lambda _app, client: ReachableClient(("mirror", client)),
-        )
-        with patch.object(_sync_client, "GitHubSyncClient", return_value=github):
-            assert _workout_sync.sync_client().identity == ("mirror", github)
-
-    def test_uses_firebase_alone_when_only_the_config_exists(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """A Firebase-only machine must still sync -- no PAT required."""
+        """A configured machine syncs over Firebase -- no PAT anywhere."""
         _firebase_config(_sync_client, tmp_path, monkeypatch)
         firebase = MagicMock()
-        monkeypatch.setattr(_sync_client, "firebase_client_for", lambda _app: firebase)
+        monkeypatch.setattr(
+            _sync_client, "firebase_client_for", lambda *_a, **_k: firebase
+        )
         assert _workout_sync.sync_client() is firebase
+        assert _workout_sync.sync_client_or_reason() == (firebase, "")
 
     @pytest.mark.parametrize(
         "error",
@@ -83,14 +77,16 @@ class TestSyncClient:
     def test_returns_none_when_firebase_only_is_unusable(
         self, error: Exception, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """No PAT to fall back to: report it loudly, do not raise."""
+        """No fallback exists: report it loudly, do not raise."""
         _firebase_config(_sync_client, tmp_path, monkeypatch)
 
         def _boom(*_args: object, **_kwargs: object) -> None:
             raise error
 
         monkeypatch.setattr(_sync_client, "firebase_client_for", _boom)
-        assert _workout_sync.sync_client() is None
+        client, reason = _workout_sync.sync_client_or_reason()
+        assert client is None
+        assert reason.startswith("Firebase unusable: ")
 
     def test_warns_when_firebase_only_is_unusable(
         self,

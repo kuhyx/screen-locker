@@ -27,13 +27,11 @@ def _gather(
     tmp_path: Path,
     *,
     state_file: Path | None = None,
-    token_file: Path | None = None,
     firebase_config: Path | None = None,
 ) -> SyncStatus:
     """Gather status against files under ``tmp_path`` unless overridden."""
     return gather_sync_status(
         state_file=state_file or tmp_path / "sync_state.json",
-        token_file=token_file or tmp_path / "sync_token",
         firebase_config=firebase_config or tmp_path / "firebase.json",
     )
 
@@ -45,15 +43,14 @@ class TestBackendDetection:
         """No credentials is not configured."""
         assert _gather(tmp_path).backend == "none"
 
-    def test_a_github_token_alone_is_the_mirror_path(self, tmp_path: Path) -> None:
-        """A github token alone is the mirror path."""
+    def test_a_leftover_github_token_does_not_count(self, tmp_path: Path) -> None:
+        """A stale GitHub PAT on disk is not a backend: Firebase is the only one."""
         (tmp_path / "sync_token").write_text("tok")
 
-        assert _gather(tmp_path).backend == "github"
+        assert _gather(tmp_path).backend == "none"
 
-    def test_firebase_wins_when_both_exist(self, tmp_path: Path) -> None:
-        """Firebase is primary; GitHub is only the cutover mirror."""
-        (tmp_path / "sync_token").write_text("tok")
+    def test_firebase_config_is_the_backend(self, tmp_path: Path) -> None:
+        """The shared Firebase config is what makes this machine configured."""
         (tmp_path / "firebase.json").write_text("{}")
 
         assert _gather(tmp_path).backend == "firebase"

@@ -2,7 +2,7 @@
 
 Split from ``test_sync_degradation.py`` (250-line cap).
 
-``mirror_client_for`` only checks ``has_session()``, which reads the cached
+``firebase_client_for`` only checks ``has_session()``, which reads the cached
 JSON off disk and never reaches the network. So on 2026-08-27 a credential the
 server had stopped accepting constructed perfectly, the recovery -- wired only
 to construction failures -- never ran, and every read and write was refused
@@ -38,7 +38,7 @@ class TestRejectedCredentialTriggersRecovery:
     ) -> None:
         """This is 2026-08-27: present on disk, rejected by the server.
 
-        ``mirror_client_for`` only checks ``has_session()``, which reads the
+        ``firebase_client_for`` only checks ``has_session()``, which reads the
         cached JSON and never reaches the network, so construction SUCCEEDED
         and the recovery -- wired only to construction failures -- never ran
         while every read and write was being refused with HTTP 401.
@@ -46,11 +46,11 @@ class TestRejectedCredentialTriggersRecovery:
         _firebase_config(_sync_client, tmp_path, monkeypatch)
         built: list[int] = []
 
-        def _rejected_then_live(_app: object, _client: object) -> object:
+        def _rejected_then_live(*_args: object, **_kwargs: object) -> object:
             built.append(1)
             return RejectedClient() if len(built) == 1 else ReachableClient()
 
-        monkeypatch.setattr(_sync_client, "mirror_client_for", _rejected_then_live)
+        monkeypatch.setattr(_sync_client, "firebase_client_for", _rejected_then_live)
         monkeypatch.setattr(
             _sync_client,
             "try_recover_firebase_session",
@@ -58,7 +58,7 @@ class TestRejectedCredentialTriggersRecovery:
         )
         _sync_client.clear_degraded_sources()
 
-        client = _workout_sync.remote_client(object())
+        client = _workout_sync.sync_client()
 
         assert isinstance(client, ReachableClient), (
             "a rejected credential must trigger the same self-heal as a "
@@ -71,14 +71,14 @@ class TestRejectedCredentialTriggersRecovery:
     ) -> None:
         """If it is still refused after healing, say so on the lock screen.
 
-        Falling back to GitHub silently is what let weeks of 401s scroll past
+        Returning a dead client silently is what let weeks of 401s scroll past
         in a journal nobody reads.
         """
         _firebase_config(_sync_client, tmp_path, monkeypatch)
         monkeypatch.setattr(
             _sync_client,
-            "mirror_client_for",
-            lambda _app, _client: RejectedClient(),
+            "firebase_client_for",
+            lambda *_a, **_k: RejectedClient(),
         )
         monkeypatch.setattr(
             _sync_client,
@@ -86,9 +86,8 @@ class TestRejectedCredentialTriggersRecovery:
             lambda: RecoveryResult(recovered=True, reason="rebuilt from a sibling"),
         )
         _sync_client.clear_degraded_sources()
-        github = object()
 
-        assert _workout_sync.remote_client(github) is github
+        assert _workout_sync.sync_client() is None
         degraded = _sync_client.degraded_sources()
         assert degraded, "a credential the server refuses must be recorded"
         assert "rejected" in degraded[0].reason

@@ -100,7 +100,7 @@ def _firebase_config(
 class ReachableClient:
     """A built client whose authenticated probe succeeds.
 
-    ``remote_client`` no longer trusts a client just because it constructed:
+    ``sync_client`` no longer trusts a client just because it constructed:
     it probes with ``can_access_remote`` first, because a credential that is
     present but server-rejected builds fine and then 401s on every operation.
     Fakes therefore have to answer that probe. ``identity`` carries whatever

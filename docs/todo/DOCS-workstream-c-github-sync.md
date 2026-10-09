@@ -2,6 +2,14 @@
 
 ## Status
 
+**Superseded (2026-10-09): screen-locker sync is Firebase RTDB only.** The
+phone stopped writing the GitHub repo on 2026-08-21, and from 2026-10-09 the
+PC does not use it either: the push, `sync_client()` and
+`scripts/tombstone_sync_record.py` all use `firebase_client_for("screen_locker")`,
+and the sync_token / GitHub client / mirror code paths are deleted.
+`kuhyx/syncs/screen-locker-sync` stays as a frozen archive that no code reads
+and nothing deletes. The rest of this document is the historical design record.
+
 **Blocked on Workstream D** (2026-07-04 user decision — see "Sequencing
 decision" below). No code has been written for this workstream. The design
 questions below (sync pattern, repo name, scope) have been pre-decided so the

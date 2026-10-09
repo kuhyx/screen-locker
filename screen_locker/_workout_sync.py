@@ -1,11 +1,12 @@
-"""Pulls phone/other-device workouts via crdt-sync's GitHub transport.
+"""Pulls phone/other-device workouts via crdt-sync's Firebase transport.
 
-GitHub is used purely as dumb file storage (see ``crdt_sync``'s own docs) --
-the phone app pushes its completed-workout log to a private repo; this module
+Firebase RTDB is the only backend since 2026-10-09 (the old GitHub repo is a
+frozen archive nobody reads) -- the phone app pushes its completed-workout log
+there; this module
 reads the session log and every device's manual-workout records. (The PC does
 push its OWN manual workouts, but via :mod:`screen_locker._manual_push`, not
-here.) Sync is optional: an unconfigured token is a normal, expected state,
-not an error -- unlike diet_guard, where sync is core to the app.
+here.) Sync is optional: a machine without a Firebase config still locks
+and verifies over ADB/HTTP -- but it says so at ``warning`` every time.
 """
 
 from __future__ import annotations
@@ -20,16 +21,7 @@ from crdt_sync import (
     RemoteSyncError,
 )
 
-from screen_locker._constants import (
-    SYNC_REPO_NAME,
-    SYNC_REPO_OWNER,
-    SYNC_TOKEN_FILE,
-)
-from screen_locker._sync_client import (
-    read_sync_token,
-    remote_client,
-    sync_client,
-)
+from screen_locker._sync_client import sync_client, sync_client_or_reason
 from screen_locker._sync_records import (
     _is_manual_payload,
     _is_session_payload,
@@ -40,12 +32,9 @@ from screen_locker._sync_records import (
 )
 from screen_locker._sync_retry import with_sync_retry
 
-# Re-exported for callers (_manual_push) and for the autouse isolate_sync_token
-# fixture, which redirects SYNC_TOKEN_FILE on this module as well as on
-# _sync_client -- without both, a real token on the host leaks into the tests.
+# Re-exported for callers (_manual_push, scripts/tombstone_sync_record.py).
 __all__ = [
     "CONFIG_FILE",
-    "SYNC_TOKEN_FILE",
     "_is_manual_payload",
     "_is_session_payload",
     "_manual_records",
@@ -54,9 +43,8 @@ __all__ = [
     "pull_all_manual_records",
     "pull_all_session_records",
     "pull_synced_workout",
-    "read_sync_token",
-    "remote_client",
     "sync_client",
+    "sync_client_or_reason",
 ]
 
 if TYPE_CHECKING:
@@ -104,11 +92,9 @@ def _merge_device_records(
         )
     except RemoteSyncError as exc:
         _logger.warning(
-            "Could not list device logs under %s in %s/%s: %s — pulling NO "
+            "Could not list device logs under %s in Firebase: %s — pulling NO "
             "synced %s, so phone-logged workouts will not count",
             _DEVICES_PREFIX,
-            SYNC_REPO_OWNER,
-            SYNC_REPO_NAME,
             exc,
             what,
         )
@@ -146,7 +132,7 @@ def pull_synced_workout() -> tuple[dict | None, str | None]:
 
     - Nothing configured anywhere: ``(None, None)`` -- benign, sync is optional.
     - Nothing pushed yet: ``(None, None)``.
-    - A real sync error (network, bad token, backend unreachable):
+    - A real sync error (network, rejected credential, backend unreachable):
       ``(None, <message>)``.
     - Success: ``(payload_dict, None)``.
     """
@@ -182,13 +168,13 @@ def pull_all_session_records() -> list[tuple[str, dict]]:
     being open: ``pull_synced_workout`` returns only the single newest session
     for the live unlock check, which cannot backfill a week.
 
-    Best-effort in the same way -- an unconfigured token or a corrupt device
+    Best-effort in the same way -- no Firebase config or a corrupt device
     log yields fewer records rather than raising.
     """
     client = sync_client()
     if client is None:
         _logger.warning(
-            "No sync client (neither a GitHub token nor a Firebase config) — "
+            "No usable Firebase sync client (see the warning above) — "
             "synced StrongLifts sessions cannot be pulled, so a workout done "
             "on another device will NOT count toward the weekly minimum.",
         )
@@ -204,7 +190,7 @@ def pull_all_manual_records() -> list[tuple[str, dict]]:
     Merges every ``devices/<device>/log.json`` under the sync prefix (phone,
     pc, …), keeping the highest-HLC copy of each record id — records are
     id-stable, so the same workout mirrored into two device logs dedups to one.
-    Best-effort: an unconfigured token, an unreachable repo, or a corrupt device
+    Best-effort: no Firebase config, an unreachable store, or a corrupt device
     log yields fewer/no records rather than raising — manual sync, like session
     sync, is optional.
     """

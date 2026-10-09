@@ -34,7 +34,6 @@ import sys
 
 from crdt_sync import (
     FileSyncStateStore,
-    GitHubSyncClient,
     LogCodec,
     Record,
     RevisionTracking,
@@ -42,12 +41,7 @@ from crdt_sync import (
     sync_log,
 )
 
-from screen_locker._constants import (
-    SYNC_REPO_NAME,
-    SYNC_REPO_OWNER,
-    SYNC_STATE_FILE,
-    SYNC_TIMEOUT_SECONDS,
-)
+from screen_locker._constants import SYNC_STATE_FILE
 from screen_locker._device import device_identity
 from screen_locker._manual_push import (
     _decode_log,
@@ -55,7 +49,7 @@ from screen_locker._manual_push import (
     records_from_workout_log,
 )
 from screen_locker._sync_tombstones import add_tombstone
-from screen_locker._workout_sync import _DEVICES_PREFIX, read_sync_token, remote_client
+from screen_locker._workout_sync import _DEVICES_PREFIX, sync_client_or_reason
 
 _logger = logging.getLogger(__name__)
 
@@ -72,15 +66,10 @@ def _report(message: str) -> None:
 def _sync(local_log: dict[str, Record]) -> dict[str, Record]:
     """Run one sync tick with *local_log* as this device's view; return the merge."""
     identity = device_identity()
-    token = read_sync_token()
-    if token is None:
-        msg = "no sync token — cannot reach the store"
+    client, reason = sync_client_or_reason()
+    if client is None:
+        msg = f"cannot reach the Firebase sync store: {reason}"
         raise SystemExit(msg)
-    client = remote_client(
-        GitHubSyncClient(
-            SYNC_REPO_OWNER, SYNC_REPO_NAME, token, timeout_seconds=SYNC_TIMEOUT_SECONDS
-        )
-    )
     return sync_log(
         SyncTarget(
             client=client,

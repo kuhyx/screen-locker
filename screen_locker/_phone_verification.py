@@ -1,4 +1,4 @@
-"""Phone workout verification: GitHub sync first, ADB/HTTP as fallback."""
+"""Phone workout verification: Firebase sync first, ADB/HTTP as fallback."""
 
 from __future__ import annotations
 
@@ -144,7 +144,7 @@ class PhoneVerificationMixin(AdbTransportMixin, HttpWorkoutFetchMixin):
     # ── HTTP fallback (no ADB / developer options required) ───────────────────
 
     def _verify_phone_workout(self) -> tuple[str, str]:
-        """Verify today's workout: GitHub sync first, ADB/HTTP as fallback.
+        """Verify today's workout: Firebase sync first, ADB/HTTP as fallback.
 
         Returns (status, message). Status values:
         verified / too_short / not_verified / no_phone / sync_failed /
@@ -154,7 +154,7 @@ class PhoneVerificationMixin(AdbTransportMixin, HttpWorkoutFetchMixin):
         if not clock_ok:
             return "clock_tampered", clock_msg
 
-        # GitHub sync is the primary channel — it works without the phone
+        # Firebase sync is the primary channel — it works without the phone
         # being on the same network as the PC. Only a *verified* sync result
         # short-circuits ADB/HTTP: a stale/incomplete cloud entry (e.g. the
         # phone's last push predates today, or a later push failed offline)
@@ -174,7 +174,7 @@ class PhoneVerificationMixin(AdbTransportMixin, HttpWorkoutFetchMixin):
             )
         elif sync_error is not None:
             _logger.info(
-                "GitHub sync unavailable (%s) — trying ADB/HTTP...", sync_error
+                "Firebase sync unavailable (%s) — trying ADB/HTTP...", sync_error
             )
 
         # Prefer ADB when a device is visible, but if the pull yields no usable

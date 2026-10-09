@@ -1,4 +1,4 @@
-"""Building the sync client: read the token, pick Firebase or the GitHub mirror.
+"""Building the sync client: Firebase only, proven live before it is returned.
 
 Split out of :mod:`screen_locker._workout_sync` to keep every file under the
 250-line cap. Re-exported from there, so callers and their patch targets are
@@ -6,6 +6,12 @@ unchanged.
 
 ``sync_client`` returning None means sync is OFF -- and says why in the log,
 because a silent None here is exactly how the PC stopped syncing for weeks.
+
+Firebase is the only transport since 2026-10-09. The GitHub mirror
+(``kuhyx/syncs/screen-locker-sync``) is a frozen archive: nothing here reads
+or writes it, and nothing deletes it. The PC used to refuse to push at all
+without a GitHub PAT, even with Firebase configured -- so when the PAT was
+lost, this machine silently published nothing.
 """
 
 from __future__ import annotations
@@ -17,24 +23,16 @@ from pathlib import Path
 from crdt_sync import (
     CONFIG_FILE,
     ConfigError,
-    FirebaseAuthError,
     FirebaseConfig,
     FirebaseCredentials,
-    GitHubSyncClient,
     RemoteStore,
     RemoteSyncError,
     credential_store_for,
     firebase_client_for,
-    mirror_client_for,
 )
 import requests
 
-from screen_locker._constants import (
-    SYNC_REPO_NAME,
-    SYNC_REPO_OWNER,
-    SYNC_TIMEOUT_SECONDS,
-    SYNC_TOKEN_FILE,
-)
+from screen_locker._constants import SYNC_TIMEOUT_SECONDS
 from screen_locker._credential_recovery import RecoveryResult, recover_session
 from screen_locker._degraded_sources import (
     DegradedSource,
@@ -53,9 +51,8 @@ __all__ = [
     "DegradedSource",
     "clear_degraded_sources",
     "degraded_sources",
-    "read_sync_token",
-    "remote_client",
     "sync_client",
+    "sync_client_or_reason",
     "try_recover_firebase_session",
 ]
 
@@ -96,27 +93,22 @@ def try_recover_firebase_session() -> RecoveryResult:
     )
 
 
-def read_sync_token() -> str | None:
-    """Return the saved sync PAT, or None if sync isn't configured.
-
-    Unlike diet_guard's equivalent, an absent or empty token file is a
-    normal state here -- sync is an optional primary channel, not something
-    the app requires to function.
-    """
-    if not SYNC_TOKEN_FILE.exists():
-        return None
-    token = SYNC_TOKEN_FILE.read_text().strip()
-    return token or None
+# What a missing or broken Firebase costs, in both directions -- named in every
+# warning so the journal says what is lost, not just that something failed.
+_CONSEQUENCE = (
+    "this PC's workouts will NOT be pushed and phone-logged workouts will "
+    "NOT be pulled, so only ADB/HTTP can verify a phone workout here"
+)
 
 
-def _live_mirror_client(github: RemoteStore) -> tuple[RemoteStore | None, str]:
-    """Build the mirrored client, but only return one that actually answers.
+def _live_firebase_client() -> tuple[RemoteStore | None, str]:
+    """Build the Firebase client, but only return one that actually answers.
 
-    Constructing is not proving. ``mirror_client_for`` only asks
+    Constructing is not proving. ``firebase_client_for`` only asks
     ``has_session()``, which reads the cached JSON off disk and never touches
     the network, so a credential that is *present but rejected* builds
     perfectly and then 401s on every single read and write. That is exactly
-    what happened on 2026-08-27: the recovery below was wired to construction
+    what happened on 2026-08-27: the recovery was wired to construction
     failures, the construction succeeded, and so the self-heal never fired
     while every operation was being refused.
 
@@ -129,117 +121,66 @@ def _live_mirror_client(github: RemoteStore) -> tuple[RemoteStore | None, str]:
         ``(client, "")`` when Firebase answered, else ``(None, reason)``.
     """
     try:
-        client = mirror_client_for("screen_locker", github)
-    except (ConfigError, FirebaseAuthError, RemoteSyncError) as exc:
+        client = firebase_client_for(
+            "screen_locker", timeout_seconds=SYNC_TIMEOUT_SECONDS
+        )
+    except (ConfigError, RemoteSyncError) as exc:
         # The reason travels back to the caller, which decides whether to heal
-        # or degrade -- but it is logged here too, so the originating failure
+        # or give up -- but it is logged here too, so the originating failure
         # is on the record even when a later recovery masks it.
         _logger.warning("Could not build the Firebase client: %s", exc)
         return None, str(exc)
     if not client.can_access_remote():
         return None, (
-            "the cached Firebase credential was rejected by the server — it "
-            "exists on disk, so nothing failed while connecting, but every "
-            "read and write is being refused"
+            "the cached Firebase credential was rejected by the server, or "
+            "the database is unreachable — every read and write is refused"
         )
     return client, ""
 
 
-def remote_client(github: RemoteStore) -> RemoteStore:
-    """Return the backend to read the phone's workout log from.
-
-    Firebase when ``~/.config/crdt-sync/`` is set up, with GitHub kept as a
-    mirror so a phone that has not moved yet is still seen; GitHub alone
-    otherwise. :class:`MirrorSyncClient` reads the union of both, so a workout
-    logged against either backend still counts.
-
-    Not read-only: ``_manual_push.push_pc_workouts`` writes this machine's log
-    through the client this returns. That matters for the degraded path --
-    when Firebase is dropped here the push still lands on GitHub, which the
-    phone also reads, so records are not lost; ``_manual_push`` reports the
-    push as INCOMPLETE rather than letting a half-landed push look clean.
+def sync_client_or_reason() -> tuple[RemoteStore | None, str]:
+    """Return a live Firebase client, or None and the reason there is none.
 
     The config file is checked before constructing anything, so an
-    unconfigured machine never reaches the network.
+    unconfigured machine never reaches the network. A configured but failing
+    Firebase is healed from a sibling app's session when possible (waiting
+    for a human to copy a JSON file is what cost 2026-06-12 and 2026-08-24 --
+    two workouts done, two lockouts anyway); if that fails too, the failure is
+    recorded as a degraded source so an empty pull is never reported as
+    "no workouts".
 
-    Rolling back is deleting this function and passing ``github`` straight
-    through: no data moves either way.
+    Returns:
+        ``(client, "")`` on success, else ``(None, reason)`` -- ``reason`` is a
+        sentence a caller can put straight into its own result.
     """
     if not CONFIG_FILE.is_file():
-        return github
-    usable, reason = _live_mirror_client(github)
-    if usable is not None:
-        return usable
-    # Before degrading, try to heal: a sibling app on this machine almost
-    # certainly holds a live refresh token for the same account. Waiting
-    # for a human to copy a JSON file is what cost 2026-06-12 and
-    # 2026-08-24 -- two workouts done, two lockouts anyway.
+        reason = f"no Firebase config at {CONFIG_FILE}"
+        _logger.warning("Sync is OFF: %s — %s", reason, _CONSEQUENCE)
+        return None, reason
+    client, reason = _live_firebase_client()
+    if client is not None:
+        return client, ""
     recovery = try_recover_firebase_session()
     if recovery.recovered:
-        retried, retry_reason = _live_mirror_client(github)
+        retried, retry_reason = _live_firebase_client()
         if retried is not None:
             _logger.info("Firebase recovered automatically: %s", recovery.reason)
-            return retried
-        _logger.warning(
-            "Firebase still unusable after %s: %s", recovery.reason, retry_reason
-        )
-        _record_degraded("firebase", retry_reason)
-        return github
+            return retried, ""
+        reason = f"still unusable after {recovery.reason}: {retry_reason}"
+    else:
+        reason = f"{reason}; automatic recovery failed: {recovery.reason}"
     _logger.warning(
-        "Firebase unavailable, reading workouts via GitHub only: %s — the "
-        "phone syncs to Firebase, so a workout logged there is INVISIBLE "
-        "on this machine until this is fixed. Automatic recovery also "
-        "failed: %s",
-        reason,
-        recovery.reason,
+        "Firebase is configured but unusable: %s — %s", reason, _CONSEQUENCE
     )
-    _record_degraded("firebase", f"{reason}; recovery: {recovery.reason}")
-    return github
+    _record_degraded("firebase", reason)
+    return None, f"Firebase unusable: {reason}"
 
 
 def sync_client() -> RemoteStore | None:
-    """Return the configured read client, or None if sync is set up nowhere.
+    """Return the live Firebase client, or None when sync cannot run.
 
-    A GitHub token is no longer required: Firebase has been the primary backend
-    since eb4ff01, so a Firebase-only machine must still sync. Previously this
-    module returned early whenever the PAT was missing, reporting "sync is OFF"
-    on a machine whose sync was working perfectly -- a false negative that hid
-    a live backend behind a legacy credential check.
-
-    GitHub is used alone when only the PAT exists, Firebase alone when only
-    ``~/.config/crdt-sync/`` exists, and the mirrored union when both do.
-    ``None`` means neither is configured, which stays a benign, expected state.
+    ``None`` is never silent: :func:`sync_client_or_reason` has already
+    logged a warning naming the cause and what will not sync because of it.
     """
-    token = read_sync_token()
-    github = (
-        GitHubSyncClient(
-            SYNC_REPO_OWNER,
-            SYNC_REPO_NAME,
-            token,
-            timeout_seconds=SYNC_TIMEOUT_SECONDS,
-        )
-        if token is not None
-        else None
-    )
-    if github is not None:
-        return remote_client(github)
-    if not CONFIG_FILE.is_file():
-        _logger.warning(
-            "Cannot pull synced workouts: no sync token at %s and no Firebase "
-            "config at %s — sync is OFF, so only ADB/HTTP can verify a phone "
-            "workout and phone-logged workouts will NOT count here",
-            SYNC_TOKEN_FILE,
-            CONFIG_FILE,
-        )
-        return None
-    try:
-        return firebase_client_for("screen_locker")
-    except (ConfigError, FirebaseAuthError, RemoteSyncError) as exc:
-        _logger.warning(
-            "Firebase is configured at %s but unusable, and there is no GitHub "
-            "token at %s to fall back to: %s — pulling NO synced workouts",
-            CONFIG_FILE,
-            SYNC_TOKEN_FILE,
-            exc,
-        )
-        return None
+    client, _reason = sync_client_or_reason()
+    return client
