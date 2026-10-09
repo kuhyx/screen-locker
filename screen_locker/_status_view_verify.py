@@ -10,12 +10,15 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor  # pylint: disable=no-name-in-module
 from dataclasses import dataclass
+from datetime import date
 from typing import TYPE_CHECKING
 
-from screen_locker._earned import span
+import earned_time
+
+from screen_locker._day import today_str
+from screen_locker._earned import extra_minutes, span
 from screen_locker._status_data import gather_status
 from screen_locker._weekly_check import WEEKLY_WORKOUT_MINIMUM, count_weekly_workouts
-from screen_locker._workout_credit import EXTRA_WORKOUT_BONUS_MINUTES
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -84,7 +87,9 @@ def _backfill_week_and_apply_bonus(verifier: ScreenLocker) -> str | None:
     if sl_filled:
         new_count = count_weekly_workouts(verifier.log_file)
         extra = max(0, new_count - max(WEEKLY_WORKOUT_MINIMUM, prev_count + filled))
-        bonus = extra * EXTRA_WORKOUT_BONUS_MINUTES
+        # Day-aware: 0 per further unit on earned_time's ladder (2026-10-10).
+        today = date.fromisoformat(today_str())
+        bonus = extra * extra_minutes(earned_time.WORKOUT, today)
         if bonus > 0:
             verifier._adjust_shutdown_time_by(bonus)
     filled += sl_filled

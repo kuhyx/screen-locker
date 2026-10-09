@@ -41,3 +41,7 @@ web/dist/
 web/coverage/
 web/node_modules
 web/dist
+screen_locker/rest_days.json
+screen_locker/grace_floor.json
+screen_locker/grace_floor.lock
+screen_locker/rest_days.lock

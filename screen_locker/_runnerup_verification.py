@@ -23,6 +23,7 @@ from screen_locker._runnerup_backfill import RunnerUpBackfillMixin
 from screen_locker._runnerup_db import RunnerUpDbMixin
 from screen_locker._runnerup_tcx import RunnerUpTcxMixin
 from screen_locker._time_check import check_clock_skew
+from screen_locker._walk_tcx import walk_day, walk_shortfall
 
 _logger = logging.getLogger(__name__)
 
@@ -121,16 +122,26 @@ class RunnerUpVerificationMixin(
             return None
 
         # Try each file; return the best result (verified > validation error).
+        # Walks never qualify one file at a time: they are summed below.
         best: tuple[str, str] | None = None
+        walks: list[dict[str, Any]] = []
         for remote in exports:
             data = self._pull_and_parse_tcx(remote)
             if data is None:
+                continue
+            if data.get("walking"):
+                walks.append(data)
                 continue
             status, msg = self._validate_runnerup_data(data)
             if status == "verified":
                 return status, msg
             if best is None:
                 best = (status, msg)
+        if walks:
+            day = walk_day(walks)
+            if day.qualifies:
+                return "verified", day.message()
+            best = best or ("too_short", walk_shortfall(day))
 
         # All files found but none passed validation.
         return best or (

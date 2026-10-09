@@ -16,7 +16,6 @@ from unittest.mock import MagicMock, patch
 import earned_time
 import pytest
 
-from screen_locker import _shutdown_base
 from screen_locker._day import today_str
 from screen_locker._earned import flat_earners, hhmm
 from screen_locker._shutdown_base import (
@@ -65,15 +64,16 @@ class TestBaseHour:
         assert base_minutes(date(2026, 10, 1)) == 19 * 60
 
     def test_long_after_the_cut_stays_lowered(self) -> None:
-        """No drift back to 20:00; every later earner's cut holds too."""
-        cut = earned_time.READING.penalty_from
-        assert cut is not None
-        later_cuts = sum(
-            e.shutdown_minutes
-            for e in earned_time.EARNERS
-            if e.penalty_from is not None and e.penalty_from > cut
-        )
-        assert base_minutes(date(2030, 1, 1)) == 19 * 60 - later_cuts
+        """No drift back to 20:00: the registry's base for the day holds.
+
+        From earned_time's sleep ladder (2026-10-10) the floor is the ceiling
+        minus every earner's first unit, not 20:00 minus the cuts, so the day
+        is priced by the registry and only the "stays lowered" part is ours.
+        """
+        later = date(2030, 1, 1)
+        expected = earned_time.base_for(later, earned_time.EARNERS).shutdown_minutes
+        assert base_minutes(later) == expected
+        assert expected <= 19 * 60
 
     def test_default_is_the_local_today(self) -> None:
         assert base_minutes() == base_minutes(datetime.now().astimezone().date())
@@ -120,7 +120,7 @@ class TestResetIncludesReading:
         answers[0]["leetcode"] = True
         answers[0]["reading"] = True
         mixin = _mixin()
-        with patch.object(_shutdown_base, "today_credit_count", return_value=9):
+        with patch("screen_locker._shutdown_target.day_credit_count", return_value=9):
             reset_to_base_if_new_day(
                 tmp_path / "state.json", mixin, log_file=tmp_path / "log.json"
             )

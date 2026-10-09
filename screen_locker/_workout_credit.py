@@ -10,12 +10,16 @@ miss (see ``project-lock-disabled-pending-manual-log`` memory).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 import logging
 from typing import TYPE_CHECKING
 
 import earned_time
 
 from screen_locker import _sick_tracker
+from screen_locker._day import today_str
+from screen_locker._earned import extra_minutes
+from screen_locker._rest_day import is_rest_day
 from screen_locker._weekly_check import (
     COUNTED_WORKOUT_TYPES,
     PC_WORKOUT_TYPE,
@@ -30,6 +34,8 @@ _logger = logging.getLogger(__name__)
 # The shutdown reward for a day's workouts, from the shared registry
 # (``earned_time.WORKOUT``): the first counted workout pushes shutdown later by
 # FIRST_WORKOUT_BONUS_MINUTES, every further one by EXTRA_WORKOUT_BONUS_MINUTES.
+# Those are the pre-ladder fields; from earned_time's ladder (2026-10-10) the
+# live paths ask the day-aware _earned.first_minutes / extra_minutes instead.
 # The live credit paths below and the daily base reset (``_shutdown_base``)
 # both derive from the registry, so a day's earned time can be recomputed
 # from the log instead of being lost when the credit landed before the reset.
@@ -124,11 +130,23 @@ class WorkoutCreditMixin:
 
         shutdown_adjusted = False
         extra_bonus_delta = 0
-        if first_counted_today:
+        day = date.fromisoformat(today_str())
+        # A rest day already paid the first unit (the daily reset counts it):
+        # the first real workout on it earns nothing, a second one what a
+        # further unit earns -- the reset's own max(credits, 1) rule.
+        rest_paid = first_counted_today and is_rest_day(day)
+        if rest_paid:
+            _logger.info("Rest day: its first-unit bonus is already in tonight's time")
+        extra = extra_minutes(earned_time.WORKOUT, day)
+        if first_counted_today and not rest_paid:
             shutdown_adjusted = self._try_adjust_shutdown_for_workout()
-        elif self.workout_data.get("type") in COUNTED_WORKOUT_TYPES:
+        elif (
+            not first_counted_today
+            and extra
+            and self.workout_data.get("type") in COUNTED_WORKOUT_TYPES
+        ):
             old_cfg = self._read_shutdown_config()
-            if old_cfg and self._adjust_shutdown_time_by(EXTRA_WORKOUT_BONUS_MINUTES):
+            if old_cfg and self._adjust_shutdown_time_by(extra):
                 new_cfg = self._read_shutdown_config()
                 if new_cfg:
                     extra_bonus_delta = new_cfg[1] - old_cfg[1]

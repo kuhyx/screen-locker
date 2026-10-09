@@ -16,8 +16,10 @@ from typing import TYPE_CHECKING
 from screen_locker._constants import SHUTDOWN_BASE_FILE
 from screen_locker._decision_log import record_no_decision
 from screen_locker._manual_cli import run_manual_log
+from screen_locker._rest_day_cli import run_declare_rest_day
 from screen_locker._shutdown_base import apply_flat_bonuses_if_new
 from screen_locker._status import run_status
+from screen_locker._workout_ledger_cli import run_backfill
 
 if TYPE_CHECKING:
     from screen_locker.screen_lock import ScreenLocker
@@ -28,6 +30,8 @@ _logger = logging.getLogger(__name__)
 
 _LOG_FILE_NAME = "log.json"
 _LOG_MANUAL_FLAG = "--log-manual-workout"
+_REST_DAY_FLAG = "--declare-rest-day"
+_BACKFILL_FLAG = "--backfill-workout-ledger"
 
 
 def _headless_locker(locker_cls: type[ScreenLocker]) -> ScreenLocker:
@@ -64,6 +68,14 @@ def main(locker_cls: type[ScreenLocker], argv: list[str]) -> None:
         # the same rules the phone form applies.
         rest = argv[argv.index(_LOG_MANUAL_FLAG) + 1 :]
         sys.exit(run_manual_log(_headless_locker(locker_cls).log_file, rest))
+
+    if _REST_DAY_FLAG in argv:
+        # Headless, no Tk: sign a FUTURE rest day (see screen_locker._rest_day).
+        sys.exit(run_declare_rest_day(argv[argv.index(_REST_DAY_FLAG) + 1 :]))
+
+    if _BACKFILL_FLAG in argv:
+        rest = argv[argv.index(_BACKFILL_FLAG) + 1 :]
+        sys.exit(run_backfill(_headless_locker(locker_cls).log_file, rest))
 
     if "--sync-only" in argv:
         # Headless sync for the timer unit: pull other devices' workouts and

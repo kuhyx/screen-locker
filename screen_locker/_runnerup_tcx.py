@@ -17,6 +17,8 @@ import tempfile
 from typing import Any
 import xml.etree.ElementTree as ET
 
+from screen_locker._walk_tcx import is_walking_export, track_summary
+
 # TCX XML namespace used by Garmin/RunnerUp.
 _TCX_NS = "http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"
 
@@ -48,8 +50,9 @@ class RunnerUpTcxMixin:
         phone path and goes through ``adb pull``. Returns the activity dict
         or None.
         """
+        name = Path(remote_path).name
         if Path(remote_path).is_file():
-            return self._parse_tcx(remote_path)
+            return _mark_walk(self._parse_tcx(remote_path), name)
         tmp_dir = tempfile.mkdtemp(prefix="runnerup_tcx_")
         local_path = str(Path(tmp_dir) / "activity.tcx")
         try:
@@ -57,7 +60,7 @@ class RunnerUpTcxMixin:
             if not ok or not Path(local_path).exists():
                 _logger.info("Failed to pull TCX file: %s", remote_path)
                 return None
-            return self._parse_tcx(local_path)
+            return _mark_walk(self._parse_tcx(local_path), name)
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
@@ -101,4 +104,13 @@ class RunnerUpTcxMixin:
             "sport": sport_int,
             "duration_seconds": int(total_seconds),
             "distance_m": total_distance,
+            "walking": is_walking_export(Path(tcx_path).name, sport_str),
+            **track_summary(activity),
         }
+
+
+def _mark_walk(data: dict[str, Any] | None, name: str) -> dict[str, Any] | None:
+    """Flag a walk by its ORIGINAL file name: an adb pull renames the copy."""
+    if data is not None:
+        data["walking"] = data["walking"] or is_walking_export(name, "")
+    return data

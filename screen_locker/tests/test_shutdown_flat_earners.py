@@ -186,5 +186,17 @@ class TestProjectionFollowsTheCut:
         lowered = 19 * 60 - sum(
             e.shutdown_minutes for e in earned_time.EARNERS if e.penalty_from == tuesday
         )
-        assert [d.minutes for d in shutdown.rest_of_week] == [19 * 60] + [lowered] * 6
-        assert [d.minutes for d in shutdown.next_week_preview] == [lowered] * 7
+
+        def base(day: date) -> int:
+            # From the sleep ladder (Sat 2026-10-10) the registry prices the
+            # day itself; before it, the cut from Tuesday holds.
+            return earned_time.base_for(day, earned_time.EARNERS).shutdown_minutes
+
+        week = [date(2026, 10, 5 + i) for i in range(7)]
+        assert [base(d) for d in week[1:5]] == [lowered] * 4
+        assert [d.minutes for d in shutdown.rest_of_week] == [19 * 60] + [
+            base(d) for d in week[1:]
+        ]
+        assert [d.minutes for d in shutdown.next_week_preview] == [
+            base(date(2026, 10, 12 + i)) for i in range(7)
+        ]

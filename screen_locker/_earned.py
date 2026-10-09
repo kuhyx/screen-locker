@@ -16,6 +16,7 @@ midnight, so a 30-minute earner is applied exactly.
 
 from __future__ import annotations
 
+import functools
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
@@ -25,7 +26,7 @@ import earned_time
 from screen_locker._constants import HMAC_KEY_FILE
 
 if TYPE_CHECKING:
-    from datetime import datetime
+    from datetime import date, datetime
 
 _logger: Final = logging.getLogger(__name__)
 
@@ -86,3 +87,48 @@ def flat_answers() -> dict[str, bool | None]:
             )
         answers[earner.name] = answer
     return answers
+
+
+# The day-aware ladder API (earned_time >= 0.4, from 2026-10-10). Looked up at
+# call time so the installed 0.3.0 -- which has none of it -- still runs, on
+# the raw fields it always used.
+def first_minutes(earner: earned_time.Earner, day: date) -> int:
+    """What ``earner``'s first unit pushes shutdown later by on ``day``."""
+    fn = getattr(earned_time, "shutdown_minutes_for", None)
+    return earner.shutdown_minutes if fn is None else int(fn(earner, day))
+
+
+def extra_minutes(earner: earned_time.Earner, day: date) -> int:
+    """What each further unit of a counted earner earns on ``day``."""
+    fn = getattr(earned_time, "extra_shutdown_minutes_for", None)
+    return earner.extra_shutdown_minutes if fn is None else int(fn(earner, day))
+
+
+def ceiling(day: date) -> int:
+    """The latest shutdown ``day`` can earn, minutes after its midnight."""
+    fn = getattr(earned_time, "shutdown_ceiling_for", None)
+    return earned_time.SHUTDOWN_CEILING_MINUTES if fn is None else int(fn(day))
+
+
+def first_credit_time(earner: earned_time.Earner, day: date) -> float | None:
+    """Unix time of ``earner``'s first verified credit counting for ``day``.
+
+    ``None`` when there is none, when it cannot be checked, and on an
+    ``earned_time`` without ``first_credit_at`` (0.3.0) -- logged, because
+    then the grace floor sees no ledger earner at all.
+    """
+    fn = getattr(earned_time, "first_credit_at", None)
+    if fn is None:
+        _warn_no_first_credit()
+        return None
+    stamp: float | None = fn(earner, ledger_file(earner), HMAC_KEY_FILE, day)
+    return stamp
+
+
+@functools.cache
+def _warn_no_first_credit() -> None:
+    """Once per process: the installed earned_time predates first_credit_at."""
+    _logger.warning(
+        "earned_time has no first_credit_at (needs >= 0.4); the grace floor "
+        "sees no ledger earner, only the workout log"
+    )

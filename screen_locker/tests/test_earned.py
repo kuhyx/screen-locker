@@ -95,8 +95,11 @@ class TestLedgerFile:
         assert not any(ledger_file(e).exists() for e in flat_earners())
 
     def test_earner_without_a_ledger_raises(self) -> None:
+        bare = earned_time.Earner(
+            name="bare", label="Bare", gaming_minutes=0, shutdown_minutes=0
+        )
         with pytest.raises(ValueError, match="has no ledger"):
-            ledger_file(earned_time.WORKOUT)
+            ledger_file(bare)
 
 
 class TestFlatEarners:

@@ -37,12 +37,14 @@ from screen_locker._bonus_lock import bonus_lock
 from screen_locker._day import today_str
 from screen_locker._earned import (
     earned_today,
-    flat_answers,
+    first_minutes,
     flat_earners,
     hhmm,
     span,
 )
+from screen_locker._grace_floor import save_lift
 from screen_locker._log_io import load_workout_log
+from screen_locker._shutdown_target import gather
 from screen_locker._weekly_check import count_day_credits
 
 if TYPE_CHECKING:
@@ -153,16 +155,9 @@ def _reset(
     if _load_state(state_file).get("last_reset_date") == today:
         return False
 
-    answers: dict[str, int | bool | None] = dict(flat_answers())
-    answers[earned_time.WORKOUT.name] = (
-        today_credit_count(log_file, today) if log_file is not None else 0
-    )
-    # The registry is passed explicitly: flat_answers iterated this same
-    # tuple, so the earners asked and the earners summed can never differ.
-    day = earned_time.resolve(
-        answers, datetime.now().astimezone().date(), earned_time.EARNERS
-    )
-    target = day.shutdown_minutes
+    derived = gather(date.fromisoformat(today), log_file)
+    day = derived.resolution
+    target = derived.minutes
 
     # Preserve the morning end from the live config.
     config = mixin._read_shutdown_config()
@@ -174,6 +169,8 @@ def _reset(
         return False
 
     _clear_sick_day_state(sick_day_state_file)
+    # Later additions are paid out of the grace lift first (see _grace_floor).
+    save_lift(derived.lift)
 
     # The flat bonuses are stamped here too: the reset already included them,
     # so the live pass below must not add them a second time today.
@@ -187,10 +184,12 @@ def _reset(
         f"{span(t.shutdown_minutes)} {t.earner.label}" for t in day.terms
     )
     _logger.info(
-        "Daily base reset: %s (base %s + %s already earned today).",
+        "Daily base reset: %s (base %s + %s already earned today%s%s).",
         hhmm(target),
         hhmm(day.base.shutdown_minutes),
         earned,
+        "; rest day" if derived.rest_day else "",
+        f"; grace floor {hhmm(derived.grace)}" if derived.grace is not None else "",
     )
     return True
 
@@ -223,7 +222,7 @@ def _apply_flat_bonus(
         return False
     if not answer:
         return False
-    minutes = earner.shutdown_minutes
+    minutes = first_minutes(earner, date.fromisoformat(today))
     if not mixin._adjust_shutdown_time_by(minutes):
         _logger.warning("%s bonus: failed to write shutdown config.", earner.label)
         return False
@@ -242,3 +241,5 @@ def apply_flat_bonuses_if_new(state_file: Path, mixin: object) -> None:
     with bonus_lock(state_file):
         for earner in flat_earners():
             _apply_flat_bonus(state_file, mixin, earner)
+        # Last, so the floor compares against everything earned so far.
+        mixin._apply_grace_floor(getattr(mixin, "log_file", None))

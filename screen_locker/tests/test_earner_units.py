@@ -137,7 +137,7 @@ class TestBonusLock:
             ) as lock,
             patch("screen_locker._shutdown_base.flat_earners", return_value=()),
         ):
-            apply_flat_bonuses_if_new(state, object())
+            apply_flat_bonuses_if_new(state, MagicMock())
         lock.assert_called_once_with(state)
         assert seen == [True]
 

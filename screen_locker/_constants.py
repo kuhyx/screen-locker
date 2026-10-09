@@ -12,8 +12,16 @@ from gatelock.log_integrity import DEFAULT_HMAC_KEY_FILE
 # log.json/sick_history.json below.
 INSTANCE_LOCK_FILE = default_runtime_dir() / "screen_locker-instance.lock"
 
-# Single-sourced from gatelock so the literal key path can't drift.
+# Single-sourced from gatelock so the literal key path can't drift. The key is
+# root:root 0644 ON PURPOSE, never 0600: leetcode-guard, book-guard and
+# anki-guard run as user timers and sign their ledgers with it, and this
+# locker signs log.json, rest_days.json and the workout ledger as the user.
+# Nothing in this repo may chmod it; root ownership keeps it from being
+# replaced, which is what the signatures rely on.
 HMAC_KEY_FILE = DEFAULT_HMAC_KEY_FILE
+# The workout ledger (earned_time.WORKOUT.ledger): one signed credit row per
+# verified RunnerUp TCX credit and per rest day, resolved at call time.
+WORKOUT_LEDGER_RELATIVE = Path(".local/share/workout_locker/ledger.json")
 SICK_LOCKOUT_SECONDS = 120  # base 2 minutes wait when sick (escalates with usage)
 PHONE_PENALTY_DELAY_DEMO = 10
 PHONE_PENALTY_DELAY_PRODUCTION = 100
@@ -120,6 +128,17 @@ SCHEDULED_SKIPS_FILE = Path(__file__).resolve().parent / "scheduled_skips.json"
 EXTRA_BENEFITS_FILE = Path(__file__).resolve().parent / "extra_benefits_state.json"
 # State file storing the base (pre-bonus) shutdown hours and last reset date.
 SHUTDOWN_BASE_FILE = Path(__file__).resolve().parent / "shutdown_base.json"
+# HMAC-signed rest days, declared ahead (see _rest_day), and how far the grace
+# floor has lifted today's shutdown above the earned time (see _grace_floor).
+REST_DAY_FILE = Path(__file__).resolve().parent / "rest_days.json"
+REST_DAYS_PER_ISO_WEEK = 2
+GRACE_STATE_FILE = Path(__file__).resolve().parent / "grace_floor.json"
+GRACE_MINUTES = 60
+# A day's RunnerUp walks (commute legs) count as the workout once their
+# MOVING time sums to this; moving = trackpoint pairs at walking speed.
+WALK_MIN_MOVING_MINUTES = 40
+WALK_SPEED_MPS = (0.5, 3.0)
+WALK_MAX_GAP_SECONDS = 30
 # Workout records this PC must keep deleted in the sync store, pushed as
 # tombstones on every tick (see _sync_tombstones for why once is not enough).
 SYNC_TOMBSTONES_FILE = Path(__file__).resolve().parent / "sync_tombstones.json"

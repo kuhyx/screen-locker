@@ -2,18 +2,21 @@
 
 from __future__ import annotations
 
+from datetime import date
 import logging
 import subprocess
 from typing import TYPE_CHECKING
+
+import earned_time
 
 from screen_locker._constants import (
     ADJUST_SHUTDOWN_SCRIPT,
     SHUTDOWN_CONFIG_FILE,
 )
 from screen_locker._day import today_str
-from screen_locker._earned import hhmm, span
+from screen_locker._earned import ceiling, first_minutes, hhmm, span
+from screen_locker._grace_floor import GraceFloorMixin, plan_absorb, save_lift
 from screen_locker._shutdown_sick_state import SickDayStateMixin
-from screen_locker._workout_credit import FIRST_WORKOUT_BONUS_MINUTES
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -29,8 +32,6 @@ _MINUTES_PER_HOUR = 60
 # A sick day moves shutdown an hour earlier, but never before 18:00.
 _SICK_DAY_STEP = 60
 _SICK_DAY_FLOOR = 18 * _MINUTES_PER_HOUR
-# The workout reward stops at 23:00 (adjust_shutdown_schedule.sh's ceiling).
-_WORKOUT_CEILING = 23 * _MINUTES_PER_HOUR
 # Extra bonuses may name midnight; the helper still clamps them to 23:00.
 _MIDNIGHT = 24 * _MINUTES_PER_HOUR
 
@@ -69,7 +70,7 @@ def read_shutdown_config(path: Path) -> tuple[int, int, int] | None:
     return mon_wed, thu_sun, morning_end
 
 
-class ShutdownMixin(SickDayStateMixin):
+class ShutdownMixin(GraceFloorMixin, SickDayStateMixin):
     """Mixin providing shutdown schedule adjustment functionality."""
 
     def _apply_earlier_shutdown(self, today: str) -> bool:
@@ -107,24 +108,29 @@ class ShutdownMixin(SickDayStateMixin):
             return False
 
     def _adjust_shutdown_time_later(self) -> bool:
-        """Push shutdown later by the first workout's reward, capped at 23:00.
+        """Push shutdown later by the first workout's reward, capped at the ceiling.
 
         Returns True if successful, False otherwise.
         """
+        day = date.fromisoformat(today_str())
+        bonus, lift = plan_absorb(first_minutes(earned_time.WORKOUT, day))
         try:
             config_values = self._read_shutdown_config()
             if config_values is None:
                 return False
             mon_wed, thu_sun, morning_end = config_values
-            return self._write_shutdown_config(
-                min(_WORKOUT_CEILING, mon_wed + FIRST_WORKOUT_BONUS_MINUTES),
-                min(_WORKOUT_CEILING, thu_sun + FIRST_WORKOUT_BONUS_MINUTES),
+            ok = self._write_shutdown_config(
+                min(ceiling(day), mon_wed + bonus),
+                min(ceiling(day), thu_sun + bonus),
                 morning_end,
                 restore=True,
             )
         except (OSError, ValueError) as e:
             _logger.warning("Failed to adjust shutdown time for workout: %s", e)
             return False
+        if ok:
+            save_lift(lift)
+        return ok
 
     def _adjust_shutdown_time_by(self, extra_minutes: int) -> bool:
         """Push shutdown later by *extra_minutes*, capped at 24:00 (midnight).
@@ -135,14 +141,16 @@ class ShutdownMixin(SickDayStateMixin):
 
         Returns True if successful, False otherwise.
         """
+        # Paid out of the grace lift first, so the floor is never stacked on.
+        moved, lift = plan_absorb(extra_minutes)
         try:
             config_values = self._read_shutdown_config()
             if config_values is None:
                 return False
             mw, ts, morning = config_values
-            return self._write_shutdown_config(
-                min(_MIDNIGHT, mw + extra_minutes),
-                min(_MIDNIGHT, ts + extra_minutes),
+            ok = self._write_shutdown_config(
+                min(_MIDNIGHT, mw + moved),
+                min(_MIDNIGHT, ts + moved),
                 morning,
                 restore=True,
             )
@@ -151,6 +159,9 @@ class ShutdownMixin(SickDayStateMixin):
                 "Failed to adjust shutdown time by %s: %s", span(extra_minutes), e
             )
             return False
+        if ok:
+            save_lift(lift)
+        return ok
 
     def _read_shutdown_config(self) -> tuple[int, int, int] | None:
         """Read shutdown config as (mon_wed, thu_sun, morning_end) minutes, or None."""

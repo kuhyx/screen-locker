@@ -87,6 +87,17 @@ ISOLATED_STATE: tuple[tuple[str, tuple[str, ...]], ...] = (
         "earned_hmac.key",
         ("_earned.HMAC_KEY_FILE",),
     ),
+    # Declared rest days: read by every workout credit and every reset, so an
+    # unredirected test would see the user's real rest days.
+    (
+        "rest_days.json",
+        ("_constants.REST_DAY_FILE", "_rest_day.REST_DAY_FILE"),
+    ),
+    # Today's grace-floor lift; every shutdown add reads and writes it.
+    (
+        "grace_floor.json",
+        ("_constants.GRACE_STATE_FILE", "_grace_floor.GRACE_STATE_FILE"),
+    ),
     # wake-alarm's workday-stick file. A test that forgot this would read
     # the developer's real penalty state.
     (

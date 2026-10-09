@@ -16,6 +16,7 @@ from screen_locker._bonus_lock import bonus_lock
 from screen_locker._day import today_str
 from screen_locker._log_io import load_workout_log
 from screen_locker._manual_workout import MANUAL_WORKOUT_TYPE, manual_sync_record_id
+from screen_locker._workout_ledger import record_log_entry
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -162,6 +163,10 @@ def _write_signed_entry_locked(
             json.dump(logs, f, indent=2)
     except OSError as e:
         _logger.warning("Could not save workout log: %s", e)
+    else:
+        # The one chokepoint every credit passes, so the signed workout
+        # ledger (earned_time's view of the workout) can never miss one.
+        record_log_entry(date, entries)
     return RecordResult(appended=True, prior_entries=prior)
 
 
