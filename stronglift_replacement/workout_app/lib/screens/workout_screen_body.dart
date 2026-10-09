@@ -32,6 +32,7 @@ class _WorkoutBody extends StatelessWidget {
     required this.onLongPressCircle,
     required this.onTapWarmup,
     required this.onSettingsChanged,
+    required this.onDeload,
   });
 
   /// The exercises in this session, in display order.
@@ -86,6 +87,10 @@ class _WorkoutBody extends StatelessWidget {
   /// Invoked with the edited state after every settings-sheet change.
   final ValueChanged<ExerciseState> onSettingsChanged;
 
+  /// Invoked with the exercise index on a confirmed "Deload now"; resolves to
+  /// the exercise's new state, or null when nothing changed.
+  final Future<ExerciseState?> Function(int exIdx) onDeload;
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -139,6 +144,7 @@ class _WorkoutBody extends StatelessWidget {
       onLongPressCircle: (s) => onLongPressCircle(i, s),
       onTapWarmup: () => onTapWarmup(i),
       onSettingsChanged: onSettingsChanged,
+      onDeload: () => onDeload(i),
     );
   }
 }

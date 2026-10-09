@@ -63,7 +63,7 @@ extension _WorkoutScreenTaps on _WorkoutScreenState {
     if (_finished) return;
     _applyBreakState(() {
       _tapped[exIdx][setIdx] = false;
-      _doneReps[exIdx][setIdx] = widget.exercises[exIdx].reps;
+      _doneReps[exIdx][setIdx] = _exercises[exIdx].reps;
     });
     if (_breakForExIdx == exIdx && _breakForSetIdx == setIdx) {
       _cancelBreak();

@@ -1,7 +1,9 @@
 /// Bottom sheet for one exercise's progression mode, rep range, warmup,
-/// streak thresholds, rest lengths and injury pause — opened from the mode
-/// chip on its workout tile and from the Settings screen.
+/// streak thresholds, rest lengths, injury pause and manual deload — opened
+/// from the mode chip on its workout tile and from the Settings screen.
 library;
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:workout_app/models/exercise.dart';
@@ -9,10 +11,16 @@ import 'package:workout_app/models/exercise_state.dart';
 import 'package:workout_app/models/progression.dart';
 import 'package:workout_app/ui/theme.dart';
 
+part 'exercise_settings_sheet_deload.dart';
 part 'exercise_settings_sheet_rest.dart';
 part 'exercise_settings_sheet_rows.dart';
 
 /// Opens the settings sheet for [state]; [onChanged] runs on every edit.
+///
+/// [onDeload] runs after the user confirms "Deload now". It is separate
+/// from [onChanged] because it moves weight and reps, which the settings
+/// write path deliberately never touches; the host persists it and returns
+/// the new state, or null when nothing changed.
 ///
 /// Edits apply immediately rather than on a Save button: the sheet is a
 /// quick mid-workout adjustment, and a dismissed sheet losing its changes
@@ -21,12 +29,17 @@ Future<void> showExerciseSettingsSheet(
   BuildContext context, {
   required ExerciseState state,
   required ValueChanged<ExerciseState> onChanged,
+  required Future<ExerciseState?> Function() onDeload,
 }) => showModalBottomSheet<void>(
   context: context,
   // Taller than the default 9/16-of-the-screen cap once the rest rows are
   // in; the sheet sizes to its content and scrolls on a short screen.
   isScrollControlled: true,
-  builder: (_) => ExerciseSettingsSheet(state: state, onChanged: onChanged),
+  builder: (_) => ExerciseSettingsSheet(
+    state: state,
+    onChanged: onChanged,
+    onDeload: onDeload,
+  ),
 );
 
 /// Upper bound for the double-progression rep ceiling `n`.
@@ -41,6 +54,7 @@ class ExerciseSettingsSheet extends StatefulWidget {
   const ExerciseSettingsSheet({
     required this.state,
     required this.onChanged,
+    required this.onDeload,
     super.key,
   });
 
@@ -49,6 +63,9 @@ class ExerciseSettingsSheet extends StatefulWidget {
 
   /// Called with the updated state after every edit.
   final ValueChanged<ExerciseState> onChanged;
+
+  /// Persists a manual deload; returns the new state, or null if none.
+  final Future<ExerciseState?> Function() onDeload;
 
   @override
   State<ExerciseSettingsSheet> createState() => _ExerciseSettingsSheetState();
@@ -61,6 +78,15 @@ class _ExerciseSettingsSheetState extends State<ExerciseSettingsSheet> {
   void _update(ExerciseState next) {
     setState(() => _s = next);
     widget.onChanged(next);
+  }
+
+  /// Confirms, then deloads. The returned state replaces [_s] so a later
+  /// edit in this same sheet does not hand the host a stale weight.
+  Future<void> _deload() async {
+    if (!await _confirmDeload(context, _s)) return;
+    final next = await widget.onDeload();
+    if (next == null || !mounted) return;
+    setState(() => _s = next);
   }
 
   String get _modeHint => switch (_s.mode) {
@@ -187,6 +213,7 @@ class _ExerciseSettingsSheetState extends State<ExerciseSettingsSheet> {
               ),
               onResume: () => _update(_s.copyWith(resume: true)),
             ),
+            _DeloadRow(state: _s, onDeload: () => unawaited(_deload())),
           ],
         ),
       ),

@@ -1,4 +1,5 @@
-// Rest-period timers, per-exercise state lookups and settings edits.
+// Rest-period timers, per-exercise state lookups, settings edits and
+// mid-workout deloads.
 //
 // See workout_screen_session.dart for why this is a `part`. `setState` is
 // `@protected` and unreachable from an extension, so these mutate through the
@@ -23,15 +24,13 @@ extension _WorkoutScreenBreaks on _WorkoutScreenState {
 
   /// Whether exercise [exIdx] is on an injury pause right now.
   bool _isPaused(int exIdx) =>
-      _exerciseStates[widget.exercises[exIdx].name]?.isPausedAt(
-        DateTime.now(),
-      ) ??
+      _exerciseStates[_exercises[exIdx].name]?.isPausedAt(DateTime.now()) ??
       false;
 
   /// Exercise [exIdx]'s stored state, or its defaults while the states are
   /// still loading: that is where its rest lengths live.
   ExerciseState _stateOf(int exIdx) {
-    final ex = widget.exercises[exIdx];
+    final ex = _exercises[exIdx];
     return _exerciseStates[ex.name] ?? ExerciseState.initial(ex);
   }
 
@@ -127,7 +126,7 @@ extension _WorkoutScreenBreaks on _WorkoutScreenState {
     await StorageService.instance.setExerciseSettings(updated);
     if (!mounted) return;
     _applyBreakState(() => _exerciseStates[updated.name] = updated);
-    final exIdx = widget.exercises.indexWhere((e) => e.name == updated.name);
+    final exIdx = _exercises.indexWhere((e) => e.name == updated.name);
     final paused = updated.isPausedAt(DateTime.now());
     final warmupRestGone = !updated.hasWarmup && _breakForSetIdx == -1;
     if (_inBreak && _breakForExIdx == exIdx && (paused || warmupRestGone)) {
@@ -135,5 +134,74 @@ extension _WorkoutScreenBreaks on _WorkoutScreenState {
     }
     // Always: a pause changes the notification's "sets left" and next set.
     unawaited(_saveActiveSession());
+  }
+
+  /// Runs a confirmed "Deload now" for exercise [exIdx] and re-targets it in
+  /// this session; resolves to the new state, or null when nothing changed.
+  ///
+  /// Sets not yet tapped move to the new target reps; tapped sets keep what
+  /// was recorded, and count as a success if that meets the new target. The
+  /// whole exercise is then recorded at the new weight at Finish, where
+  /// `applyProgression` applies this session on top of the deloaded row.
+  Future<ExerciseState?> _deloadExercise(int exIdx) async {
+    final from = _exercises[exIdx];
+    // After Finish the session is cleared; saving it here would resurrect it.
+    if (_finished) {
+      return _deloadRefused(
+        'The workout is already finished, so nothing was deloaded.',
+      );
+    }
+    final ManualDeloadResult result;
+    try {
+      result = await StorageService.instance.manualDeload(
+        from.name,
+        source: DeloadSource.workout,
+      );
+    } on Object catch (e, st) {
+      log(
+        'WorkoutScreen: deload of ${from.name} failed: $e',
+        level: 1000,
+        stackTrace: st,
+      );
+      return _deloadRefused('The deload could not be saved: $e');
+    }
+    final next = result.state;
+    if (next == null) return _deloadRefused(result.reason);
+    SandboxLog.event('manual deload', {
+      'exercise': from.name,
+      'fromWeight': from.weight,
+      'fromReps': from.reps,
+      'toWeight': next.weight,
+      'toReps': next.reps,
+    });
+    // The stored target moved whether or not this screen is still up, so the
+    // remote copy is stale either way.
+    unawaited(
+      ProgressionSyncService().pushProgression().then((r) {
+        if (!r.changed) log('Progression not synced: ${r.reason}', level: 1000);
+      }),
+    );
+    if (!mounted) return next;
+    _applyBreakState(() {
+      _exercises[exIdx] = from.copyWith(weight: next.weight, reps: next.reps);
+      _exerciseStates[from.name] = next;
+      for (var s = 0; s < _tapped[exIdx].length; s++) {
+        if (!_tapped[exIdx][s]) _doneReps[exIdx][s] = next.reps;
+      }
+      // A lower target can turn the set this rest belongs to into a success.
+      _recomputeBreakIfNeeded(exIdx, _breakForSetIdx);
+    });
+    // Also pushes the notification snapshot, which reads `_exercises`.
+    unawaited(_saveActiveSession(toFirebase: true));
+    return next;
+  }
+
+  /// Shows and logs [why] a deload did not happen; returns null.
+  ExerciseState? _deloadRefused(String why) {
+    log('WorkoutScreen: deload not applied — $why', level: 900);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(why)));
+    }
+    return null;
   }
 }

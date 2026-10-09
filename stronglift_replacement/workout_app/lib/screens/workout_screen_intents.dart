@@ -12,13 +12,13 @@ extension _WorkoutScreenIntents on _WorkoutScreenState {
   BreakSnapshot _buildSnapshot() {
     final next = _nextTarget();
     final last = _lastRecorded();
-    final nextEx = next == null ? null : widget.exercises[next.$1];
+    final nextEx = next == null ? null : _exercises[next.$1];
     return BreakSnapshot(
       workoutType: widget.workoutType,
       breakEndMs: _breakClock?.endTime.millisecondsSinceEpoch ?? 0,
       breakDurationSecs: _breakDurationSecs,
       breakFailSecs: Sandbox.rest(
-        _breakForExIdx >= 0 && _breakForExIdx < widget.exercises.length
+        _breakForExIdx >= 0 && _breakForExIdx < _exercises.length
             ? _stateOf(_breakForExIdx).restFailSecs
             : kDefaultRestFailSecs,
       ),
@@ -45,11 +45,11 @@ extension _WorkoutScreenIntents on _WorkoutScreenState {
   /// set of the lift the user is standing at rather than jumping ahead.
   (int, int)? _nextTarget() {
     final preferred = _breakForExIdx;
-    if (preferred >= 0 && preferred < widget.exercises.length) {
+    if (preferred >= 0 && preferred < _exercises.length) {
       final inExercise = _firstUntappedIn(preferred);
       if (inExercise != null) return (preferred, inExercise);
     }
-    for (var ex = 0; ex < widget.exercises.length; ex++) {
+    for (var ex = 0; ex < _exercises.length; ex++) {
       final setIdx = _firstUntappedIn(ex);
       if (setIdx != null) return (ex, setIdx);
     }
@@ -72,7 +72,7 @@ extension _WorkoutScreenIntents on _WorkoutScreenState {
     if (_breakForExIdx >= 0 && _breakForSetIdx >= 0) {
       return (_breakForExIdx, _breakForSetIdx);
     }
-    for (var ex = widget.exercises.length - 1; ex >= 0; ex--) {
+    for (var ex = _exercises.length - 1; ex >= 0; ex--) {
       for (var s = _tapped[ex].length - 1; s >= 0; s--) {
         if (_tapped[ex][s]) return (ex, s);
       }
@@ -181,7 +181,7 @@ extension _WorkoutScreenIntents on _WorkoutScreenState {
   }
 
   bool _isValidSet(BreakIntent intent) {
-    final exOk = intent.exIdx >= 0 && intent.exIdx < widget.exercises.length;
+    final exOk = intent.exIdx >= 0 && intent.exIdx < _exercises.length;
     if (!exOk ||
         intent.setIdx < 0 ||
         intent.setIdx >= _tapped[intent.exIdx].length) {

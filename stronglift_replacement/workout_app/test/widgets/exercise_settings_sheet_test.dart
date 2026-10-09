@@ -20,6 +20,7 @@ Future<List<ExerciseState>> _pump(
         body: ExerciseSettingsSheet(
           state: state ?? _base,
           onChanged: edits.add,
+          onDeload: () async => null,
         ),
       ),
     ),
@@ -172,6 +173,7 @@ void main() {
               context,
               state: _base,
               onChanged: (_) {},
+              onDeload: () async => null,
             ),
             child: const Text('open'),
           ),

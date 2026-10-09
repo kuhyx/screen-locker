@@ -134,7 +134,7 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
     if (_breakForExIdx != exIdx || _breakForSetIdx != setIdx) return;
     if (_breakForSetIdx == -1) return; // warmup break, never recompute
 
-    final succeeded = _doneReps[exIdx][setIdx] >= widget.exercises[exIdx].reps;
+    final succeeded = _doneReps[exIdx][setIdx] >= _exercises[exIdx].reps;
     final state = _stateOf(exIdx);
     final newDuration = Sandbox.rest(
       succeeded ? state.restSuccessSecs : state.restFailSecs,
@@ -147,7 +147,7 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
 
   /// True when [setIdx] is the last untapped set of exercise [exIdx].
   bool _isLastSetOfExercise(int exIdx, int setIdx) {
-    final sets = widget.exercises[exIdx].sets;
+    final sets = _exercises[exIdx].sets;
     for (var s = 0; s < sets; s++) {
       if (s != setIdx && !_tapped[exIdx][s]) return false;
     }
@@ -160,7 +160,7 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
   /// resting inside an exercise they have finished.
   _Rest? _restAfterSet(int exIdx, int setIdx) {
     if (_isLastSetOfExercise(exIdx, setIdx)) return null;
-    final succeeded = _doneReps[exIdx][setIdx] >= widget.exercises[exIdx].reps;
+    final succeeded = _doneReps[exIdx][setIdx] >= _exercises[exIdx].reps;
     final state = _stateOf(exIdx);
     return _Rest(
       succeeded ? state.restSuccessSecs : state.restFailSecs,

@@ -79,6 +79,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   late List<bool> _warmupTapped;
   late DateTime _startTime;
 
+  /// This session's targets: a copy, so a mid-workout deload can re-target.
+  late final List<Exercise> _exercises = List.of(widget.exercises);
   Map<String, ExerciseState> _exerciseStates = {};
 
   // Break state. The deadline is the source of truth: `_breakClock` is what
@@ -136,14 +138,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   void _initFresh() {
     _startTime = DateTime.now();
     _tapped = List.generate(
-      widget.exercises.length,
-      (i) => List.filled(widget.exercises[i].sets, false),
+      _exercises.length,
+      (i) => List.filled(_exercises[i].sets, false),
     );
     _doneReps = List.generate(
-      widget.exercises.length,
-      (i) => List.filled(widget.exercises[i].sets, widget.exercises[i].reps),
+      _exercises.length,
+      (i) => List.filled(_exercises[i].sets, _exercises[i].reps),
     );
-    _warmupTapped = List.filled(widget.exercises.length, false);
+    _warmupTapped = List.filled(_exercises.length, false);
   }
 
   Future<void> _loadExerciseStates() async {
@@ -184,9 +186,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   /// Runs [fn] inside `setState` on behalf of this library's extensions.
   ///
   /// `setState` is `@protected`, so an extension cannot call it directly. This
-  /// shim is the one seam through which `workout_screen_breaks.dart` and
-  /// `workout_screen_taps.dart` mutate state; keeping it named makes those
-  /// writes greppable from here.
+  /// shim is the one seam through which the breaks, taps, intents and deload
+  /// code mutate state; keeping it named makes those writes greppable here.
   void _applyBreakState(VoidCallback fn) => setState(fn);
 
   // ── Finish / Reset ─────────────────────────────────────────────────────────
@@ -222,7 +223,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       child: Scaffold(
         body: SafeArea(
           child: _WorkoutBody(
-            exercises: widget.exercises,
+            exercises: _exercises,
             exerciseStates: _exerciseStates,
             tapped: _tapped,
             doneReps: _doneReps,
@@ -239,6 +240,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             onLongPressCircle: _resetCircle,
             onTapWarmup: _tapWarmup,
             onSettingsChanged: (s) => unawaited(_onSettingsChanged(s)),
+            onDeload: _deloadExercise,
           ),
         ),
       ),

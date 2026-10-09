@@ -13,8 +13,8 @@ extension _WorkoutScreenFinish on _WorkoutScreenState {
     final endTime = DateTime.now();
     final results = <ExerciseResult>[];
 
-    for (var i = 0; i < widget.exercises.length; i++) {
-      final ex = widget.exercises[i];
+    for (var i = 0; i < _exercises.length; i++) {
+      final ex = _exercises[i];
       // A paused exercise is recorded as FAILED every time, whatever was
       // tapped before the pause: the user asked for it to step down while
       // they are injured, not to come back at the load it left with.
@@ -54,8 +54,8 @@ extension _WorkoutScreenFinish on _WorkoutScreenState {
     final lastDate = await storage.getLastWorkoutDate() ?? _startTime;
     await storage.applyProgression(
       succeededExercises: {
-        for (int i = 0; i < widget.exercises.length; i++)
-          widget.exercises[i].name: results[i].succeeded,
+        for (int i = 0; i < _exercises.length; i++)
+          _exercises[i].name: results[i].succeeded,
       },
       lastWorkoutDate: lastDate,
     );

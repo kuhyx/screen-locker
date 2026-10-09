@@ -36,6 +36,7 @@ ExerciseTile _tile({
   onLongPressCircle: onLongPressCircle ?? (_) {},
   onTapWarmup: onTapWarmup ?? () {},
   onSettingsChanged: onSettingsChanged ?? (_) {},
+  onDeload: () async => null,
 );
 
 Color _cardColor(WidgetTester tester) =>

@@ -10,6 +10,25 @@ const _restColumns =
     'rest_fail_secs INTEGER NOT NULL DEFAULT $kDefaultRestFailSecs, '
     'rest_warmup_secs INTEGER NOT NULL DEFAULT $kDefaultRestWarmupSecs';
 
+/// The v7 audit trail of target changes, shared by create and migrate.
+///
+/// Only manual deloads land here so far (see `manual_deload.dart`); finished
+/// workouts still move targets silently. `at` is local ISO-8601, the same
+/// format `workout_history.date` uses.
+const _progressionEventsTable = '''
+  CREATE TABLE IF NOT EXISTS progression_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    at TEXT NOT NULL,
+    exercise TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    source TEXT NOT NULL,
+    from_weight REAL NOT NULL,
+    from_reps INTEGER NOT NULL,
+    to_weight REAL NOT NULL,
+    to_reps INTEGER NOT NULL
+  )
+''';
+
 /// Schema creation, migration, and seeding.
 extension StorageServiceSchema on StorageService {
   Future<void> _createSchema(Database db, int version) async {
@@ -53,6 +72,7 @@ extension StorageServiceSchema on StorageService {
         json TEXT NOT NULL
       )
     ''');
+    await db.execute(_progressionEventsTable);
   }
 
   Future<void> _migrateSchema(
@@ -104,6 +124,10 @@ extension StorageServiceSchema on StorageService {
       for (final column in _restColumns.split(', ')) {
         await db.execute('ALTER TABLE exercise_state ADD COLUMN $column');
       }
+    }
+    if (oldVersion < 7) {
+      // A new table, nothing to backfill: deloads before v7 left no trace.
+      await db.execute(_progressionEventsTable);
     }
   }
 

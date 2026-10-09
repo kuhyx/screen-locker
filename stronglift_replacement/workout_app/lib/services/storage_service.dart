@@ -3,6 +3,7 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' show log;
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -10,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/exercise_state.dart';
+import 'package:workout_app/models/manual_deload.dart';
 import 'package:workout_app/models/progression.dart';
 import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/services/backup_service.dart';
@@ -18,9 +20,11 @@ import 'package:workout_app/services/progression_sync_service.dart';
 // Re-exported: ExerciseState was defined here until it moved to models/, and
 // every caller still reaches it through this import.
 export 'package:workout_app/models/exercise_state.dart';
+export 'package:workout_app/models/manual_deload.dart';
 export 'package:workout_app/models/progression.dart';
 
 part 'storage_service_backup.dart';
+part 'storage_service_deload.dart';
 part 'storage_service_exercises.dart';
 part 'storage_service_sandbox.dart';
 part 'storage_service_schema.dart';
@@ -78,7 +82,7 @@ class StorageService {
     // coverage:ignore-end
     _db = await openDatabase(
       dbPath,
-      version: 6,
+      version: 7,
       onCreate: _createSchema,
       onUpgrade: _migrateSchema,
       // In tests resetForTesting() reopens a ':memory:' DB per test; sqflite's

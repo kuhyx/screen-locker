@@ -21,6 +21,7 @@ extension StorageServiceBackup on StorageService {
     final exerciseRows = await _db.query('exercise_state');
     final historyRows = await _db.query('workout_history');
     final settingsRows = await _db.query('settings');
+    final eventRows = await _db.query('progression_events');
 
     if (historyRows.isEmpty) {
       final existing = await BackupService.instance.readBackup();
@@ -41,6 +42,7 @@ extension StorageServiceBackup on StorageService {
       'exercise_state': exerciseRows,
       'workout_history': historyRows,
       'settings': settingsRows,
+      'progression_events': eventRows,
     });
   }
 
@@ -157,6 +159,16 @@ extension StorageServiceBackup on StorageService {
           .cast<Map<String, dynamic>>()) {
         await txn.insert(
           'settings',
+          row,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      // Absent from backups written before schema v7; `?? []` keeps those
+      // restorable, they just bring no deload log with them.
+      for (final row in (backup['progression_events'] as List? ?? [])
+          .cast<Map<String, dynamic>>()) {
+        await txn.insert(
+          'progression_events',
           row,
           conflictAlgorithm: ConflictAlgorithm.replace,
         );

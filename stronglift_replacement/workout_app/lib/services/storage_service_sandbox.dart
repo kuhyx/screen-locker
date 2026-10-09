@@ -19,6 +19,7 @@ extension StorageServiceSandbox on StorageService {
   Future<void> wipeAll() async {
     for (final table in const [
       'workout_history',
+      'progression_events',
       'active_session',
       'settings',
       'exercise_state',

@@ -29,6 +29,7 @@ class ExerciseTile extends StatelessWidget {
     required this.onLongPressCircle,
     required this.onTapWarmup,
     required this.onSettingsChanged,
+    required this.onDeload,
     super.key,
   });
 
@@ -58,6 +59,10 @@ class ExerciseTile extends StatelessWidget {
 
   /// Called with the edited state after every change in the settings sheet.
   final ValueChanged<ExerciseState> onSettingsChanged;
+
+  /// Called when the user confirms "Deload now" in the settings sheet;
+  /// returns the deloaded state, or null when nothing changed.
+  final Future<ExerciseState?> Function() onDeload;
 
   /// Gap between circles in the set row.
   static const double circleGap = 8;
@@ -179,5 +184,6 @@ class ExerciseTile extends StatelessWidget {
         context,
         state: state,
         onChanged: onSettingsChanged,
+        onDeload: onDeload,
       );
 }

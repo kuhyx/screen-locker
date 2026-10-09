@@ -26,6 +26,7 @@ import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/exercise_settings_sheet.dart';
 
 part 'settings_screen_actions.dart';
+part 'settings_screen_deload.dart';
 part 'settings_screen_exercise_list.dart';
 part 'settings_screen_exercise_sections.dart';
 part 'settings_screen_rows.dart';
@@ -165,6 +166,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         setState(() => _states[updated.name] = updated);
         unawaited(StorageService.instance.setExerciseSettings(updated));
       },
+      onDeload: () async {
+        final deloaded = await _deload(state.name);
+        if (deloaded != null) edited = true;
+        return deloaded;
+      },
     );
     if (!edited) return;
     final pushed =
@@ -177,6 +183,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+
+  /// Shows a deloaded target everywhere this screen holds a copy of it.
+  ///
+  /// Here rather than in `settings_screen_deload.dart` because `setState` is
+  /// `@protected` and unreachable from an extension.
+  void _showDeloaded(ExerciseState next) => setState(() {
+    _states[next.name] = next;
+    _weights[next.name] = next.weight;
+    _reps[next.name] = next.reps;
+  });
 
   @override
   Widget build(BuildContext context) {
