@@ -60,7 +60,7 @@ jobs:
       - uses: kuhyx/utils/flutter-setup@flutter-setup-v1
         if: matrix.group == 'flutter'
         with:
-          flutter-version: 3.47.6
+          flutter-version: 3.47.7
           working-directory: stronglift_replacement/workout_app
       # analyze needs resolved packages (.dart_tool); the hook runs analyze
       # only, so fetch deps here first.
