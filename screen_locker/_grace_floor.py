@@ -2,10 +2,11 @@
 
 Someone who gets home at 18:10 and finishes their first task at 18:55 is not
 cut off at 19:00. The floor is ``first done + GRACE_MINUTES``, capped at the
-day's ceiling. "First done" is the earliest of every ledger earner's first
-verified credit (``earned_time.first_credit_at``) and the workout's own
-completion time -- the end of the run or walk, never the moment a sync
-happened to log it, so a late upload does not move the floor later.
+day's ceiling. "First done" is the earliest of every gate earner's first
+verified credit, flat or counted (``earned_time.first_credit_at``), and the
+workout's own completion time -- the end of the run or walk, never the
+moment a sync happened to log it, so a late upload does not move the floor
+later.
 
 **A floor, not a bonus.** The config is otherwise read-add-write: every
 earner adds its minutes to whatever is there. Lifting it to the floor and
@@ -30,7 +31,7 @@ import earned_time
 from screen_locker._bonus_lock import bonus_lock
 from screen_locker._constants import GRACE_MINUTES, GRACE_STATE_FILE
 from screen_locker._day import today_str
-from screen_locker._earned import ceiling, first_credit_time, flat_earners, hhmm
+from screen_locker._earned import ceiling, first_credit_time, gate_earners, hhmm
 from screen_locker._log_io import load_workout_log
 from screen_locker._rest_day import is_rest_day
 from screen_locker._sick_tracker import is_sick_day, load_history
@@ -80,8 +81,12 @@ def _workout_time(day: date, log_file: Path | None, *, rest_day: bool) -> float 
 def first_done_at(
     day: date, log_file: Path | None, *, rest_day: bool = False
 ) -> float | None:
-    """The earliest moment any earner was done on ``day``; ``None`` if none."""
-    times = [first_credit_time(e, day) for e in flat_earners()]
+    """The earliest moment any earner was done on ``day``; ``None`` if none.
+
+    Every gate in force on ``day`` counts, flat or counted: the Automation
+    tutor's first verified block starts the floor like a LeetCode solve does.
+    """
+    times = [first_credit_time(e, day) for e in gate_earners(day)]
     times.append(_workout_time(day, log_file, rest_day=rest_day))
     on_day = [
         t

@@ -158,8 +158,10 @@ class TestRealLedgers:
         mixin = _mixin()
         with signing_key(tmp_path):
             assert reset_to_base_if_new_day(state, mixin) is True
+            # Under the same key: the base reads the ledgers too (maturity).
+            base = base_minutes()
         mixin._write_shutdown_config.assert_called_once_with(
-            base_minutes() + 120, base_minutes() + 120, 300, restore=True
+            base + 120, base + 120, 300, restore=True
         )
         assert json.loads(state.read_text()) == {
             "last_reset_date": today_str(),

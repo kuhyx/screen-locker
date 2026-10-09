@@ -16,18 +16,16 @@ midnight, so a 30-minute earner is applied exactly.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 import functools
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Final
+from typing import Final
 
 import earned_time
 
 from screen_locker._constants import HMAC_KEY_FILE
-
-if TYPE_CHECKING:
-    from datetime import date
+from screen_locker._day import today_str
 
 _logger: Final = logging.getLogger(__name__)
 
@@ -84,6 +82,11 @@ def is_gate(earner: earned_time.Earner) -> bool:
 def flat_earners(day: date | None = None) -> tuple[earned_time.Earner, ...]:
     """The once-per-day, ledger-backed earners in force on ``day``."""
     return tuple(e for e in registry(day) if e.kind == "flat" and is_gate(e))
+
+
+def gate_earners(day: date | None = None) -> tuple[earned_time.Earner, ...]:
+    """Every gate earner in force on ``day``, flat and counted, in registry order."""
+    return tuple(e for e in registry(day) if is_gate(e))
 
 
 def counted_gate_earners(day: date | None = None) -> tuple[earned_time.Earner, ...]:
@@ -186,4 +189,43 @@ def _warn_no_first_credit() -> None:
     _logger.warning(
         "earned_time has no first_credit_at (needs >= 0.4); the grace floor "
         "sees no ledger earner, only the workout log"
+    )
+
+
+def first_credits(
+    earners: tuple[earned_time.Earner, ...], day: date
+) -> dict[str, date | None] | None:
+    """Each penalised ledger earner's first real credit up to ``day``, for resolve.
+
+    ``earned_time.resolve`` / ``base_for`` take it as ``first_credits=`` (>= 0.6)
+    and then start a penalty no earlier than the day after the gate first
+    paid out. Keyed by name over ``earners`` -- the registry the answers came
+    from, so the two ``automation`` earners (either side of ``TUTOR_FROM``)
+    never collide. An earner without ``penalty_from``, a ledger or a matcher
+    is left out (``resolve`` falls back to its ``confirmed_on``).
+
+    Returns:
+        The map; ``None`` for a day before today -- history keeps the shutdown
+        it was enforced at, never re-resolved -- and on an earned_time
+        without ``maturity`` (< 0.6, logged), where callers resolve as before.
+    """
+    if day < date.fromisoformat(today_str()):
+        return None
+    fn = getattr(earned_time, "maturity", None)
+    if fn is None:
+        _warn_no_maturity()
+        return None
+    return {
+        e.name: fn(e, ledger_file(e), HMAC_KEY_FILE, day).first_credit
+        for e in earners
+        if e.penalty_from is not None and e.ledger is not None and e.match is not None
+    }
+
+
+@functools.cache
+def _warn_no_maturity() -> None:
+    """Once per process: the installed earned_time predates maturity."""
+    _logger.warning(
+        "earned_time has no maturity (needs >= 0.6); every penalty starts on "
+        "its penalty_from, even for a gate that never paid out"
     )

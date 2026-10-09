@@ -36,6 +36,7 @@ from screen_locker._day import today_str
 from screen_locker._earned import (
     counted_gate_earners,
     earned_today,
+    first_credits,
     first_minutes,
     flat_earners,
     hhmm,
@@ -60,10 +61,15 @@ _DEFAULT_MORNING_END = 5 * 60
 def base_minutes(day: date | None = None) -> int:
     """The base shutdown for ``day`` (default today), in minutes after midnight.
 
-    Every penalty in force is already taken off.
+    Every penalty in force is already taken off; from today on, a gate's not
+    before it has paid out (:func:`~screen_locker._earned.first_credits`).
     """
     target = day or datetime.now().astimezone().date()
-    return earned_time.base_for(target, registry(target)).shutdown_minutes
+    earners = registry(target)
+    starts = first_credits(earners, target)
+    if starts is None:
+        return earned_time.base_for(target, earners).shutdown_minutes
+    return earned_time.base_for(target, earners, first_credits=starts).shutdown_minutes
 
 
 def today_credit_count(log_file: Path, today: str) -> int:

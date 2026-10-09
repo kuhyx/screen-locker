@@ -84,7 +84,7 @@ class TestWhenTheDayStarted:
             patch.object(_grace_floor, "first_credit_time", return_value=at("00:00")),
         ):
             assert first_done_at(_DAY, None) == at("00:00")
-            with patch.object(_grace_floor, "flat_earners", return_value=()):
+            with patch.object(_grace_floor, "gate_earners", return_value=()):
                 assert first_done_at(_DAY, None, rest_day=True) is None
 
     def test_without_a_workout_ledger_only_the_log_answers(self) -> None:
