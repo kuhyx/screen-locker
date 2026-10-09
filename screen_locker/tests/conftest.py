@@ -69,9 +69,9 @@ if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
 
 
-# Autouse fixtures that keep this suite off real user state live here; see
-# that module for why the two seams are different.
-pytest_plugins = ("screen_locker.tests._real_state_fixtures",)
+# Real-state isolation; sync fixtures listed too: `-o addopts=""` drops `-p`.
+_SYNC = "screen_locker.tests.test_sync_fixtures"
+pytest_plugins = ("screen_locker.tests._real_state_fixtures", _SYNC)
 
 
 @pytest.fixture(autouse=True)

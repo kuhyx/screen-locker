@@ -146,7 +146,8 @@ def plan_absorb(minutes: int, state_file: Path | None = None) -> tuple[int, int]
     return max(0, minutes - lift), max(0, lift - minutes)
 
 
-def _tonight(config: tuple[int, int, int], day: date) -> int:
+def tonight_minutes(config: tuple[int, int, int], day: date) -> int:
+    """``day``'s shutdown from a (mon_wed, thu_sun, morning_end) config."""
     mon_wed, thu_sun, _ = config
     return mon_wed if day.weekday() in _MON_WED else thu_sun
 
@@ -184,7 +185,7 @@ class GraceFloorMixin:
             if config is None:
                 _logger.warning("Grace floor: shutdown config unreadable; not applied")
                 return False
-            current = _tonight(config, day)
+            current = tonight_minutes(config, day)
             if current >= floor:
                 return False
             mon_wed, thu_sun, morning = config

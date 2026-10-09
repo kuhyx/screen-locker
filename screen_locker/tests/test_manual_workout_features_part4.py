@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pathlib
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from screen_locker._log_mixin import RecordResult
 from screen_locker.tests.conftest import create_locker
@@ -71,7 +71,7 @@ class TestApplyWorkoutCredit:
         """A workout whose type isn't in COUNTED_WORKOUT_TYPES (e.g.
         ``early_bird``) and isn't the first counted entry of the day →
         neither the base push nor the +1h branch fires; the shutdown config
-        is never even consulted."""
+        is never adjusted and no credit notification goes out."""
         locker = create_locker(mock_tk, tmp_path)
         locker.workout_data = {"type": "early_bird"}
         prior = [{"workout_data": {"type": "phone_verified"}}]
@@ -88,13 +88,16 @@ class TestApplyWorkoutCredit:
             locker, "_clear_debt_on_verified_workout", MagicMock(return_value=None)
         )
 
-        result = locker._apply_credit_for_written_entry(prior)
+        with patch(
+            "screen_locker._workout_credit._credit_notify.notify_workout_credit"
+        ) as notify:
+            result = locker._apply_credit_for_written_entry(prior)
 
         assert result.shutdown_adjusted is False
         assert result.extra_bonus_delta == 0
         locker._try_adjust_shutdown_for_workout.assert_not_called()
-        locker._read_shutdown_config.assert_not_called()
         locker._adjust_shutdown_time_by.assert_not_called()
+        notify.assert_not_called()
 
     def test_skips_save_for_sick_day_type(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path

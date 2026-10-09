@@ -33,6 +33,60 @@ _LOG_MANUAL_FLAG = "--log-manual-workout"
 _REST_DAY_FLAG = "--declare-rest-day"
 _BACKFILL_FLAG = "--backfill-workout-ledger"
 
+# Subcommands that own every argument after them (each has its own argparse,
+# which also answers its own --help).
+_TRAILING_ARG_FLAGS = (_LOG_MANUAL_FLAG, _REST_DAY_FLAG, _BACKFILL_FLAG)
+_MODE_FLAGS = frozenset(
+    {"--status", "--sync-only", "--apply-bonuses", "--production", "--verify-workout"}
+)
+_HELP_FLAGS = frozenset({"-h", "--help"})
+_EXIT_USAGE = 2
+
+_USAGE = """\
+usage: python3 -m screen_locker.screen_lock [MODE]
+
+With no mode: the demo lock screen (Tk). Modes:
+  --production                 the real lock screen (what workout-locker.service runs)
+  --verify-workout             lock screen in verify-only mode
+  --status                     print this week's workout status and exit
+  --sync-only                  headless: pull synced workouts, apply credit, exit
+  --apply-bonuses              headless: apply newly earned flat bonuses, exit
+  --log-manual-workout ARGS    headless manual workout log (see its --help)
+  --declare-rest-day ARGS      sign a future rest day (see its --help)
+  --backfill-workout-ledger ARGS
+                               backfill the workout ledger (see its --help)
+  -h, --help                   show this help and exit
+"""
+
+
+def _own_args(argv: list[str]) -> list[str]:
+    """``argv[1:]`` up to the first subcommand that owns the rest."""
+    args = argv[1:]
+    for index, arg in enumerate(args):
+        if arg in _TRAILING_ARG_FLAGS:
+            return args[:index]
+    return args
+
+
+def _handle_help_and_unknown(argv: list[str]) -> None:
+    """Exit 0 on ``--help``; exit 2 on an unknown argument.
+
+    Before this, ``--help`` matched no branch and fell through to building
+    the demo lock screen, and a typo'd flag did the same silently.
+    """
+    own = _own_args(argv)
+    if _HELP_FLAGS & set(own):
+        # The usage on stdout IS the work --help asked for, so exiting 0 here
+        # abandons nothing. SystemExit is raised directly, not via sys.exit:
+        # the suite stubs sys.exit process-wide, and a help request must never
+        # fall through to building the lock screen even then.
+        sys.stdout.write(_USAGE)
+        raise SystemExit(0)
+    unknown = [arg for arg in own if arg not in _MODE_FLAGS]
+    if unknown:
+        sys.stderr.write(f"error: unknown argument(s): {' '.join(unknown)}\n{_USAGE}")
+        sys.exit(_EXIT_USAGE)
+
 
 def _headless_locker(locker_cls: type[ScreenLocker]) -> ScreenLocker:
     """A ScreenLocker with ``__init__`` bypassed, for the no-UI subcommands.
@@ -49,6 +103,7 @@ def _headless_locker(locker_cls: type[ScreenLocker]) -> ScreenLocker:
 
 def main(locker_cls: type[ScreenLocker], argv: list[str]) -> None:
     """Dispatch on ``argv`` and run the requested mode."""
+    _handle_help_and_unknown(argv)
     # Configure logging for EVERY mode, not just --sync-only. This used to sit
     # inside the --sync-only branch, so `--production` -- the mode systemd
     # actually runs -- had no handler and fell back to lastResort, which drops

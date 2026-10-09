@@ -52,7 +52,7 @@ class TestUnlockScreenExtras:
         # Simulate before=22:00, after=23:00 → delta=60
         old_cfg = (1320, 1320, 300)
         new_cfg = (1380, 1380, 300)
-        locker._read_shutdown_config.side_effect = [old_cfg, new_cfg]
+        locker._read_shutdown_config.side_effect = [old_cfg, new_cfg, new_cfg]
 
         text_calls: list[str] = []
 
@@ -114,7 +114,7 @@ class TestUnlockScreenExtras:
         """Re-reading the shutdown config fails after the +1h → delta stays 0."""
         locker = setup_unlock(mock_tk, tmp_path, seed_today_type="manual_workout")
         # old_cfg readable, new_cfg unreadable → no delta can be computed.
-        locker._read_shutdown_config.side_effect = [(1320, 1320, 300), None]
+        locker._read_shutdown_config.side_effect = [(1320, 1320, 300), None, None]
 
         text_calls: list[str] = []
         object.__setattr__(locker, "_text", lambda msg, **kw: text_calls.append(msg))

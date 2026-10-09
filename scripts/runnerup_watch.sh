@@ -15,6 +15,13 @@
 # timer run; when one was already in flight it started before this file was
 # complete, so the start merged into it and a second start is needed.
 #
+# Only a FRESH top-level *.tcx counts. endurain-import's adb fallback re-pulls
+# every phone export it does not see at the top level -- including the ones it
+# already moved into processed/ -- and renames each into place, so every
+# 15-min import used to fire ~27 moved_to events and as many workout-sync
+# starts (~370 on 2026-10-09). A name already in processed/ was handled
+# before, and dotfiles are partial transfers; both are skipped with zero forks.
+#
 # Run by runnerup-watch.service (Restart=always). Event-driven: no polling.
 # ============================================================================
 
@@ -22,6 +29,7 @@ set -euo pipefail
 
 readonly WATCH_DIR="${RUNNERUP_WATCH_DIR:-$HOME/data/cloud/RunnerUp}"
 readonly SYNC_UNIT="${RUNNERUP_SYNC_UNIT:-workout-sync.service}"
+readonly PROCESSED_DIR="$WATCH_DIR/processed"
 
 log() {
 	printf '%s\n' "$*" >&2
@@ -47,6 +55,15 @@ ingest() {
 	fi
 }
 
+# is_fresh_upload NAME -- true for a new top-level TCX, false for anything
+# endurain-import already handled (its copy is in processed/) or a partial.
+# Builtins only: this runs once per inotify event.
+is_fresh_upload() {
+	local name="$1"
+	[[ $name == *.tcx && $name != .* ]] || return 1
+	[[ ! -e $PROCESSED_DIR/$name ]]
+}
+
 validate_requirements() {
 	if ! command -v inotifywait >/dev/null 2>&1; then
 		log "ERROR: inotifywait missing (pacman -S inotify-tools) — RunnerUp" \
@@ -63,9 +80,19 @@ validate_requirements() {
 main() {
 	validate_requirements
 	log "Watching $WATCH_DIR for finished RunnerUp TCX uploads"
-	local name
+	local name now last_skip_log=0
 	while IFS= read -r name; do
-		[[ $name == *.tcx ]] || continue
+		if ! is_fresh_upload "$name"; then
+			[[ $name == *.tcx ]] || continue
+			# One line per burst, not per file: the re-pull lands ~27 at once.
+			printf -v now '%(%s)T' -1
+			if ((now - last_skip_log > 60)); then
+				log "Ignoring re-pulled $name (already in processed/; no" \
+					"workout-sync) — further re-pulls this minute not logged"
+				last_skip_log=$now
+			fi
+			continue
+		fi
 		ingest "$name"
 	done < <(inotifywait -m -q -e close_write -e moved_to --format '%f' "$WATCH_DIR")
 	log "ERROR: inotifywait on $WATCH_DIR exited — restarting via systemd"

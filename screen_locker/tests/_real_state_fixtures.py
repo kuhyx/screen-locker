@@ -85,3 +85,26 @@ def _no_real_runnerup_webdav_dir(tmp_path: Path) -> Iterator[None]:
     absent = (tmp_path / "no-runnerup-webdav",)
     with patch("screen_locker._runnerup_verification.RUNNERUP_WEBDAV_DIRS", absent):
         yield
+
+
+@pytest.fixture(autouse=True)
+def _no_desktop_notifications(tmp_path: Path) -> Iterator[None]:
+    """Keep the credit path off the real desktop and the real lock file.
+
+    Every workout credit ends in ``_credit_notify.send_notification``, which
+    runs ``notify-send`` -- without this the suite would pop hundreds of
+    "Workout credited" bubbles on the developer's screen, and its budget
+    sum would read ledgers and log fail-closed warnings into caplog -- so
+    ``notify_workout_credit`` itself is stubbed. The credit also takes
+    ``bonus_lock`` on ``_workout_credit.SHUTDOWN_BASE_FILE``, bound at import
+    time, so that is redirected too. Tests of the notifier itself capture the
+    real function at import time.
+    """
+    with (
+        patch("screen_locker._credit_notify.notify_workout_credit", return_value=True),
+        patch(
+            "screen_locker._workout_credit.SHUTDOWN_BASE_FILE",
+            tmp_path / "credit_shutdown_base.json",
+        ),
+    ):
+        yield

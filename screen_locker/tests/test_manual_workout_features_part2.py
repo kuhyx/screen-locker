@@ -111,7 +111,9 @@ class TestApplyWorkoutCredit:
         object.__setattr__(
             locker,
             "_read_shutdown_config",
-            MagicMock(side_effect=[(1260, 1260, 300), (1320, 1320, 300)]),
+            MagicMock(
+                side_effect=[(1260, 1260, 300), (1320, 1320, 300), (1320, 1320, 300)]
+            ),
         )
         object.__setattr__(
             locker, "_adjust_shutdown_time_by", MagicMock(return_value=True)
@@ -135,12 +137,12 @@ class TestApplyWorkoutCredit:
     ) -> None:
         """An additional same-day VERIFIED workout earns the +1h extra bonus.
 
-        prior_entries already holds a counted workout, so this isn't the first
-        of the day; because the new type is verified it takes the +1h branch,
-        and extra_bonus_delta reflects the shutdown-config minute delta.
+        prior_entries already holds a StrongLifts session; a RunnerUp run is a
+        distinct credit slot, so it takes the +1h branch, and
+        extra_bonus_delta reflects the shutdown-config minute delta.
         """
         locker = create_locker(mock_tk, tmp_path)
-        locker.workout_data = {"type": "phone_verified"}
+        locker.workout_data = {"type": "runnerup_verified"}
         prior = [{"workout_data": {"type": "phone_verified"}}]
         object.__setattr__(
             locker,
@@ -153,7 +155,9 @@ class TestApplyWorkoutCredit:
         object.__setattr__(
             locker,
             "_read_shutdown_config",
-            MagicMock(side_effect=[(1260, 1260, 300), (1320, 1320, 300)]),
+            MagicMock(
+                side_effect=[(1260, 1260, 300), (1320, 1320, 300), (1320, 1320, 300)]
+            ),
         )
         object.__setattr__(
             locker, "_adjust_shutdown_time_by", MagicMock(return_value=True)

@@ -16,7 +16,9 @@ from typing import TYPE_CHECKING
 
 import earned_time
 
-from screen_locker import _sick_tracker
+from screen_locker import _credit_notify, _sick_tracker
+from screen_locker._constants import SHUTDOWN_BASE_FILE
+from screen_locker._credit_slot import CreditSlot, credit_slot, locked_shutdown_state
 from screen_locker._day import today_str
 from screen_locker._earned import extra_minutes
 from screen_locker._rest_day import is_rest_day
@@ -123,10 +125,27 @@ class WorkoutCreditMixin:
           verified ones; the manual-workout rate budget is the only limiter.
         """
         weekly_count = count_weekly_workouts(self.log_file)
-        first_counted_today = not any(
-            entry.get("workout_data", {}).get("type") in COUNTED_WORKOUT_TYPES
-            for entry in prior_entries
-        )
+        # Slot-based, exactly like the daily reset (credit_key): the two
+        # StrongLifts ingestion paths of ONE session share a slot, so the
+        # second copy earns nothing. Deciding on "any counted type before
+        # it" instead paid one session +2h and then +1h (2026-10-09).
+        slot = credit_slot(prior_entries, self.workout_data)
+        if slot is CreditSlot.OCCUPIED:
+            _logger.warning(
+                "Workout %s (%s) shares its credit slot with an entry already "
+                "credited today — no shutdown time, no debt change; the daily "
+                "reset counts the two as one workout too",
+                self.workout_data.get("type", ""),
+                self.workout_data.get("source", ""),
+            )
+            return WorkoutCreditResult(
+                shutdown_adjusted=False,
+                new_debt=None,
+                extra_bonus_delta=0,
+                weekly_count=weekly_count,
+                already_counted_today=True,
+            )
+        first_counted_today = slot is CreditSlot.FIRST
 
         shutdown_adjusted = False
         extra_bonus_delta = 0
@@ -138,20 +157,26 @@ class WorkoutCreditMixin:
         if rest_paid:
             _logger.info("Rest day: its first-unit bonus is already in tonight's time")
         extra = extra_minutes(earned_time.WORKOUT, day)
-        if first_counted_today and not rest_paid:
-            shutdown_adjusted = self._try_adjust_shutdown_for_workout()
-        elif (
-            not first_counted_today
-            and extra
-            and self.workout_data.get("type") in COUNTED_WORKOUT_TYPES
-        ):
-            old_cfg = self._read_shutdown_config()
-            if old_cfg and self._adjust_shutdown_time_by(extra):
+        # Same lock as the daily reset and the flat-bonus pass: all three
+        # read-add-write the shutdown config and the grace lift.
+        with locked_shutdown_state(SHUTDOWN_BASE_FILE):
+            before = self._read_shutdown_config()
+            if first_counted_today and not rest_paid:
+                shutdown_adjusted = self._try_adjust_shutdown_for_workout()
+            elif (
+                slot is CreditSlot.FURTHER
+                and extra
+                and before
+                and self._adjust_shutdown_time_by(extra)
+            ):
                 new_cfg = self._read_shutdown_config()
                 if new_cfg:
-                    extra_bonus_delta = new_cfg[1] - old_cfg[1]
+                    extra_bonus_delta = new_cfg[1] - before[1]
+            after = self._read_shutdown_config()
 
         new_debt = self._clear_debt_on_verified_workout()
+        if slot is not CreditSlot.NONE:
+            self._notify_credit(before, after)
 
         return WorkoutCreditResult(
             shutdown_adjusted=shutdown_adjusted,
@@ -160,6 +185,26 @@ class WorkoutCreditMixin:
             weekly_count=weekly_count,
             already_counted_today=False,
         )
+
+    def _notify_credit(
+        self,
+        before: tuple[int, int, int] | None,
+        after: tuple[int, int, int] | None,
+    ) -> None:
+        """Pop the "Workout credited" notification; never fails the credit.
+
+        Runs after the credit is fully applied. Anything it raises -- a
+        malformed ledger inside the budget sum, a DBus oddity -- would
+        otherwise escape into the ingest loop and leave the rest of that
+        batch uncredited, so every exception is logged and dropped here.
+        """
+        try:
+            _credit_notify.notify_workout_credit(before, after, self.log_file)
+        except Exception:
+            _logger.exception(
+                "Workout credit notification failed — the credit itself is "
+                "applied; only the desktop notification is missing"
+            )
 
     def _apply_workout_credit(self) -> WorkoutCreditResult:
         """Append ``workout_data`` and apply its reward, scaled to the day.
