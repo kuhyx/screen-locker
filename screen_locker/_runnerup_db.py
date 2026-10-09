@@ -151,9 +151,11 @@ class RunnerUpDbMixin:
         if db_path is None:
             return (
                 "not_verified",
-                "No TCX export found and root DB access is unavailable on this "
-                "device — enable RunnerUp's File Synchronizer auto-export so "
-                "runs land in /sdcard/Documents/RunnerUp/",
+                (
+                    "No TCX export found and root DB access is unavailable on "
+                    "this device — enable RunnerUp's File Synchronizer "
+                    "auto-export so runs land in /sdcard/Documents/RunnerUp/"
+                ),
             )
 
         try:

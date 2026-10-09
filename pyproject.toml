@@ -43,6 +43,9 @@ ignore = [
     "D203",
     "D213",
     "COM812",
+    # Personal repo, no copyright policy (ruff 0.17 made CPY001 stable under
+    # select=ALL).
+    "CPY001",
     "ISC001",
     "S603",
 ]

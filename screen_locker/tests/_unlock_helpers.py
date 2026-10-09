@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 def setup_unlock(
     mock_tk: MagicMock,
     tmp_path: Path,
+    *,
     weekly_count: int = 5,
     streak: int = 0,
     adjust_ok: bool = True,

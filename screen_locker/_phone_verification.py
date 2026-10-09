@@ -78,8 +78,10 @@ class PhoneVerificationMixin(AdbTransportMixin, HttpWorkoutFetchMixin):
         if duration_min < WORKOUT_DURATION_ACCEPT_MINUTES:
             return (
                 "too_short",
-                f"Workout too short! {duration_min:.0f} min logged, "
-                f"need at least {MIN_WORKOUT_DURATION_MINUTES} min.",
+                (
+                    f"Workout too short! {duration_min:.0f} min logged, "
+                    f"need at least {MIN_WORKOUT_DURATION_MINUTES} min."
+                ),
             )
         flag = "all succeeded" if data.get("succeeded") else "partial"
         return "verified", f"Workout verified! ({duration_min:.0f} min, {flag})"

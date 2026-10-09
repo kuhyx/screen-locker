@@ -224,7 +224,9 @@ class RunnerUpVerificationMixin(
         if not self._has_adb_device():
             return (
                 "not_verified",
-                f"No RunnerUp export for today in {RUNNERUP_WEBDAV_DIRS} and the "
-                "phone is not adb-reachable",
+                (
+                    f"No RunnerUp export for today in {RUNNERUP_WEBDAV_DIRS} "
+                    "and the phone is not adb-reachable"
+                ),
             )
         return self._verify_runnerup_via_db()

@@ -205,8 +205,10 @@ class PhoneCheckMixin:
         else:
             self._phone_check_result = (
                 outcome.status,
-                f"StrongLifts: {outcome.phone_message} · "
-                f"RunnerUp: {outcome.runnerup_message}",
+                (
+                    f"StrongLifts: {outcome.phone_message} · "
+                    f"RunnerUp: {outcome.runnerup_message}"
+                ),
             )
         self.render(gather_status())
 

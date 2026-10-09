@@ -145,11 +145,15 @@ def render_table(rows: list[tuple[int, int, int, Path]]) -> str:
 
     out += [
         f"- **{total_files} files** currently exceed 250 lines.",
-        f"- **{total_over:,} lines** over the cap in total (the work left to "
-        f"do); longest file is **{longest}** lines.",
+        (
+            f"- **{total_over:,} lines** over the cap in total (the work left "
+            f"to do); longest file is **{longest}** lines."
+        ),
         "",
-        "ROI = lines x commits in the last year. Work top-down; a long file "
-        "nobody edits",
+        (
+            "ROI = lines x commits in the last year. Work top-down; a long "
+            "file nobody edits"
+        ),
         "has near-zero payoff and should not be first.",
         "",
         "| lines | commits/yr | kind | file |",
@@ -162,9 +166,11 @@ def render_table(rows: list[tuple[int, int, int, Path]]) -> str:
     if remaining > 0:
         out += [
             "",
-            f"_({remaining} further files over 250 lines not listed — "
-            "re-run `python3 scripts/refresh_refactor_todo.py` for the "
-            "current set.)_",
+            (
+                f"_({remaining} further files over 250 lines not listed — "
+                "re-run `python3 scripts/refresh_refactor_todo.py` for the "
+                "current set.)_"
+            ),
         ]
     out += ["", END_MARKER]
     return "\n".join(out)
