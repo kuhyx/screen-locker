@@ -9,6 +9,7 @@ import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/exercise_settings_sheet.dart';
 
+import '../fake_pc_pairing.dart';
 import '../fake_secure_storage.dart';
 
 const _situp = 'Situp exercise settings';
@@ -36,6 +37,7 @@ void main() {
         MaterialApp(
           theme: buildAppTheme(),
           home: SettingsScreen(
+            pcPairingLoader: fakePcPairing,
             firebaseFactory: () async => null,
             accountLoader: () async => null,
             sessionProbe: () async => false,

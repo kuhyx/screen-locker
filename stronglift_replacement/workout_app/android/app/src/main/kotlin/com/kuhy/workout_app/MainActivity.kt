@@ -24,9 +24,27 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        // Hands a key parked by PairPcReceiver to Dart, which stores it in
+        // secure storage and only then asks for the parked copy to go.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PAIRING_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "takePending" -> try {
+                        result.success(PairPcReceiver.takePending(applicationContext))
+                    } catch (error: Exception) {
+                        result.error("pairing_unreadable", error.toString(), null)
+                    }
+                    "clearPending" -> {
+                        PairPcReceiver.clearPending(applicationContext)
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
     }
 
     companion object {
+        const val PAIRING_CHANNEL = "com.kuhy.workout_app/pc_pairing"
         const val CHANNEL = "com.kuhy.workout_app/sandbox"
         const val LOG_TAG = "WorkoutSandbox"
     }

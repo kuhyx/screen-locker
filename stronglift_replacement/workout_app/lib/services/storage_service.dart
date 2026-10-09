@@ -26,6 +26,7 @@ export 'package:workout_app/models/progression.dart';
 part 'storage_service_backup.dart';
 part 'storage_service_deload.dart';
 part 'storage_service_exercises.dart';
+part 'storage_service_pc_link.dart';
 part 'storage_service_sandbox.dart';
 part 'storage_service_schema.dart';
 part 'storage_service_sessions.dart';

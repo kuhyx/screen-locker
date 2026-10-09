@@ -9,6 +9,7 @@ import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/ui/theme.dart';
 
+import '../fake_pc_pairing.dart';
 import '../fake_secure_storage.dart';
 
 void main() {
@@ -32,6 +33,7 @@ void main() {
   Widget wrap() => MaterialApp(
     theme: buildAppTheme(),
     home: SettingsScreen(
+      pcPairingLoader: fakePcPairing,
       firebaseFactory: () async => null,
       sessionProbe: () async => false,
       storageChecker: () async => false,
@@ -119,17 +121,22 @@ void main() {
   ) async {
     await pump(tester);
     final field = find.byKey(const Key('sandbox-rest-secs'));
+    // The row's own button: the PC LINK section has a "Save" too.
+    final save = find.descendant(
+      of: find.ancestor(of: field, matching: find.byType(Row)).first,
+      matching: find.text('Save'),
+    );
     await tester.enterText(field, 'abc');
-    await tapReal(tester, find.text('Save'));
+    await tapReal(tester, save);
     expect(find.textContaining('whole number of seconds'), findsOneWidget);
     expect(Sandbox.restSecs, Sandbox.defaultRestSecs);
 
     await tester.enterText(field, '0');
-    await tapReal(tester, find.text('Save'));
+    await tapReal(tester, save);
     expect(find.textContaining('whole number of seconds'), findsOneWidget);
 
     await tester.enterText(field, '45');
-    await tapReal(tester, find.text('Save'));
+    await tapReal(tester, save);
     expect(find.text('Every rest now lasts 45 s.'), findsOneWidget);
     expect(Sandbox.restSecs, 45);
     final saved = await tester.runAsync(

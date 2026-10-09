@@ -1,7 +1,6 @@
 /// Pushes completed workout sessions to the shared sync backend.
 library;
 
-
 import 'dart:convert';
 import 'dart:developer';
 import 'package:crdt_sync/crdt_sync.dart';
@@ -26,6 +25,19 @@ String _encode(Log log) =>
 Log _decode(String text) => (jsonDecode(text) as Map<String, dynamic>).map(
   (id, data) => MapEntry(id, Record.fromJson(data as Map<String, dynamic>)),
 );
+
+/// The sync record id a finished [session] is pushed under.
+///
+/// The PC's `ingest_session_records` keys on this (it equals the payload's
+/// `start_time`), so the direct phone->PC poke and the regular push must
+/// both build it here -- two constructions could drift and credit twice.
+String workoutRecordId(WorkoutSession session) =>
+    session.startTime.toIso8601String();
+
+/// The payload a finished [session] carries in its sync record; shared with
+/// the poke for the same reason as [workoutRecordId].
+Map<String, dynamic> workoutRecordPayload(WorkoutSession session) =>
+    session.toJson();
 
 /// The outcome of a [WorkoutSyncService.push] / [WorkoutSyncService.pushManual].
 ///
@@ -124,9 +136,12 @@ class WorkoutSyncService {
       successReason: 'pushed',
       failurePrefix: 'push failed',
       addition: Record(
-        id: session.startTime.toIso8601String(),
+        id: workoutRecordId(session),
         fields: {
-          'payload': (session.toJson(), Hlc.newTick(currentSyncDeviceId)),
+          'payload': (
+            workoutRecordPayload(session),
+            Hlc.newTick(currentSyncDeviceId),
+          ),
         },
       ),
     );
@@ -172,7 +187,6 @@ class WorkoutSyncService {
     );
   }
 
-
   /// Pushes a pre-built manual-workout [record] to this device's log.
   ///
   /// Same never-throw, always-report contract as [push].
@@ -197,6 +211,7 @@ class WorkoutSyncService {
   /// Returns an empty list if sync isn't configured or the repo is unreachable.
   Future<List<Map<String, dynamic>>> readMergedManualPayloads() =>
       _readMergedPayloads(kind: kManualWorkoutSyncKind);
+
   /// Every synced workout, whatever kind — manual, StrongLifts or RunnerUp.
   ///
   /// The PC publishes its whole `log.json` (including verified runs),
@@ -205,6 +220,7 @@ class WorkoutSyncService {
   /// uses [readMergedManualPayloads] instead.
   Future<List<Map<String, dynamic>>> readMergedWorkoutPayloads() =>
       _readMergedPayloads();
+
   /// Whether this device has ANY sync credentials -- a GitHub token or a
   /// Firebase account.
   ///

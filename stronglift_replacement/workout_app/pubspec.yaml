@@ -14,6 +14,8 @@ dependencies:
       url: https://github.com/kuhyx/utils
       ref: crdt_sync_dart-v0.11.1
       path: crdt_sync_dart
+  # HMAC-SHA256 for the signed phone->PC workout poke (pc_poke_wire.dart).
+  crypto: 3.0.7
   flutter:
     sdk: flutter
   # Keeps the rest-period deadline ticking with the screen off, and owns the

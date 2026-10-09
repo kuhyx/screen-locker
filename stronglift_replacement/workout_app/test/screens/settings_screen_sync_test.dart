@@ -10,6 +10,7 @@ import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/ui/theme.dart';
 
+import '../fake_pc_pairing.dart';
 import '../fake_secure_storage.dart';
 
 void main() {
@@ -47,6 +48,7 @@ void main() {
   }) => MaterialApp(
     theme: buildAppTheme(),
     home: SettingsScreen(
+      pcPairingLoader: fakePcPairing,
       httpClient: httpClient,
       // Injected so the widget never reaches the OS keystore, which
       // `flutter test` has no platform-channel binding for.
@@ -138,6 +140,9 @@ void main() {
       findsOneWidget,
     );
 
+    // The scroll step can leave the row just below the fold.
+    await tester.ensureVisible(find.text('Grant storage permission'));
+    await tester.pump();
     await tester.tap(find.text('Grant storage permission'));
     await tester.pumpAndSettle();
 

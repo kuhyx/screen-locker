@@ -3,8 +3,10 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:workout_app/models/workout_session.dart';
+import 'package:workout_app/services/pc_poke_result.dart';
 import 'package:workout_app/services/sync_service.dart';
 import 'package:workout_app/ui/theme.dart';
+import 'package:workout_app/widgets/pc_poke_line.dart';
 
 /// Dialog that summarises a completed workout and reports the sync status.
 class WorkoutSummaryDialog extends StatelessWidget {
@@ -12,6 +14,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
   const WorkoutSummaryDialog({
     required this.session,
     required this.syncResult,
+    this.pcPoke,
     super.key,
   });
 
@@ -20,6 +23,10 @@ class WorkoutSummaryDialog extends StatelessWidget {
 
   /// Result of writing the session to disk/HTTP server.
   final SyncResult syncResult;
+
+  /// The direct phone->PC poke started at finish, shown as one status line;
+  /// null where none was sent.
+  final Future<PokeResult>? pcPoke;
 
   String _fmt(Duration d) {
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
@@ -70,6 +77,10 @@ class WorkoutSummaryDialog extends StatelessWidget {
               fontSize: AppTextSize.caption,
             ),
           ),
+          if (pcPoke != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            PcPokeLine(poke: pcPoke!),
+          ],
         ],
       ),
       actions: [

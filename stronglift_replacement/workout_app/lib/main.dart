@@ -12,6 +12,7 @@ import 'package:workout_app/services/break_service_controller.dart';
 import 'package:workout_app/services/foreground_break_client_flutter.dart';
 import 'package:workout_app/services/http_server_service.dart';
 import 'package:workout_app/services/lock_mode.dart';
+import 'package:workout_app/services/pc_pairing.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_device_id.dart';
@@ -71,6 +72,9 @@ void main(List<String> args) async {
     );
   }
   await StorageService.init();
+  // Absorbs a key parked by an adb pairing and points the sandbox's one
+  // network exception at the configured PC, before anything can poke.
+  await PcPairing.load();
   if (Sandbox.enabled) {
     Sandbox.restSecs = await StorageService.instance.getSandboxRestSecs(
       Sandbox.defaultRestSecs,

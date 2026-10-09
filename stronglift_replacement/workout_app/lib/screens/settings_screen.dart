@@ -20,6 +20,7 @@ import 'package:workout_app/screens/github_mirror_screen.dart';
 import 'package:workout_app/services/backup_service.dart';
 import 'package:workout_app/services/firebase_backend.dart';
 import 'package:workout_app/services/google_sign_in_backend.dart';
+import 'package:workout_app/services/pc_pairing.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/ui/theme.dart';
@@ -29,6 +30,7 @@ part 'settings_screen_actions.dart';
 part 'settings_screen_deload.dart';
 part 'settings_screen_exercise_list.dart';
 part 'settings_screen_exercise_sections.dart';
+part 'settings_screen_pc_link.dart';
 part 'settings_screen_rows.dart';
 part 'settings_screen_sandbox.dart';
 part 'settings_screen_sections.dart';
@@ -229,6 +231,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onOpenSyncSettings: () => unawaited(_openSyncSettings()),
                   onOpenGitHubMirror: () => unawaited(_openGitHubMirror()),
                 ),
+                const SizedBox(height: 20),
+                _PcLinkSection(pairingLoader: widget.pcPairingLoader),
                 const SizedBox(height: 20),
                 _OfflineBackupSection(
                   storageGranted: _storageGranted,

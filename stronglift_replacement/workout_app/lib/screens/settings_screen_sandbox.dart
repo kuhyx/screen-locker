@@ -69,8 +69,9 @@ class _SandboxSectionState extends State<_SandboxSection> {
         const _SectionHeader('SANDBOX'),
         const SizedBox(height: 4),
         Text(
-          'This install is the sandbox: its own data, no network, no LAN '
-          'server. Nothing here can reach the daily build.',
+          'This install is the sandbox: its own data, no network (only the '
+          'signed sandbox poke to the PC LINK address, which the PC never '
+          'credits), no LAN server. Nothing here can reach the daily build.',
           style: TextStyle(
             color: colorScheme.onSurfaceVariant,
             fontSize: AppTextSize.caption,

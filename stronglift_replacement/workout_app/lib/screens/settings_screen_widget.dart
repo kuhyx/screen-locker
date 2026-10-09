@@ -34,6 +34,7 @@ class SettingsScreen extends StatefulWidget {
     this.storageRequester,
     this.progressionPuller,
     this.progressionPusher,
+    this.pcPairingLoader = PcPairing.load,
   });
 
   /// Injectable HTTP client, passed through to [GitHubMirrorScreen] so its
@@ -88,6 +89,10 @@ class SettingsScreen extends StatefulWidget {
   /// Pushes progression after an exercise's settings sheet closes with edits.
   /// Injected so tests never reach Firebase.
   final Future<ProgressionSyncResult> Function()? progressionPusher;
+
+  /// Loads the PC pairing for the PC LINK section. Injected so tests need
+  /// neither the keystore nor the pairing channel.
+  final Future<PcPairingState> Function() pcPairingLoader;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();

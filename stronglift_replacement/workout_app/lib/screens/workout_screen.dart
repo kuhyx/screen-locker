@@ -22,6 +22,7 @@ import 'package:workout_app/services/break_service_controller.dart';
 import 'package:workout_app/services/foreground_break_client.dart';
 import 'package:workout_app/services/foreground_break_client_flutter.dart';
 import 'package:workout_app/services/lock_mode.dart';
+import 'package:workout_app/services/pc_poke_service.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_service.dart';
@@ -197,13 +198,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   /// Only the `setState` lives here — `setState` is `@protected` and cannot be
   /// called from an extension, so the rest is in [_persistFinishedWorkout].
   Future<void> _finishWorkout() async {
-    SandboxLog.event('workout finish', {'type': widget.workoutType});
-    _breakTimer?.cancel();
-    // Before the state flips: the service must not outlive the workout, and
-    // with stopWithTask="false" nothing else will ever stop it.
-    await _breaks.stop();
+    final sinceTap = Stopwatch()..start();
+    // The service stop starts first and is awaited last (see _beginFinish):
+    // the summary must not wait on the notification teardown.
+    final stopped = _beginFinish();
     setState(() => _finished = true);
-    await _persistFinishedWorkout();
+    await _persistFinishedWorkout(sinceTap);
+    await stopped;
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────

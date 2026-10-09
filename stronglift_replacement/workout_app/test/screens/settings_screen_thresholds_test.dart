@@ -10,6 +10,7 @@ import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/ui/theme.dart';
 
+import '../fake_pc_pairing.dart';
 import '../fake_secure_storage.dart';
 
 void main() {
@@ -47,6 +48,7 @@ void main() {
   }) => MaterialApp(
     theme: buildAppTheme(),
     home: SettingsScreen(
+      pcPairingLoader: fakePcPairing,
       httpClient: httpClient,
       // Injected so the widget never reaches the OS keystore, which
       // `flutter test` has no platform-channel binding for.

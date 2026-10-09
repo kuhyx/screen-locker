@@ -5,11 +5,35 @@ part of 'workout_screen.dart';
 
 /// The write-everything step that runs once a workout is marked finished.
 extension _WorkoutScreenFinish on _WorkoutScreenState {
+  /// Starts tearing down the break service and returns the stop, which the
+  /// caller awaits only after the summary is up.
+  ///
+  /// The stop is *started* before `_finished` flips -- the service must not
+  /// outlive the workout, and with stopWithTask="false" nothing else stops it
+  /// -- and its synchronous part (dropping the drain-nudge listener) runs
+  /// right here. Only its completion (~120 ms of platform-channel teardown on
+  /// the phone, 2026-10-09) no longer gates the summary. If it fails, the
+  /// failure is logged loudly and the next launch's `stopStaleBreakService`
+  /// takes the service down, since the active session is cleared by then.
+  Future<void> _beginFinish() {
+    SandboxLog.event('workout finish', {'type': widget.workoutType});
+    _breakTimer?.cancel();
+    return _breaks.stop().catchError((Object error, StackTrace stack) {
+      log(
+        'Break service did not stop at finish ($error); the next launch '
+        'stops it as stale.',
+        level: 1000,
+        error: error,
+        stackTrace: stack,
+      );
+    });
+  }
+
   /// Writes the finished session, applies progression, and shows the summary.
   ///
   /// Called by [_WorkoutScreenState._finishWorkout], which owns the `setState`
   /// that marks the workout finished before this runs.
-  Future<void> _persistFinishedWorkout() async {
+  Future<void> _persistFinishedWorkout(Stopwatch sinceTap) async {
     final endTime = DateTime.now();
     final results = <ExerciseResult>[];
 
@@ -41,6 +65,16 @@ extension _WorkoutScreenFinish on _WorkoutScreenState {
       endTime: endTime,
       exercises: results,
     );
+    // The direct PC poke starts the moment the session exists, before any
+    // local write: it needs nothing from storage, and every millisecond here
+    // is a millisecond of "instant" credit. It runs in parallel with the
+    // sync push below (never after it); the PC dedups by record id, so
+    // whichever lands first credits and the other reads as a duplicate.
+    // Bounded to 2 s and never throws.
+    final pcPoke = PcPokeService().poke(session);
+    SandboxLog.event('pc poke started', {
+      'ms_since_tap': sinceTap.elapsedMilliseconds,
+    });
 
     final storage = StorageService.instance;
     await storage.saveSession(
@@ -99,12 +133,24 @@ extension _WorkoutScreenFinish on _WorkoutScreenState {
     );
 
     if (!mounted) return;
+    SandboxLog.event('summary shown', {
+      'ms_since_tap': sinceTap.elapsedMilliseconds,
+    });
+    // The first frame that draws the dialog: "finish tap -> summary visible".
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => SandboxLog.event('summary first frame', {
+        'ms_since_tap': sinceTap.elapsedMilliseconds,
+      }),
+    );
     unawaited(
       showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (_) =>
-            WorkoutSummaryDialog(session: session, syncResult: syncResult),
+        builder: (_) => WorkoutSummaryDialog(
+          session: session,
+          syncResult: syncResult,
+          pcPoke: pcPoke,
+        ),
       ),
     );
   }
