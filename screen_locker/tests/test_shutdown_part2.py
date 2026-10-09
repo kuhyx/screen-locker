@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
@@ -154,6 +156,7 @@ class TestAdjustShutdownTimeEarlier:
             assert locker._adjust_shutdown_time_earlier() is False
 
 
+@pytest.mark.usefixtures("pre_ladder")
 class TestAdjustShutdownTimeLater:
     """Tests for _adjust_shutdown_time_later method."""
 

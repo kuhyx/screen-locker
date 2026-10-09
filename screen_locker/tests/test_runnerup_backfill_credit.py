@@ -13,6 +13,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from screen_locker._log_io import load_workout_log
 from screen_locker.tests.conftest import create_locker
 
@@ -113,6 +115,7 @@ class TestBackfillCreditCallback:
         assert all(call.args[2] is callback for call in fill.call_args_list)
 
 
+@pytest.mark.usefixtures("pre_ladder")
 class TestSyncPassCreditsRunnerUp:
     """``_auto_fill_week_runnerup_bonus`` (the 15-minute timer path)."""
 

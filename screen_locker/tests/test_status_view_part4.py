@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from screen_locker._status_view_verify import (
     _backfill_week_and_apply_bonus,
 )
 
 
+@pytest.mark.usefixtures("pre_ladder")
 class TestBackfillWeekAndApplyBonus:
     """The week-scan fallback: backfill unlogged days, apply the earned bonus."""
 

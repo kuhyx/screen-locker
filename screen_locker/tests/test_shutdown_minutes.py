@@ -104,6 +104,7 @@ class TestLegacySickDayState:
         assert self._load(tmp_path, state) is None
 
 
+@pytest.mark.usefixtures("pre_ladder")
 class TestMinutesReachTheHelperScript:
     """The helper receives HH:MM, so a half hour is not floored on the way."""
 

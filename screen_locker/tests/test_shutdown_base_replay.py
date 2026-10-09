@@ -13,6 +13,8 @@ import json
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
+import pytest
+
 from screen_locker._day import today_str
 from screen_locker._shutdown_base import (
     base_minutes,
@@ -57,6 +59,7 @@ def _write_log(log_file: Path, day: str, entries: list[dict[str, Any]]) -> Path:
     return log_file
 
 
+@pytest.mark.usefixtures("pre_ladder")
 class TestEarnedShutdownBonusMinutes:
     """First credit is worth 2h, every further one 1h."""
 
@@ -124,6 +127,7 @@ class TestSyncedCopySharesCredit:
         assert credit_key(_DAY, 0, entry, {"42": 5}) == ("manual_workout", f"{_DAY}#0")
 
 
+@pytest.mark.usefixtures("pre_ladder")
 class TestTodayCreditCount:
     """The log -> credit count the reset hands to the registry."""
 
@@ -144,6 +148,7 @@ class TestTodayCreditCount:
         assert today_credit_count(log, _DAY) == 1
 
 
+@pytest.mark.usefixtures("pre_ladder")
 class TestResetReplaysTodaysCredit:
     """reset_to_base_if_new_day writes base + earned, capped at the ceiling."""
 

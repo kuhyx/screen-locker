@@ -17,7 +17,7 @@ import earned_time
 import pytest
 
 from screen_locker._day import today_str
-from screen_locker._earned import flat_earners, hhmm
+from screen_locker._earned import flat_earners, hhmm, registry
 from screen_locker._shutdown_base import (
     _apply_flat_bonus,
     apply_flat_bonuses_if_new,
@@ -69,17 +69,20 @@ class TestBaseHour:
         From earned_time's sleep ladder (2026-10-10) the floor is the ceiling
         minus every earner's first unit, not 20:00 minus the cuts, so the day
         is priced by the registry and only the "stays lowered" part is ours.
+        The Anki waiver (``ANKI_WAIVED_FROM``) raises that floor to 19:50, so
+        "lowered" means below the uncut 20:00, not at or below 19:00.
         """
         later = date(2030, 1, 1)
-        expected = earned_time.base_for(later, earned_time.EARNERS).shutdown_minutes
+        expected = earned_time.base_for(later, registry(later)).shutdown_minutes
         assert base_minutes(later) == expected
-        assert expected <= 19 * 60
+        assert expected < base_minutes(date(2026, 9, 30))
 
     def test_default_is_the_local_today(self) -> None:
         assert base_minutes() == base_minutes(datetime.now().astimezone().date())
 
 
 class TestResetIncludesReading:
+    @pytest.mark.usefixtures("pre_ladder")
     def test_reset_writes_base_plus_reading_and_stamps_it(
         self, tmp_path: Path, answers: tuple[dict[str, bool | None], MagicMock]
     ) -> None:
@@ -95,6 +98,7 @@ class TestResetIncludesReading:
             "reading_bonus_date": today_str(),
         }
 
+    @pytest.mark.usefixtures("pre_ladder")
     def test_reset_with_both_flat_hours_stamps_both(
         self, tmp_path: Path, answers: tuple[dict[str, bool | None], MagicMock]
     ) -> None:
@@ -147,6 +151,7 @@ class TestResetIncludesReading:
         )
         assert json.loads(state.read_text()) == {"last_reset_date": today_str()}
 
+    @pytest.mark.usefixtures("pre_ladder")
     def test_reset_logs_every_term(
         self,
         tmp_path: Path,
@@ -167,6 +172,7 @@ class TestResetIncludesReading:
 
 
 class TestReadingLivePass:
+    @pytest.mark.usefixtures("pre_ladder")
     def test_applies_once_and_stamps(
         self, tmp_path: Path, answers: tuple[dict[str, bool | None], MagicMock]
     ) -> None:
@@ -228,6 +234,7 @@ class TestReadingLivePass:
         mixin._adjust_shutdown_time_by.assert_not_called()
         assert not state.exists()
 
+    @pytest.mark.usefixtures("pre_ladder")
     def test_applied_hour_is_logged(
         self,
         tmp_path: Path,

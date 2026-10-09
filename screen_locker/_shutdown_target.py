@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 import earned_time
 
-from screen_locker._earned import ceiling, flat_answers
+from screen_locker._earned import ceiling, gate_answers, registry
 from screen_locker._grace_floor import first_done_at, grace_for, sick_on
 from screen_locker._log_io import load_workout_log
 from screen_locker._rest_day import is_rest_day
@@ -71,7 +71,8 @@ class DayInputs:
 
     Attributes:
         day: The day.
-        flat: Each flat earner's answer (``None`` = could not check).
+        flat: Each gate earner's answer: done (flat) or units (counted, the
+            tutor); ``None`` = could not check.
         workout_credits: The log's distinct workout credits.
         rest_day: Declared rest day.
         first_done: Unix time the day's first earner was done, if any.
@@ -79,7 +80,7 @@ class DayInputs:
     """
 
     day: date
-    flat: Mapping[str, bool | None]
+    flat: Mapping[str, int | bool | None]
     workout_credits: int = 0
     rest_day: bool = False
     first_done: float | None = None
@@ -93,9 +94,9 @@ def derive(inputs: DayInputs) -> Target:
     answers[earned_time.WORKOUT.name] = workout_units(
         inputs.workout_credits, rest_day=inputs.rest_day
     )
-    # The registry is passed explicitly: flat_answers iterated this same
-    # tuple, so the earners asked and the earners summed can never differ.
-    resolution = earned_time.resolve(answers, day, earned_time.EARNERS)
+    # The registry is passed explicitly: gate_answers iterated this same
+    # day's registry, so the earners asked and the earners summed match.
+    resolution = earned_time.resolve(answers, day, registry(day))
     grace = None if inputs.sick_day else grace_for(inputs.first_done, day)
     minutes = resolution.shutdown_minutes
     if grace is not None:
@@ -124,7 +125,7 @@ def gather(day: date, log_file: Path | None) -> Target:
     return derive(
         DayInputs(
             day=day,
-            flat=flat_answers(),
+            flat=gate_answers(day),
             workout_credits=day_credit_count(log_file, day),
             rest_day=rest_day,
             first_done=first_done_at(day, log_file, rest_day=rest_day),

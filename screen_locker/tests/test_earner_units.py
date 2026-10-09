@@ -11,7 +11,7 @@ import pytest
 
 from screen_locker import _earner_units
 from screen_locker._bonus_lock import bonus_lock
-from screen_locker._earned import flat_earners, ledger_file
+from screen_locker._earned import flat_earners, ledger_file, watched_earners
 from screen_locker._shutdown_base import (
     apply_flat_bonuses_if_new,
     reset_to_base_if_new_day,
@@ -38,6 +38,13 @@ class TestRenderPathUnit:
         watched = [ln.removeprefix("PathChanged=") for ln in lines if "=" in ln]
         expected = [str(ledger_file(e)) for e in flat_earners()]
         assert [w for w in watched if w in expected] == expected
+
+    def test_one_path_changed_per_gate_ledger_of_every_registry(self) -> None:
+        """Today's and the cutover's gates (the tutor), each ledger once."""
+        lines = _earner_units.render_path_unit().splitlines()
+        watched = [ln.removeprefix("PathChanged=") for ln in lines if "=" in ln]
+        expected = list(dict.fromkeys(str(ledger_file(e)) for e in watched_earners()))
+        assert [w for w in watched if w.startswith("/")] == expected
         assert sum(ln.startswith("PathChanged=") for ln in lines) == len(expected)
 
     def test_never_path_modified(self) -> None:

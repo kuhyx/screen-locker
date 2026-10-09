@@ -67,7 +67,7 @@ class TestWhenTheDayStarted:
             tmp_path,
             [{"workout_data": {"type": "manual_workout", "end_time": "19:30"}}],
         )
-        times = {"anki": at("18:55"), "leetcode": at("23:00", _DAY - timedelta(1))}
+        times = {"reading": at("18:55"), "leetcode": at("23:00", _DAY - timedelta(1))}
         with patch.object(
             _grace_floor,
             "first_credit_time",

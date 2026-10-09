@@ -7,6 +7,8 @@ import pathlib
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from screen_locker._log_mixin import RecordResult
 from screen_locker.tests.conftest import create_locker
 
@@ -25,6 +27,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
+@pytest.mark.usefixtures("pre_ladder")
 class TestApplyWorkoutCredit:
     """Tests for ScreenLocker._apply_workout_credit under the multi-per-day rule.
 

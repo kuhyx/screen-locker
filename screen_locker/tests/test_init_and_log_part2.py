@@ -154,6 +154,7 @@ class TestMainEntry:
         assert locker.demo_mode is False
 
 
+@pytest.mark.usefixtures("pre_ladder")
 class TestAdjustShutdownTimeLater:
     """Tests for _adjust_shutdown_time_later method."""
 

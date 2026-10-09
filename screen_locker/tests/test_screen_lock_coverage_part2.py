@@ -5,12 +5,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from screen_locker.tests._unlock_helpers import setup_unlock
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 
+@pytest.mark.usefixtures("pre_ladder")
 class TestUnlockScreenExtras:
     """unlock_screen's extra-workout bonus and streak display."""
 

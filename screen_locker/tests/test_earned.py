@@ -24,11 +24,13 @@ from screen_locker._earned import (
     flat_earners,
     hhmm,
     ledger_file,
+    registry,
     span,
 )
 from screen_locker.tests._earned_fixtures import (
     EXTRA,
     credit,
+    register,
     signing_key,
     write_ledger,
 )
@@ -104,14 +106,14 @@ class TestLedgerFile:
 
 class TestFlatEarners:
     def test_registry_order_without_the_counted_workout(self) -> None:
-        flat = tuple(e for e in earned_time.EARNERS if e.kind == "flat")
+        flat = tuple(e for e in registry() if e.kind == "flat")
         assert flat_earners() == flat
-        assert flat[:3] == (earned_time.LEETCODE, earned_time.READING, earned_time.ANKI)
+        assert flat[:2] == (earned_time.LEETCODE, earned_time.READING)
 
     def test_a_newly_registered_earner_is_picked_up(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(earned_time, "EARNERS", (*earned_time.EARNERS, EXTRA))
+        register(monkeypatch, EXTRA)
         assert flat_earners()[-1] is EXTRA
 
     def test_a_flat_earner_without_a_ledger_is_left_out(
@@ -121,7 +123,7 @@ class TestFlatEarners:
         unledgered = earned_time.Earner(
             name="manual", label="manual", gaming_minutes=60, shutdown_minutes=60
         )
-        monkeypatch.setattr(earned_time, "EARNERS", (*earned_time.EARNERS, unledgered))
+        register(monkeypatch, unledgered)
         assert unledgered not in flat_earners()
 
     def test_conftest_seeds_every_flat_earners_stamp(self) -> None:

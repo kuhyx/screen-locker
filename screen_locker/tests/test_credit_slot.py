@@ -12,14 +12,14 @@ import logging
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from screen_locker import _credit_slot
 from screen_locker._credit_slot import CreditSlot, credit_slot, locked_shutdown_state
 from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    import pytest
 
     from screen_locker._workout_credit import WorkoutCreditResult
     from screen_locker.screen_lock import ScreenLocker
@@ -121,6 +121,7 @@ def _credit(locker: ScreenLocker, prior: list) -> tuple[WorkoutCreditResult, Mag
     return result, notify
 
 
+@pytest.mark.usefixtures("pre_ladder")
 class TestSlotCreditMinutes:
     """The minutes each slot class actually moves the shutdown."""
 

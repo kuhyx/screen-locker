@@ -4,12 +4,10 @@ On each new calendar day the shutdown config is reset to the day's base so
 that the day's bonuses always layer on top of a known floor rather than
 accumulating indefinitely across days.
 
-The base and every bonus come from the shared earner registry
-(``earned_time``, see :mod:`screen_locker._earned`): 20:00 before any penalty,
-minus each earner's cut once its ``penalty_from`` day arrives (book-guard's
-reading hour, from 2026-10-01). Nothing here is state. The base used to be
-persisted in the state file and read back on every reset, which made the
-code's default dead; the file now carries only date stamps.
+The base and every bonus come from the shared earner registry in force that
+day (``earned_time``, see :mod:`screen_locker._earned`). Nothing here is
+state: the file carries only stamps (``<name>_bonus_date`` for a flat
+earner, ``<name>_bonus_units`` for a counted gate, :mod:`._gate_bonus`).
 
 The reset re-derives what today has ALREADY earned and writes base plus that
 in one go: the workout hours from today's log and every flat earner's hour
@@ -20,8 +18,8 @@ followed -- on 2026-09-13 that left the bar at 21:00 with a counted workout on
 disk. Any bonus source that is not a term of this derivation has that bug;
 registering it in ``earned_time`` makes it one.
 
-The sick-day state file is cleared on reset so the sick-restore path cannot
-overwrite the fresh base when it runs later in the same startup.
+The reset clears the sick-day state file, so sick-restore cannot overwrite
+the fresh base later in the same startup.
 """
 
 from __future__ import annotations
@@ -36,12 +34,15 @@ import earned_time
 from screen_locker._bonus_lock import bonus_lock
 from screen_locker._day import today_str
 from screen_locker._earned import (
+    counted_gate_earners,
     earned_today,
     first_minutes,
     flat_earners,
     hhmm,
+    registry,
     span,
 )
+from screen_locker._gate_bonus import apply_counted_bonus, date_stamp, reset_stamps
 from screen_locker._grace_floor import save_lift
 from screen_locker._log_io import load_workout_log
 from screen_locker._shutdown_target import gather
@@ -62,12 +63,7 @@ def base_minutes(day: date | None = None) -> int:
     Every penalty in force is already taken off.
     """
     target = day or datetime.now().astimezone().date()
-    return earned_time.base_for(target, earned_time.EARNERS).shutdown_minutes
-
-
-def _stamp(earner: earned_time.Earner) -> str:
-    """The once-per-day key of ``earner``'s live pass in the state file."""
-    return f"{earner.name}_bonus_date"
+    return earned_time.base_for(target, registry(target)).shutdown_minutes
 
 
 def today_credit_count(log_file: Path, today: str) -> int:
@@ -172,12 +168,10 @@ def _reset(
     # Later additions are paid out of the grace lift first (see _grace_floor).
     save_lift(derived.lift)
 
-    # The flat bonuses are stamped here too: the reset already included them,
-    # so the live pass below must not add them a second time today.
+    # The bonuses the reset already included are stamped, so the live pass
+    # does not add them a second time today.
     new_state: dict[str, Any] = {"last_reset_date": today}
-    for term in day.terms:
-        if term.earner.kind == "flat" and term.shutdown_minutes:
-            new_state[_stamp(term.earner)] = today
+    new_state.update(reset_stamps(day.terms, today))
     _save_state(state_file, new_state)
 
     earned = " + ".join(
@@ -211,7 +205,7 @@ def _apply_flat_bonus(
     """
     today = today_str()
     state = _load_state(state_file)
-    stamp = _stamp(earner)
+    stamp = date_stamp(earner)
     if state.get(stamp) == today:
         return False
     answer = earned_today(earner)
@@ -235,11 +229,16 @@ def _apply_flat_bonus(
 def apply_flat_bonuses_if_new(state_file: Path, mixin: object) -> None:
     """Every once-per-day flat bonus, in registry order (LeetCode, reading, ...).
 
-    The workout is not among them: it is counted, and its live credit is
-    applied by :class:`~screen_locker._workout_credit.WorkoutCreditMixin`.
+    Then each counted gate's new units (:mod:`._gate_bonus`); the workout's
+    live credit is ``WorkoutCreditMixin``'s.
     """
     with bonus_lock(state_file):
         for earner in flat_earners():
             _apply_flat_bonus(state_file, mixin, earner)
+        adjust = mixin._adjust_shutdown_time_by
+        for earner in counted_gate_earners():
+            state = _load_state(state_file)
+            if apply_counted_bonus(state, adjust, earner, today_str()):
+                _save_state(state_file, state)
         # Last, so the floor compares against everything earned so far.
         mixin._apply_grace_floor(getattr(mixin, "log_file", None))

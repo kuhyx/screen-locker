@@ -9,10 +9,14 @@ The two seams are genuinely different, which is why neither subsumes the
 other. ``_isolate_home`` covers paths resolved at *call* time from
 ``Path.home()``; ``_no_free_days_by_default`` covers paths bound into module
 constants at *import* time, which redirecting home afterwards cannot reach.
+
+``pre_ladder`` is the one opt-in fixture here: it keeps a test off the real
+calendar's ladder cutover, the date-dependent half of the same question.
 """
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
@@ -108,3 +112,18 @@ def _no_desktop_notifications(tmp_path: Path) -> Iterator[None]:
         ),
     ):
         yield
+
+
+@pytest.fixture
+def pre_ladder(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Resolve every day on the pre-ladder rules (the first workout = +2h).
+
+    From ``earned_time.LADDER_FROM`` (2026-10-10) shutdown is read down from
+    sleep and each earner's minutes change, so a test pinning the old figures
+    would go red on that date by the calendar alone. ``on_ladder`` reads the
+    constant at call time and every ladder decision goes through it, so moving
+    it out of reach freezes the rules without faking "today" -- which comes
+    from several clocks, including the ledger windows the credit rows must hit.
+    Opt-in: tests that assert the ladder itself must keep the real cutover.
+    """
+    monkeypatch.setattr("earned_time._ladder.LADDER_FROM", date.max)

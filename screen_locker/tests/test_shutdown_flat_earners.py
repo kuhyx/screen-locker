@@ -16,6 +16,7 @@ from unittest.mock import MagicMock, patch
 import earned_time
 import pytest
 
+from screen_locker import _earned
 from screen_locker._day import today_str
 from screen_locker._shutdown_base import (
     apply_flat_bonuses_if_new,
@@ -27,6 +28,7 @@ from screen_locker.tests._earned_fixtures import (
     EXTRA,
     answering,
     credit,
+    register,
     signing_key,
     write_ledger,
 )
@@ -58,7 +60,7 @@ def answers() -> Iterator[dict[str, bool | None]]:
 @pytest.fixture
 def with_extra(monkeypatch: pytest.MonkeyPatch) -> None:
     """Register EXTRA after the existing earners, as a new gate would be."""
-    monkeypatch.setattr(earned_time, "EARNERS", (*earned_time.EARNERS, EXTRA))
+    register(monkeypatch, EXTRA)
 
 
 class TestFlatBonuses:
@@ -79,6 +81,7 @@ class TestFlatBonuses:
         apply_flat_bonuses_if_new(state, mixin)
         assert mixin._adjust_shutdown_time_by.call_count == 2
 
+    @pytest.mark.usefixtures("pre_ladder")
     def test_only_reading_earned_applies_only_reading(
         self, tmp_path: Path, answers: dict[str, bool | None]
     ) -> None:
@@ -138,11 +141,12 @@ class TestANewlyRegisteredEarner:
             penalty_from=cut,
         )
         before = (base_minutes(eve), base_minutes(cut))
-        monkeypatch.setattr(earned_time, "EARNERS", (*earned_time.EARNERS, penalised))
+        register(monkeypatch, penalised)
         assert (base_minutes(eve), base_minutes(cut)) == (before[0], before[1] - 60)
 
 
 class TestRealLedgers:
+    @pytest.mark.usefixtures("pre_ladder")
     def test_signed_credits_on_disk_reach_the_reset(self, tmp_path: Path) -> None:
         """No mock between the ledgers and the written hour."""
         # Pinned to local midnight: stamped "now", the grace floor (first
@@ -193,10 +197,14 @@ class TestProjectionFollowsTheCut:
         def base(day: date) -> int:
             # From the sleep ladder (Sat 2026-10-10) the registry prices the
             # day itself; before it, the cut from Tuesday holds.
-            return earned_time.base_for(day, earned_time.EARNERS).shutdown_minutes
+            # The registry in force that day (the tutor cutover switches it).
+            return earned_time.base_for(day, _earned.registry(day)).shutdown_minutes
 
         week = [date(2026, 10, 5 + i) for i in range(7)]
-        assert [base(d) for d in week[1:5]] == [lowered] * 4
+        assert [base(d) for d in week[1:4]] == [lowered] * 3
+        # Fri 2026-10-09 the Anki waiver drops Tuesday's cuts again.
+        assert week[4] == earned_time.ANKI_WAIVED_FROM
+        assert base(week[4]) == 19 * 60
         assert [d.minutes for d in shutdown.rest_of_week] == [19 * 60] + [
             base(d) for d in week[1:]
         ]

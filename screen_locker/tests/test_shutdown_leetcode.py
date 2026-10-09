@@ -53,6 +53,7 @@ def unsolved() -> Iterator[MagicMock]:
         yield m
 
 
+@pytest.mark.usefixtures("pre_ladder")
 class TestResetIncludesTheHour:
     def test_reset_writes_base_plus_leetcode(
         self, tmp_path: Path, solved: MagicMock
@@ -86,6 +87,7 @@ class TestResetIncludesTheHour:
         mixin._adjust_shutdown_time_by.assert_not_called()
 
 
+@pytest.mark.usefixtures("pre_ladder")
 class TestLivePass:
     def test_applies_once_and_stamps(self, tmp_path: Path, solved: MagicMock) -> None:
         state = tmp_path / "state.json"

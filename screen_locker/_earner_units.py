@@ -27,7 +27,7 @@ import subprocess
 import sys
 from typing import Final
 
-from screen_locker._earned import flat_earners, ledger_file
+from screen_locker._earned import ledger_file, watched_earners
 
 __all__ = ["PATH_UNIT_NAME", "USER_UNIT_DIR", "render_path_unit", "sync_path_unit"]
 
@@ -51,8 +51,15 @@ WantedBy=default.target
 
 
 def render_path_unit() -> str:
-    """The unit text: one ``PathChanged=`` per flat earner's ledger."""
-    watches = "".join(f"PathChanged={ledger_file(e)}\n" for e in flat_earners())
+    """The unit text: one ``PathChanged=`` per gate earner's ledger.
+
+    Every registry's gates, not just today's (``watched_earners``), so a
+    dated cutover (the Automation tutor's ``TUTOR_FROM``) needs no re-render
+    on the day. The header keeps saying "flat": changing it would rewrite the
+    installed unit for no behavioural change.
+    """
+    ledgers = dict.fromkeys(ledger_file(e) for e in watched_earners())
+    watches = "".join(f"PathChanged={path}\n" for path in ledgers)
     return _HEADER + watches + _FOOTER
 
 

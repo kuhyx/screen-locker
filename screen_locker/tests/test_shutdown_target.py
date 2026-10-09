@@ -67,7 +67,7 @@ class TestTarget:
             ],
         )
         with (
-            patch("screen_locker._shutdown_target.flat_answers", return_value=_FLAT),
+            patch("screen_locker._shutdown_target.gate_answers", return_value=_FLAT),
             patch.object(_grace_floor, "first_credit_time", return_value=None),
         ):
             target = gather(_DAY, log)

@@ -27,6 +27,8 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
 
+    import pytest
+
 KEY: Final = b"test-key-bytes"
 
 
@@ -37,7 +39,7 @@ def _any_credit(row: dict[str, object], window: tuple[float, float]) -> bool:
 
 
 # A flat earner the registry does not have yet, for tests that register one
-# (``monkeypatch.setattr(earned_time, "EARNERS", (*earned_time.EARNERS, EXTRA))``)
+# (``register(monkeypatch, EXTRA)``)
 # to pin that nothing in screen-locker needs code for it.
 EXTRA: Final = earned_time.Earner(
     name="extra",
@@ -47,6 +49,19 @@ EXTRA: Final = earned_time.Earner(
     ledger=".local/share/extra_guard/ledger.json",
     match=_any_credit,
 )
+
+
+def register(monkeypatch: pytest.MonkeyPatch, *extra: earned_time.Earner) -> None:
+    """Append stand-in earners to every registry, before and after the cutover.
+
+    The registry in force is per day (``earned_time.earners_for``: ``EARNERS``
+    before ``TUTOR_FROM``, ``TUTOR_EARNERS`` from it), so a stand-in patched
+    into ``EARNERS`` alone would vanish on a tutor day.
+    """
+    monkeypatch.setattr(earned_time, "EARNERS", (*earned_time.EARNERS, *extra))
+    tutor = getattr(earned_time, "TUTOR_EARNERS", None)
+    if tutor is not None:
+        monkeypatch.setattr(earned_time, "TUTOR_EARNERS", (*tutor, *extra))
 
 
 @contextmanager
