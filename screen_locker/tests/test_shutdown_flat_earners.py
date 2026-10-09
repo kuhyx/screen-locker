@@ -145,8 +145,11 @@ class TestANewlyRegisteredEarner:
 class TestRealLedgers:
     def test_signed_credits_on_disk_reach_the_reset(self, tmp_path: Path) -> None:
         """No mock between the ledgers and the written hour."""
-        write_ledger(earned_time.LEETCODE, [credit(earned_time.LEETCODE)])
-        write_ledger(earned_time.READING, [credit(earned_time.READING)])
+        # Pinned to local midnight: stamped "now", the grace floor (first
+        # credit + GRACE_MINUTES) beats base+120 whenever this runs after ~19:00.
+        midnight = datetime.now(tz=UTC).astimezone().replace(hour=0, minute=0, second=0)
+        write_ledger(earned_time.LEETCODE, [credit(earned_time.LEETCODE, midnight)])
+        write_ledger(earned_time.READING, [credit(earned_time.READING, midnight)])
         state = tmp_path / "state.json"
         mixin = _mixin()
         with signing_key(tmp_path):
