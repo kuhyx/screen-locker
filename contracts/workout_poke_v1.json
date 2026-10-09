@@ -1,0 +1,6 @@
+{
+  "_comment": "Shared literal fixture for the phone->PC workout poke (v1). Both the Python receiver and the Dart sender test against THESE bytes. body_utf8 is the exact request body; signature = hex(HMAC-SHA256(bytes.fromhex(key_hex), body_utf8.encode('utf-8'))). Never re-serialize before verifying.",
+  "key_hex": "7f3c9a1e5b2d4f6081a3c5e7092b4d6f8a1c3e5072946b8d0f2a4c6e8013579b",
+  "body_utf8": "{\"v\":1,\"sent_at_ms\":1791558449000,\"nonce\":\"0b1e6c2a-9f4d-4c1b-8e7a-3d5f6a7b8c9d\",\"sandbox\":false,\"record_id\":\"2026-10-09T15:10:40.953\",\"payload\":{\"date\":\"2026-10-09\",\"start_time\":\"2026-10-09T15:10:40.953\",\"workout_type\":\"A\",\"duration_seconds\":7020.5,\"succeeded\":true,\"exercises\":[{\"name\":\"Squat\",\"weight_kg\":100.0,\"sets\":[5,5,5,5,5]}],\"note\":\"zażółć gęślą jaźń\"}}",
+  "signature_hex": "98b0b80fe717079c800e79562f669fd0189d89c3578a5bbf973761a0e7a3a3f5"
+}

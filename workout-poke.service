@@ -1,0 +1,17 @@
+[Unit]
+Description=Credit a phone workout the second it is poked over the LAN (tcp/8773)
+
+[Service]
+# Resident stdlib HTTP server (screen_locker/_poke_server.py): the phone POSTs
+# a finished session, it is HMAC-verified and credited through the same ingest
+# as workout-sync. Contract: docs/DOCS-workout-poke-contract.md.
+# No NoNewPrivileges/ProtectSystem: the credit runs `sudo
+# adjust_shutdown_schedule.sh`, which NoNewPrivileges would break.
+# A missing or bad ~/.config/workout_poke/key makes it exit 1 with a critical
+# log line; RestartSec keeps that from spinning.
+ExecStart=/usr/bin/python3 -m screen_locker.poke_server
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=default.target

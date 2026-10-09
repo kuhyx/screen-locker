@@ -22,3 +22,7 @@ pytest-xdist==3.8.0
 requests==2.34.2
 ruff==0.16.10
 types-requests==2.33.0.20261006
+# Direct dependency since the Firebase session stream (_session_stream) catches
+# urllib3's own errors on the long-lived SSE read; requests pulls it in, but
+# the module imports it itself, so it is declared rather than assumed.
+urllib3==2.8.0

@@ -18,7 +18,7 @@ from crdt_sync import Hlc, Record
 from screen_locker._manual_workout import MANUAL_WORKOUT_SYNC_KIND
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
 
 _logger = logging.getLogger(__name__)
 
@@ -123,3 +123,48 @@ def _manual_records(log_json: str) -> dict[str, tuple[dict, Hlc]]:
     corrupt device log as "no manual records from that device".
     """
     return _records_matching(log_json, _is_manual_payload)
+
+
+def merge_device_texts(
+    texts: Iterable[tuple[str, str]],
+    extract: Callable[[str], dict[str, tuple[dict, Hlc]]],
+    what: str,
+) -> dict[str, tuple[dict, Hlc]]:
+    """Merge ``extract``-selected records across already-fetched device logs.
+
+    ``texts`` is ``(path, log_json)`` per device. Keeps the highest-HLC copy of
+    each record id (records are id-stable, so one workout mirrored into two
+    device logs dedups to one), then drops every id ANY device tombstoned.
+
+    The pure half of ``_workout_sync._merge_device_records``, shared with the
+    Firebase stream (:mod:`screen_locker._session_stream`) so the two readers
+    cannot disagree on what counts. A corrupt log is skipped with a warning
+    naming it, never raised.
+    """
+    merged: dict[str, tuple[dict, Hlc]] = {}
+    tombstoned: set[str] = set()
+    for path, text in texts:
+        try:
+            records = extract(text)
+            tombstoned |= _tombstoned_ids(text)
+        except (ValueError, KeyError, TypeError) as exc:
+            _logger.warning("Corrupt sync data at %s: %s", path, exc)
+            continue
+        for rid, (payload, hlc) in records.items():
+            existing = merged.get(rid)
+            if existing is None or existing[1] < hlc:
+                merged[rid] = (payload, hlc)
+
+    # Applied after the union, not per device: one device deleting a record
+    # while another still holds it live must delete it. crdt-sync's own merge
+    # makes deletion monotonic for exactly this reason, and this reader rolls
+    # its own merge, so it has to honour the same rule itself.
+    for rid in tombstoned & merged.keys():
+        _logger.info(
+            "Synced record %s is tombstoned on another device — dropping it, "
+            "so a deleted %s stops counting here too",
+            rid,
+            what,
+        )
+        del merged[rid]
+    return merged

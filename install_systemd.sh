@@ -16,6 +16,7 @@ SYNC_TIMER_NAME="workout-sync.timer"
 BONUS_SERVICE_NAME="earner-bonus.service"
 BONUS_PATH_NAME="earner-bonus.path"
 RUNNERUP_WATCH_NAME="runnerup-watch.service"
+WORKOUT_POKE_NAME="workout-poke.service"
 
 # Runtime dependencies. screen_lock.py imports tkinter at module scope. On Arch
 # the tkinter MODULE ships inside the `python` package, but the shared library
@@ -140,6 +141,12 @@ PYTHONPATH="$SCRIPT_DIR" python3 -m screen_locker._earner_units "$USER_SERVICE_D
 # workout-sync at once instead of waiting for the next timer tick.
 cp "$SCRIPT_DIR/$RUNNERUP_WATCH_NAME" "$USER_SERVICE_DIR/$RUNNERUP_WATCH_NAME"
 
+# The phone's LAN poke: a finished StrongLifts session is credited within a
+# second instead of at the next sync. The key must exist before the unit
+# starts, or it refuses to (docs/DOCS-workout-poke-contract.md).
+bash "$SCRIPT_DIR/scripts/workout_poke_keygen.sh"
+cp "$SCRIPT_DIR/$WORKOUT_POKE_NAME" "$USER_SERVICE_DIR/$WORKOUT_POKE_NAME"
+
 # Update paths in the service file to use absolute paths
 REPO_ROOT="$SCRIPT_DIR"
 sed -i "s|WorkingDirectory=.*|WorkingDirectory=$REPO_ROOT|" "$USER_SERVICE_DIR/$SERVICE_NAME"
@@ -167,6 +174,10 @@ systemctl --user enable --now "$BONUS_PATH_NAME"
 # Enable the instant RunnerUp credit on upload (restart picks up a new script)
 systemctl --user enable "$RUNNERUP_WATCH_NAME"
 systemctl --user restart "$RUNNERUP_WATCH_NAME"
+
+# Enable the LAN workout poke listener (restart picks up new code)
+systemctl --user enable "$WORKOUT_POKE_NAME"
+systemctl --user restart "$WORKOUT_POKE_NAME"
 
 # Verify enforcement is actually armed. enable can silently no-op when systemd
 # breaks an ordering cycle by deleting the timer's job -- exactly what happened
