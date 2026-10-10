@@ -94,7 +94,6 @@ class StatusSnapshot:
 
     today: DayStatus
     week: WeeklySummary
-    bonus_hours_this_week: int
     streak: int
     early_bird_extended: bool
     shutdown: ShutdownProjection

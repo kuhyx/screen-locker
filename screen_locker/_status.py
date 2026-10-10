@@ -14,7 +14,6 @@ from screen_locker._earned import hhmm
 from screen_locker._extra_benefits import (
     current_streak,
     has_extended_early_bird,
-    weekly_shutdown_bonus_hours,
 )
 from screen_locker._log_io import load_workout_log
 from screen_locker._sick_tracker import load_history
@@ -41,7 +40,7 @@ def _load_extra_benefits() -> dict:
     except (OSError, ValueError) as exc:
         _logger.warning(
             "Could not read extra-benefits state from %s: %s — the status view "
-            "will show a 0 streak and no bonus hours, which may be wrong",
+            "will show a 0 streak, which may be wrong",
             EXTRA_BENEFITS_FILE,
             exc,
         )
@@ -116,7 +115,6 @@ def run_status(locker: ScreenLocker) -> None:
     print()
 
     # Extra benefits summary
-    bonus_hours = weekly_shutdown_bonus_hours(EXTRA_BENEFITS_FILE)
     streak = current_streak(EXTRA_BENEFITS_FILE)
     eb_ext = has_extended_early_bird(EXTRA_BENEFITS_FILE)
     eb_str = "Yes — until 09:00" if eb_ext else "No"
@@ -138,7 +136,6 @@ def run_status(locker: ScreenLocker) -> None:
     else:
         heat_str = "0"
 
-    print(f"  Shutdown bonus (this wk): {bonus_hours}h")
     print(f"  Streak (5+ wks)     : {streak}")
     print(f"  Early-bird extended : {eb_str}")
     print(f"  Heat skips (month)  : {heat_str}")

@@ -86,13 +86,13 @@ class TestCheckNonVerifyExitsExtras:
         ):
             locker._check_non_verify_exits()
 
-    def test_applies_weekly_bonus_on_fresh_day_reset(
+    def test_fresh_day_reset_layers_no_weekly_bonus(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """reset_to_base_if_new_day True → weekly shutdown bonus is applied once."""
+        """A fresh-day reset is the whole shutdown: no weekly bonus on top (2026-10-10)."""
         locker = create_locker(mock_tk, tmp_path)
         object.__setattr__(
             locker,
@@ -112,50 +112,6 @@ class TestCheckNonVerifyExitsExtras:
             patch(
                 "screen_locker._startup_checks.process_week_transition",
                 return_value=[],
-            ),
-            patch(
-                "screen_locker._sync_mixin.weekly_shutdown_bonus_hours",
-                return_value=2,
-            ),
-            patch("screen_locker._startup_checks.is_relaxed_day", return_value=False),
-            patch(
-                "screen_locker._startup_checks.has_weekly_minimum", return_value=True
-            ),
-            patch("screen_locker.screen_lock.sys.exit"),
-        ):
-            locker._check_non_verify_exits()
-        locker._adjust_shutdown_time_by.assert_called_once_with(120)
-
-    def test_no_weekly_bonus_applied_when_not_a_fresh_day(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """reset_to_base_if_new_day False (same-day restart) → bonus not re-applied."""
-        locker = create_locker(mock_tk, tmp_path)
-        object.__setattr__(
-            locker,
-            "_scan_and_fill_week_runnerup",
-            MagicMock(return_value=0),
-        )
-        object.__setattr__(
-            locker,
-            "_adjust_shutdown_time_by",
-            MagicMock(return_value=True),
-        )
-        with (
-            patch(
-                "screen_locker._startup_checks.reset_to_base_if_new_day",
-                return_value=False,
-            ),
-            patch(
-                "screen_locker._startup_checks.process_week_transition",
-                return_value=[],
-            ),
-            patch(
-                "screen_locker._sync_mixin.weekly_shutdown_bonus_hours",
-                return_value=2,
             ),
             patch("screen_locker._startup_checks.is_relaxed_day", return_value=False),
             patch(

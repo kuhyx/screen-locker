@@ -196,7 +196,7 @@ def count_weekly_workouts(
     recorded twice is credited once. Manual workouts are rate-limited
     separately by the manual-workout budget
     (:mod:`screen_locker._manual_workout`), not by a collapse here. Feeds both
-    the weekly lock minimum (:func:`has_weekly_minimum`) and the banked bonus.
+    the weekly lock minimum (:func:`has_weekly_minimum`) and the weekly streak.
 
     Args:
         log_file: Path to ``log.json``.

@@ -80,21 +80,17 @@ class PokeLocker(ScreenLocker):
         """Run the new-day reset the locker's startup runs, in the same order.
 
         Mirrors ``StartupChecksMixin._check_non_verify_exits``, not
-        ``sync_now`` (which never resets): the week transition must be
-        processed BEFORE the reset, and any banked weekly bonus layered on only
-        when this call did the reset. If the poke stamped the day without them,
-        the locker's own reset later would be a no-op and that day's banked
-        bonus would be lost.
+        ``sync_now`` (which never resets): the week transition (streak,
+        early-bird window) first, then the daily reset.
         """
         for reward in process_week_transition(self.log_file, EXTRA_BENEFITS_FILE):
             _logger.info("Weekly reward: %s", reward)
-        if reset_to_base_if_new_day(
+        reset_to_base_if_new_day(
             SHUTDOWN_BASE_FILE,
             self,
             sick_day_state_file=SICK_DAY_STATE_FILE,
             log_file=self.log_file,
-        ):
-            self._apply_weekly_shutdown_bonus()
+        )
 
     def credit_written(
         self, entry: dict[str, str], prior_entries: list[dict[str, object]]

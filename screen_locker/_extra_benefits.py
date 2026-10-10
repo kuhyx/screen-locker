@@ -4,12 +4,11 @@ Tracks:
 - Consecutive weeks with 5+ workouts (streak counter).
 - ISO weeks in which the early-bird window is extended to 09:00.
 
-A 5+ workout week no longer banks shutdown-time hours for the following week
-(dropped 2026-10-10; 2026-W41 was the last week to receive any). The
-``weekly_shutdown_bonus_hours`` map is still *read* by
-:func:`weekly_shutdown_bonus_hours`, so hours already banked for the current
-week keep applying, and ``scripts/restore_and_bonus.py`` can still bank a
-one-off compensation into it — but the week transition never writes it.
+There is no weekly shutdown-time bonus (dropped entirely 2026-10-10, hours
+already banked for 2026-W41 included): every shutdown minute comes from the
+``earned_time`` ladder and stops at its daily ceiling. A legacy
+``weekly_shutdown_bonus_hours`` map in an old state file is ignored, and
+dropped at the next week transition's write.
 
 State is persisted in ``extra_benefits_state.json`` next to this file.
 """
@@ -29,6 +28,8 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 _BONUS_THRESHOLD = 5  # workouts/week required to extend the streak + early-bird
+# The removed weekly shutdown bonus's map; ignored on read, dropped on write.
+_LEGACY_BONUS_KEY = "weekly_shutdown_bonus_hours"
 
 
 def _load_state(state_file: Path) -> dict[str, Any]:
@@ -116,13 +117,12 @@ def process_week_transition(log_file: Path, state_file: Path) -> list[str]:
         streak = 0
 
     # Merge onto the loaded state rather than rebuilding it from these three
-    # keys: the legacy ``weekly_shutdown_bonus_hours`` map (still read, and
-    # still written by restore_and_bonus.py) and sibling fields written by the
-    # recovery scripts (e.g. ``shutdown_bonus_granted_for``, the guard that
-    # stops a compensation bonus being granted twice) live in this file too,
-    # and rebuilding would drop them at the next weekly rollover — losing this
-    # week's banked hours and silently re-arming a double-grant.
+    # keys: sibling fields written by the recovery scripts (e.g.
+    # ``shutdown_bonus_granted_for``) live in this file too, and rebuilding
+    # would drop them at the next weekly rollover. Only the dead weekly-bonus
+    # map is dropped, so no reader can mistake it for live state.
     updated = dict(state)
+    updated.pop(_LEGACY_BONUS_KEY, None)
     updated.update(
         {
             "consecutive_5plus_weeks": streak,
@@ -137,23 +137,6 @@ def process_week_transition(log_file: Path, state_file: Path) -> list[str]:
 def current_streak(state_file: Path) -> int:
     """Return the current consecutive-5plus-weeks streak count."""
     return int(_load_state(state_file).get("consecutive_5plus_weeks", 0))
-
-
-def weekly_shutdown_bonus_hours(
-    state_file: Path, *, today: datetime | None = None
-) -> int:
-    """Return the banked shutdown-time bonus (hours) for the current ISO week.
-
-    The week transition stopped banking these after 2026-W41; what is left is
-    any hours already banked for this week, or a manual compensation written
-    by ``scripts/restore_and_bonus.py``.
-    """
-    now = today if today is not None else datetime.now(tz=UTC).astimezone()
-    current_week_str = _current_iso_week(now)
-    bonus_hours: dict[str, int] = _load_state(state_file).get(
-        "weekly_shutdown_bonus_hours", {}
-    )
-    return int(bonus_hours.get(current_week_str, 0))
 
 
 def has_extended_early_bird(state_file: Path, *, today: datetime | None = None) -> bool:

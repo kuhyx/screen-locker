@@ -50,7 +50,7 @@ def credit(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
 
 
 class TestStartTheDay:
-    def test_new_day_applies_the_weekly_bonus_after_the_reset(
+    def test_new_day_runs_the_week_transition_then_the_reset(
         self, log_file: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         calls: list[str] = []
@@ -63,22 +63,10 @@ class TestStartTheDay:
             calls.append("reset")
             return True
 
-        def bonus(_self: PokeLocker) -> None:
-            calls.append("bonus")
-
         monkeypatch.setattr(_poke_credit, "process_week_transition", week)
         monkeypatch.setattr(_poke_credit, "reset_to_base_if_new_day", reset)
-        monkeypatch.setattr(PokeLocker, "_apply_weekly_shutdown_bonus", bonus)
         _poke_credit.fresh_locker().start_the_day()
-        assert calls == ["week", "reset", "bonus"]
-
-    def test_same_day_does_not_apply_the_weekly_bonus(
-        self, log_file: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        bonus = MagicMock()
-        monkeypatch.setattr(PokeLocker, "_apply_weekly_shutdown_bonus", bonus)
-        _poke_credit.fresh_locker().start_the_day()
-        bonus.assert_not_called()
+        assert calls == ["week", "reset"]
 
     def test_credit_written_sets_the_entry_and_returns_the_result(
         self, log_file: Path, credit: MagicMock

@@ -105,19 +105,16 @@ class StartupChecksMixin(SyncMixin):
             self._record_skip("scheduled_skip_day", "Today is a scheduled skip day.")
             return
         # Award streak / EB-extension rewards from last week before the daily
-        # reset. The transition no longer banks shutdown hours; any already
-        # banked for this week are layered on by _apply_weekly_shutdown_bonus.
+        # reset. No week carries a shutdown bonus any more (2026-10-10).
         for reward_msg in process_week_transition(self.log_file, EXTRA_BENEFITS_FILE):
             _logger.info("Weekly reward: %s", reward_msg)
-        # Reset shutdown config to base (19:00) at the start of each new day,
-        # then layer this week's banked bonus (if any) back on the fresh base.
-        if reset_to_base_if_new_day(
+        # Reset shutdown config to the day's base plus what today already earned.
+        reset_to_base_if_new_day(
             SHUTDOWN_BASE_FILE,
             self,
             sick_day_state_file=SICK_DAY_STATE_FILE,
             log_file=self.log_file,
-        ):
-            self._apply_weekly_shutdown_bonus()
+        )
         # A LeetCode solve or a reading credit usually lands hours after the
         # reset; this 5-minute tick turns it into the extra hour the same day.
         apply_flat_bonuses_if_new(SHUTDOWN_BASE_FILE, self)
@@ -160,8 +157,7 @@ class StartupChecksMixin(SyncMixin):
         # Only remaining same-day skip: genuine extreme heat. Sick days go
         # through the justification flow instead; there is no banked
         # "skip a workout" credit — that mechanic works against the goal of
-        # maximizing weekly workouts, so it was removed in favor of a
-        # shutdown-time-only reward (see _apply_weekly_shutdown_bonus).
+        # maximizing weekly workouts, so it was removed.
         # A logged workout outranks every rung above, whatever their order.
         if refuse_to_lock_over_logged_workout(self.has_logged_today, self._record_skip):
             return

@@ -10,10 +10,9 @@ from __future__ import annotations
 
 import logging
 
-from screen_locker._constants import EXTRA_BENEFITS_FILE, SHUTDOWN_BASE_FILE
+from screen_locker._constants import SHUTDOWN_BASE_FILE
 from screen_locker._earned import span
 from screen_locker._earner_units import sync_path_unit
-from screen_locker._extra_benefits import weekly_shutdown_bonus_hours
 from screen_locker._manual_push import push_pc_workouts
 from screen_locker._manual_sync import ingest_manual_records
 from screen_locker._session_sync import ingest_session_records
@@ -26,9 +25,6 @@ from screen_locker._workout_sync import (
 __all__ = ["SyncMixin"]
 
 _logger = logging.getLogger(__name__)
-
-# A banked weekly bonus is in whole hours; the schedule takes minutes.
-_MINUTES_PER_HOUR = 60
 
 
 class SyncMixin:
@@ -136,14 +132,3 @@ class SyncMixin:
                 "Auto-filled %d RunnerUp workout(s) from TCX exports.", n_filled
             )
         self.workout_data = {}
-
-    def _apply_weekly_shutdown_bonus(self) -> None:
-        """Layer this week's banked shutdown bonus (if any) on the fresh base.
-
-        Week transitions stopped banking hours after 2026-W41; only hours
-        already banked for this week or a restore_and_bonus.py compensation
-        remain to apply.
-        """
-        bonus = weekly_shutdown_bonus_hours(EXTRA_BENEFITS_FILE)
-        if bonus > 0 and self._adjust_shutdown_time_by(bonus * _MINUTES_PER_HOUR):
-            _logger.info("Weekly bonus: +%dh shutdown time this week.", bonus)

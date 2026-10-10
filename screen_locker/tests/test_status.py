@@ -161,15 +161,14 @@ class TestRunStatusNormal:
         out = capsys.readouterr().out
         assert "Shutdown tonight" not in out
 
-    def test_shutdown_bonus_and_streak_shown(
+    def test_streak_shown_and_no_weekly_bonus_line(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
-        """bonus_hours=3, streak=2, eb_ext=True → shown in output."""
+        """streak=2, eb_ext=True → shown; the dropped weekly bonus is not."""
         eb_file = tmp_path / "eb.json"
         locker = _make_locker(tmp_path / "log.json", n_filled=0)
         with (
             patch("screen_locker._status.EXTRA_BENEFITS_FILE", eb_file),
-            patch("screen_locker._status.weekly_shutdown_bonus_hours", return_value=3),
             patch("screen_locker._status.current_streak", return_value=2),
             patch("screen_locker._status.has_extended_early_bird", return_value=True),
             patch("screen_locker._status.count_weekly_workouts", return_value=0),
@@ -177,7 +176,7 @@ class TestRunStatusNormal:
         ):
             run_status(locker)
         out = capsys.readouterr().out
-        assert "Shutdown bonus (this wk): 3h" in out
+        assert "Shutdown bonus" not in out
         assert "Streak (5+ wks)     : 2" in out
         assert "Yes — until 09:00" in out
 

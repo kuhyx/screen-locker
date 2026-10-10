@@ -29,8 +29,8 @@ class TestLoadState:
     def test_returns_parsed_state_when_file_valid(self, tmp_path: Path) -> None:
         """Valid JSON file returns the parsed dict."""
         f = tmp_path / "state.json"
-        f.write_text(json.dumps({"weekly_shutdown_bonus_hours": {"2026-W01": 3}}))
-        assert _load_state(f) == {"weekly_shutdown_bonus_hours": {"2026-W01": 3}}
+        f.write_text(json.dumps({"extended_early_bird_iso_weeks": ["2026-W01"]}))
+        assert _load_state(f) == {"extended_early_bird_iso_weeks": ["2026-W01"]}
 
     def test_returns_empty_on_oserror(self) -> None:
         """OSError during read is caught and returns empty dict (lines 33-34)."""
@@ -52,10 +52,10 @@ class TestSaveState:
     def test_saves_state_to_file(self, tmp_path: Path) -> None:
         """Valid path writes JSON content (lines 39-41)."""
         f = tmp_path / "state.json"
-        _save_state(f, {"weekly_shutdown_bonus_hours": {"2026-W01": 2}})
-        assert json.loads(f.read_text())["weekly_shutdown_bonus_hours"] == {
-            "2026-W01": 2
-        }
+        _save_state(f, {"extended_early_bird_iso_weeks": ["2026-W02"]})
+        assert json.loads(f.read_text())["extended_early_bird_iso_weeks"] == [
+            "2026-W02"
+        ]
 
     def test_logs_warning_on_oserror(self) -> None:
         """OSError during write is caught as warning, does not raise (lines 42-43)."""
@@ -95,7 +95,6 @@ class TestProcessWeekTransition:
                 {
                     "last_processed_iso_week": self._PAST_WEEK,
                     "consecutive_5plus_weeks": 0,
-                    "weekly_shutdown_bonus_hours": {},
                     "extended_early_bird_iso_weeks": [],
                 }
             )
@@ -113,10 +112,10 @@ class TestProcessWeekTransition:
         assert not any("shutdown bonus" in r for r in rewards)
         state = json.loads(f.read_text())
         assert state["consecutive_5plus_weeks"] == 1
-        assert state["weekly_shutdown_bonus_hours"] == {}
+        assert "weekly_shutdown_bonus_hours" not in state
 
     def test_4_week_streak_banks_no_milestone_hour(self, tmp_path: Path) -> None:
-        """Streak reaching 4 adds no +1h; a legacy bonus map is left untouched."""
+        """Streak reaching 4 adds no +1h; a legacy bonus map is dropped on write."""
         f = tmp_path / "state.json"
         f.write_text(
             json.dumps(
@@ -137,7 +136,7 @@ class TestProcessWeekTransition:
         assert "4-week streak" in rewards[0]
         state = json.loads(f.read_text())
         assert state["consecutive_5plus_weeks"] == 4
-        assert state["weekly_shutdown_bonus_hours"] == {"2020-W52": 2}
+        assert "weekly_shutdown_bonus_hours" not in state
 
     def test_marks_current_week_as_extended_early_bird(self, tmp_path: Path) -> None:
         """5+ workouts mark current ISO week as extended EB (line 91-92)."""

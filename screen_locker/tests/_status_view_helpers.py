@@ -134,7 +134,6 @@ def _snapshot(**overrides: object) -> StatusSnapshot:
     default = StatusSnapshot(
         today=_day(),
         week=_week(),
-        bonus_hours_this_week=0,
         streak=0,
         early_bird_extended=False,
         shutdown=_shutdown(),

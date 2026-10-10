@@ -30,10 +30,9 @@ import tempfile
 import earned_time
 
 from screen_locker import _earned, _grace_floor, _shutdown
-from screen_locker._constants import EXTRA_BENEFITS_FILE, SHUTDOWN_CONFIG_FILE
+from screen_locker._constants import SHUTDOWN_CONFIG_FILE
 from screen_locker._day import today_str
 from screen_locker._earned import hhmm
-from screen_locker._extra_benefits import weekly_shutdown_bonus_hours
 from screen_locker._rest_day import declare, is_rest_day
 from screen_locker._shutdown import read_shutdown_config
 from screen_locker._shutdown_target import (
@@ -44,7 +43,6 @@ from screen_locker._shutdown_target import (
     gather,
 )
 from scripts._preview_sim import (
-    HELPER_CEILING,
     SimRunnerUp,
     SimShutdown,
     sick_history,
@@ -166,12 +164,7 @@ def main() -> int:
         )
         target = gather(today, _LOG)
         _report("today, real ledgers", target)
-        weekly = weekly_shutdown_bonus_hours(EXTRA_BENEFITS_FILE) * 60
-        _say(
-            f"    + banked weekly bonus {weekly} min (layered after the reset, "
-            f"absorbs the grace lift) -> expected config "
-            f"{hhmm(min(HELPER_CEILING, max(target.earned + weekly, target.minutes)))}"
-        )
+        _say(f"    expected config after the next reset: {hhmm(target.minutes)}")
         return 0
     day = date.fromisoformat(args.day)
     _say(f"    ladder in force on {day}: {ladder(day) if ladder else False}")

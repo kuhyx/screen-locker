@@ -1,4 +1,4 @@
-"""Tests for _extra_benefits (streak, legacy banked bonus, EB extension)."""
+"""Tests for _extra_benefits (streak, legacy bonus key dropped, EB extension)."""
 
 from __future__ import annotations
 
@@ -10,35 +10,10 @@ from unittest.mock import patch
 from screen_locker._extra_benefits import (
     has_extended_early_bird,
     process_week_transition,
-    weekly_shutdown_bonus_hours,
 )
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-
-class TestWeeklyShutdownBonusHours:
-    """Tests for weekly_shutdown_bonus_hours."""
-
-    def test_returns_zero_when_missing(self, tmp_path: Path) -> None:
-        """No state file → 0."""
-        f = tmp_path / "state.json"
-        assert weekly_shutdown_bonus_hours(f) == 0
-
-    def test_returns_current_week_bonus(self, tmp_path: Path) -> None:
-        """Returns the banked bonus for the current ISO week."""
-        now = datetime.now(tz=UTC).astimezone()
-        year, week, _ = now.isocalendar()
-        current_week = f"{year}-W{week:02d}"
-        f = tmp_path / "state.json"
-        f.write_text(json.dumps({"weekly_shutdown_bonus_hours": {current_week: 3}}))
-        assert weekly_shutdown_bonus_hours(f) == 3
-
-    def test_ignores_other_weeks(self, tmp_path: Path) -> None:
-        """A bonus banked for a different ISO week is not returned."""
-        f = tmp_path / "state.json"
-        f.write_text(json.dumps({"weekly_shutdown_bonus_hours": {"2020-W01": 5}}))
-        assert weekly_shutdown_bonus_hours(f) == 0
 
 
 class _FrozenDatetime(datetime):
@@ -52,7 +27,7 @@ class _FrozenDatetime(datetime):
 
 
 class TestBonusDroppedAtW42:
-    """The 2026-W41 -> W42 rollover banks nothing; W41's hours stay readable."""
+    """The 2026-W41 -> W42 rollover banks nothing and drops the legacy bonus map."""
 
     _STATE: ClassVar[dict[str, object]] = {
         "consecutive_5plus_weeks": 3,
@@ -81,22 +56,15 @@ class TestBonusDroppedAtW42:
             )
         ]
         state = json.loads(f.read_text())
+        # Sibling keys (the compensation guard) survive; only the dead map goes.
         assert state == {
-            **self._STATE,
             "consecutive_5plus_weeks": 4,
             "last_processed_iso_week": "2026-W42",
             "extended_early_bird_iso_weeks": ["2026-W41", "2026-W42"],
+            "shutdown_bonus_granted_for": ["2026-08-24"],
         }
         w42 = datetime(2026, 10, 12, 12, 0, tzinfo=UTC)
-        assert weekly_shutdown_bonus_hours(f, today=w42) == 0
         assert has_extended_early_bird(f, today=w42) is True
-
-    def test_w41_banked_hours_still_apply_through_sunday(self, tmp_path: Path) -> None:
-        """Hours banked before the drop keep applying for the rest of W41."""
-        f = tmp_path / "state.json"
-        f.write_text(json.dumps(self._STATE))
-        sunday = datetime(2026, 10, 11, 21, 0, tzinfo=UTC)
-        assert weekly_shutdown_bonus_hours(f, today=sunday) == 2
 
 
 class TestHasExtendedEarlyBird:

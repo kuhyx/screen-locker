@@ -27,7 +27,7 @@ ISOLATED_STATE: tuple[tuple[str, tuple[str, ...]], ...] = (
         (
             "_constants.EXTRA_BENEFITS_FILE",
             "_startup_checks.EXTRA_BENEFITS_FILE",
-            "_sync_mixin.EXTRA_BENEFITS_FILE",
+            "_poke_credit.EXTRA_BENEFITS_FILE",
             "_status.EXTRA_BENEFITS_FILE",
         ),
     ),

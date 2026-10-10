@@ -14,7 +14,6 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from screen_locker._earned import hhmm
-from screen_locker._extra_benefits import weekly_shutdown_bonus_hours
 from screen_locker._shutdown import read_shutdown_config
 from screen_locker._shutdown_base import base_minutes
 from screen_locker._status_types import ShutdownProjection, ShutdownProjectionDay
@@ -31,14 +30,9 @@ _RELAXED_DAY_EXPLANATION = (
 )
 _WEEKDAY_LABELS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 _MON_WED_WEEKDAYS = frozenset({0, 1, 2})
-# A banked weekly bonus (legacy, or a restore_and_bonus.py compensation) is in
-# whole hours.
-_MINUTES_PER_HOUR = 60
 
 
-def _week_rows(
-    monday: date, bonus: int, *, speculative: bool
-) -> tuple[ShutdownProjectionDay, ...]:
+def _week_rows(monday: date, *, speculative: bool) -> tuple[ShutdownProjectionDay, ...]:
     """Build 7 labeled rows, Mon-Sun from ``monday``, each on its own day's base.
 
     Each row asks ``base_minutes`` for its own date, so a registry cut dated
@@ -47,7 +41,7 @@ def _week_rows(
     return tuple(
         ShutdownProjectionDay(
             label=label,
-            minutes=base_minutes(monday + timedelta(days=weekday)) + bonus,
+            minutes=base_minutes(monday + timedelta(days=weekday)),
             speculative=speculative,
         )
         for weekday, label in enumerate(_WEEKDAY_LABELS)
@@ -57,23 +51,17 @@ def _week_rows(
 def _shutdown_projection(
     *,
     shutdown_config_file: Path,
-    extra_benefits_file: Path,
     today_local: datetime,
 ) -> ShutdownProjection:
     """Build the shutdown-time projection: tonight, rest of week, next week.
 
-    Next week is the plain per-day base: a 5+ workout week no longer banks
-    shutdown hours for the week after (only the early-bird extension).
+    Every row is the plain per-day base: no week carries a banked shutdown
+    bonus (dropped 2026-10-10).
     """
     tonight = read_shutdown_config(shutdown_config_file)
-    bonus = (
-        weekly_shutdown_bonus_hours(extra_benefits_file, today=today_local)
-        * _MINUTES_PER_HOUR
-    )
     monday = today_local.date() - timedelta(days=today_local.weekday())
-    rest_of_week = _week_rows(monday, bonus, speculative=False)
-
-    next_week_preview = _week_rows(monday + timedelta(weeks=1), 0, speculative=True)
+    rest_of_week = _week_rows(monday, speculative=False)
+    next_week_preview = _week_rows(monday + timedelta(weeks=1), speculative=True)
 
     return ShutdownProjection(
         tonight=tonight,

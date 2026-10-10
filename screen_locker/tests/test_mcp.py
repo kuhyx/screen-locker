@@ -58,7 +58,6 @@ def _snapshot() -> StatusSnapshot:
         week=WeeklySummary(
             days=(day,), counted_count=2, minimum=4, remaining=2, extra=0
         ),
-        bonus_hours_this_week=0,
         streak=1,
         early_bird_extended=False,
         shutdown=ShutdownProjection(

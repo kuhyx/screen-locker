@@ -102,10 +102,10 @@ class TestGatherStatus:
 
         assert snap.shutdown.tonight == (1320, 1380, 300)
 
-    def test_bonus_streak_and_extended_early_bird_reflected(
+    def test_streak_and_early_bird_reflected_legacy_bonus_ignored(
         self, tmp_path: Path
     ) -> None:
-        """Bonus streak and extended early bird reflected."""
+        """Streak + early bird reflected; a legacy banked weekly bonus adds nothing."""
         files = _files(tmp_path)
         files["extra_benefits_file"].write_text(
             json.dumps(
@@ -121,10 +121,9 @@ class TestGatherStatus:
         ):
             snap = gather_status(**files, now=_FRIDAY_NOON_UTC)
 
-        assert snap.bonus_hours_this_week == 3
         assert snap.streak == 2
         assert snap.early_bird_extended is True
-        assert snap.shutdown.rest_of_week[0].minutes == 23 * 60  # 20h base + 3h bonus
+        assert snap.shutdown.rest_of_week[0].minutes == 20 * 60  # base, no bonus
 
     def test_next_week_preview_is_speculative_rest_of_week_is_not(
         self, tmp_path: Path
