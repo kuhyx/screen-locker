@@ -14,15 +14,10 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from screen_locker._earned import hhmm
-from screen_locker._extra_benefits import (
-    current_streak,
-    preview_bonus_if_week_ended_now,
-    weekly_shutdown_bonus_hours,
-)
+from screen_locker._extra_benefits import weekly_shutdown_bonus_hours
 from screen_locker._shutdown import read_shutdown_config
 from screen_locker._shutdown_base import base_minutes
 from screen_locker._status_types import ShutdownProjection, ShutdownProjectionDay
-from screen_locker._weekly_check import count_weekly_workouts
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -36,7 +31,8 @@ _RELAXED_DAY_EXPLANATION = (
 )
 _WEEKDAY_LABELS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 _MON_WED_WEEKDAYS = frozenset({0, 1, 2})
-# The weekly streak bonus is banked in whole hours.
+# A banked weekly bonus (legacy, or a restore_and_bonus.py compensation) is in
+# whole hours.
 _MINUTES_PER_HOUR = 60
 
 
@@ -62,10 +58,13 @@ def _shutdown_projection(
     *,
     shutdown_config_file: Path,
     extra_benefits_file: Path,
-    log_file: Path,
     today_local: datetime,
 ) -> ShutdownProjection:
-    """Build the shutdown-time projection: tonight, rest of week, next week."""
+    """Build the shutdown-time projection: tonight, rest of week, next week.
+
+    Next week is the plain per-day base: a 5+ workout week no longer banks
+    shutdown hours for the week after (only the early-bird extension).
+    """
     tonight = read_shutdown_config(shutdown_config_file)
     bonus = (
         weekly_shutdown_bonus_hours(extra_benefits_file, today=today_local)
@@ -74,16 +73,7 @@ def _shutdown_projection(
     monday = today_local.date() - timedelta(days=today_local.weekday())
     rest_of_week = _week_rows(monday, bonus, speculative=False)
 
-    this_week_count = count_weekly_workouts(log_file, today=today_local)
-    streak = current_streak(extra_benefits_file)
-    _would_be_streak, would_be_bonus = preview_bonus_if_week_ended_now(
-        this_week_count, streak
-    )
-    next_week_preview = _week_rows(
-        monday + timedelta(weeks=1),
-        would_be_bonus * _MINUTES_PER_HOUR,
-        speculative=True,
-    )
+    next_week_preview = _week_rows(monday + timedelta(weeks=1), 0, speculative=True)
 
     return ShutdownProjection(
         tonight=tonight,

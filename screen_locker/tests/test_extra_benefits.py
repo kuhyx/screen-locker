@@ -85,8 +85,10 @@ class TestProcessWeekTransition:
         year, week, _ = now.isocalendar()
         return f"{year}-W{week:02d}"
 
-    def test_awards_bonus_hours_for_5plus_workouts(self, tmp_path: Path) -> None:
-        """5+ workouts in previous week: streak += 1, bonus hours += extra."""
+    def test_5plus_week_extends_streak_without_banking_hours(
+        self, tmp_path: Path
+    ) -> None:
+        """5+ workouts: streak += 1 and early-bird, but no shutdown hours banked."""
         f = tmp_path / "state.json"
         f.write_text(
             json.dumps(
@@ -103,21 +105,25 @@ class TestProcessWeekTransition:
         ):
             rewards = process_week_transition(tmp_path / "log.json", f)
 
-        assert len(rewards) >= 1
-        assert "+2h shutdown bonus" in rewards[0]
+        assert len(rewards) == 1
+        assert rewards[0].startswith("6 workouts in ")
+        assert rewards[0].endswith(
+            "! 1-week streak, early-bird extended to 09:00 this week"
+        )
+        assert not any("shutdown bonus" in r for r in rewards)
         state = json.loads(f.read_text())
         assert state["consecutive_5plus_weeks"] == 1
-        assert state["weekly_shutdown_bonus_hours"][self._current_week_str()] == 2
+        assert state["weekly_shutdown_bonus_hours"] == {}
 
-    def test_awards_milestone_bonus_at_4_week_streak(self, tmp_path: Path) -> None:
-        """Streak reaches multiple of 4: +1h extra shutdown bonus."""
+    def test_4_week_streak_banks_no_milestone_hour(self, tmp_path: Path) -> None:
+        """Streak reaching 4 adds no +1h; a legacy bonus map is left untouched."""
         f = tmp_path / "state.json"
         f.write_text(
             json.dumps(
                 {
                     "last_processed_iso_week": self._PAST_WEEK,
                     "consecutive_5plus_weeks": 3,
-                    "weekly_shutdown_bonus_hours": {},
+                    "weekly_shutdown_bonus_hours": {"2020-W52": 2},
                     "extended_early_bird_iso_weeks": [],
                 }
             )
@@ -127,10 +133,11 @@ class TestProcessWeekTransition:
         ):
             rewards = process_week_transition(tmp_path / "log.json", f)
 
-        assert any("milestone" in r for r in rewards)
+        assert not any("milestone" in r or "+1h" in r for r in rewards)
+        assert "4-week streak" in rewards[0]
         state = json.loads(f.read_text())
         assert state["consecutive_5plus_weeks"] == 4
-        assert state["weekly_shutdown_bonus_hours"][self._current_week_str()] == 2
+        assert state["weekly_shutdown_bonus_hours"] == {"2020-W52": 2}
 
     def test_marks_current_week_as_extended_early_bird(self, tmp_path: Path) -> None:
         """5+ workouts mark current ISO week as extended EB (line 91-92)."""

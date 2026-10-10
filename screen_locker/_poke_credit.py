@@ -81,10 +81,10 @@ class PokeLocker(ScreenLocker):
 
         Mirrors ``StartupChecksMixin._check_non_verify_exits``, not
         ``sync_now`` (which never resets): the week transition must be
-        processed BEFORE the reset, and the weekly bonus layered on only when
-        this call did the reset. If the poke stamped the day without them, the
-        locker's own reset later would be a no-op and that day's streak bonus
-        would be lost.
+        processed BEFORE the reset, and any banked weekly bonus layered on only
+        when this call did the reset. If the poke stamped the day without them,
+        the locker's own reset later would be a no-op and that day's banked
+        bonus would be lost.
         """
         for reward in process_week_transition(self.log_file, EXTRA_BENEFITS_FILE):
             _logger.info("Weekly reward: %s", reward)

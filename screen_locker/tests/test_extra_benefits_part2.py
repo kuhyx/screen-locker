@@ -1,14 +1,15 @@
-"""Tests for _extra_benefits module (streak, shutdown bonus, EB extension)."""
+"""Tests for _extra_benefits (streak, legacy banked bonus, EB extension)."""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, tzinfo
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar, Self
+from unittest.mock import patch
 
 from screen_locker._extra_benefits import (
     has_extended_early_bird,
-    preview_bonus_if_week_ended_now,
+    process_week_transition,
     weekly_shutdown_bonus_hours,
 )
 
@@ -40,24 +41,62 @@ class TestWeeklyShutdownBonusHours:
         assert weekly_shutdown_bonus_hours(f) == 0
 
 
-class TestPreviewBonusIfWeekEndedNow:
-    """Tests for preview_bonus_if_week_ended_now — pure threshold math."""
+class _FrozenDatetime(datetime):
+    """``datetime`` whose ``now`` is pinned to Monday 2026-10-12 12:00 UTC."""
 
-    def test_below_threshold_returns_zero(self) -> None:
-        """< 5 workouts: no streak increment, no bonus (line 67 branch)."""
-        assert preview_bonus_if_week_ended_now(3, current_streak=2) == (0, 0)
+    @classmethod
+    def now(cls, tz: tzinfo | None = None) -> Self:
+        """The first Monday after the bonus was dropped (start of 2026-W42)."""
+        del tz
+        return cls(2026, 10, 12, 12, 0, tzinfo=UTC)
 
-    def test_at_threshold_awards_streak_and_bonus(self) -> None:
-        """Exactly 5 workouts: streak+1, bonus = count - 4."""
-        assert preview_bonus_if_week_ended_now(5, current_streak=0) == (1, 1)
 
-    def test_above_threshold_awards_larger_bonus(self) -> None:
-        """7 workouts: bonus = 7 - 4 = 3."""
-        assert preview_bonus_if_week_ended_now(7, current_streak=0) == (1, 3)
+class TestBonusDroppedAtW42:
+    """The 2026-W41 -> W42 rollover banks nothing; W41's hours stay readable."""
 
-    def test_milestone_streak_adds_extra_hour(self) -> None:
-        """Streak reaching a multiple of 4 adds +1h on top of the base bonus."""
-        assert preview_bonus_if_week_ended_now(5, current_streak=3) == (4, 2)
+    _STATE: ClassVar[dict[str, object]] = {
+        "consecutive_5plus_weeks": 3,
+        "last_processed_iso_week": "2026-W41",
+        "weekly_shutdown_bonus_hours": {"2026-W40": 3, "2026-W41": 2},
+        "extended_early_bird_iso_weeks": ["2026-W41"],
+        "shutdown_bonus_granted_for": ["2026-08-24"],
+    }
+
+    def test_w42_transition_banks_nothing(self, tmp_path: Path) -> None:
+        """5 workouts in W41 and a 4th streak week: early-bird yes, hours no."""
+        f = tmp_path / "state.json"
+        f.write_text(json.dumps(self._STATE))
+        with (
+            patch("screen_locker._extra_benefits.datetime", _FrozenDatetime),
+            patch(
+                "screen_locker._extra_benefits.count_weekly_workouts", return_value=5
+            ),
+        ):
+            rewards = process_week_transition(tmp_path / "log.json", f)
+
+        assert rewards == [
+            (
+                "5 workouts in 2026-W41! 4-week streak, "
+                "early-bird extended to 09:00 this week"
+            )
+        ]
+        state = json.loads(f.read_text())
+        assert state == {
+            **self._STATE,
+            "consecutive_5plus_weeks": 4,
+            "last_processed_iso_week": "2026-W42",
+            "extended_early_bird_iso_weeks": ["2026-W41", "2026-W42"],
+        }
+        w42 = datetime(2026, 10, 12, 12, 0, tzinfo=UTC)
+        assert weekly_shutdown_bonus_hours(f, today=w42) == 0
+        assert has_extended_early_bird(f, today=w42) is True
+
+    def test_w41_banked_hours_still_apply_through_sunday(self, tmp_path: Path) -> None:
+        """Hours banked before the drop keep applying for the rest of W41."""
+        f = tmp_path / "state.json"
+        f.write_text(json.dumps(self._STATE))
+        sunday = datetime(2026, 10, 11, 21, 0, tzinfo=UTC)
+        assert weekly_shutdown_bonus_hours(f, today=sunday) == 2
 
 
 class TestHasExtendedEarlyBird:

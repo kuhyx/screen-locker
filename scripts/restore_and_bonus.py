@@ -12,8 +12,9 @@ Two separate corrections, in this order:
 2. **Bank the bonus.** Written into ``extra_benefits_state.json`` under
    ``weekly_shutdown_bonus_hours[<ISO week>]`` -- the same key
    ``_extra_benefits.weekly_shutdown_bonus_hours()`` reads and
-   ``_apply_weekly_shutdown_bonus`` applies every day of the week. This is the
-   mechanism the locker already uses for streak rewards; nothing bespoke.
+   ``_apply_weekly_shutdown_bonus`` applies every day of the week. The locker
+   used this map for streak rewards until 2026-W41; since then this script is
+   its only writer.
 
 Two bonus hours by default: one for each day a completed workout was not
 counted (2026-06-12 and 2026-08-24).

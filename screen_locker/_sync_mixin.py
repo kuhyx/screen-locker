@@ -27,7 +27,7 @@ __all__ = ["SyncMixin"]
 
 _logger = logging.getLogger(__name__)
 
-# The weekly streak bonus is banked in whole hours; the schedule takes minutes.
+# A banked weekly bonus is in whole hours; the schedule takes minutes.
 _MINUTES_PER_HOUR = 60
 
 
@@ -138,7 +138,12 @@ class SyncMixin:
         self.workout_data = {}
 
     def _apply_weekly_shutdown_bonus(self) -> None:
-        """Layer this week's earned shutdown bonus back on top of the fresh base."""
+        """Layer this week's banked shutdown bonus (if any) on the fresh base.
+
+        Week transitions stopped banking hours after 2026-W41; only hours
+        already banked for this week or a restore_and_bonus.py compensation
+        remain to apply.
+        """
         bonus = weekly_shutdown_bonus_hours(EXTRA_BENEFITS_FILE)
         if bonus > 0 and self._adjust_shutdown_time_by(bonus * _MINUTES_PER_HOUR):
             _logger.info("Weekly bonus: +%dh shutdown time this week.", bonus)

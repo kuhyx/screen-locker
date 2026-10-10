@@ -104,13 +104,13 @@ class StartupChecksMixin(SyncMixin):
         if self._is_scheduled_skip_today():
             self._record_skip("scheduled_skip_day", "Today is a scheduled skip day.")
             return
-        # Award streak / shutdown-bonus / EB-extension rewards from last week
-        # before the daily reset, so a Monday transition's bonus is recorded
-        # in time for _apply_weekly_shutdown_bonus below to see it.
+        # Award streak / EB-extension rewards from last week before the daily
+        # reset. The transition no longer banks shutdown hours; any already
+        # banked for this week are layered on by _apply_weekly_shutdown_bonus.
         for reward_msg in process_week_transition(self.log_file, EXTRA_BENEFITS_FILE):
             _logger.info("Weekly reward: %s", reward_msg)
         # Reset shutdown config to base (19:00) at the start of each new day,
-        # then layer this week's earned bonus back on top of the fresh base.
+        # then layer this week's banked bonus (if any) back on the fresh base.
         if reset_to_base_if_new_day(
             SHUTDOWN_BASE_FILE,
             self,

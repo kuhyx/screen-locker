@@ -211,7 +211,6 @@ def gather_status(
         shutdown=_shutdown_projection(
             shutdown_config_file=shutdown_config_file,
             extra_benefits_file=extra_benefits_file,
-            log_file=log_file,
             today_local=today_local,
         ),
         lock_explanation=lock_explanation,

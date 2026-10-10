@@ -94,3 +94,37 @@ class TestFormatSummaryLine:
             snap = gather_status(**files, now=_FRIDAY_NOON_UTC)
 
         assert "23:00 tonight" in format_summary_line(snap)
+
+
+class TestNextWeekPreviewHasNoWeeklyBonus:
+    """A 5+ workout week no longer promises next week a later shutdown."""
+
+    def test_five_workouts_and_a_streak_preview_the_plain_base(
+        self, tmp_path: Path
+    ) -> None:
+        """5 workouts + streak 3 (old rule: +2h next week) -> next week is base."""
+        files = _files(tmp_path)
+        files["log_file"].write_text(
+            json.dumps(
+                {
+                    f"2024-01-0{day}": {"workout_data": {"type": "phone_verified"}}
+                    for day in range(1, 6)
+                }
+            )
+        )
+        files["extra_benefits_file"].write_text(
+            json.dumps({"consecutive_5plus_weeks": 3})
+        )
+        with (
+            patch(
+                "screen_locker._status_data.has_workout_skip_today", return_value=False
+            ),
+            patch(
+                "screen_locker._compliance_predicates.verify_entry_hmac",
+                return_value=True,
+            ),
+        ):
+            snap = gather_status(**files, now=_FRIDAY_NOON_UTC)
+
+        assert snap.week.counted_count == 5
+        assert [d.minutes for d in snap.shutdown.next_week_preview] == [20 * 60] * 7

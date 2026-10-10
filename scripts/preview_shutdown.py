@@ -168,7 +168,7 @@ def main() -> int:
         _report("today, real ledgers", target)
         weekly = weekly_shutdown_bonus_hours(EXTRA_BENEFITS_FILE) * 60
         _say(
-            f"    + weekly streak bonus {weekly} min (layered after the reset, "
+            f"    + banked weekly bonus {weekly} min (layered after the reset, "
             f"absorbs the grace lift) -> expected config "
             f"{hhmm(min(HELPER_CEILING, max(target.earned + weekly, target.minutes)))}"
         )
