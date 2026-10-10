@@ -199,8 +199,14 @@ class TestProjectionFollowsTheCut:
         def base(day: date) -> int:
             # From the sleep ladder (Sat 2026-10-10) the registry prices the
             # day itself; before it, the cut from Tuesday holds.
-            # The registry in force that day (the tutor cutover switches it).
-            return earned_time.base_for(day, _earned.registry(day)).shutdown_minutes
+            # The registry in force that day (the tutor cutover switches it),
+            # and from today on its first credits: a never-paid tutor spares
+            # the floor (earned_time 0.6.1).
+            earners = _earned.registry(day)
+            starts = _earned.first_credits(earners, day)
+            return earned_time.base_for(
+                day, earners, first_credits=starts
+            ).shutdown_minutes
 
         week = [date(2026, 10, 5 + i) for i in range(7)]
         assert [base(d) for d in week[1:4]] == [lowered] * 3

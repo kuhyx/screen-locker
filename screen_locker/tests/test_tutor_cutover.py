@@ -1,9 +1,10 @@
 """The Automation tutor on a simulated cutover: penalty start and grace floor.
 
-``earned_time.TUTOR_FROM`` is a far-future sentinel, so the cutover is
-simulated on a fixed day: the registry's cutover (bound by value in
-``_registry`` and ``_ladder``) and the tutor's own ``penalty_from`` move to
-:data:`_CUTOVER`. Nothing is written outside the suite's redirected home.
+``earned_time.TUTOR_FROM`` is 2026-10-10 since earned_time 0.6.1; the
+fixture still pins the registry's cutover (bound by value in ``_registry`` and
+``_ladder``) and the tutor's own ``penalty_from`` to :data:`_CUTOVER`, so the
+suite does not move if a later release moves the cutover. Nothing is written
+outside the suite's redirected home.
 """
 
 from __future__ import annotations
@@ -92,13 +93,25 @@ class TestNeverCredited:
         assert wired.resolution.base.gaming_minutes == (
             unwired.resolution.base.gaming_minutes + cut
         )
-        # KNOWN GAP (earned_time 0.6.0): on the sleep ladder the shutdown
-        # floor is the ceiling minus every registered earner's full pay and
-        # never asks whether a penalty is in force, so a never-credited tutor
-        # still costs its shutdown minutes. A fix there flips this assertion.
+
+    def test_no_tutor_rung_off_the_shutdown_floor(self) -> None:
+        """earned_time 0.6.1: a gate whose penalty has not started spares the floor.
+
+        Unwired, the tutor's penalty starts at ``penalty_from`` and its full
+        rung (13+13+12+12) comes off the ladder floor; wired, the never-paid
+        tutor costs no shutdown either, so the floor stays at 19:50.
+        """
+        answers = {e.name: 0 for e in registry(_CUTOVER)}
+        starts = first_credits(registry(_CUTOVER), _CUTOVER)
+        wired = derive(DayInputs(_CUTOVER, answers, first_credits=starts))
+        unwired = derive(DayInputs(_CUTOVER, answers))
+        tutor = earned_time.AUTOMATION_TUTOR
+        rung = tutor.shutdown_for(tutor.max_units or 1, _CUTOVER)
+        assert rung == 50
         assert wired.resolution.base.shutdown_minutes == (
-            unwired.resolution.base.shutdown_minutes
+            unwired.resolution.base.shutdown_minutes + rung
         )
+        assert wired.resolution.base.shutdown_minutes == 19 * 60 + 50
 
 
 @pytest.mark.usefixtures("tutor")
