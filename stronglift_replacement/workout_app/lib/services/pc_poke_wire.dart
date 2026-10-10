@@ -11,8 +11,9 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 
-/// TCP port the PC's poke listener binds (8771 belongs to another service).
-const int kPcPokePort = 8773;
+/// TCP port the PC's poke listener binds (8771 and 8773 -- book-guard's
+/// desktop wrapper -- belong to other services).
+const int kPcPokePort = 8774;
 
 /// Request path on the PC.
 const String kPcPokePath = '/v1/workout';

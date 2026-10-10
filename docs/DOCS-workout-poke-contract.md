@@ -8,9 +8,10 @@ session that arrives both ways is credited once.
 
 ## Transport
 
-- `POST http://<pc-host>:8773/v1/workout`, `Content-Type: application/json`.
+- `POST http://<pc-host>:8774/v1/workout`, `Content-Type: application/json`.
+  (8773 until 2026-10-10: that is book-guard's desktop wrapper's port.)
 - `<pc-host>` is a phone setting, default `192.168.1.43` (static on the PC).
-  LAN only: the PC firewall accepts tcp/8773 from `192.168.1.0/24` and nothing
+  LAN only: the PC firewall accepts tcp/8774 from `192.168.1.0/24` and nothing
   else. No WireGuard. Off the home LAN the poke fails fast and the regular
   sync is the only path.
 - Header `X-Poke-Signature: <hex HMAC-SHA256(key, raw body bytes)>`.

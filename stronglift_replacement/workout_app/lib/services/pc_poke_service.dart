@@ -19,7 +19,7 @@ import 'package:workout_app/services/workout_sync_service.dart';
 
 export 'package:workout_app/services/pc_poke_result.dart';
 
-/// Signs and POSTs one session to `http://<pc-host>:8773/v1/workout`.
+/// Signs and POSTs one session to `http://<pc-host>:8774/v1/workout`.
 ///
 /// Runs beside [WorkoutSyncService.push], never instead of it: the PC dedups
 /// by record id, so whichever path lands first credits and the other is a

@@ -36,7 +36,7 @@ void main() {
       expect(SandboxHttpOverrides.allows(poke), isFalse);
     });
 
-    test('allows exactly http + configured host + 8773 + /v1/workout', () {
+    test('allows exactly http + configured host + 8774 + /v1/workout', () {
       SandboxHttpOverrides.pokeHost = host;
       expect(SandboxHttpOverrides.allows(poke), isTrue);
       for (final other in [
@@ -87,12 +87,12 @@ void main() {
       } on SocketException catch (error) {
         outcome = error;
       }
-      // No listener on this host's 8773 is fine -- what matters is that a
+      // No listener on this host's poke port is fine -- what matters is that a
       // refusal, if any, did not come from the sandbox.
       if (outcome is SocketException) {
         expect(outcome.message, isNot(contains('sandbox')));
       }
-      expect(printed.first, contains('allowing the PC poke to $host:8773'));
+      expect(printed.first, contains('allowing the PC poke to $host:$kPcPokePort'));
       client.close(force: true);
     });
   });

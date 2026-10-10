@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Drive the running workout poke listener from this PC, signed with the real key.
 
-Each case POSTs to ``http://127.0.0.1:8773/v1/workout`` exactly as the phone
+Each case POSTs to ``http://127.0.0.1:8774/v1/workout`` exactly as the phone
 would (``docs/DOCS-workout-poke-contract.md``) and prints the status and reply:
 
 * ``sandbox``   -- a signed sandbox request: 200, ok, credited=false;
@@ -109,7 +109,7 @@ def main() -> int:
         "case", choices=["sandbox", "badsig", "replay", "stale", "duplicate", "latency"]
     )
     parser.add_argument("--count", type=int, default=20)
-    parser.add_argument("--port", type=int, default=8773)
+    parser.add_argument("--port", type=int, default=8774)
     args = parser.parse_args()
     key = bytes.fromhex(KEY_FILE.read_text(encoding="ascii").strip())
     if args.case == "sandbox":

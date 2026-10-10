@@ -1,5 +1,5 @@
 [Unit]
-Description=Credit a phone workout the second it is poked over the LAN (tcp/8773)
+Description=Credit a phone workout the second it is poked over the LAN (tcp/8774)
 
 [Service]
 # Resident stdlib HTTP server (screen_locker/_poke_server.py): the phone POSTs

@@ -3,7 +3,7 @@
 What ``workout-poke.service`` runs: load the shared key, warm the imports and
 the budget sum, start the Firebase session stream (off-LAN credit,
 :mod:`screen_locker._session_stream`) on a daemon thread, then serve ``POST
-/v1/workout`` on port 8773 for good. The request handling lives in
+/v1/workout`` on port 8774 for good. The request handling lives in
 :mod:`screen_locker._poke_server`; the contract is
 ``docs/DOCS-workout-poke-contract.md``.
 
@@ -29,7 +29,8 @@ __all__ = ["DEFAULT_KEY_FILE", "DEFAULT_PORT", "load_key", "main"]
 
 _logger: Final = logging.getLogger(__name__)
 
-DEFAULT_PORT: Final = 8773
+DEFAULT_PORT: Final = 8774
+"""Not 8773: that is book-guard's desktop wrapper (loopback, older)."""
 DEFAULT_KEY_FILE: Final = Path.home() / ".config" / "workout_poke" / "key"
 _KEYGEN_HINT: Final = "run scripts/workout_poke_keygen.sh"
 
@@ -50,7 +51,7 @@ def load_key(path: Path) -> bytes:
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    # "" binds every interface; the firewall admits tcp/8773 from the LAN only.
+    # "" binds every interface; the firewall admits tcp/8774 from the LAN only.
     parser.add_argument("--bind", default="", help="address (default: all)")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--key-file", type=Path, default=DEFAULT_KEY_FILE)

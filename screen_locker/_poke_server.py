@@ -1,7 +1,7 @@
 """The resident LAN listener that credits a phone workout within a second.
 
 ``workout-poke.service`` runs ``python3 -m screen_locker.poke_server``: a
-stdlib ``ThreadingHTTPServer`` on ``0.0.0.0:8773`` (the firewall admits only
+stdlib ``ThreadingHTTPServer`` on ``0.0.0.0:8774`` (the firewall admits only
 192.168.1.0/24) answering ``POST /v1/workout`` per
 ``docs/DOCS-workout-poke-contract.md``. Every import -- the locker, the
 earned-time registry, gatelock -- is paid once at startup, so a request costs

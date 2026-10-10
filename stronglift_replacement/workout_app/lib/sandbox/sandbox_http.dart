@@ -15,7 +15,7 @@ import 'package:workout_app/services/pc_poke_wire.dart';
 /// guard per service. A refused connection surfaces as a normal sync failure
 /// in the UI, which is the honest answer: the sandbox is offline by design.
 ///
-/// The single exception is `http://<pokeHost>:8773/v1/workout`, so a sandbox
+/// The single exception is `http://<pokeHost>:8774/v1/workout`, so a sandbox
 /// workout can time the PC round trip. The PC verifies the signed
 /// `"sandbox": true` and never writes or credits it. Firebase and GitHub are
 /// https on 443 and can never match.
