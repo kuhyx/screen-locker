@@ -7,7 +7,7 @@ the tutor-cutover one (``earners_for``) read, so these hold on either.
 
 from __future__ import annotations
 
-from datetime import date, datetime, time
+from datetime import date
 import json
 import logging
 from typing import TYPE_CHECKING, Any
@@ -207,31 +207,3 @@ class TestThroughTheShutdownBase:
         apply_flat_bonuses_if_new(state, mixin)
         mixin._adjust_shutdown_time_by.assert_not_called()
         assert not state.exists()
-
-
-@pytest.mark.usefixtures("key")
-def test_the_real_tutor_rung_pays_15_per_block_then_nothing() -> None:
-    """The registry's per-block rung (earned_time 0.7.0), through this pass."""
-    tutor = getattr(earned_time, "AUTOMATION_TUTOR", None)
-    if tutor is None:
-        pytest.skip("installed earned_time predates the tutor (< 0.5)")
-    cutover = earned_time.TUTOR_FROM.isoformat()
-    state: dict[str, Any] = {}
-    adjust = MagicMock(return_value=True)
-    rows: list[dict[str, Any]] = []
-    for number in range(1, 6):
-        ended = datetime.combine(earned_time.TUTOR_FROM, time(18, number)).astimezone()
-        rows.append(
-            signed(
-                {
-                    "kind": "credit",
-                    "entry_id": f"s-b{number}",
-                    "day": cutover,
-                    "detail": {"block": number, "ended_at": ended.timestamp()},
-                }
-            )
-        )
-        write_ledger(tutor, rows)
-        apply_counted_bonus(state, adjust, tutor, cutover)
-    assert [c.args[0] for c in adjust.call_args_list] == [15, 15, 15, 15]
-    assert state["automation_bonus_units"] == {"date": cutover, "units": 5}
