@@ -210,8 +210,8 @@ class TestThroughTheShutdownBase:
 
 
 @pytest.mark.usefixtures("key")
-def test_the_real_tutor_rung_pays_13_13_12_12_then_nothing() -> None:
-    """The registry's uneven split, through this pass, on the cutover day."""
+def test_the_real_tutor_rung_pays_15_per_block_then_nothing() -> None:
+    """The registry's per-block rung (earned_time 0.7.0), through this pass."""
     tutor = getattr(earned_time, "AUTOMATION_TUTOR", None)
     if tutor is None:
         pytest.skip("installed earned_time predates the tutor (< 0.5)")
@@ -233,5 +233,5 @@ def test_the_real_tutor_rung_pays_13_13_12_12_then_nothing() -> None:
         )
         write_ledger(tutor, rows)
         apply_counted_bonus(state, adjust, tutor, cutover)
-    assert [c.args[0] for c in adjust.call_args_list] == [13, 13, 12, 12]
+    assert [c.args[0] for c in adjust.call_args_list] == [15, 15, 15, 15]
     assert state["automation_bonus_units"] == {"date": cutover, "units": 5}

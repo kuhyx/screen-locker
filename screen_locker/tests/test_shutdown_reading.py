@@ -120,9 +120,10 @@ class TestResetIncludesReading:
         apply_flat_bonuses_if_new(state, mixin)
         mixin._adjust_shutdown_time_by.assert_not_called()
 
-    def test_reset_is_still_capped_at_the_ceiling(
+    def test_reset_without_the_tutor_stops_an_hour_below_the_ceiling(
         self, tmp_path: Path, answers: tuple[dict[str, bool | None], MagicMock]
     ) -> None:
+        """Nine workouts still pay one rung; the confirmed tutor's 60 is unpaid."""
         answers[0]["leetcode"] = True
         answers[0]["reading"] = True
         mixin = _mixin()
@@ -131,7 +132,7 @@ class TestResetIncludesReading:
                 tmp_path / "state.json", mixin, log_file=tmp_path / "log.json"
             )
         mixin._write_shutdown_config.assert_called_once_with(
-            1380, 1380, 300, restore=True
+            1320, 1320, 300, restore=True
         )
 
     def test_unknown_reading_earns_nothing_warns_and_is_not_stamped(

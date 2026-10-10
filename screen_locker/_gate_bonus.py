@@ -5,7 +5,7 @@ A flat earner (LeetCode, reading) pays once a day, stamped
 signed ledger row per verified 15-minute block -- pays per unit, so its stamp
 is ``<name>_bonus_units``: the day, and how many units the config already
 holds. The live pass pays only the difference, priced by
-``Earner.shutdown_for`` so the uneven rung split (13/13/12/12) and the
+``Earner.shutdown_for`` so the rung's per-unit split (15 per tutor block) and the
 ``max_units`` cap come from the registry, never from here.
 
 The workout is counted too, but screen-locker owns its log and

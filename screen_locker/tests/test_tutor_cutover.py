@@ -76,42 +76,39 @@ def test_the_simulated_cutover_registers_the_tutor(tutor: Any) -> None:
 
 
 @pytest.mark.usefixtures("tutor")
-class TestNeverCredited:
-    """A tutor that never paid out is not penalised once first_credits is wired."""
+class TestConfirmedButNeverCredited:
+    """earned_time 0.7.0: a confirmed tutor is penalised from its first day."""
 
     def test_the_map_says_never(self) -> None:
         starts = first_credits(registry(_CUTOVER), _CUTOVER)
         assert starts is not None
         assert starts["automation"] is None
 
-    def test_no_tutor_penalty_on_the_gaming_base(self) -> None:
+    def test_the_tutor_penalty_is_on_the_gaming_base_unpaid(self) -> None:
         answers = {e.name: 0 for e in registry(_CUTOVER)}
         starts = first_credits(registry(_CUTOVER), _CUTOVER)
         wired = derive(DayInputs(_CUTOVER, answers, first_credits=starts))
         unwired = derive(DayInputs(_CUTOVER, answers))
-        cut = earned_time.AUTOMATION_TUTOR.max_gaming_minutes
         assert wired.resolution.base.gaming_minutes == (
-            unwired.resolution.base.gaming_minutes + cut
+            unwired.resolution.base.gaming_minutes
         )
 
-    def test_no_tutor_rung_off_the_shutdown_floor(self) -> None:
-        """earned_time 0.6.1: a gate whose penalty has not started spares the floor.
+    def test_the_whole_tutor_rung_comes_off_the_shutdown_floor(self) -> None:
+        """Confirmed on 2026-10-09, so a never-paid tutor still costs its rung.
 
-        Unwired, the tutor's penalty starts at ``penalty_from`` and its full
-        rung (13+13+12+12) comes off the ladder floor; wired, the never-paid
-        tutor costs no shutdown either, so the floor stays at 19:50.
+        Its full rung (4 blocks of 15) comes off the ladder floor whether or
+        not ``first_credits`` is wired, leaving 18:50.
         """
         answers = {e.name: 0 for e in registry(_CUTOVER)}
         starts = first_credits(registry(_CUTOVER), _CUTOVER)
         wired = derive(DayInputs(_CUTOVER, answers, first_credits=starts))
         unwired = derive(DayInputs(_CUTOVER, answers))
         tutor = earned_time.AUTOMATION_TUTOR
-        rung = tutor.shutdown_for(tutor.max_units or 1, _CUTOVER)
-        assert rung == 50
+        assert tutor.shutdown_for(tutor.max_units or 1, _CUTOVER) == 60
         assert wired.resolution.base.shutdown_minutes == (
-            unwired.resolution.base.shutdown_minutes + rung
+            unwired.resolution.base.shutdown_minutes
         )
-        assert wired.resolution.base.shutdown_minutes == 19 * 60 + 50
+        assert wired.resolution.base.shutdown_minutes == 18 * 60 + 50
 
 
 @pytest.mark.usefixtures("tutor")
