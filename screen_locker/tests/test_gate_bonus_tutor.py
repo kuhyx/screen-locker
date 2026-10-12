@@ -30,9 +30,9 @@ def key(tmp_path: Path) -> Iterator[Path]:
 @pytest.mark.usefixtures("key")
 def test_the_real_tutor_rung_pays_legacy_blocks_as_15_minutes_up_to_60() -> None:
     """Legacy block rows (no ``detail.minutes``) pay 15 minutes each (0.8.0)."""
-    tutor = getattr(earned_time, "AUTOMATION_TUTOR", None)
+    tutor = getattr(earned_time, "TUTOR", None)
     if tutor is None:
-        pytest.skip("installed earned_time predates the tutor (< 0.5)")
+        pytest.skip("installed earned_time predates TUTOR (< 0.9)")
     cutover = earned_time.TUTOR_FROM.isoformat()
     state: dict[str, Any] = {}
     adjust = MagicMock(return_value=True)
@@ -53,15 +53,15 @@ def test_the_real_tutor_rung_pays_legacy_blocks_as_15_minutes_up_to_60() -> None
         apply_counted_bonus(state, adjust, tutor, cutover)
     assert [c.args[0] for c in adjust.call_args_list] == [15, 15, 15, 15]
     # Units are minutes now: five block rows count 75; the cap stops the pay.
-    assert state["automation_bonus_units"] == {"date": cutover, "units": 75}
+    assert state["tutor_bonus_units"] == {"date": cutover, "units": 75}
 
 
 @pytest.mark.usefixtures("key")
 def test_the_real_tutor_rung_pays_each_credited_minute() -> None:
     """A per-minute row (``detail.minutes``) pays exactly its minutes."""
-    tutor = getattr(earned_time, "AUTOMATION_TUTOR", None)
+    tutor = getattr(earned_time, "TUTOR", None)
     if tutor is None:
-        pytest.skip("installed earned_time predates the tutor (< 0.5)")
+        pytest.skip("installed earned_time predates TUTOR (< 0.9)")
     cutover = earned_time.TUTOR_FROM.isoformat()
     state: dict[str, Any] = {}
     adjust = MagicMock(return_value=True)
@@ -71,4 +71,4 @@ def test_the_real_tutor_rung_pays_each_credited_minute() -> None:
     write_ledger(tutor, [signed(row)])
     apply_counted_bonus(state, adjust, tutor, cutover)
     adjust.assert_called_once_with(7)
-    assert state["automation_bonus_units"] == {"date": cutover, "units": 7}
+    assert state["tutor_bonus_units"] == {"date": cutover, "units": 7}

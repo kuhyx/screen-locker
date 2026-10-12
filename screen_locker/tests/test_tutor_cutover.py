@@ -41,10 +41,9 @@ def tutor(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[Any]:
     Yields:
         The tutor earner, penalised from ``_CUTOVER``.
     """
-    item = replace(earned_time.AUTOMATION_TUTOR, penalty_from=_CUTOVER)
+    item = replace(earned_time.TUTOR, penalty_from=_CUTOVER)
     swapped = tuple(
-        item if e is earned_time.AUTOMATION_TUTOR else e
-        for e in earned_time.TUTOR_EARNERS
+        item if e is earned_time.TUTOR else e for e in earned_time.TUTOR_EARNERS
     )
     monkeypatch.setattr(earned_time, "TUTOR_EARNERS", swapped)
     monkeypatch.setattr("earned_time._registry.TUTOR_FROM", _CUTOVER)
@@ -82,7 +81,7 @@ class TestConfirmedButNeverCredited:
     def test_the_map_says_never(self) -> None:
         starts = first_credits(registry(_CUTOVER), _CUTOVER)
         assert starts is not None
-        assert starts["automation"] is None
+        assert starts["tutor"] is None
 
     def test_the_tutor_penalty_is_on_the_gaming_base_unpaid(self) -> None:
         answers = {e.name: 0 for e in registry(_CUTOVER)}
@@ -103,7 +102,7 @@ class TestConfirmedButNeverCredited:
         starts = first_credits(registry(_CUTOVER), _CUTOVER)
         wired = derive(DayInputs(_CUTOVER, answers, first_credits=starts))
         unwired = derive(DayInputs(_CUTOVER, answers))
-        tutor = earned_time.AUTOMATION_TUTOR
+        tutor = earned_time.TUTOR
         assert tutor.shutdown_for(tutor.max_units or 1, _CUTOVER) == 60
         assert wired.resolution.base.shutdown_minutes == (
             unwired.resolution.base.shutdown_minutes

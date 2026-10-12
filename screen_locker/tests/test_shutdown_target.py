@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 _DAY = date(2026, 10, 10)
 _ISO = _DAY.isoformat()
-_FLAT = {"leetcode": False, "reading": False, "anki": False, "automation": False}
+_FLAT = {"leetcode": False, "reading": False, "anki": False, "tutor": False}
 
 
 def at(hhmm: str) -> float:

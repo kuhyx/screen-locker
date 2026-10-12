@@ -58,7 +58,7 @@ def _credits(fill: Callable[[date], date | None] | None) -> Callable[[date], Cre
 
 def _new_tutor_beside_mature(day: date) -> Credits:
     mature = {e.name: date(2026, 8, 1) for e in registry_for(day)}
-    return {**mature, "automation": None}
+    return {**mature, "tutor": None}
 
 
 _MATURITY: Mapping[str, Callable[[date], Credits]] = {
