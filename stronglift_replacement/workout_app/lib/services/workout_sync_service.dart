@@ -212,6 +212,22 @@ class WorkoutSyncService {
   Future<List<Map<String, dynamic>>> readMergedManualPayloads() =>
       _readMergedPayloads(kind: kManualWorkoutSyncKind);
 
+  /// [readMergedManualPayloads] plus every tombstoned id, from ONE read.
+  ///
+  /// The manual-workout form needs both: the payloads for the budget, the
+  /// ids to refuse re-logging onto a deleted record (see [ManualLedger]).
+  Future<ManualLedger> readManualLedger() =>
+      _readMergedLedger(kind: kManualWorkoutSyncKind);
+
+  /// Deletes the manual workout [recordId] everywhere: a crdt-sync
+  /// tombstone through [pushManual]. Only planned (future-dated) entries
+  /// are offered for deletion; the caller enforces that. Same never-throw
+  /// contract as [push]: a failed tombstone leaves the record live, and
+  /// says so.
+  Future<PushResult> tombstoneManual(String recordId) => pushManual(
+    buildManualTombstone(recordId, hlc: Hlc.newTick(currentSyncDeviceId)),
+  );
+
   /// Every synced workout, whatever kind — manual, StrongLifts or RunnerUp.
   ///
   /// The PC publishes its whole `log.json` (including verified runs),

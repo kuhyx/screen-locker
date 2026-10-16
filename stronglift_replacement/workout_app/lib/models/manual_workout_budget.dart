@@ -3,7 +3,8 @@
 // See manual_workout_validation.dart for why these are `part` files.
 part of 'manual_workout.dart';
 
-/// Counts DAYS with a manual workout in the rolling 7-/30-day windows.
+/// Counts manual workouts against the rolling 7-/30-day caps, as seen from
+/// the workout date [date].
 ///
 /// The budget is counted per ENTRY, not per day: each self-report consumes its
 /// own slot, so three workouts logged on one day cost three. That matches the
@@ -16,13 +17,21 @@ part of 'manual_workout.dart';
 /// its 7-day cap — but 1/2 here, and the phone kept accepting. Callers pass
 /// one payload per synced record (`manual:<date>T<HH:MM>`), so same-day
 /// workouts at different times arrive as distinct payloads.
+///
+/// Since 2026-10-16 a workout can be PLANNED up to a week ahead, so the count
+/// is no longer "the trailing window ending today". Each figure is the
+/// fullest window of that length that contains [date], counting past and
+/// future entries alike: adding an entry on [date] is only allowed if every
+/// such window stays within its cap, and the fullest one is the binding
+/// constraint. With no future entries and [date] = today this is exactly the
+/// old trailing count, since every other window holds a subset of it.
 ManualBudget countManualBudget(
   Iterable<Map<String, dynamic>> payloads,
-  DateTime now,
+  DateTime date,
 ) {
-  final today = DateTime(now.year, now.month, now.day);
-  var week = 0;
-  var month = 0;
+  final target = _dayNumber(date);
+  // Offsets (in days) of every counted entry relative to [date].
+  final offsets = <int>[];
   for (final payload in payloads) {
     // Skip evidence-less `{type, kind, date}` stubs. The PC refuses to ingest
     // these ("no workout data to ingest; skipping permanently"), so counting
@@ -32,14 +41,33 @@ ManualBudget countManualBudget(
     if (payload['start_time'] is! String) continue;
     final dateStr = payload['date'];
     if (dateStr is! String) continue;
-    final date = DateTime.tryParse(dateStr);
-    if (date == null) continue;
-    final days = today
-        .difference(DateTime(date.year, date.month, date.day))
-        .inDays;
-    if (days < 0) continue;
-    if (days < 7) week++;
-    if (days < 30) month++;
+    final entryDate = DateTime.tryParse(dateStr);
+    if (entryDate == null) continue;
+    offsets.add(_dayNumber(entryDate) - target);
   }
-  return ManualBudget(week: week, month: month);
+  return ManualBudget(
+    week: _fullestWindow(offsets, 7),
+    month: _fullestWindow(offsets, 30),
+  );
+}
+
+/// Days since the epoch for [day]'s calendar date.
+///
+/// Built in UTC so a DST change between two local midnights (a 23- or 25-hour
+/// "day") cannot truncate a one-day difference to zero.
+int _dayNumber(DateTime day) =>
+    DateTime.utc(day.year, day.month, day.day).millisecondsSinceEpoch ~/
+    Duration.millisecondsPerDay;
+
+/// The most entries any [length]-day window containing offset 0 holds.
+int _fullestWindow(List<int> offsets, int length) {
+  var fullest = 0;
+  // A window containing day 0 starts anywhere from `length - 1` days before
+  // it up to day 0 itself.
+  for (var start = 1 - length; start <= 0; start++) {
+    final end = start + length - 1;
+    final count = offsets.where((o) => o >= start && o <= end).length;
+    if (count > fullest) fullest = count;
+  }
+  return fullest;
 }

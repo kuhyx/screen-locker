@@ -3,18 +3,37 @@
 // An `extension` in a `part` -- see storage_service_backup.dart for why.
 part of 'workout_sync_service.dart';
 
+/// What the sync backends hold: the live payloads plus every tombstoned id.
+///
+/// The ids matter to the manual-workout form because a manual record's id is
+/// derived (`manual:<date>T<HH:MM>`) and deletion is sticky: re-logging the
+/// same date and start time after deleting a planned entry would land on the
+/// tombstone and vanish on every device without a word.
+typedef ManualLedger = ({
+  List<Map<String, dynamic>> payloads,
+  Set<String> tombstoned,
+});
+
+/// The ledger an unreadable or unconfigured backend answers with.
+const ManualLedger _emptyLedger = (
+  payloads: <Map<String, dynamic>>[],
+  tombstoned: <String>{},
+);
+
 /// Reads merged workout/manual payloads across every device log.
 extension WorkoutSyncServiceRead on WorkoutSyncService {
+  Future<List<Map<String, dynamic>>> _readMergedPayloads({
+    String? kind,
+  }) async => (await _readMergedLedger(kind: kind)).payloads;
 
-
-  Future<List<Map<String, dynamic>>> _readMergedPayloads({String? kind}) async {
+  Future<ManualLedger> _readMergedLedger({String? kind}) async {
     final settings = await SyncSettings.load();
     if (!settings.isConfigured && !await _hasFirebaseAccount()) {
       debugPrint(
         'WorkoutSyncService: NOT reading synced workouts — no sync backend '
         'configured in Settings, so this phone cannot see the PC history.',
       );
-      return const [];
+      return _emptyLedger;
     }
 
     try {
@@ -42,14 +61,11 @@ extension WorkoutSyncServiceRead on WorkoutSyncService {
         'WorkoutSyncService: FAILED reading synced workouts '
         '(kind=$which) from $owner/$repo: $failure — history may be incomplete.',
       );
-      return const [];
+      return _emptyLedger;
     }
   }
 
-  Future<List<Map<String, dynamic>>> _fetchPayloads(
-    String token,
-    String? kind,
-  ) async {
+  Future<ManualLedger> _fetchPayloads(String token, String? kind) async {
     final github = GitHubClient(
       owner: owner,
       repo: repo,
@@ -79,9 +95,14 @@ extension WorkoutSyncServiceRead on WorkoutSyncService {
       // delete it, and a per-file skip would just let the live copy win the
       // merge. Mirrors the PC's `_tombstoned_ids` (screen_locker/_sync_records.py).
       tombstoned.forEach(merged.remove);
-      return merged.values
-          .map((r) => (r.fields['payload']!.$1! as Map).cast<String, dynamic>())
-          .toList();
+      return (
+        payloads: merged.values
+            .map(
+              (r) => (r.fields['payload']!.$1! as Map).cast<String, dynamic>(),
+            )
+            .toList(),
+        tombstoned: tombstoned,
+      );
     } finally {
       github.close();
       firebase?.close();
@@ -118,5 +139,4 @@ extension WorkoutSyncServiceRead on WorkoutSyncService {
       }
     }
   }
-
 }

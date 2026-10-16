@@ -11,6 +11,9 @@ import 'dart:math';
 import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:workout_app/models/manual_workout.dart';
+import 'package:workout_app/sandbox/sandbox_log.dart';
+import 'package:workout_app/services/done_today.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/workout_sync_service.dart';
 import 'package:workout_app/ui/theme.dart';
@@ -19,6 +22,7 @@ import 'package:workout_app/widgets/calendar_widget.dart';
 part 'history_screen_charts.dart';
 part 'history_screen_data.dart';
 part 'history_screen_painter.dart';
+part 'history_screen_planned.dart';
 part 'history_screen_tiles.dart';
 
 const _kTotal = 'Total (all workouts)';
@@ -35,7 +39,12 @@ class HistoryScreen extends StatefulWidget {
   /// and it asks Firebase that question directly. On a desktop that has a
   /// cached refresh token the real factory answers yes, so the guard opens and
   /// the fetch goes to the network even with the sync token faked away.
-  const HistoryScreen({super.key, this.httpClient, this.firebaseFactory});
+  const HistoryScreen({
+    super.key,
+    this.httpClient,
+    this.firebaseFactory,
+    this.clock,
+  });
 
   /// Overrides the HTTP client used to read synced workouts (tests only).
   final http.Client? httpClient;
@@ -43,21 +52,18 @@ class HistoryScreen extends StatefulWidget {
   /// Overrides how a Firebase account is discovered (tests only).
   final Future<FirebaseRestClient?> Function()? firebaseFactory;
 
+  /// Decides which manual entries are still PLANNED (dated after today);
+  /// defaults to [DateTime.now], injected by tests.
+  final DateTime Function()? clock;
+
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
 }
 
-/// Synced kinds this phone has no local record of, so showing them can't
-/// double up an existing session.
-///
-/// A `phone_verified` record is the PC's mirror of a StrongLifts session this
-/// phone already stores in full (and renders from `_rows`), so it is
-/// deliberately excluded — otherwise the same workout would appear twice.
-const _kSyncedOnlyKinds = {'runnerup_verified', 'manual_workout'};
-
 class _HistoryScreenState extends State<HistoryScreen> {
   List<Map<String, dynamic>> _rows = [];
   List<Map<String, dynamic>> _syncedRows = [];
+  List<Map<String, dynamic>> _plannedRows = [];
   bool _loading = true;
   String _selected = _kTotal;
   List<String> _exerciseNames = [];
@@ -96,11 +102,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
       state = await StorageService.instance.getExerciseState(_selected);
       // coverage:ignore-end
     }
-    final synced = _syncedOnly(remote);
+    final today = dayKey((widget.clock ?? DateTime.now)());
+    final synced = _syncedOnly(remote, today);
+    final planned = _plannedOnly(remote, today);
     if (mounted) {
       setState(() {
         _rows = rows;
         _syncedRows = synced;
+        _plannedRows = planned;
         _exerciseNames = names;
         _selectedState = state;
         _loading = false;
@@ -113,10 +122,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   /// Read once per load and used twice: to restore this device's own missing
   /// sessions into local history, and to list the PC-only records below them.
   Future<List<Map<String, dynamic>>> _readSyncedPayloads() =>
-      WorkoutSyncService(
-        httpClient: widget.httpClient,
-        firebaseFactory: widget.firebaseFactory,
-      ).readMergedWorkoutPayloads();
+      _syncService().readMergedWorkoutPayloads();
 
   Future<void> _pickExercise(String name) async {
     ExerciseState? state;
@@ -147,7 +153,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _rows.isEmpty
+          // Synced and planned entries count too: a phone with no local
+          // sessions must still list (and let the user delete) its plans.
+          : _rows.isEmpty && _syncedRows.isEmpty && _plannedRows.isEmpty
           ? Center(
               child: Text(
                 'No workouts yet.',
@@ -173,6 +181,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   List<Widget> _buildTotalView() => [
+    ..._plannedSection(),
     const _SectionLabel('TOTAL VOLUME (2-session rolling avg, kg)'),
     const SizedBox(height: 6),
     _WeightChart(points: _rollingAvg2(_totalVolumePoints(_rows))),

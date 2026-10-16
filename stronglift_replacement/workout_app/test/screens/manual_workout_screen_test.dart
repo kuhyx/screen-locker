@@ -5,65 +5,21 @@ import 'package:workout_app/models/manual_workout.dart';
 import 'package:workout_app/screens/manual_workout_screen.dart';
 import 'package:workout_app/services/workout_sync_service.dart';
 
-class _FakeSync extends WorkoutSyncService {
-  _FakeSync({this.payloads = const []});
-
-  final List<Map<String, dynamic>> payloads;
-  Record? pushed;
-
-  @override
-  Future<List<Map<String, dynamic>>> readMergedManualPayloads() async =>
-      payloads;
-
-  @override
-  Future<PushResult> pushManual(Record record) async {
-    pushed = record;
-    return const PushResult(pushed: true, reason: 'pushed');
-  }
-}
-
-DateTime _fixedNow() => DateTime(2026, 7, 13, 20);
-
-Future<void> _pump(WidgetTester tester, Widget child) async {
-  // Tall viewport so the whole (long) form is laid out — a ListView only builds
-  // children within the viewport, so off-screen widgets aren't findable.
-  tester.view.physicalSize = const Size(500, 2600);
-  tester.view.devicePixelRatio = 1.0;
-  addTearDown(tester.view.resetPhysicalSize);
-  addTearDown(tester.view.resetDevicePixelRatio);
-  await tester.pumpWidget(MaterialApp(home: child));
-  await tester.pumpAndSettle(); // let the budget future resolve
-}
-
-Future<void> _fillValidTt(WidgetTester tester) async {
-  Future<void> enter(String key, String value) =>
-      tester.enterText(find.byKey(Key('mw_$key')), value);
-  await enter('start_time', '18:00');
-  await enter('end_time', '19:30');
-  await enter('location_name', 'Solec');
-  await enter('transport_method', 'bike');
-  await enter('cost', '40 PLN');
-  await enter('matches_won', '3');
-  await enter('matches_lost', '1');
-  await enter('sets_won', '7');
-  await enter('sets_lost', '4');
-  await enter('racket', 'Butterfly');
-  await enter('balls', 'Nittaku');
-  await enter('pain_or_injury', 'sore knee');
-  await enter('went_well', 'Served consistently and moved feet well');
-  await enter('to_improve', 'Backhand topspin needs more consistency');
-  await enter('overall_feeling', 'Felt strong focused and in good rhythm');
-}
+import '_manual_screen_fixtures.dart';
 
 void main() {
   testWidgets('shows the form and budget when not exhausted', (tester) async {
-    await _pump(
+    await pumpManual(
       tester,
-      ManualWorkoutScreen(syncService: _FakeSync(), clock: _fixedNow),
+      ManualWorkoutScreen(syncService: FakeManualSync(), clock: fixedManualNow),
     );
     expect(find.text('Log Manual Workout'), findsOneWidget);
     expect(find.text('SUBMIT'), findsOneWidget);
-    expect(find.textContaining('0/2 this week'), findsOneWidget);
+    expect(
+      find.text('Manual around 2026-07-13: 0/2 per 7 days · 0/10 per 30 days'),
+      findsOneWidget,
+    );
+    expect(find.text('Workout date: 2026-07-13 (today)'), findsOneWidget);
   });
 
   testWidgets('hides the form when the budget is exhausted', (tester) async {
@@ -84,11 +40,11 @@ void main() {
         'end_time': '19:00',
       },
     ];
-    await _pump(
+    await pumpManual(
       tester,
       ManualWorkoutScreen(
-        syncService: _FakeSync(payloads: payloads),
-        clock: _fixedNow,
+        syncService: FakeManualSync(payloads: payloads),
+        clock: fixedManualNow,
       ),
     );
     expect(find.textContaining('budget exhausted'), findsOneWidget);
@@ -96,10 +52,10 @@ void main() {
   });
 
   testWidgets('shows a validation error and does not push', (tester) async {
-    final sync = _FakeSync();
-    await _pump(
+    final sync = FakeManualSync();
+    await pumpManual(
       tester,
-      ManualWorkoutScreen(syncService: sync, clock: _fixedNow),
+      ManualWorkoutScreen(syncService: sync, clock: fixedManualNow),
     );
     await tester.tap(find.text('SUBMIT'));
     await tester.pump();
@@ -108,12 +64,12 @@ void main() {
   });
 
   testWidgets('valid table-tennis workout pushes and pops', (tester) async {
-    final sync = _FakeSync();
-    await _pump(
+    final sync = FakeManualSync();
+    await pumpManual(
       tester,
-      ManualWorkoutScreen(syncService: sync, clock: _fixedNow),
+      ManualWorkoutScreen(syncService: sync, clock: fixedManualNow),
     );
-    await _fillValidTt(tester);
+    await fillValidTt(tester);
     await tester.tap(find.text('SUBMIT'));
     await tester.pumpAndSettle();
     expect(sync.pushed, isNotNull);
@@ -124,9 +80,9 @@ void main() {
   });
 
   testWidgets('switching sport reveals the other-sport fields', (tester) async {
-    await _pump(
+    await pumpManual(
       tester,
-      ManualWorkoutScreen(syncService: _FakeSync(), clock: _fixedNow),
+      ManualWorkoutScreen(syncService: FakeManualSync(), clock: fixedManualNow),
     );
     expect(find.byKey(const Key('mw_matches_won')), findsOneWidget);
     await tester.tap(find.byType(DropdownButton<String>));
@@ -138,9 +94,9 @@ void main() {
   });
 
   testWidgets('RPE slider updates the label', (tester) async {
-    await _pump(
+    await pumpManual(
       tester,
-      ManualWorkoutScreen(syncService: _FakeSync(), clock: _fixedNow),
+      ManualWorkoutScreen(syncService: FakeManualSync(), clock: fixedManualNow),
     );
     expect(find.text('RPE 5'), findsOneWidget);
     await tester.drag(find.byType(Slider), const Offset(300, 0));
@@ -149,10 +105,10 @@ void main() {
   });
 
   testWidgets('other-sport validation error pushes nothing', (tester) async {
-    final sync = _FakeSync();
-    await _pump(
+    final sync = FakeManualSync();
+    await pumpManual(
       tester,
-      ManualWorkoutScreen(syncService: sync, clock: _fixedNow),
+      ManualWorkoutScreen(syncService: sync, clock: fixedManualNow),
     );
     await tester.tap(find.byType(DropdownButton<String>));
     await tester.pumpAndSettle();

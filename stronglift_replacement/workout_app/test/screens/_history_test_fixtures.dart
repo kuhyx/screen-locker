@@ -34,20 +34,20 @@ Future<void> pumpHistory(WidgetTester tester, Widget w) async {
 Widget wrapHistory({
   http.Client? httpClient,
   Future<FirebaseRestClient?> Function()? firebaseFactory,
+  DateTime Function()? clock,
 }) => MaterialApp(
   theme: buildAppTheme(),
   home: HistoryScreen(
     httpClient: httpClient,
     firebaseFactory: firebaseFactory ?? () async => null,
+    clock: clock,
   ),
 );
 
 /// A GitHub mock serving one PC device log holding a run and a manual.
 http.Client historySyncMock() {
-  String file(String body) => jsonEncode({
-    'content': base64Encode(utf8.encode(body)),
-    'sha': 'sha',
-  });
+  String file(String body) =>
+      jsonEncode({'content': base64Encode(utf8.encode(body)), 'sha': 'sha'});
   Record rec(String id, String kind, int ms) => Record(
     id: id,
     fields: {

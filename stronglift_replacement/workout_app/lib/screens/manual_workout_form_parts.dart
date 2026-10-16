@@ -8,12 +8,51 @@ part of 'manual_workout_screen.dart';
 
 /// The form's non-interactive building blocks.
 extension _ManualWorkoutFormParts on _ManualWorkoutScreenState {
+  /// The budget as seen from the selected date: the fullest 7- and 30-day
+  /// windows around it, planned entries included.
   Widget _budgetBanner(ManualBudget budget) => Text(
-    'Manual: ${budget.week}/$kManualWorkoutBudgetPer7Days this week · '
-    '${budget.month}/$kManualWorkoutBudgetPer30Days this month',
+    'Manual around ${dayKey(_date)}: '
+    '${budget.week}/$kManualWorkoutBudgetPer7Days per 7 days · '
+    '${budget.month}/$kManualWorkoutBudgetPer30Days per 30 days',
     style: TextStyle(
       color: Theme.of(context).colorScheme.primary,
       fontSize: AppTextSize.body,
+    ),
+  );
+
+  /// "today", "tomorrow" or "in N days" for the selected date.
+  String _relativeDay() {
+    // Rounded, not truncated: across a DST change two local midnights are
+    // 23 or 25 hours apart.
+    final days = (_date.difference(_today()).inHours / 24).round();
+    return switch (days) {
+      0 => 'today',
+      1 => 'tomorrow',
+      _ => 'in $days days',
+    };
+  }
+
+  /// The workout date and the button that changes it.
+  Widget _dateRow() => Padding(
+    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Workout date: ${dayKey(_date)} (${_relativeDay()})',
+            key: const Key('mw_date'),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: AppTextSize.body,
+            ),
+          ),
+        ),
+        TextButton(
+          key: const Key('mw_pick_date'),
+          onPressed: _submitting ? null : _pickDate,
+          child: const Text('CHANGE DATE'),
+        ),
+      ],
     ),
   );
 

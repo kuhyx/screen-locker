@@ -125,6 +125,14 @@ Set<String> _allWorkoutDates(
   ...syncedRows.map((r) => '${r['date']}'),
 };
 
+/// Synced kinds this phone has no local record of, so showing them can't
+/// double up an existing session.
+///
+/// A `phone_verified` record is the PC's mirror of a StrongLifts session this
+/// phone already stores in full (and renders from `_rows`), so it is
+/// deliberately excluded — otherwise the same workout would appear twice.
+const _kSyncedOnlyKinds = {'runnerup_verified', 'manual_workout'};
+
 /// Workouts the PC published that this phone has no local record of.
 ///
 /// The PC pushes its whole `log.json` (RunnerUp runs and manual
@@ -132,6 +140,37 @@ Set<String> _allWorkoutDates(
 /// the SAME history. Sorted newest-first to match the local session list.
 /// StrongLifts sessions are deliberately excluded: they are restored into
 /// local history instead, so listing them here too would double them up.
-List<Map<String, dynamic>> _syncedOnly(List<Map<String, dynamic>> payloads) =>
-    payloads.where((p) => _kSyncedOnlyKinds.contains(p['kind'])).toList()
+///
+/// Planned manual entries (see [_isPlanned]) are excluded as well: they have
+/// not happened, so they belong in their own list and never on the calendar,
+/// which is built from these rows.
+List<Map<String, dynamic>> _syncedOnly(
+  List<Map<String, dynamic>> payloads,
+  String today,
+) =>
+    payloads
+        .where((p) => _kSyncedOnlyKinds.contains(p['kind']))
+        .where((p) => !_isPlanned(p, today))
+        .toList()
       ..sort((a, b) => '${b['date']}'.compareTo('${a['date']}'));
+
+/// Manual entries dated after [today] (`YYYY-MM-DD`), soonest first.
+List<Map<String, dynamic>> _plannedOnly(
+  List<Map<String, dynamic>> payloads,
+  String today,
+) =>
+    payloads.where((p) => _isPlanned(p, today)).toList()
+      ..sort((a, b) => '${a['date']}'.compareTo('${b['date']}'));
+
+/// Whether [payload] is a manual workout dated after [today].
+///
+/// A plain string comparison is a date comparison for `YYYY-MM-DD` keys. Only
+/// manual entries can be planned; anything else dated ahead is a clock skew,
+/// not a plan, and is left where it was.
+///
+/// A stub with no `start_time` is never a plan: its record id cannot be
+/// derived, so a delete would tombstone nothing and the tile would return.
+bool _isPlanned(Map<String, dynamic> payload, String today) =>
+    payload['kind'] == kManualWorkoutSyncKind &&
+    payload['start_time'] is String &&
+    '${payload['date']}'.compareTo(today) > 0;

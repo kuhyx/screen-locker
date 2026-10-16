@@ -143,13 +143,61 @@ void main() {
       expect(budget.week, 3);
     });
 
-    test('ignores dates outside the 30-day window and future dates', () {
+    test('ignores dates outside every window containing the date', () {
       final budget = countManualBudget([
         payload('2026-05-01', '10:00'),
-        payload('2026-07-20', '10:00'),
+        payload('2026-09-20', '10:00'),
       ], now);
       expect(budget.week, 0);
       expect(budget.month, 0);
+    });
+
+    // Planned entries (2026-10-16): the count is the fullest window that
+    // CONTAINS the workout date, so a future entry costs budget too.
+    test('a future entry counts against a window containing the date', () {
+      final budget = countManualBudget([payload('2026-07-20', '10:00')], now);
+      expect(budget.week, 1);
+      expect(budget.month, 1);
+    });
+
+    test('a past and a future entry six days apart exhaust the week', () {
+      // 07-13 .. 07-19 is one 7-day window holding both, and it contains
+      // 07-16; the trailing window alone would have read 1/2.
+      final budget = countManualBudget([
+        payload('2026-07-13', '10:00'),
+        payload('2026-07-19', '10:00'),
+      ], now);
+      expect(budget.week, 2);
+      expect(budget.exhausted, isTrue);
+    });
+
+    test('moving the date away from a full week frees it', () {
+      final payloads = [
+        payload('2026-07-13', '10:00'),
+        payload('2026-07-19', '10:00'),
+      ];
+      // 07-26: windows containing it start 07-20 or later, past both.
+      final later = countManualBudget(payloads, DateTime(2026, 7, 26));
+      expect(later.week, 0);
+      expect(later.month, 2);
+      // 07-23: the window 07-17 .. 07-23 still holds 07-19.
+      expect(countManualBudget(payloads, DateTime(2026, 7, 23)).week, 1);
+    });
+
+    test('the date may carry a time of day', () {
+      final budget = countManualBudget([
+        payload('2026-07-16', '10:00'),
+      ], DateTime(2026, 7, 16, 23, 59));
+      expect(budget.week, 1);
+    });
+
+    test('a DST change between dates does not shift the day count', () {
+      // Europe's 2026 autumn change is 10-25; 10-19 .. 10-25 is one window.
+      final budget = countManualBudget([
+        payload('2026-10-19', '10:00'),
+        payload('2026-10-25', '10:00'),
+      ], DateTime(2026, 10, 25));
+      expect(budget.week, 2);
     });
 
     test('skips payloads with missing or unparsable date', () {

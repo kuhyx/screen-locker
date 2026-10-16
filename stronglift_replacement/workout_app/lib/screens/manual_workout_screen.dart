@@ -5,6 +5,11 @@
 /// (2/week, 5/month) computed over the merged cross-device record set. On
 /// submit it builds the shared sync payload and pushes it to the phone's device
 /// log; the PC ingests it as a counted `manual_workout`.
+///
+/// The workout date defaults to today and may be set up to
+/// [kManualWorkoutMaxDaysAhead] days ahead (never back): a planned session is
+/// logged now and credited by the PC on its own date. The budget is read as
+/// of the chosen date, so moving the date re-evaluates it.
 library;
 
 import 'dart:async';
@@ -12,10 +17,18 @@ import 'dart:async';
 import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter/material.dart';
 import 'package:workout_app/models/manual_workout.dart';
+import 'package:workout_app/sandbox/sandbox_log.dart';
+import 'package:workout_app/services/done_today.dart';
+import 'package:workout_app/services/sync_device_id.dart';
 import 'package:workout_app/services/workout_sync_service.dart';
 import 'package:workout_app/ui/theme.dart';
 
+part 'manual_workout_actions.dart';
 part 'manual_workout_form_parts.dart';
+
+/// How many days ahead a manual workout may be dated. Past dates are never
+/// offered: a manual entry is either today's or a planned one.
+const int kManualWorkoutMaxDaysAhead = 7;
 
 /// A screen that logs an off-app workout and syncs it to the PC.
 class ManualWorkoutScreen extends StatefulWidget {
@@ -69,8 +82,21 @@ class _ManualWorkoutScreenState extends State<ManualWorkoutScreen> {
   double _rpe = 5;
   String? _error;
   bool _submitting = false;
-  ManualBudget? _budget;
+  List<Map<String, dynamic>> _payloads = const [];
+  Set<String> _tombstoned = const {};
   bool _budgetLoaded = false;
+
+  /// The workout date (a calendar day, no time). Starts as today.
+  late DateTime _date = _today();
+
+  DateTime _today() {
+    final now = _clock();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  /// Read fresh on every build, so a date change re-evaluates it without
+  /// another round trip to the sync backend.
+  ManualBudget get _budget => countManualBudget(_payloads, _date);
 
   @override
   void initState() {
@@ -86,43 +112,15 @@ class _ManualWorkoutScreenState extends State<ManualWorkoutScreen> {
     super.dispose();
   }
 
-  Future<void> _loadBudget() async {
-    final payloads = await _sync.readMergedManualPayloads();
-    if (!mounted) return;
-    setState(() {
-      _budget = countManualBudget(payloads, _clock());
-      _budgetLoaded = true;
-    });
-  }
-
-  Future<void> _submit() async {
-    final draft = _draft();
-    final error = validateManualWorkout(draft);
-    if (error != null) {
-      setState(() => _error = error);
-      return;
-    }
-    setState(() {
-      _error = null;
-      _submitting = true;
-    });
-    final now = _clock();
-    final date =
-        '${now.year.toString().padLeft(4, '0')}-'
-        '${now.month.toString().padLeft(2, '0')}-'
-        '${now.day.toString().padLeft(2, '0')}';
-    await _sync.pushManual(
-      buildManualRecord(draft, date, hlc: Hlc.newTick('phone')),
-    );
-    if (!mounted) return;
-    Navigator.of(context).pop(true);
-  }
+  /// Runs [fn] inside `setState` on behalf of this library's extensions,
+  /// which cannot call the `@protected` original.
+  void _applyState(VoidCallback fn) => setState(fn);
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final budget = _budget;
-    final exhausted = budget?.exhausted ?? false;
+    final exhausted = budget.exhausted;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: colorScheme.surfaceContainerHigh,
@@ -136,12 +134,16 @@ class _ManualWorkoutScreenState extends State<ManualWorkoutScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                _budgetBanner(budget!),
+                // Above the exhausted branch on purpose: a full window around
+                // today must not stop the user picking a free day later on.
+                _dateRow(),
+                _budgetBanner(budget),
                 if (exhausted)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      'Manual-workout budget exhausted for this window.',
+                      'Manual-workout budget exhausted for a window '
+                      'containing ${dayKey(_date)} — pick another date.',
                       style: TextStyle(color: colorScheme.error),
                     ),
                   )

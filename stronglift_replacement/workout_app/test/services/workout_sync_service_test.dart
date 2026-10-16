@@ -180,6 +180,52 @@ void main() {
     );
   });
 
+  test('tombstoneManual pushes a sticky delete for the id', () async {
+    installFakeSecureStorage(initial: {'sync.token': 'tok'});
+    final existing = jsonEncode({
+      'manual:2026-07-20T10:00': manualRecord(
+        'manual:2026-07-20T10:00',
+        '40',
+        1000,
+      ).toJson(),
+    });
+    final (:httpClient, :putCalls) = mockGitHub(
+      contentResponses: {
+        'screen-locker-sync/devices': syncResponse(200, []),
+        'screen-locker-sync/devices/phone/log.json': fileContaining(existing),
+      },
+    );
+    final result = await syncService(
+      httpClient: httpClient,
+    ).tombstoneManual('manual:2026-07-20T10:00');
+    expect(result.pushed, isTrue);
+    final pushedLog =
+        jsonDecode(
+              utf8.decode(
+                base64.decode(logPut(putCalls).body['content'] as String),
+              ),
+            )
+            as Map<String, dynamic>;
+    final record = Record.fromJson(
+      pushedLog['manual:2026-07-20T10:00'] as Map<String, dynamic>,
+    );
+    expect(record.deleted, isTrue);
+    expect(record.deletedHlc, isNotNull);
+    // The payload survives the merge; only the delete flag is added.
+    expect((record.fields['payload']!.$1! as Map)['cost'], '40');
+  });
+
+  test('tombstoneManual reports why when sync is not set up', () async {
+    installFakeSecureStorage();
+    final (:httpClient, :putCalls) = mockGitHub();
+    final result = await syncService(
+      httpClient: httpClient,
+    ).tombstoneManual('manual:2026-07-20T10:00');
+    expect(result.pushed, isFalse);
+    expect(result.reason, contains('not configured'));
+    expect(putCalls, isEmpty);
+  });
+
   test('pushManual reports a failure instead of hiding it', () async {
     installFakeSecureStorage(initial: {'sync.token': 'tok'});
     final httpClient = http_testing.MockClient(

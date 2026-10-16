@@ -110,4 +110,43 @@ void main() {
     expect(budget.week, 0);
     expect(budget.month, 0);
   });
+
+  // The `planned` key (2026-10-16): future-dated entries. The top-level
+  // expectations above are the PC's trailing-window reading and stay as-is;
+  // this block pins the phone's admission rule for a workout dated D -- the
+  // fullest 7-/30-day window CONTAINING D, past and planned entries alike.
+  group('planned (future-dated) entries', () {
+    Map<String, dynamic> planned() =>
+        _fixture()['planned'] as Map<String, dynamic>;
+    List<dynamic> allRecords() => [
+      ..._fixture()['records'] as List<dynamic>,
+      ...planned()['extra_records'] as List<dynamic>,
+    ];
+
+    test('budget for each date matches the shared expectation', () {
+      final expected = planned()['expected_by_date'] as Map<String, dynamic>;
+      final payloads = _livePayloads(_deviceLogJson(allRecords()));
+      expect(expected, isNotEmpty);
+      for (final entry in expected.entries) {
+        final want = entry.value as Map<String, dynamic>;
+        final budget = countManualBudget(payloads, DateTime.parse(entry.key));
+        expect(budget.week, want['week'], reason: entry.key);
+        expect(budget.month, want['month'], reason: entry.key);
+        expect(budget.exhausted, want['exhausted'], reason: entry.key);
+      }
+    });
+
+    test('a cancelled plan frees its weekly slot', () {
+      final resurrected = [
+        for (final entry in allRecords().cast<Map<String, dynamic>>())
+          {...entry, 'deleted': false},
+      ];
+      final budget = countManualBudget(
+        _livePayloads(_deviceLogJson(resurrected)),
+        DateTime(2026, 8, 28),
+      );
+      expect(budget.week, 2);
+      expect(budget.exhausted, isTrue);
+    });
+  });
 }
