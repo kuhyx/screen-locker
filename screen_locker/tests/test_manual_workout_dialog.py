@@ -7,10 +7,13 @@ from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 from screen_locker import _manual_workout
+from screen_locker._day import today_str
 from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+_CLOSED = "screen_locker._manual_workout_date.budget_closed_for_all_days"
 
 
 class TestShowManualWorkoutForm:
@@ -20,7 +23,7 @@ class TestShowManualWorkoutForm:
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
         locker = create_locker(mock_tk, tmp_path)
-        with patch.object(_manual_workout, "is_budget_exhausted", return_value=False):
+        with patch(_CLOSED, return_value=False):
             locker._show_manual_workout_form()
         button_texts = {c.kwargs.get("text") for c in mock_tk.Button.call_args_list}
         assert "SUBMIT" in button_texts
@@ -30,7 +33,7 @@ class TestShowManualWorkoutForm:
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
         locker = create_locker(mock_tk, tmp_path)
-        with patch.object(_manual_workout, "is_budget_exhausted", return_value=True):
+        with patch(_CLOSED, return_value=True):
             locker._show_manual_workout_form()
         button_texts = {c.kwargs.get("text") for c in mock_tk.Button.call_args_list}
         assert "BACK" in button_texts
@@ -111,6 +114,7 @@ class TestSubmitManualWorkoutForm:
         fields: dict[str, object] | None = None,
     ) -> object:
         defaults: dict[str, object] = {
+            "date": today_str(),
             "start_time": "12:00",
             "end_time": "14:00",
             "location_name": "Osrodek Solec",
@@ -152,6 +156,7 @@ class TestSubmitManualWorkoutForm:
             "balls",
             "activity_type_other",
             "equipment",
+            "date",
         ):
             var = MagicMock()
             var.get.return_value = defaults.get(key, "")
@@ -236,7 +241,7 @@ class TestInitialKeyboardFocus:
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
         locker = create_locker(mock_tk, tmp_path)
-        with patch.object(_manual_workout, "is_budget_exhausted", return_value=False):
+        with patch(_CLOSED, return_value=False):
             locker._show_manual_workout_form()
         focused = mock_tk.Entry.return_value.focus_set.call_count
         assert focused == 1, f"expected exactly one focused entry, got {focused}"

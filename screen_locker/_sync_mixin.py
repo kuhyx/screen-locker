@@ -13,6 +13,7 @@ import logging
 from screen_locker._constants import SHUTDOWN_BASE_FILE
 from screen_locker._earned import span
 from screen_locker._earner_units import sync_path_unit
+from screen_locker._manual_pending import local_pending_records
 from screen_locker._manual_push import push_pc_workouts
 from screen_locker._manual_sync import ingest_manual_records
 from screen_locker._session_sync import ingest_session_records
@@ -60,16 +61,41 @@ class SyncMixin:
         live-logged workout would (see
         ``WorkoutCreditMixin._apply_credit_for_written_entry``), regardless of
         whether it's dated today or back-dated — there's only one current
-        shutdown config, so a back-dated sync still pushes it.
+        shutdown config, so a back-dated sync still pushes it. A record dated
+        after today is deferred by the ingest (nothing credited, nothing in
+        ``log.json``) and picked up by the first pass on its date -- which the
+        startup checks run before any lock decision.
         """
         push_pc_workouts(self.log_file)
+        pulled = pull_all_manual_records()
+        seen = {record_id for record_id, _payload in pulled}
+        # This PC's own future-dated entries come back through the pull (the PC
+        # ingests its own device log), but when Firebase is down on their day
+        # the ledger is the only copy -- so it is a source here too.
+        local = [rec for rec in local_pending_records() if rec[0] not in seen]
         ingested = ingest_manual_records(
             self.log_file,
-            pull_all_manual_records(),
+            [*pulled, *local],
             on_ingested=self._credit_ingested_workout,
         )
         for record_id in ingested:
             _logger.info("Ingested synced manual workout: %s", record_id)
+        self.workout_data = {}
+
+    def _ingest_due_local_manual_workouts(self) -> None:
+        """Ingest this PC's own future-dated entries whose day has come.
+
+        Local-only (no network), so the new-day reset pass on the poke path
+        can run it without costing the phone's instant credit a Firebase
+        round trip. Entries not yet due are deferred by the ingest itself.
+        """
+        ingested = ingest_manual_records(
+            self.log_file,
+            local_pending_records(),
+            on_ingested=self._credit_ingested_workout,
+        )
+        for record_id in ingested:
+            _logger.info("Ingested due scheduled manual workout: %s", record_id)
         self.workout_data = {}
 
     def _ingest_synced_sessions(self) -> None:

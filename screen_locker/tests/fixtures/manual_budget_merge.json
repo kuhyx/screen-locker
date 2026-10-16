@@ -60,5 +60,47 @@
     "week": 1,
     "month": 2,
     "exhausted": false
+  },
+  "planned": {
+    "_comment": [
+      "Future-dated (planned) manual entries, added 2026-10-16. Readers of the",
+      "top-level today/records/expected above ignore this key, so those",
+      "expectations are unchanged.",
+      "Scenario: the top-level records PLUS extra_records, still as of 'today'.",
+      "A manual workout may be dated up to 7 days ahead; the PC credits it on",
+      "its own date. Budget for adding an entry dated D = the fullest 7-/30-day",
+      "window CONTAINING D, counting past and future live entries (stubs and",
+      "tombstones excluded, as above). expected_by_date maps D to that budget.",
+      "The deleted 08-30 plan proves a cancelled plan frees its slot: live, it",
+      "would put 08-28 and 08-30 in one 7-day window (2/2, exhausted)."
+    ],
+    "extra_records": [
+      {
+        "id": "manual:2026-08-28T10:00",
+        "deleted": false,
+        "payload": {
+          "kind": "manual_workout",
+          "type": "manual_workout",
+          "date": "2026-08-28",
+          "start_time": "10:00",
+          "end_time": "11:00"
+        }
+      },
+      {
+        "id": "manual:2026-08-30T09:00",
+        "deleted": true,
+        "payload": {
+          "kind": "manual_workout",
+          "type": "manual_workout",
+          "date": "2026-08-30",
+          "start_time": "09:00",
+          "end_time": "10:00"
+        }
+      }
+    ],
+    "expected_by_date": {
+      "2026-08-27": {"week": 1, "month": 3, "exhausted": false},
+      "2026-08-28": {"week": 1, "month": 3, "exhausted": false}
+    }
   }
 }

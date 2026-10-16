@@ -36,6 +36,15 @@ ISOLATED_STATE: tuple[tuple[str, tuple[str, ...]], ...] = (
             "_sync_tombstones.SYNC_TOMBSTONES_FILE",
         ),
     ),
+    # Future-dated manual workouts held for re-publishing on every push; a test
+    # writing here would publish a fake workout to the phone.
+    (
+        "manual_pending.json",
+        (
+            "_constants.MANUAL_PENDING_FILE",
+            "_manual_pending.MANUAL_PENDING_FILE",
+        ),
+    ),
     # The durable lock-decision trail. Written on EVERY locker run, so without
     # this the suite would append test decisions to the user's real
     # enforcement history in ~/.local/share/screen_locker/.

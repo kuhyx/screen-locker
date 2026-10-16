@@ -23,6 +23,7 @@ from screen_locker import _manual_workout
 from screen_locker._constants import (
     MANUAL_WORKOUT_REFLECTION_MIN_CHARS,
 )
+from screen_locker._manual_workout_date import ManualWorkoutDateMixin
 from screen_locker._manual_workout_sport_fields import ManualWorkoutSportFieldsMixin
 from screen_locker._manual_workout_widgets import ManualWorkoutFormWidgetsMixin
 
@@ -34,6 +35,7 @@ _SPORT_LABEL_TO_CODE = {
 
 
 class ManualWorkoutDialogMixin(
+    ManualWorkoutDateMixin,
     ManualWorkoutFormWidgetsMixin,
     ManualWorkoutSportFieldsMixin,
 ):
@@ -43,7 +45,7 @@ class ManualWorkoutDialogMixin(
         """Render the manual-workout evidence form, or a budget-exhausted note."""
         self.clear_container()
         self._label("Log Manual Workout", color=self._colors.palette.accent, pad="xs")
-        if _manual_workout.is_budget_exhausted(self.log_file):
+        if self._mw_budget_closed():
             self._text(
                 "Manual-workout budget exhausted for this window.",
                 color=self._colors.palette.danger,
@@ -211,6 +213,8 @@ class ManualWorkoutDialogMixin(
         error = _manual_workout.validate_manual_workout(draft)
         if error is not None:
             self._mw_error_label.config(text=error)
+            return
+        if self._mw_handled_by_date(draft):
             return
         entry = _manual_workout.build_entry(draft)
         # Record the manual for cross-device sync (published on the next lock

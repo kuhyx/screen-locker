@@ -42,6 +42,7 @@ from screen_locker._constants import SYNC_STATE_FILE
 from screen_locker._device import device_identity
 from screen_locker._log_io import load_workout_log
 from screen_locker._log_mixin import _derive_workout_id
+from screen_locker._manual_pending import pending_ledger_records, settle_pending
 from screen_locker._sync_retry import with_sync_retry
 from screen_locker._sync_tombstones import tombstone_records
 from screen_locker._weekly_check import COUNTED_WORKOUT_TYPES
@@ -148,6 +149,11 @@ def records_from_workout_log(log_file: Path) -> dict[str, Record]:
             log[str(record_id)] = Record(
                 id=str(record_id), fields={_PAYLOAD_FIELD: (payload, hlc)}
             )
+    # Future-dated manual workouts logged here are not in log.json until their
+    # day; the ledger is what keeps them published (and visible to the phone's
+    # budget and delete button). The log's own copy wins once ingested.
+    for record_id, record in pending_ledger_records().items():
+        log.setdefault(record_id, record)
     # Re-pushed every tick: sync_log never reads this device's own remote
     # log, so a tombstone written once is overwritten by the next push.
     log.update(tombstone_records())
@@ -177,7 +183,7 @@ def push_pc_workouts(log_file: Path) -> PushResult:
         )
         return PushResult(pushed=False, record_count=len(log), reason=reason)
     try:
-        with_sync_retry(
+        merged = with_sync_retry(
             lambda: sync_log(
                 SyncTarget(
                     client=client,
@@ -205,5 +211,8 @@ def push_pc_workouts(log_file: Path) -> PushResult:
         _logger.warning("Workout sync push FAILED for %d workout(s): %s", len(log), exc)
         return PushResult(pushed=False, record_count=len(log), reason=reason)
 
+    # A future entry deleted on the phone arrives as a tombstone in the merge;
+    # one already ingested is in log.json. Either way it leaves the ledger.
+    settle_pending(log_file, [rid for rid, record in merged.items() if record.deleted])
     _logger.info("Synced %d workout(s) to Firebase", len(log))
     return PushResult(pushed=True, record_count=len(log), reason="pushed")

@@ -13,6 +13,11 @@ it bypassed those checks; this routes through the ordinary sync-ingest path
 (``ingest_manual_records``), so validation, the rolling budget, HMAC signing
 and workout_id dedup are the shared implementation rather than a second copy
 that can drift.
+
+``--date`` may name a FUTURE day (up to 7 days ahead; past dates are refused).
+Such an entry is not ingested: it is held and published by
+``_manual_schedule`` and ingested -- and credited -- on its date by the
+ordinary sync pass.
 """
 
 from __future__ import annotations
@@ -22,6 +27,8 @@ import logging
 from typing import TYPE_CHECKING
 
 from screen_locker._day import today_str
+from screen_locker._manual_future import is_future_date, validate_workout_date
+from screen_locker._manual_schedule import budget_error, schedule_future_workout
 from screen_locker._manual_sync import ingest_manual_records
 from screen_locker._manual_workout import (
     SPORT_CHOICES,
@@ -73,7 +80,14 @@ def add_manual_arguments(parser: argparse.ArgumentParser) -> None:
         default="",
         help=f"what the activity was; required when --sport {SPORT_OTHER}",
     )
-    parser.add_argument("--date", default="", help="ISO date; defaults to today")
+    parser.add_argument(
+        "--date",
+        default="",
+        help=(
+            "ISO date, today up to 7 days ahead (no past dates); defaults to "
+            "today. A future date is held and credited automatically on it."
+        ),
+    )
     parser.add_argument("--start", required=True, help="HH:MM")
     parser.add_argument("--end", required=True, help="HH:MM")
     parser.add_argument("--location", required=True)
@@ -114,6 +128,52 @@ def _draft(args: argparse.Namespace) -> ManualWorkoutDraft:
     )
 
 
+def _schedule(log_file: Path, draft: ManualWorkoutDraft, date: str) -> int:
+    """Hold a FUTURE-dated workout and publish it; exit code for the CLI.
+
+    Never written to log.json or signed here: it is ingested by the ordinary
+    sync pass on its date.
+    """
+    scheduled = schedule_future_workout(log_file, draft, date)
+    if not scheduled.scheduled:
+        _logger.error(
+            "Manual workout %s was NOT scheduled — %s",
+            scheduled.record_id,
+            scheduled.reason,
+        )
+        return 1
+    _logger.info("Manual workout %s: %s", scheduled.record_id, scheduled.reason)
+    return 0
+
+
+def _log_today(log_file: Path, draft: ManualWorkoutDraft, date: str, start: str) -> int:
+    """Log today's workout through the ordinary ingest; exit code for the CLI."""
+    record_id = manual_sync_record_id(date, start)
+    payload = build_sync_payload(draft, date)
+    # Today's entry takes the ordinary path, but its budget now also counts
+    # pending future entries (a window containing today contains tomorrow too).
+    over_budget = budget_error(log_file, date)
+    if over_budget is not None:
+        _logger.error("Manual workout %s was NOT logged — %s", record_id, over_budget)
+        return 1
+
+    ingested = ingest_manual_records(log_file, [(record_id, payload)], today=date)
+    if not ingested:
+        _logger.error(
+            "Manual workout %s was NOT logged — see the reason logged above "
+            "(invalid field, exhausted budget, or already logged)",
+            record_id,
+        )
+        return 1
+    _logger.info(
+        "Logged manual workout %s. It publishes to the other devices on the "
+        "next sync pass (workout-sync.timer, every 15 minutes); run "
+        "--sync-only to push it now.",
+        record_id,
+    )
+    return 0
+
+
 def run_manual_log(log_file: Path, argv: Sequence[str]) -> int:
     """Log one manual workout headlessly. Returns a process exit code.
 
@@ -142,21 +202,10 @@ def run_manual_log(log_file: Path, argv: Sequence[str]) -> int:
         _logger.error("Manual workout REFUSED — %s. Nothing was written.", error)
         return 1
 
-    record_id = manual_sync_record_id(date, args.start)
-    payload = build_sync_payload(draft, date)
-
-    ingested = ingest_manual_records(log_file, [(record_id, payload)], today=date)
-    if not ingested:
-        _logger.error(
-            "Manual workout %s was NOT logged — see the reason logged above "
-            "(invalid field, exhausted budget, or already logged)",
-            record_id,
-        )
+    date_error = validate_workout_date(date)
+    if date_error is not None:
+        _logger.error("Manual workout REFUSED — %s. Nothing was written.", date_error)
         return 1
-    _logger.info(
-        "Logged manual workout %s. It publishes to the other devices on the "
-        "next sync pass (workout-sync.timer, every 15 minutes); run "
-        "--sync-only to push it now.",
-        record_id,
-    )
-    return 0
+    if is_future_date(date):
+        return _schedule(log_file, draft, date)
+    return _log_today(log_file, draft, date, args.start)

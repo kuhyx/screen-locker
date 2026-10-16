@@ -6,7 +6,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-from screen_locker import _manual_workout
 from screen_locker._workout_credit import WorkoutCreditResult
 from screen_locker.tests._status_view_helpers import (
     _button_texts,
@@ -17,6 +16,8 @@ from screen_locker.tests._status_view_helpers import (
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+_CLOSED = "screen_locker._manual_workout_date.budget_closed_for_all_days"
 
 
 class TestSectionManualWorkoutBudget:
@@ -59,7 +60,7 @@ class TestManualWorkoutButtonVisibility:
     def test_hidden_when_budget_exhausted(
         self, mock_tk: MagicMock, temp_log_file: Path
     ) -> None:
-        with patch.object(_manual_workout, "is_budget_exhausted", return_value=True):
+        with patch(_CLOSED, return_value=True):
             _make_window(mock_tk, _snapshot(), log_file=temp_log_file)
         assert "Log Manual Workout" not in _button_texts(mock_tk)
 

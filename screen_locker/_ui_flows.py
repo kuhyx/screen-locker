@@ -83,7 +83,7 @@ class UIFlowsMixin(SickDayFlowMixin, LockoutFlowMixin):
             width=12,
         ).pack(side="left", padx=self._colors.space("sm"))
         self._sick_button(frame)
-        if _manual_workout.is_budget_exhausted(self.log_file):
+        if self._mw_budget_closed():
             self._text(
                 "Manual-workout budget exhausted. No manual-log option available.",
                 color=self._colors.palette.danger,

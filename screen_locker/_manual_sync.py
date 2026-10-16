@@ -21,8 +21,15 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from screen_locker._day import today_str
 from screen_locker._log_io import load_workout_log
 from screen_locker._log_mixin import _entry_workout_id, write_signed_entry
+from screen_locker._manual_future import (
+    budget_error_for_date,
+    is_future_date,
+    parse_workout_date,
+)
+from screen_locker._manual_pending import pending_future_dates
 from screen_locker._manual_sync_draft import (
     _draft_or_report,
     is_empty_stub,
@@ -31,7 +38,6 @@ from screen_locker._manual_sync_draft import (
 from screen_locker._manual_workout import (
     MANUAL_WORKOUT_SYNC_KIND,
     build_entry,
-    is_budget_exhausted,
     validate_manual_workout,
 )
 
@@ -75,6 +81,38 @@ def _already_ingested(logs: dict[str, list[dict]], record_id: str) -> bool:
     return False
 
 
+def _due_date(
+    record_id: str, payload: Mapping[str, object], reference: str
+) -> str | None:
+    """Return the record's date if it is a manual record due for ingest, else None.
+
+    None covers every reason to leave it alone this pass: not a manual record,
+    no/unparsable date (warned), or dated after ``reference`` -- deferred, and
+    retried on every later pass so it lands on its date.
+    """
+    if payload.get("kind") != MANUAL_WORKOUT_SYNC_KIND:
+        return None
+    date = payload.get("date")
+    if not isinstance(date, str):
+        _logger.warning("Manual record %s has no date — skipped", record_id)
+        return None
+    if parse_workout_date(date) is None:
+        _logger.warning(
+            "Manual record %s has an unparsable date %r — skipped", record_id, date
+        )
+        return None
+    if is_future_date(date, today=reference):
+        _logger.info(
+            "Manual record %s is dated %s, after today (%s) — deferred; it "
+            "is ingested and credited on its date",
+            record_id,
+            date,
+            reference,
+        )
+        return None
+    return date
+
+
 def ingest_manual_records(
     log_file: Path,
     records: Iterable[tuple[str, Mapping[str, object]]],
@@ -90,6 +128,17 @@ def ingest_manual_records(
     workouts). Idempotent: dedup by ``record_id`` here and by ``workout_id`` in
     the write chokepoint, so re-syncing the same record is a no-op.
 
+    A record dated AFTER ``today`` (default: the local day) is DEFERRED, not
+    ingested: it stays in the sync store, earns nothing and is not written to
+    ``log.json`` (the weekly check, the budget, the status view and the
+    shutdown derivation would all count a future day key early). It is retried
+    on every later pass, so it is ingested -- and credited -- on its date.
+
+    The budget is counted against the workout's own date: the new entry fits
+    only if every rolling window containing that date stays within its cap,
+    over the credits in the log and every OTHER pending future record in
+    ``records`` (a future entry holds its slot from the moment it is logged).
+
     When ``on_ingested`` is given, it's called ``on_ingested(entry, prior_entries)``
     right after each newly-appended record — ``prior_entries`` being that
     entry's own date's entries written before it — so the caller (see
@@ -101,13 +150,15 @@ def ingest_manual_records(
 
     Returns the record ids actually ingested.
     """
+    batch = list(records)
+    if not batch:
+        return []
+    reference = today or today_str()
+    pending = pending_future_dates(log_file, batch, today=reference)
     ingested: list[str] = []
-    for record_id, payload in records:
-        if payload.get("kind") != MANUAL_WORKOUT_SYNC_KIND:
-            continue
-        date = payload.get("date")
-        if not isinstance(date, str):
-            _logger.warning("Manual record %s has no date — skipped", record_id)
+    for record_id, payload in batch:
+        date = _due_date(record_id, payload, reference)
+        if date is None:
             continue
         if _already_ingested(load_workout_log(log_file), record_id):
             continue
@@ -118,8 +169,17 @@ def ingest_manual_records(
         if error is not None:
             _logger.warning("Manual record %s invalid: %s", record_id, error)
             continue
-        if is_budget_exhausted(log_file, today=today):
-            _logger.info("Manual-workout budget exhausted — %s not ingested", record_id)
+        over_budget = budget_error_for_date(
+            log_file,
+            date,
+            [day for rid, day in pending.items() if rid != record_id],
+        )
+        if over_budget is not None:
+            _logger.info(
+                "Manual-workout budget exhausted — %s not ingested (%s)",
+                record_id,
+                over_budget,
+            )
             continue
         entry = build_entry(draft)
         entry[_SYNC_ID_FIELD] = record_id

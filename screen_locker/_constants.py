@@ -31,6 +31,9 @@ NO_PHONE_EXTRA_LOCKOUT_SECONDS = 480  # extra 8 minutes on top of base
 # window is exhausted the "Log Manual Workout" option disappears entirely.
 MANUAL_WORKOUT_BUDGET_PER_7_DAYS = 2
 MANUAL_WORKOUT_BUDGET_PER_30_DAYS = 10
+# A manual workout may be logged AHEAD for a date up to this many days from
+# today (never a past date); it earns its credit on that date, not before.
+MANUAL_WORKOUT_MAX_DAYS_AHEAD = 7
 # Manual entries use the shared MIN_WORKOUT_DURATION_MINUTES bar below —
 # every workout type answers to the same minimum, whatever the sport.
 # Minimum chars for the "what was done" activity-details field.
@@ -111,6 +114,9 @@ WALK_MAX_GAP_SECONDS = 30
 # Workout records this PC must keep deleted in the sync store, pushed as
 # tombstones on every tick (see _sync_tombstones for why once is not enough).
 SYNC_TOMBSTONES_FILE = Path(__file__).resolve().parent / "sync_tombstones.json"
+# Future-dated manual workouts logged on THIS PC, re-published on every push
+# until their date (see _manual_pending for why a one-shot publish is erased).
+MANUAL_PENDING_FILE = Path(__file__).resolve().parent / "manual_pending.json"
 # Self-expiring marker: "logged in during today's early-bird window, still
 # waiting to see if a real workout shows up." Not a log.json entry —
 # it's a same-day pending flag, checked against its own "date" field.

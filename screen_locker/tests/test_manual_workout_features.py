@@ -7,7 +7,6 @@ import pathlib
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-from screen_locker import _manual_workout
 from screen_locker.tests.conftest import create_locker
 
 # The Dart mirror of the budget caps; read at test time so drift on
@@ -24,6 +23,8 @@ DART_MANUAL_WORKOUT = (
 if TYPE_CHECKING:
     from pathlib import Path
 
+_CLOSED = "screen_locker._manual_workout_date.budget_closed_for_all_days"
+
 
 class TestShowRetryAndManualWorkoutBudget:
     """Tests for the "Log Manual Workout" button in _show_retry_and_sick."""
@@ -34,7 +35,7 @@ class TestShowRetryAndManualWorkoutBudget:
         """Shows button when budget available."""
         locker = create_locker(mock_tk, tmp_path)
         with (
-            patch.object(_manual_workout, "is_budget_exhausted", return_value=False),
+            patch(_CLOSED, return_value=False),
         ):
             locker._show_retry_and_sick("nope")
         button_texts = {c.kwargs.get("text") for c in mock_tk.Button.call_args_list}
@@ -46,7 +47,7 @@ class TestShowRetryAndManualWorkoutBudget:
         """Hides button when budget exhausted."""
         locker = create_locker(mock_tk, tmp_path)
         with (
-            patch.object(_manual_workout, "is_budget_exhausted", return_value=True),
+            patch(_CLOSED, return_value=True),
         ):
             locker._show_retry_and_sick("nope")
         button_texts: set[str] = set()

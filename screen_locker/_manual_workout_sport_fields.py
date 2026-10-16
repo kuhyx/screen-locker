@@ -75,6 +75,8 @@ class ManualWorkoutSportFieldsMixin:
                 selectcolor=self._colors.palette.field_bg,
                 highlightthickness=0,
             ).pack(side="left", padx=self._colors.space("xs"))
+        # The workout-date field rides in this row, at no extra height.
+        self._mw_date_in_row(row)
         self._mw_grid(parent, row, full=True)
 
     def _on_mw_sport_changed(self, selected_label: str) -> None:

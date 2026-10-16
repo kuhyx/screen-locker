@@ -91,7 +91,7 @@ class TestIngestManualRecordsCallback:
         log_file = tmp_path / "log.json"
         record = _manual_record(_TT_DRAFT)
         calls: list[tuple[dict, list[dict]]] = []
-        with patch.object(_manual_sync, "is_budget_exhausted", return_value=True):
+        with patch.object(_manual_sync, "budget_error_for_date", return_value="full"):
             ingest_manual_records(
                 log_file,
                 [record],

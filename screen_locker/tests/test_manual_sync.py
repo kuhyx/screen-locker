@@ -174,7 +174,7 @@ class TestIngestManualRecords:
         """Skips when budget exhausted."""
         log_file = tmp_path / "log.json"
         record = _manual_record(_TT_DRAFT)
-        with patch.object(_manual_sync, "is_budget_exhausted", return_value=True):
+        with patch.object(_manual_sync, "budget_error_for_date", return_value="full"):
             assert ingest_manual_records(log_file, [record], today=_DATE) == []
 
     def test_writes_unsigned_entry_when_hmac_key_unavailable(

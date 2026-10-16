@@ -30,7 +30,6 @@ from typing import TYPE_CHECKING
 
 from gatelock import LockConfig
 
-from screen_locker import _manual_workout
 from screen_locker._manual_workout_dialog import ManualWorkoutDialogMixin
 from screen_locker._status_data import (
     StatusSnapshot,
@@ -146,7 +145,7 @@ class StatusWindow(
             command=self._on_check_phone_clicked,
             width=14,
         ).pack(side="left", padx=self._colors.space("sm"))
-        if not _manual_workout.is_budget_exhausted(self.log_file):
+        if not self._mw_budget_closed():
             self._button(
                 frame,
                 "Log Manual Workout",

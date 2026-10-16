@@ -16,7 +16,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from screen_locker._log_mixin import write_signed_entry
+from screen_locker._manual_future import budget_error_for_date, budget_usage_for_date
 from screen_locker._manual_workout import (
     MANUAL_WORKOUT_TYPE,
     count_in_window,
@@ -94,3 +97,71 @@ def test_an_evidence_less_stub_never_consumes_budget(tmp_path: Path) -> None:
 
     assert count_in_window(log_file, 7, today=today) == 0
     assert count_in_window(log_file, 30, today=today) == 0
+
+
+def _planned_cases() -> list[tuple[str, dict[str, Any]]]:
+    """Every ``planned.expected_by_date`` entry as ``(date, expectation)``."""
+    return sorted(_fixture()["planned"]["expected_by_date"].items())
+
+
+def _planned_live_payloads() -> list[dict[str, Any]]:
+    """The planned scenario: top-level records plus ``extra_records``, live only."""
+    fixture = _fixture()
+    records = [*fixture["records"], *fixture["planned"]["extra_records"]]
+    return _live_payloads(records)
+
+
+@pytest.mark.parametrize(("day", "expected"), _planned_cases())
+def test_planned_budget_by_workout_date_matches_the_phone(
+    tmp_path: Path, day: str, expected: dict[str, Any]
+) -> None:
+    """The per-date admission rule must equal the phone's, entry by entry.
+
+    The planned entries sit in the log here; the PC holds them out of the log
+    until their day, so the same scenario is also run with them as pending
+    dates (next test) and both must agree.
+    """
+    log_file = _log_from(_planned_live_payloads(), tmp_path / "log.json")
+
+    usage = budget_usage_for_date(log_file, day)
+
+    assert usage is not None
+    assert usage.week == expected["week"]
+    assert usage.month == expected["month"]
+    assert usage.exhausted is expected["exhausted"]
+    assert (budget_error_for_date(log_file, day) is not None) is expected["exhausted"]
+
+
+@pytest.mark.parametrize(("day", "expected"), _planned_cases())
+def test_planned_entries_held_as_pending_count_the_same(
+    tmp_path: Path, day: str, expected: dict[str, Any]
+) -> None:
+    """Pending future entries (not yet in the log) hold the same slots."""
+    fixture = _fixture()
+    today = str(fixture["today"])
+    live = _planned_live_payloads()
+    logged = [p for p in live if str(p["date"]) <= today]
+    pending = [str(p["date"]) for p in live if str(p["date"]) > today]
+    log_file = _log_from(logged, tmp_path / "log.json")
+
+    usage = budget_usage_for_date(log_file, day, pending)
+
+    assert usage is not None
+    assert (usage.week, usage.month) == (expected["week"], expected["month"])
+    assert usage.exhausted is expected["exhausted"]
+
+
+def test_a_cancelled_plan_frees_its_slot(tmp_path: Path) -> None:
+    """Resurrecting the deleted 08-30 plan must exhaust the week around 08-28."""
+    fixture = _fixture()
+    everything = [
+        r["payload"]
+        for r in [*fixture["records"], *fixture["planned"]["extra_records"]]
+    ]
+    log_file = _log_from(everything, tmp_path / "log.json")
+
+    usage = budget_usage_for_date(log_file, "2026-08-28")
+
+    assert usage is not None
+    assert usage.week == 2
+    assert usage.exhausted is True

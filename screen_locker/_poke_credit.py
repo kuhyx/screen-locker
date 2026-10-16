@@ -89,6 +89,10 @@ class PokeLocker(ScreenLocker):
             self,
             log_file=self.log_file,
         )
+        # A future-dated manual workout logged on this PC whose day is today
+        # earns its credit on the first PC action of the day, not at the next
+        # 15-minute tick. Local ledger only: no network on the instant path.
+        self._ingest_due_local_manual_workouts()
 
     def credit_written(
         self, entry: dict[str, str], prior_entries: list[dict[str, object]]

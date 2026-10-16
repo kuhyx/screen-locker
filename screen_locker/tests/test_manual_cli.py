@@ -13,10 +13,15 @@ from unittest.mock import patch
 
 import pytest
 
+from screen_locker._day import today_str
 from screen_locker._manual_cli import run_manual_log
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+# The CLI refuses past dates, so the workout is dated today (a fixed date
+# would silently turn every test into a "past date" refusal one day later).
+_TODAY = today_str()
 
 _VALID = (
     "--sport",
@@ -24,7 +29,7 @@ _VALID = (
     "--activity",
     "padel",
     "--date",
-    "2026-08-27",
+    _TODAY,
     "--start",
     "17:30",
     "--end",
@@ -88,7 +93,7 @@ def test_logs_a_valid_workout(tmp_path: Path) -> None:
     assert data["activity_type"] == "padel"
     assert data["duration_minutes"] == "90.0"
     assert data["rpe"] == 4
-    assert entry["workout_id"] == "manual:2026-08-27T17:30"
+    assert entry["workout_id"] == f"manual:{_TODAY}T17:30"
     assert entry["hmac"]
 
 
@@ -155,7 +160,7 @@ def test_the_rolling_budget_still_caps_headless_entries(tmp_path: Path) -> None:
 def test_date_defaults_to_today(tmp_path: Path) -> None:
     """Omitting --date files the workout under today rather than failing."""
     log_file = tmp_path / "log.json"
-    args = [a for a in _args() if a not in {"--date", "2026-08-27"}]
+    args = [a for a in _args() if a not in {"--date", _TODAY}]
 
     assert run_manual_log(log_file, args) == 0
     assert _entries(log_file)

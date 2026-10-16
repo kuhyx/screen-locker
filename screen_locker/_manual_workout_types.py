@@ -58,6 +58,32 @@ def _parse_iso(date_str: str) -> datetime | None:
         return None
 
 
+def manual_credit_dates(log_file: Path) -> list[str]:
+    """Return the ``YYYY-MM-DD`` of every manual-workout CREDIT in the log.
+
+    One element per workout, decided by
+    :func:`screen_locker._weekly_check.credit_key` -- the single rule every
+    counter shares -- so a synced copy of a workout already logged here is the
+    same credit, not a second budget slot (2026-09-13: a manual rekeyed to its
+    local day, then pulled back in under a fresh workout_id, consumed two
+    slots while the weekly count correctly saw one). Dates that do not parse
+    are warned about by :func:`_parse_iso` and left out.
+    """
+    dates: list[str] = []
+    for date_str, entries in load_workout_log(log_file).items():
+        if _parse_iso(date_str) is None:
+            continue
+        siblings = day_workout_index(entries)
+        keys = {
+            key
+            for index, entry in enumerate(entries)
+            if (key := credit_key(date_str, index, entry, siblings)) is not None
+            and key[0] == MANUAL_WORKOUT_TYPE
+        }
+        dates.extend([date_str] * len(keys))
+    return dates
+
+
 def count_in_window(
     log_file: Path,
     days: int,
@@ -69,37 +95,24 @@ def count_in_window(
     Counted per workout, not per day: each logged manual workout consumes its
     own budget slot, matching how each one also earns its own weekly-count
     and shutdown credit (see ``screen_locker._weekly_check.COUNTED_WORKOUT_TYPES``
-    and ``screen_locker._workout_credit``) — the budget is the sole limiter on
-    how many you can log, not a once-per-day collapse.
+    and ``screen_locker._workout_credit``) -- the budget is the sole limiter on
+    how many you can log, not a once-per-day collapse. See
+    :func:`manual_credit_dates` for what "one workout" means.
 
-    "One workout" is decided by :func:`screen_locker._weekly_check.credit_key`,
-    the single rule every counter must share. This used to count raw entries
-    instead, so a synced copy of a workout already in the log (2026-09-13: a
-    manual rekeyed to its local day, then pulled back in under a fresh
-    workout_id) consumed a second budget slot while the weekly count, going
-    through ``credit_key``, correctly saw one — and the budget read exhausted
-    for a week over a workout that was logged once.
+    The window is the ``days`` days ending at ``today`` (inclusive); entries
+    dated after today are NOT in it. Whether a new entry fits is a different
+    question, answered per workout date by ``_manual_future``.
     """
     today_str = today or _today_iso()
     today_dt = _parse_iso(today_str)
     if today_dt is None:
         return 0
     cutoff = today_dt - timedelta(days=days)
-    count = 0
-    for date_str, entries in load_workout_log(log_file).items():
-        parsed = _parse_iso(date_str)
-        if parsed is None or not (cutoff < parsed <= today_dt):
-            continue
-        siblings = day_workout_index(entries)
-        count += len(
-            {
-                key
-                for index, entry in enumerate(entries)
-                if (key := credit_key(date_str, index, entry, siblings)) is not None
-                and key[0] == MANUAL_WORKOUT_TYPE
-            }
-        )
-    return count
+    return sum(
+        1
+        for date_str in manual_credit_dates(log_file)
+        if (parsed := _parse_iso(date_str)) is not None and cutoff < parsed <= today_dt
+    )
 
 
 def is_budget_exhausted(
