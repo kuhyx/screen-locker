@@ -157,4 +157,4 @@ class TestBonusLock:
         ):
             assert reset_to_base_if_new_day(state, object()) is True
         lock.assert_called_once_with(state)
-        reset.assert_called_once_with(state, reset.call_args.args[1], None, None)
+        reset.assert_called_once_with(state, reset.call_args.args[1], None)

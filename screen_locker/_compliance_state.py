@@ -44,7 +44,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from screen_locker._degraded_sources import DegradedSource
-    from screen_locker._sick_tracker import SickHistory
 
 __all__ = [
     "AutoUpgradeOpportunity",
@@ -64,7 +63,6 @@ def explain_lock_decision(
     *,
     log_file: Path,
     early_bird_pending_file: Path,
-    sick_history: SickHistory,
     weekly_minimum_met: bool,
     relaxed_day: bool,
     wake_skip: bool = False,
@@ -87,7 +85,7 @@ def explain_lock_decision(
     window_open = wake_skip
     expired = pending and not window_open
     early_bird_open_and_pending = pending and window_open
-    sick_today = is_sick_day_today(sick_history, today=today_str)
+    sick_today = is_sick_day_today(local_dt.date())
     logged = has_logged_today(log_file, today=today_str)
     relaxed_day_already_skipped = relaxed_day and is_relaxed_day_skipped_today(
         log_file, today=today_str
@@ -96,7 +94,6 @@ def explain_lock_decision(
     auto_upgrade = describe_auto_upgrade_opportunity(
         early_bird_pending=pending,
         early_bird_window_open=window_open,
-        is_sick_day=sick_today,
     )
 
     trace: list[PredicateResult] = []
@@ -159,9 +156,9 @@ def explain_lock_decision(
     result = _check(
         "sick_day",
         fired=sick_today,
-        reason_true="Today is marked as a sick day in sick_history.json.",
-        reason_false="Today is not marked as a sick day.",
-        terminal_reason="Sick day logged today — lock skipped.",
+        reason_true="Today is a sick day in the shared sickdays pool.",
+        reason_false="Today is not a sick day.",
+        terminal_reason="Sick day today — lock skipped.",
     )
     if result is not None:
         return result

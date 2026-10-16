@@ -1,4 +1,4 @@
-"""Verify-workout and relaxed-day UI flow methods mixin."""
+"""Relaxed-day (Tue/Wed/Thu) UI flow methods mixin."""
 
 from __future__ import annotations
 
@@ -12,94 +12,7 @@ from screen_locker._weekly_check import (
 
 
 class UIFlowsRelaxedMixin:
-    """Mixin providing verify-workout and relaxed-day UI flow logic."""
-
-    # ------------------------------------------------------------------
-    # Verify-workout flow (post-sick-day)
-    # ------------------------------------------------------------------
-
-    def _start_verify_workout_check(self) -> None:
-        """Start phone check for post-sick-day workout verification."""
-        self.clear_container()
-        self._label(
-            "Verifying Workout",
-            role="display",
-            color=self._colors.palette.warning,
-            pad="lg",
-        )
-        self._text(
-            "Checking phone for today's workout...",
-            role="body",
-        )
-        executor = ThreadPoolExecutor(max_workers=1)
-        self._phone_future = executor.submit(self._verify_phone_workout)
-        executor.shutdown(wait=False)
-        self._poll_verify_workout_check()
-
-    def _poll_verify_workout_check(self) -> None:
-        """Poll background phone check for verify-workout mode."""
-        if self._phone_future is not None and self._phone_future.done():
-            status, message = self._phone_future.result()
-            self._handle_verify_workout_result(status, message)
-        else:
-            self.root.after(500, self._poll_verify_workout_check)
-
-    def _handle_verify_workout_result(
-        self,
-        status: str,
-        message: str,
-    ) -> None:
-        """Route phone check result in verify-workout mode."""
-        if status == "verified":
-            self.workout_data["type"] = "phone_verified"
-            self.workout_data["source"] = message
-            self.workout_data["after_sick_day"] = "true"
-            adjusted = self._adjust_shutdown_time_later()
-            self.save_workout_log()
-            self.clear_container()
-            self._label(
-                "✓ Workout Verified!",
-                role="display",
-                scale=1.3,
-                color=self._colors.palette.success,
-                pad="lg",
-            )
-            self._text(message, role="subtitle", color=self._colors.palette.success)
-            if adjusted:
-                self._text(
-                    "Shutdown time moved later!",
-                    role="subtitle",
-                    color=self._colors.palette.warning,
-                )
-            self.root.after(2000, self.close)
-        else:
-            self._show_verify_retry(message)
-
-    def _show_verify_retry(self, message: str) -> None:
-        """Show retry/close buttons when workout not found in verify mode."""
-        self.clear_container()
-        self._label(
-            "Workout Not Found",
-            role="display",
-            color=self._colors.palette.danger,
-            pad="md",
-        )
-        self._text(message, color=self._colors.palette.warning)
-        frame = self._button_row()
-        self._button(
-            frame,
-            "TRY AGAIN",
-            bg=self._colors.palette.accent,
-            command=self._start_verify_workout_check,
-            width=12,
-        ).pack(side="left", padx=self._colors.space("sm"))
-        self._button(
-            frame,
-            "Close",
-            bg=self._colors.palette.field_bg,
-            command=self.close,
-            width=12,
-        ).pack(side="left", padx=self._colors.space("sm"))
+    """Mixin providing the relaxed-day UI flow logic."""
 
     # ------------------------------------------------------------------
     # Relaxed-day flow (Tue/Wed/Thu — optional, no penalty for skipping)
@@ -141,6 +54,9 @@ class UIFlowsRelaxedMixin:
             command=self._start_relaxed_phone_check,
             width=20,
         ).pack(side="left", padx=self._colors.space("sm"))
+        # Skipping is free here, but a sick day is more than a skip: it
+        # stands every gate down and lifts tonight's shutdown to 20:00.
+        self._sick_button(frame)
 
     def _skip_relaxed_day(self) -> None:
         """Dismiss today's relaxed-day prompt for the rest of the calendar day.
@@ -155,7 +71,7 @@ class UIFlowsRelaxedMixin:
         self.close()
 
     def _start_relaxed_phone_check(self) -> None:
-        """Run Stronglift check in relaxed mode (no screen grab, no sick option)."""
+        """Run Stronglift check in relaxed mode (no screen grab)."""
         self.clear_container()
         self._label(
             "Checking phone...",
@@ -181,7 +97,7 @@ class UIFlowsRelaxedMixin:
         """Route phone check result in relaxed-day mode.
 
         On success saves the workout (counts toward weekly total) then closes.
-        On failure shows retry and close — no sick option since skipping is free.
+        On failure shows retry, I'm sick and close.
         """
         if status == "verified":
             self.workout_data["type"] = "phone_verified"
@@ -211,6 +127,7 @@ class UIFlowsRelaxedMixin:
             command=self._start_relaxed_phone_check,
             width=12,
         ).pack(side="left", padx=self._colors.space("sm"))
+        self._sick_button(frame)
         self._button(
             frame,
             "Close (Skip)",

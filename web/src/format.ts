@@ -49,10 +49,9 @@ export function describeReason(reason: string): string {
     early_bird_banked: 'Skipped — early-bird marker banked',
     early_bird_auto_upgraded: 'Skipped — early-bird workout confirmed',
     sick_day: 'Skipped — sick day',
-    sick_day_auto_upgraded: 'Skipped — sick day, workout confirmed',
+    sick_day_marked: 'Unlocked — marked sick at the lock screen',
     wake_alarm_skip: 'Skipped — earned by the wake alarm',
     heat_skip: 'Skipped — too hot',
-    no_sick_day_to_verify: 'Nothing to verify',
     mode_makes_no_decision: 'No decision (status or sync-only run)',
   }
   return known[reason] ?? reason.replace(/_/g, ' ')

@@ -42,20 +42,6 @@ class WeeklySummary:
 
 
 @dataclass(frozen=True)
-class SickBudgetStatus:
-    """Rolling sick-day budget usage."""
-
-    used_7d: int
-    budget_7d: int
-    used_30d: int
-    budget_30d: int
-    used_90d: int
-    budget_90d: int
-    debt: int
-    exhausted: bool
-
-
-@dataclass(frozen=True)
 class ManualWorkoutBudgetStatus:
     """Rolling manual-workout budget usage."""
 
@@ -98,6 +84,5 @@ class StatusSnapshot:
     early_bird_extended: bool
     shutdown: ShutdownProjection
     lock_explanation: LockExplanation
-    sick_budget: SickBudgetStatus
     manual_workout_budget: ManualWorkoutBudgetStatus
     generated_at: str

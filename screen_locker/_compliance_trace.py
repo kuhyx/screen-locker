@@ -32,7 +32,7 @@ class AutoUpgradeOpportunity:
     """Describes whether the real locker would attempt a live auto-upgrade."""
 
     would_attempt: bool
-    via: str  # "early_bird_expired" | "sick_day" | "none"
+    via: str  # "early_bird_expired" | "none"
     reason: str
 
 
@@ -63,7 +63,6 @@ def describe_auto_upgrade_opportunity(
     *,
     early_bird_pending: bool,
     early_bird_window_open: bool,
-    is_sick_day: bool,
 ) -> AutoUpgradeOpportunity:
     """Describe what the real ``_try_auto_upgrade_*`` methods would attempt.
 
@@ -79,15 +78,6 @@ def describe_auto_upgrade_opportunity(
                 "Early-bird window closed with no workout logged — the next "
                 "lock run will try phone/RunnerUp verification before "
                 "falling back to a full lock."
-            ),
-        )
-    if is_sick_day:
-        return AutoUpgradeOpportunity(
-            would_attempt=True,
-            via="sick_day",
-            reason=(
-                "Sick day logged — the next lock run will try phone/RunnerUp "
-                "verification to upgrade it to a real workout."
             ),
         )
     return _NO_UPGRADE

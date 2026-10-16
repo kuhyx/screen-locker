@@ -50,18 +50,13 @@ class TestApplyWorkoutCredit:
         object.__setattr__(
             locker, "_try_adjust_shutdown_for_workout", MagicMock(return_value=True)
         )
-        object.__setattr__(
-            locker, "_clear_debt_on_verified_workout", MagicMock(return_value=0)
-        )
 
         result = locker._apply_workout_credit()
 
         assert result.already_counted_today is True
         assert result.shutdown_adjusted is False
-        assert result.new_debt is None
         assert result.extra_bonus_delta == 0
         locker._try_adjust_shutdown_for_workout.assert_not_called()
-        locker._clear_debt_on_verified_workout.assert_not_called()
         locker.save_workout_log.assert_called_once()  # log entry write attempted
 
     def test_first_workout_of_day_gets_base_shutdown_push(
@@ -78,15 +73,11 @@ class TestApplyWorkoutCredit:
         object.__setattr__(
             locker, "_try_adjust_shutdown_for_workout", MagicMock(return_value=True)
         )
-        object.__setattr__(
-            locker, "_clear_debt_on_verified_workout", MagicMock(return_value=2)
-        )
 
         result = locker._apply_workout_credit()
 
         assert result.already_counted_today is False
         assert result.shutdown_adjusted is True
-        assert result.new_debt == 2
         assert result.extra_bonus_delta == 0
         locker._try_adjust_shutdown_for_workout.assert_called_once()
 
@@ -120,9 +111,6 @@ class TestApplyWorkoutCredit:
         )
         object.__setattr__(
             locker, "_adjust_shutdown_time_by", MagicMock(return_value=True)
-        )
-        object.__setattr__(
-            locker, "_clear_debt_on_verified_workout", MagicMock(return_value=None)
         )
         with patch(
             "screen_locker._workout_credit.count_weekly_workouts", return_value=5
@@ -164,9 +152,6 @@ class TestApplyWorkoutCredit:
         )
         object.__setattr__(
             locker, "_adjust_shutdown_time_by", MagicMock(return_value=True)
-        )
-        object.__setattr__(
-            locker, "_clear_debt_on_verified_workout", MagicMock(return_value=None)
         )
         with patch(
             "screen_locker._workout_credit.count_weekly_workouts", return_value=5

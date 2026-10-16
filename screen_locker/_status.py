@@ -16,7 +16,7 @@ from screen_locker._extra_benefits import (
     has_extended_early_bird,
 )
 from screen_locker._log_io import load_workout_log
-from screen_locker._sick_tracker import load_history
+from screen_locker._sick import sick_dates
 from screen_locker._weekly_check import (
     COUNTED_WORKOUT_TYPES,
     WEEKLY_WORKOUT_MINIMUM,
@@ -47,14 +47,14 @@ def _load_extra_benefits() -> dict:
         return {}
 
 
-def _print_day_line(d: date, entries: list[dict], sick_days: set[str]) -> bool:
+def _print_day_line(d: date, entries: list[dict], sick_days: frozenset[date]) -> bool:
     """Print one day's status line(s). Returns True if any workout counted.
 
     A day may hold several workouts — each is printed on its own line.
     """
     label = d.strftime("%a %b %d")
     if not entries:
-        if d.isoformat() in sick_days:
+        if d in sick_days:
             print(f"  {label}  ✗  sick_day")
         else:
             print(f"  {label}  —  no entry")
@@ -77,7 +77,7 @@ def run_status(locker: ScreenLocker) -> None:
     monday = today - timedelta(days=today.weekday())
     log_file: Path = locker.log_file
     log_data = load_workout_log(log_file)
-    sick_days = set(load_history().sick_days)
+    sick_days = sick_dates()
 
     print("=== Weekly Workout Status ===")
 

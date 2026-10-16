@@ -36,9 +36,7 @@ _BACKFILL_FLAG = "--backfill-workout-ledger"
 # Subcommands that own every argument after them (each has its own argparse,
 # which also answers its own --help).
 _TRAILING_ARG_FLAGS = (_LOG_MANUAL_FLAG, _REST_DAY_FLAG, _BACKFILL_FLAG)
-_MODE_FLAGS = frozenset(
-    {"--status", "--sync-only", "--apply-bonuses", "--production", "--verify-workout"}
-)
+_MODE_FLAGS = frozenset({"--status", "--sync-only", "--apply-bonuses", "--production"})
 _HELP_FLAGS = frozenset({"-h", "--help"})
 _EXIT_USAGE = 2
 
@@ -47,7 +45,6 @@ usage: python3 -m screen_locker.screen_lock [MODE]
 
 With no mode: the demo lock screen (Tk). Modes:
   --production                 the real lock screen (what workout-locker.service runs)
-  --verify-workout             lock screen in verify-only mode
   --status                     print this week's workout status and exit
   --sync-only                  headless: pull synced workouts, apply credit, exit
   --apply-bonuses              headless: apply newly earned flat bonuses, exit
@@ -153,8 +150,5 @@ def main(locker_cls: type[ScreenLocker], argv: list[str]) -> None:
         record_no_decision("--apply-bonuses")
         sys.exit(0)
 
-    locker = locker_cls(
-        demo_mode="--production" not in argv,
-        verify_only="--verify-workout" in argv,
-    )
+    locker = locker_cls(demo_mode="--production" not in argv)
     locker.run()

@@ -240,11 +240,3 @@ class TestInitialKeyboardFocus:
             locker._show_manual_workout_form()
         focused = mock_tk.Entry.return_value.focus_set.call_count
         assert focused == 1, f"expected exactly one focused entry, got {focused}"
-
-    def test_sick_justification_form_focuses_one_entry(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        locker = create_locker(mock_tk, tmp_path)
-        locker._build_justification_form(had_commitment=False)
-        focused = mock_tk.Entry.return_value.focus_set.call_count
-        assert focused == 1, f"expected exactly one focused entry, got {focused}"

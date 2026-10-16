@@ -21,7 +21,6 @@ from screen_locker._constants import (
     HEAT_SKIP_CITY,
     HEAT_SKIP_TEMP_THRESHOLD,
     SHUTDOWN_BASE_FILE,
-    SICK_DAY_STATE_FILE,
 )
 from screen_locker._decision_log import (
     LockDecision,
@@ -112,7 +111,6 @@ class StartupChecksMixin(SyncMixin):
         reset_to_base_if_new_day(
             SHUTDOWN_BASE_FILE,
             self,
-            sick_day_state_file=SICK_DAY_STATE_FILE,
             log_file=self.log_file,
         )
         # A LeetCode solve or a reading credit usually lands hours after the
@@ -154,10 +152,10 @@ class StartupChecksMixin(SyncMixin):
                 f"Weekly minimum of {WEEKLY_WORKOUT_MINIMUM} workouts met.",
             )
             return
-        # Only remaining same-day skip: genuine extreme heat. Sick days go
-        # through the justification flow instead; there is no banked
-        # "skip a workout" credit — that mechanic works against the goal of
-        # maximizing weekly workouts, so it was removed.
+        # Only remaining same-day skip: genuine extreme heat. A sick day is a
+        # date in the sickdays pool (checked in _check_today_state_exits);
+        # there is no banked "skip a workout" credit — that mechanic works
+        # against the goal of maximizing weekly workouts, so it was removed.
         # A logged workout outranks every rung above, whatever their order.
         if refuse_to_lock_over_logged_workout(self.has_logged_today, self._record_skip):
             return

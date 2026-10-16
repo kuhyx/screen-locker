@@ -1,7 +1,7 @@
 """Manual (unverified) workout rate-limiting, validation, and entry-building.
 
-Pure logic — no Tk imports. Unlike sick days, manual-workout entries live
-directly in ``log.json`` (not a separate history file): a manual
+Pure logic — no Tk imports. Manual-workout entries live directly in
+``log.json`` (not a separate history file): a manual
 entry is just another ``workout_data`` dict with ``type="manual_workout"``,
 so ``LogMixin.save_workout_log`` already HMAC-signs it for free and the
 weekly-minimum/bonus logic already counts it once wired into

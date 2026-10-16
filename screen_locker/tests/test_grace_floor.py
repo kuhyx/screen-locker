@@ -12,16 +12,16 @@ from unittest.mock import patch
 import earned_time
 import pytest
 
-from screen_locker import _earned, _grace_floor, _sick_tracker
+from screen_locker import _earned, _grace_floor
 from screen_locker._grace_floor import (
     GraceFloorMixin,
     first_done_at,
     grace_for,
     plan_absorb,
     save_lift,
-    sick_on,
     workout_done_at,
 )
+from screen_locker.tests._sick_helpers import mark_sick
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -194,14 +194,8 @@ class TestApply:
         assert plan_absorb(0) == (0, 0)
 
     def test_a_sick_day_has_no_floor(self) -> None:
-        """The user's call: the sick-day shutdown wins."""
-        _grace_floor_history([_ISO])
-        assert sick_on(_DAY)
+        """A sick day has the 20:00 sick floor instead."""
+        mark_sick(_DAY)
         host = Host((18 * 60, 18 * 60, 300))
         assert host._apply_grace_floor(None, first_done=at("18:55")) is False
         assert host.config == (18 * 60, 18 * 60, 300)
-
-
-def _grace_floor_history(days: list[str]) -> None:
-
-    _sick_tracker.SICK_HISTORY_FILE.write_text(json.dumps({"sick_days": days}))

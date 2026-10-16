@@ -41,7 +41,6 @@ def _session(**overrides: object) -> dict[str, Any]:
 def _result(*, counted: bool = False) -> WorkoutCreditResult:
     return WorkoutCreditResult(
         shutdown_adjusted=not counted,
-        new_debt=None,
         extra_bonus_delta=0,
         weekly_count=1,
         already_counted_today=counted,

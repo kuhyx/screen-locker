@@ -20,10 +20,10 @@ Rows live in ``rest_days.json`` as ``{"entries": [...]}``, each signed with
 ledger: editing the file without the key breaks the row, and a broken row
 earns nothing.
 
-Unlike a sick day -- decided on the day, at the lock screen, behind a
-countdown, rate-limited over 7/30/90 days, and paid back as workout debt -- a
-rest day is planned, costs no debt, and only touches shutdown time. It does
-not stand down the screen lock or the weekly minimum (``freedays`` does that).
+Unlike a sick day -- a date in the shared ``sickdays`` pool that stands
+every gate down -- a rest day is planned and only touches shutdown time. It
+does not stand down the screen lock or the weekly minimum (``freedays`` and
+``sickdays`` do that).
 """
 
 from __future__ import annotations

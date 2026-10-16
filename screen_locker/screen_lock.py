@@ -33,7 +33,6 @@ from screen_locker._constants import (
     PHONE_PENALTY_DELAY_DEMO,
     PHONE_PENALTY_DELAY_PRODUCTION,
     SCHEDULED_SKIPS_FILE,
-    SICK_LOCKOUT_SECONDS,
 )
 from screen_locker._decision_log import record_run_aborted
 from screen_locker._early_bird import EarlyBirdMixin
@@ -43,7 +42,6 @@ from screen_locker._manual_workout_dialog import ManualWorkoutDialogMixin
 from screen_locker._phone_verification import PhoneVerificationMixin
 from screen_locker._runnerup_verification import RunnerUpVerificationMixin
 from screen_locker._shutdown import ShutdownMixin
-from screen_locker._sick_dialog import SickDialogMixin
 from screen_locker._startup_checks import StartupChecksMixin
 from screen_locker._surface_group import FrameGroup
 from screen_locker._ui_flows import UIFlowsMixin
@@ -68,7 +66,6 @@ __all__ = [
     "PHONE_PENALTY_DELAY_DEMO",
     "PHONE_PENALTY_DELAY_PRODUCTION",
     "SCHEDULED_SKIPS_FILE",
-    "SICK_LOCKOUT_SECONDS",
     "WEEKLY_WORKOUT_MINIMUM",
     "ScreenLocker",
 ]
@@ -102,7 +99,6 @@ class ScreenLocker(
     ShutdownMixin,
     PhoneVerificationMixin,
     RunnerUpVerificationMixin,
-    SickDialogMixin,
     StartupChecksMixin,
     UIFlowsMixin,
     UIFlowsRelaxedMixin,
@@ -115,7 +111,6 @@ class ScreenLocker(
         self,
         *,
         demo_mode: bool = True,
-        verify_only: bool = False,
     ) -> None:
         """Initialize screen locker with optional demo mode."""
         _assert_not_under_pytest()
@@ -138,10 +133,9 @@ class ScreenLocker(
         self._instance_lock: _instance.InstanceLock = instance_lock
         script_dir = Path(__file__).resolve().parent
         self.log_file = script_dir / "log.json"
-        self.verify_only = verify_only
         self.workout_data: dict[str, str] = {}
         self._relaxed_day_mode: bool = False
-        self._check_early_exits(verify_only=verify_only)
+        self._check_early_exits()
         try:
             self.root = GateRoot()
         except tk.TclError as exc:
@@ -172,10 +166,7 @@ class ScreenLocker(
             self._instance_lock.release()
             sys.exit(0)
         self.root.on_callback_error = self.on_callback_error
-        title_suffix = (
-            " [VERIFY]" if verify_only else (" [DEMO MODE]" if demo_mode else "")
-        )
-        self.root.title("Workout Locker" + title_suffix)
+        self.root.title("Workout Locker" + (" [DEMO MODE]" if demo_mode else ""))
         self.demo_mode = demo_mode
         self.lockout_time = 10 if demo_mode else 1800
         self._lock: LockWindow | None = None
@@ -199,9 +190,7 @@ class ScreenLocker(
         )
         # Built before setup(), which calls build_surface per live output.
         self.container = FrameGroup([])
-        if verify_only:
-            self._setup_verify_window()
-        elif self._relaxed_day_mode:
+        if self._relaxed_day_mode:
             self._setup_relaxed_day_window()
         else:
             self._lock = self._build_lock_window()
@@ -211,9 +200,7 @@ class ScreenLocker(
         self._phone_future: Future[tuple[str, str]] | None = None
         self._runnerup_future: Future[tuple[str, str]] | None = None
         self._runnerup_on_failure: Callable[[], None] | None = None
-        if verify_only:
-            self._start_verify_workout_check()
-        elif self._relaxed_day_mode:
+        if self._relaxed_day_mode:
             self._start_relaxed_day_flow()
         else:
             self._start_phone_check()

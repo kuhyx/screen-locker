@@ -1,7 +1,7 @@
 """The one definition of "what day is it" for every day-keyed file.
 
-``log.json``, ``sick_day_state.json``, ``early_bird_pending.json``,
-``wake_state.json`` and the sick history are all keyed by ``YYYY-MM-DD``.
+``log.json``, ``early_bird_pending.json`` and ``wake_state.json`` are all
+keyed by ``YYYY-MM-DD``.
 Until 2026-09-13 each writer and reader derived that key on its own, and
 most of them used ``datetime.now(tz=UTC)`` while the lock window, the phone
 app, RunnerUp verification and the status window used LOCAL time. In CEST

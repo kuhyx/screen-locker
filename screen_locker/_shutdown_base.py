@@ -18,8 +18,10 @@ followed -- on 2026-09-13 that left the bar at 21:00 with a counted workout on
 disk. Any bonus source that is not a term of this derivation has that bug;
 registering it in ``earned_time`` makes it one.
 
-The reset clears the sick-day state file, so sick-restore cannot overwrite
-the fresh base later in the same startup.
+A sick day (``sickdays``) is resolved with ``sick=True``: shutdown is at least
+20:00, and the lift above the earned sum is saved like the grace lift. A day
+marked sick after the reset is lifted by the live pass
+(:mod:`screen_locker._sick_floor`).
 """
 
 from __future__ import annotations
@@ -47,6 +49,7 @@ from screen_locker._gate_bonus import apply_counted_bonus, date_stamp, reset_sta
 from screen_locker._grace_floor import save_lift
 from screen_locker._log_io import load_workout_log
 from screen_locker._shutdown_target import gather
+from screen_locker._sick import is_sick
 from screen_locker._weekly_check import count_day_credits
 
 if TYPE_CHECKING:
@@ -62,14 +65,21 @@ def base_minutes(day: date | None = None) -> int:
     """The base shutdown for ``day`` (default today), in minutes after midnight.
 
     Every penalty in force is already taken off; from today on, a gate's not
-    before it has paid out (:func:`~screen_locker._earned.first_credits`).
+    before it has paid out (:func:`~screen_locker._earned.first_credits`). A
+    sick day's base is raised to the sick floor, as ``earned_time.resolve``
+    does for a sick day that earned nothing.
     """
     target = day or datetime.now().astimezone().date()
     earners = registry(target)
     starts = first_credits(earners, target)
-    if starts is None:
-        return earned_time.base_for(target, earners).shutdown_minutes
-    return earned_time.base_for(target, earners, first_credits=starts).shutdown_minutes
+    base = (
+        earned_time.base_for(target, earners)
+        if starts is None
+        else earned_time.base_for(target, earners, first_credits=starts)
+    ).shutdown_minutes
+    if is_sick(target):
+        return earned_time.sick_shutdown_minutes(base, target)
+    return base
 
 
 def today_credit_count(log_file: Path, today: str) -> int:
@@ -114,21 +124,9 @@ def _save_state(state_file: Path, state: dict[str, Any]) -> None:
         _logger.warning("Failed to write shutdown reset state: %s", exc)
 
 
-def _clear_sick_day_state(sick_day_state_file: Path | None) -> None:
-    """Remove stale sick-day state so it does not override the base reset."""
-    if sick_day_state_file is None or not sick_day_state_file.exists():
-        return
-    try:
-        sick_day_state_file.unlink()
-        _logger.info("Daily base reset: cleared stale sick-day state.")
-    except OSError as exc:
-        _logger.warning("Daily base reset: could not remove sick-day state: %s", exc)
-
-
 def reset_to_base_if_new_day(
     state_file: Path,
     mixin: object,
-    sick_day_state_file: Path | None = None,
     log_file: Path | None = None,
 ) -> bool:
     """Reset the shutdown config to the base if a new calendar day began.
@@ -136,20 +134,18 @@ def reset_to_base_if_new_day(
     Writes the base plus whatever today has already earned -- the workout
     time in *log_file* (see :func:`today_credit_count`) and every flat
     earner's time -- via *mixin*._write_shutdown_config (with restore=True so
-    the script allows moving the time earlier), stamps ``last_reset_date`` in
-    *state_file*, and removes *sick_day_state_file* if it exists so the
-    sick-restore path does not fight with the fresh base on the same startup.
+    the script allows moving the time earlier) and stamps ``last_reset_date``
+    in *state_file*.
 
     Returns True if a reset was performed, False if today was already reset.
     """
     with bonus_lock(state_file):
-        return _reset(state_file, mixin, sick_day_state_file, log_file)
+        return _reset(state_file, mixin, log_file)
 
 
 def _reset(
     state_file: Path,
     mixin: object,
-    sick_day_state_file: Path | None,
     log_file: Path | None,
 ) -> bool:
     """:func:`reset_to_base_if_new_day`'s body; the caller holds the lock."""
@@ -170,8 +166,7 @@ def _reset(
         _logger.warning("Daily base reset: failed to write shutdown config.")
         return False
 
-    _clear_sick_day_state(sick_day_state_file)
-    # Later additions are paid out of the grace lift first (see _grace_floor).
+    # Later additions are paid out of the floor lift (grace or sick) first.
     save_lift(derived.lift)
 
     # The bonuses the reset already included are stamped, so the live pass
@@ -184,11 +179,12 @@ def _reset(
         f"{span(t.shutdown_minutes)} {t.earner.label}" for t in day.terms
     )
     _logger.info(
-        "Daily base reset: %s (base %s + %s already earned today%s%s).",
+        "Daily base reset: %s (base %s + %s already earned today%s%s%s).",
         hhmm(target),
         hhmm(day.base.shutdown_minutes),
         earned,
         "; rest day" if derived.rest_day else "",
+        "; sick day" if day.sick else "",
         f"; grace floor {hhmm(derived.grace)}" if derived.grace is not None else "",
     )
     return True
@@ -246,5 +242,7 @@ def apply_flat_bonuses_if_new(state_file: Path, mixin: object) -> None:
             state = _load_state(state_file)
             if apply_counted_bonus(state, adjust, earner, today_str()):
                 _save_state(state_file, state)
-        # Last, so the floor compares against everything earned so far.
+        # Last, so the floors compare against everything earned so far. The
+        # sick floor covers a day marked sick after today's reset.
+        mixin._apply_sick_floor()
         mixin._apply_grace_floor(getattr(mixin, "log_file", None))

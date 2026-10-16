@@ -17,8 +17,8 @@ if TYPE_CHECKING:
     from screen_locker._surface_group import FrameGroup, WidgetGroup
 
 # disable_paste moved to _ui_form_fields with the fields that use it; it is
-# re-exported here because _manual_workout_widgets and _sick_dialog import it
-# from this module.
+# re-exported here because _manual_workout_widgets imports it from this
+# module.
 __all__ = ["UIWidgetsMixin", "disable_paste"]
 
 

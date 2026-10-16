@@ -14,7 +14,8 @@ from unittest.mock import patch
 
 import freedays
 
-from screen_locker._status_data import gather_status
+from screen_locker._status_data import format_summary_line, gather_status
+from screen_locker.tests._sick_helpers import mark_sick
 from screen_locker.tests.test_status_data import _files
 
 if TYPE_CHECKING:
@@ -34,32 +35,16 @@ class TestGatherStatusLockSuppression:
     def test_sick_day_marks_today_and_skips_lock(self, tmp_path: Path) -> None:
         """Sick day marks today and skips lock."""
         files = _files(tmp_path)
-        (tmp_path / "sick_history.json").write_text(
-            json.dumps({"sick_days": ["2024-01-05"], "debt": 1})
-        )
+        mark_sick("2024-01-05")
         with patch(
             "screen_locker._status_data.has_workout_skip_today", return_value=False
         ):
             snap = gather_status(**files, now=_FRIDAY_NOON_UTC)
 
         assert snap.today.is_sick_day is True
-        assert snap.sick_budget.used_7d == 1
-        assert snap.sick_budget.debt == 1
+        assert format_summary_line(snap).endswith("· sick day")
         assert snap.lock_explanation.fired is False
         assert snap.lock_explanation.stage == "sick_day"
-
-    def test_sick_budget_exhausted_flag(self, tmp_path: Path) -> None:
-        """Sick budget exhausted flag."""
-        files = _files(tmp_path)
-        (tmp_path / "sick_history.json").write_text(
-            json.dumps({"sick_days": ["2024-01-05"], "debt": 0})
-        )
-        with patch(
-            "screen_locker._status_data.has_workout_skip_today", return_value=False
-        ):
-            snap = gather_status(**files, now=_FRIDAY_NOON_UTC)
-
-        assert snap.sick_budget.exhausted is True
 
     def test_wake_alarm_skip_stops_lock(self, tmp_path: Path) -> None:
         """Wake alarm skip stops lock."""

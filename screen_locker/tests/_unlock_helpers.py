@@ -59,9 +59,6 @@ def setup_unlock(
         locker, "_try_adjust_shutdown_for_workout", MagicMock(return_value=False)
     )
     object.__setattr__(
-        locker, "_clear_debt_on_verified_workout", MagicMock(return_value=None)
-    )
-    object.__setattr__(
         locker,
         "_adjust_shutdown_time_by",
         MagicMock(return_value=adjust_ok),

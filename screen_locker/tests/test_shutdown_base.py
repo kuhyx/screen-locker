@@ -121,26 +121,6 @@ class TestResetToBaseIfNewDay:
             base, base, 300, restore=True
         )
 
-    def test_clears_sick_day_state_file_on_reset(self, tmp_path: Path) -> None:
-        """Existing sick-day file is deleted during reset (lines 79-82)."""
-        f = tmp_path / "state.json"
-        f.write_text(json.dumps({"last_reset_date": "2000-01-01"}))
-        sick_file = tmp_path / "sick.json"
-        sick_file.write_text("{}")
-        mixin = self._make_mixin()
-        assert reset_to_base_if_new_day(f, mixin, sick_day_state_file=sick_file) is True
-        assert not sick_file.exists()
-
-    def test_handles_oserror_on_sick_file_unlink(self, tmp_path: Path) -> None:
-        """OSError when removing sick-day file is logged but reset still returns True (lines 83-86)."""
-        f = tmp_path / "state.json"
-        f.write_text(json.dumps({"last_reset_date": "2000-01-01"}))
-        sick_mock = MagicMock()
-        sick_mock.exists.return_value = True
-        sick_mock.unlink.side_effect = OSError("busy")
-        mixin = self._make_mixin()
-        assert reset_to_base_if_new_day(f, mixin, sick_day_state_file=sick_mock) is True
-
     def test_handles_corrupt_state_file_gracefully(self, tmp_path: Path) -> None:
         """Corrupt state file treated as no date → reset runs (lines 64-65 except branch)."""
         f = tmp_path / "state.json"
@@ -161,21 +141,3 @@ class TestResetToBaseIfNewDay:
             "screen_locker._shutdown_base.bonus_lock", return_value=nullcontext()
         ):
             assert reset_to_base_if_new_day(state_mock, mixin) is True
-
-    def test_sick_day_state_file_not_deleted_when_absent(self, tmp_path: Path) -> None:
-        """No sick-day file passed → branch skipped, no AttributeError (line 79 branch False)."""
-        f = tmp_path / "state.json"
-        f.write_text(json.dumps({"last_reset_date": "2000-01-01"}))
-        mixin = self._make_mixin()
-        assert reset_to_base_if_new_day(f, mixin, sick_day_state_file=None) is True
-
-    def test_sick_day_file_not_deleted_when_it_doesnt_exist(
-        self, tmp_path: Path
-    ) -> None:
-        """sick_day_state_file passed but doesn't exist → .unlink() not called (line 79 .exists() False)."""
-        f = tmp_path / "state.json"
-        f.write_text(json.dumps({"last_reset_date": "2000-01-01"}))
-        sick_file = tmp_path / "nonexistent_sick.json"
-        mixin = self._make_mixin()
-        assert reset_to_base_if_new_day(f, mixin, sick_day_state_file=sick_file) is True
-        assert not sick_file.exists()

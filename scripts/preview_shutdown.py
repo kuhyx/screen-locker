@@ -5,15 +5,18 @@ READ-ONLY on the real system: it never runs the sudo helper, never writes
 ``/etc``, ``shutdown_base.json``, ``grace_floor.json``, ``rest_days.json``,
 ``log.json`` or the real workout ledger. Simulations run the real code paths
 (TCX parsing + walk summing via the RunnerUp backfill, rest-day signing and
-verification, ``_shutdown_target.derive``, the grace floor and its lift
-bookkeeping) against a temporary directory, with an in-memory shutdown config.
+verification, ``_shutdown_target.derive``, the grace and sick floors and their
+lift bookkeeping, a temporary ``sickdays`` pool) against a temporary
+directory, with an in-memory shutdown config.
 
-    python -m scripts.preview_shutdown            # today, real ledgers
+    python -m scripts.preview_shutdown            # today, real ledgers, as-is
+                                                  # plus as sick / not sick
     python -m scripts.preview_shutdown --day D --walk 25,20
     python -m scripts.preview_shutdown --day D --rest-day
     python -m scripts.preview_shutdown --day D --first-done 18:55 --done anki
-    python -m scripts.preview_shutdown --day D --first-done 18:55 --sick-day
+    python -m scripts.preview_shutdown --day D --walk 45 --sick-day
     python -m scripts.preview_shutdown --day D --sequence anki@21:00,reading@21:20
+    python -m scripts.preview_shutdown --day D --sequence sick@10:00,workout@18:00
 
 Run it with ``PYTHONPATH=~/src/utils/earned_time`` to preview the ladder
 (earned_time working tree) instead of the installed version.
@@ -22,6 +25,7 @@ Run it with ``PYTHONPATH=~/src/utils/earned_time`` to preview the ladder
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 import sys
@@ -29,7 +33,7 @@ import tempfile
 
 import earned_time
 
-from screen_locker import _earned, _grace_floor, _shutdown
+from screen_locker import _earned, _grace_floor, _shutdown, _sick_floor
 from screen_locker._constants import SHUTDOWN_CONFIG_FILE
 from screen_locker._day import today_str
 from screen_locker._earned import hhmm
@@ -40,18 +44,20 @@ from screen_locker._shutdown_target import (
     Target,
     day_credit_count,
     derive,
-    gather,
+    gather_inputs,
 )
+from screen_locker._sick import is_sick
 from scripts._preview_sim import (
+    SICK_STEP,
     SimRunnerUp,
     SimShutdown,
-    sick_history,
+    sick_pool,
     stamp,
+    use_temp_pool,
     write_walk,
 )
 
 _LOG = Path(__file__).resolve().parents[1] / "screen_locker" / "log.json"
-_SICK_STEP, _SICK_FLOOR = 60, 18 * 60  # _shutdown's sick-day step and floor
 
 
 def _say(text: str) -> None:
@@ -71,8 +77,9 @@ def _report(label: str, target: Target) -> None:
     grace = hhmm(target.grace) if target.grace is not None else "-"
     _say(f"[{label}] {res.day} base {hhmm(res.base.shutdown_minutes)} | {terms}")
     _say(
-        f"    rest_day={target.rest_day} earned={hhmm(target.earned)} "
-        f"first_done={first} grace={grace} -> SHUTDOWN {hhmm(target.minutes)}"
+        f"    rest_day={target.rest_day} sick={res.sick} earned={hhmm(target.earned)} "
+        f"first_done={first} grace={grace} lift={target.lift} "
+        f"-> SHUTDOWN {hhmm(target.minutes)}"
     )
 
 
@@ -80,6 +87,7 @@ def _simulate(args: argparse.Namespace, tmp: Path) -> None:
     day = date.fromisoformat(args.day)
     # Every ledger (the workout one included) resolves under the temp dir.
     vars(_earned)["LEDGER_HOME"] = tmp
+    use_temp_pool(tmp)
     log = tmp / "log.json"
     if args.walk:
         drop = tmp / "drop"
@@ -104,36 +112,35 @@ def _simulate(args: argparse.Namespace, tmp: Path) -> None:
             day_credit_count(log, day),
             rest_day=rest,
             first_done=min(times, default=None),
-            sick_day=sick_history(day, tmp, sick_day=args.sick_day),
+            sick_day=sick_pool(day, sick_day=args.sick_day),
         )
     )
     _report("simulated", target)
-    if args.sick_day:
-        # What the lock screen's sick-day choice then does to that (the
-        # existing _apply_earlier_shutdown rule); no grace floor lifts it back.
-        after = max(_SICK_FLOOR, target.minutes - _SICK_STEP)
-        _say(f"    sick-day step at the lock screen -> SHUTDOWN {hhmm(after)}")
 
 
 def _sequence(args: argparse.Namespace, tmp: Path) -> None:
     day = date.fromisoformat(args.day)
-    for module in (_grace_floor, _shutdown):
+    for module in (_grace_floor, _shutdown, _sick_floor):
         vars(module)["today_str"] = lambda: args.day
-    vars(_grace_floor)["GRACE_STATE_FILE"] = tmp / "grace_floor.json"
+        vars(module)["GRACE_STATE_FILE"] = tmp / "grace_floor.json"
+    use_temp_pool(tmp)
     done = {e.name: False for e in _earned.flat_earners()}
     start = derive(DayInputs(day, done))
     sim = SimShutdown(start.minutes)
-    _say(f"[sequence] {day} start {hhmm(start.minutes)} (nothing done)")
+    _say(f"[sequence] {day} start {hhmm(start.minutes)} (nothing done, not sick)")
     workouts, first = 0, None
     for step in args.sequence.split(","):
         name, _, at = step.partition("@")
-        first = min(first or stamp(day, at), stamp(day, at))
         if name == earned_time.WORKOUT.name:
             workouts += 1
-        else:
+        elif name != SICK_STEP:
             done[name] = True
+        if name != SICK_STEP:
+            first = min(first or stamp(day, at), stamp(day, at))
         sim.credit(name, day, first)
-        want = derive(DayInputs(day, done, workouts, first_done=first))
+        want = derive(
+            DayInputs(day, done, workouts, first_done=first, sick_day=is_sick(day))
+        )
         verdict = "" if sim.config[0] == want.minutes else " MISMATCH"
         _say(
             f"    {name}@{at}: config {hhmm(sim.config[0])} "
@@ -151,6 +158,7 @@ def main() -> int:
     parser.add_argument("--first-done", help="HH:MM a ledger earner was first done")
     parser.add_argument("--done", help="flat earners done, e.g. anki,leetcode")
     parser.add_argument("--sequence", help="name@HH:MM,... live passes in order")
+    parser.add_argument("--log", type=Path, default=_LOG, help="log.json (read-only)")
     args = parser.parse_args()
     ladder = getattr(earned_time, "on_ladder", None)
     _say(f"earned_time from {Path(earned_time.__file__).parent}")
@@ -162,9 +170,12 @@ def main() -> int:
         _say(
             f"    live config: {tuple(hhmm(m) for m in live) if live else 'unreadable'}"
         )
-        target = gather(today, _LOG)
+        inputs = gather_inputs(today, args.log)
+        target = derive(inputs)
         _report("today, real ledgers", target)
         _say(f"    expected config after the next reset: {hhmm(target.minutes)}")
+        for label, sick in (("as sick", True), ("as not sick", False)):
+            _report(f"today {label}", derive(replace(inputs, sick_day=sick)))
         return 0
     day = date.fromisoformat(args.day)
     _say(f"    ladder in force on {day}: {ladder(day) if ladder else False}")

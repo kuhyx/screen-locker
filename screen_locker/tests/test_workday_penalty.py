@@ -12,6 +12,7 @@ import pytest
 
 from screen_locker import _workday_penalty
 from screen_locker._workday_penalty import workday_penalty_today
+from screen_locker.tests._sick_helpers import mark_sick
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -60,3 +61,29 @@ class TestVerdict:
     def test_default_now_is_used_when_unset(self) -> None:
         # Not asserting a value -- just that omitting `now` does not raise.
         assert workday_penalty_today() is False
+
+
+class TestSickDayVoidsThePenalty:
+    """Void when EITHER the missed ring's day OR the penalised day is sick."""
+
+    def test_a_sick_penalty_date_voids_it(self) -> None:
+        mark_sick("2026-09-23")
+        _write({"penalty_date": "2026-09-23", "issued_date": "2026-09-22"})
+        assert workday_penalty_today(NOW) is False
+
+    def test_a_sick_issued_date_voids_it(self) -> None:
+        """Missed at 08:15, marked sick at 14:00: wake-alarm's retraction lags."""
+        mark_sick("2026-09-22")
+        _write({"penalty_date": "2026-09-23", "issued_date": "2026-09-22"})
+        assert workday_penalty_today(NOW) is False
+
+    def test_an_older_file_without_issued_date_still_applies(self) -> None:
+        _write({"penalty_date": "2026-09-23"})
+        assert workday_penalty_today(NOW) is True
+
+    def test_a_malformed_issued_date_is_logged_not_sick(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        _write({"penalty_date": "2026-09-23", "issued_date": "yesterday"})
+        assert workday_penalty_today(NOW) is True
+        assert "not a date" in caplog.text

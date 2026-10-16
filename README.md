@@ -1,8 +1,23 @@
 # screen-locker
 
-Tkinter/systemd screen locker with workout tracking, sick-day management, and
+Tkinter/systemd screen locker with workout tracking, shared sick days, and
 wake-alarm integration. It enforces a workout cadence by locking the screen
-until a RunnerUp-verified (or explicitly justified) workout is logged.
+until a verified (RunnerUp, StrongLifts) or budgeted manual workout is logged.
+
+## Sick days
+
+A sick day is a date in the fleet-wide [`sickdays`](https://github.com/kuhyx/utils/tree/main/sickdays)
+pool, nothing else: no budget, countdown, justification or debt. The lock
+screen's **I'm sick** button (retry screen, no-phone screen and the Tue-Thu
+prompt) marks today with one tap and unlocks; `sickdays add` or the phone do
+the same. On a sick day the workout lock and the grace floor stand down,
+wake-alarm's workday penalty is void, and shutdown is
+`max(20:00, the normal ladder)` capped at 23:00 (`earned_time.resolve(...,
+sick=True)`). A day marked after its daily reset is lifted to 20:00 by the
+next 5-minute pass (`_sick_floor`); a workout that day still earns normally
+and is paid out of that lift first, so it lands on the ladder value (e.g.
+20:40), never 20:00 plus its whole reward. `install.sh` migrates the old
+`sick_history.json` dates into the pool once (`scripts/migrate_sick_history.py`).
 
 ## Shutdown time
 

@@ -1,4 +1,4 @@
-"""Tests for UI transitions, timer logic, and sick day screens."""
+"""Tests for UI transitions, timer logic, and the retry screen."""
 
 from __future__ import annotations
 
@@ -119,65 +119,6 @@ class TestTimerLogic:
         locker.update_lockout_countdown()
 
         locker._start_phone_check.assert_called_once()
-
-
-class TestAskIfSick:
-    """Tests for ask_if_sick method."""
-
-    def test_ask_if_sick_invokes_justification_dialog(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        """ask_if_sick now delegates to the structured justification dialog."""
-        locker = create_locker(mock_tk, tmp_path)
-        object.__setattr__(locker, "_show_sick_justification", MagicMock())
-        locker.ask_if_sick()
-        locker._show_sick_justification.assert_called_once_with()
-
-
-class TestGetSickDayStatus:
-    """Tests for _get_sick_day_status method."""
-
-    def test_already_adjusted_today(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        """Test status when sick mode already used today."""
-        locker = create_locker(mock_tk, tmp_path)
-        object.__setattr__(
-            locker, "_sick_mode_used_today", MagicMock(return_value=True)
-        )
-        text, color = locker._get_sick_day_status()
-        assert "already adjusted" in text
-        assert color == locker._colors.palette.warning
-
-    def test_adjustment_success(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        """Test status when shutdown time adjusted successfully."""
-        locker = create_locker(mock_tk, tmp_path)
-        object.__setattr__(
-            locker, "_sick_mode_used_today", MagicMock(return_value=False)
-        )
-        object.__setattr__(
-            locker, "_adjust_shutdown_time_earlier", MagicMock(return_value=True)
-        )
-        text, color = locker._get_sick_day_status()
-        assert "earlier" in text
-        assert color == locker._colors.palette.success
-
-    def test_adjustment_failure(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        """Test status when adjustment fails."""
-        locker = create_locker(mock_tk, tmp_path)
-        object.__setattr__(
-            locker, "_sick_mode_used_today", MagicMock(return_value=False)
-        )
-        object.__setattr__(
-            locker, "_adjust_shutdown_time_earlier", MagicMock(return_value=False)
-        )
-        text, color = locker._get_sick_day_status()
-        assert "Could not adjust" in text
-        assert color == locker._colors.palette.danger
 
 
 class TestShowRetryAndSick:

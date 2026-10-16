@@ -24,9 +24,8 @@ class _FakeLocker:
 
     instances: ClassVar[list[_FakeLocker]] = []
 
-    def __init__(self, *, demo_mode: bool = True, verify_only: bool = False) -> None:
+    def __init__(self, *, demo_mode: bool = True) -> None:
         self.demo_mode = demo_mode
-        self.verify_only = verify_only
         self.ran = False
         self.log_file: Path | None = None
         self.workout_data: dict[str, str] | None = None
@@ -57,7 +56,7 @@ class TestHeadlessLocker:
         """Bypassing __init__ leaves only log_file and workout_data set."""
         locker = _cli._headless_locker(_FakeLocker)
 
-        # __init__ never ran, so demo_mode/verify_only are absent entirely.
+        # __init__ never ran, so demo_mode is absent entirely.
         assert not hasattr(locker, "demo_mode")
         assert not _FakeLocker.instances
         assert not locker.workout_data
@@ -160,7 +159,6 @@ class TestLockMode:
 
         locker = _FakeLocker.instances[-1]
         assert locker.demo_mode is True
-        assert locker.verify_only is False
         assert locker.ran is True
 
     def test_production_flag_disables_demo_mode(self) -> None:
@@ -169,23 +167,11 @@ class TestLockMode:
 
         locker = _FakeLocker.instances[-1]
         assert locker.demo_mode is False
-        assert locker.verify_only is False
 
-    def test_verify_workout_flag_sets_verify_only(self) -> None:
-        """--verify-workout sets verify_only."""
-        _cli.main(_FakeLocker, ["screen_lock.py", "--verify-workout"])
-
-        locker = _FakeLocker.instances[-1]
-        assert locker.verify_only is True
-        assert locker.demo_mode is True
-
-    def test_production_and_verify_combine(self) -> None:
-        """--production and --verify-workout apply together."""
-        _cli.main(_FakeLocker, ["screen_lock.py", "--production", "--verify-workout"])
-
-        locker = _FakeLocker.instances[-1]
-        assert locker.demo_mode is False
-        assert locker.verify_only is True
+    def test_verify_workout_flag_is_gone(self) -> None:
+        """The post-sick-day verify mode was removed with the old sick day."""
+        assert "--verify-workout" not in _cli._MODE_FLAGS
+        assert "--verify-workout" not in _cli._USAGE
 
 
 class TestScreenLockDelegation:

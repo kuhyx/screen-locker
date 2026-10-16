@@ -123,7 +123,6 @@ class TestInitEarlyBirdFlow:
             ),
             patch.object(ScreenLocker, "_save_early_bird_pending") as mock_save,
             patch.object(ScreenLocker, "_start_phone_check"),
-            patch.object(ScreenLocker, "_start_verify_workout_check"),
             patch(
                 "screen_locker._early_bird.morning_skip_today",
                 return_value=None,
@@ -167,7 +166,6 @@ class TestInitEarlyBirdFlow:
                 ScreenLocker, "_try_auto_upgrade_early_bird", return_value=True
             ),
             patch.object(ScreenLocker, "_start_phone_check"),
-            patch.object(ScreenLocker, "_start_verify_workout_check"),
             pytest.raises(SystemExit),
         ):
             ScreenLocker(demo_mode=True)

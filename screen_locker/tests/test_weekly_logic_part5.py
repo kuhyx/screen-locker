@@ -51,7 +51,6 @@ class TestRelaxedDayAlreadySkippedBranch:
             ),
             patch.object(ScreenLocker, "_start_phone_check"),
             patch.object(ScreenLocker, "_start_relaxed_day_flow") as mock_relaxed,
-            patch.object(ScreenLocker, "_start_verify_workout_check"),
         ):
             locker = ScreenLocker(demo_mode=True)
 

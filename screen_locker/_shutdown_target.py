@@ -4,8 +4,9 @@
 (:mod:`screen_locker._shutdown_base`) and the read-only preview
 (``scripts/preview_shutdown.py``), so a dry run exercises the real sum::
 
-    earned = earned_time.resolve(answers)          # base + every earner, capped
-    target = min(ceiling, max(earned, grace floor))
+    earned = earned_time.resolve(answers, sick=...)  # base + every earner, capped;
+                                                     # sick: at least 20:00
+    target = min(ceiling, max(earned, grace floor))  # no grace floor when sick
 
 A declared rest day answers the workout with at least one unit, i.e. its
 first-unit bonus; a real workout on top of it earns only what a further unit
@@ -20,9 +21,10 @@ from typing import TYPE_CHECKING
 import earned_time
 
 from screen_locker._earned import ceiling, first_credits, gate_answers, registry
-from screen_locker._grace_floor import first_done_at, grace_for, sick_on
+from screen_locker._grace_floor import first_done_at, grace_for
 from screen_locker._log_io import load_workout_log
 from screen_locker._rest_day import is_rest_day
+from screen_locker._sick import is_sick
 from screen_locker._weekly_check import count_day_credits
 
 if TYPE_CHECKING:
@@ -36,7 +38,8 @@ class Target:
     """One day's derived shutdown and what made it.
 
     Attributes:
-        resolution: ``earned_time``'s sum (base + terms, capped).
+        resolution: ``earned_time``'s sum (base + terms, capped; on a sick
+            day raised to the 20:00 sick floor).
         rest_day: Whether the day is a declared rest day.
         first_done_at: Unix time the day's first earner was done, if any.
         grace: The grace floor in minutes, or ``None``.
@@ -51,12 +54,16 @@ class Target:
 
     @property
     def earned(self) -> int:
-        """The earned shutdown, before the grace floor."""
-        return self.resolution.shutdown_minutes
+        """The earned shutdown: base plus terms, before any floor."""
+        return self.resolution.shutdown_minutes - self.resolution.sick_lift_minutes
 
     @property
     def lift(self) -> int:
-        """How far the grace floor lifts the earned shutdown."""
+        """How far the floors (grace or sick) lift the earned shutdown.
+
+        Saved as the day's lift (``_grace_floor.save_lift``), so a credit that
+        lands later is paid out of it first instead of stacking on 20:00.
+        """
         return self.minutes - self.earned
 
 
@@ -76,7 +83,8 @@ class DayInputs:
         workout_credits: The log's distinct workout credits.
         rest_day: Declared rest day.
         first_done: Unix time the day's first earner was done, if any.
-        sick_day: Sick day: the sick-day shutdown wins, no grace floor.
+        sick_day: Sick day (``sickdays``): shutdown is at least 20:00
+            (``earned_time.resolve(..., sick=True)``) and no grace floor.
         first_credits: Each penalised gate's first real credit
             (:func:`~screen_locker._earned.first_credits`); ``None`` resolves
             on ``penalty_from`` alone, as before earned_time 0.6.
@@ -102,10 +110,11 @@ def derive(inputs: DayInputs) -> Target:
     # day's registry, so the earners asked and the earners summed match.
     earners = registry(day)
     starts = inputs.first_credits
+    sick = inputs.sick_day
     resolution = (
-        earned_time.resolve(answers, day, earners)
+        earned_time.resolve(answers, day, earners, sick=sick)
         if starts is None
-        else earned_time.resolve(answers, day, earners, first_credits=starts)
+        else earned_time.resolve(answers, day, earners, first_credits=starts, sick=sick)
     )
     grace = None if inputs.sick_day else grace_for(inputs.first_done, day)
     minutes = resolution.shutdown_minutes
@@ -129,17 +138,20 @@ def day_credit_count(log_file: Path | None, day: date) -> int:
     return count_day_credits(iso, [e for e in entries if isinstance(e, dict)])
 
 
+def gather_inputs(day: date, log_file: Path | None) -> DayInputs:
+    """Read ``day``'s real inputs: ledgers, log, rest days, sick pool."""
+    rest_day = is_rest_day(day)
+    return DayInputs(
+        day=day,
+        flat=gate_answers(day),
+        workout_credits=day_credit_count(log_file, day),
+        rest_day=rest_day,
+        first_done=first_done_at(day, log_file, rest_day=rest_day),
+        sick_day=is_sick(day),
+        first_credits=first_credits(registry(day), day),
+    )
+
+
 def gather(day: date, log_file: Path | None) -> Target:
     """Derive ``day``'s target from the real ledgers, log and rest days."""
-    rest_day = is_rest_day(day)
-    return derive(
-        DayInputs(
-            day=day,
-            flat=gate_answers(day),
-            workout_credits=day_credit_count(log_file, day),
-            rest_day=rest_day,
-            first_done=first_done_at(day, log_file, rest_day=rest_day),
-            sick_day=sick_on(day),
-            first_credits=first_credits(registry(day), day),
-        )
-    )
+    return derive(gather_inputs(day, log_file))

@@ -10,7 +10,7 @@ from unittest.mock import patch
 import freedays
 
 from screen_locker._compliance_state import explain_lock_decision
-from screen_locker._sick_tracker import SickHistory
+from screen_locker.tests._sick_helpers import mark_sick
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -37,7 +37,6 @@ class TestExplainLockDecision:
         )
         result = explain_lock_decision(
             **files,
-            sick_history=SickHistory(),
             weekly_minimum_met=False,
             relaxed_day=False,
         )
@@ -56,7 +55,6 @@ class TestExplainLockDecision:
         ):
             result = explain_lock_decision(
                 **files,
-                sick_history=SickHistory(),
                 weekly_minimum_met=False,
                 relaxed_day=False,
                 wake_skip=True,
@@ -78,7 +76,6 @@ class TestExplainLockDecision:
         ):
             result = explain_lock_decision(
                 **files,
-                sick_history=SickHistory(),
                 weekly_minimum_met=False,
                 relaxed_day=False,
                 now=now,
@@ -93,9 +90,9 @@ class TestExplainLockDecision:
 
     def test_sick_day_skips(self, tmp_path: Path) -> None:
         files = self._files(tmp_path)
+        mark_sick()
         result = explain_lock_decision(
             **files,
-            sick_history=SickHistory(sick_days=[_today()]),
             weekly_minimum_met=False,
             relaxed_day=False,
             now=datetime.now(tz=UTC).astimezone().replace(hour=12, minute=0),
@@ -111,7 +108,6 @@ class TestExplainLockDecision:
         ):
             result = explain_lock_decision(
                 **files,
-                sick_history=SickHistory(),
                 weekly_minimum_met=False,
                 relaxed_day=False,
                 now=datetime.now(tz=UTC).astimezone().replace(hour=12, minute=0),
@@ -123,7 +119,6 @@ class TestExplainLockDecision:
         files = self._files(tmp_path)
         result = explain_lock_decision(
             **files,
-            sick_history=SickHistory(),
             weekly_minimum_met=False,
             relaxed_day=False,
             wake_skip=True,
@@ -137,7 +132,6 @@ class TestExplainLockDecision:
         files = self._files(tmp_path)
         result = explain_lock_decision(
             **files,
-            sick_history=SickHistory(),
             weekly_minimum_met=False,
             relaxed_day=False,
             wake_skip=True,
@@ -150,7 +144,6 @@ class TestExplainLockDecision:
         files = self._files(tmp_path)
         result = explain_lock_decision(
             **files,
-            sick_history=SickHistory(),
             weekly_minimum_met=False,
             relaxed_day=True,
             now=datetime.now(tz=UTC).astimezone().replace(hour=12, minute=0),
@@ -173,7 +166,6 @@ class TestExplainLockDecision:
         write_signed_entry(files["log_file"], _today(), {"type": "relaxed_day_skip"})
         result = explain_lock_decision(
             **files,
-            sick_history=SickHistory(),
             weekly_minimum_met=False,
             relaxed_day=True,
             now=datetime.now(tz=UTC).astimezone().replace(hour=12, minute=0),
@@ -185,7 +177,6 @@ class TestExplainLockDecision:
         files = self._files(tmp_path)
         result = explain_lock_decision(
             **files,
-            sick_history=SickHistory(),
             weekly_minimum_met=True,
             relaxed_day=False,
             now=datetime.now(tz=UTC).astimezone().replace(hour=12, minute=0),
@@ -197,7 +188,6 @@ class TestExplainLockDecision:
         files = self._files(tmp_path)
         result = explain_lock_decision(
             **files,
-            sick_history=SickHistory(),
             weekly_minimum_met=False,
             relaxed_day=False,
             now=datetime.now(tz=UTC).astimezone().replace(hour=12, minute=0),
@@ -212,7 +202,6 @@ class TestExplainLockDecision:
         files = self._files(tmp_path)
         result = explain_lock_decision(
             **files,
-            sick_history=SickHistory(),
             weekly_minimum_met=False,
             relaxed_day=False,
         )

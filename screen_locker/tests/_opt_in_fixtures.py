@@ -30,7 +30,7 @@ def mock_tk() -> Generator[MagicMock]:
 
     Patches the same single mock into all ``_TK_MODULES`` so assertions on
     ``mock_tk.Button`` capture widgets created by any of the split UI mixins
-    (``_ui_widgets``, ``_sick_dialog``, ...), not just ``screen_lock``.
+    (``_ui_widgets``, ``_manual_workout_dialog``, ...), not just ``screen_lock``.
     """
     mock = _make_mock_tk()
     with ExitStack() as stack:

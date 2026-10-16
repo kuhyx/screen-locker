@@ -106,14 +106,12 @@ class TestRunStatusNormal:
     def test_sick_day_shown_when_no_log_entry(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
-        """A date with no workout_log entry but in sick_history → shown as sick_day."""
-        from datetime import datetime
+        """A date with no workout_log entry but in the sickdays pool → sick_day."""
+        from screen_locker.tests._sick_helpers import mark_sick
 
-        today = datetime.now(tz=UTC).astimezone().date().isoformat()
+        mark_sick()
         eb_file = tmp_path / "eb.json"
         log_file = tmp_path / "log.json"
-        history_file = tmp_path / "sick_history.json"
-        history_file.write_text(json.dumps({"sick_days": [today]}))
         locker = _make_locker(log_file, n_filled=0)
         with (
             patch("screen_locker._status.EXTRA_BENEFITS_FILE", eb_file),

@@ -19,7 +19,6 @@ from screen_locker._status_data import (
     ManualWorkoutBudgetStatus,
     ShutdownProjection,
     ShutdownProjectionDay,
-    SickBudgetStatus,
     StatusSnapshot,
     WeeklySummary,
 )
@@ -86,19 +85,6 @@ def _lock_explanation(
     )
 
 
-def _sick_budget(*, used_7d: int = 0, exhausted: bool = False) -> SickBudgetStatus:
-    return SickBudgetStatus(
-        used_7d=used_7d,
-        budget_7d=1,
-        used_30d=0,
-        budget_30d=3,
-        used_90d=0,
-        budget_90d=10,
-        debt=0,
-        exhausted=exhausted,
-    )
-
-
 def _manual_workout_budget(
     *, used_7d: int = 0, exhausted: bool = False
 ) -> ManualWorkoutBudgetStatus:
@@ -138,7 +124,6 @@ def _snapshot(**overrides: object) -> StatusSnapshot:
         early_bird_extended=False,
         shutdown=_shutdown(),
         lock_explanation=_lock_explanation(),
-        sick_budget=_sick_budget(),
         manual_workout_budget=_manual_workout_budget(),
         generated_at="2024-01-05T12:00:00+00:00",
     )

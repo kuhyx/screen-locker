@@ -12,10 +12,6 @@ from __future__ import annotations
 # binding lets a test write to the real file.
 ISOLATED_STATE: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
-        "sick_history.json",
-        ("_sick_tracker.SICK_HISTORY_FILE", "_constants.SICK_HISTORY_FILE"),
-    ),
-    (
         "early_bird_pending.json",
         (
             "_early_bird.EARLY_BIRD_PENDING_FILE",
@@ -38,14 +34,6 @@ ISOLATED_STATE: tuple[tuple[str, tuple[str, ...]], ...] = (
         (
             "_constants.SYNC_TOMBSTONES_FILE",
             "_sync_tombstones.SYNC_TOMBSTONES_FILE",
-        ),
-    ),
-    (
-        "sick_day_state.json",
-        (
-            "_constants.SICK_DAY_STATE_FILE",
-            "_startup_checks.SICK_DAY_STATE_FILE",
-            "_shutdown_sick_state.SICK_DAY_STATE_FILE",
         ),
     ),
     # The durable lock-decision trail. Written on EVERY locker run, so without
@@ -96,7 +84,11 @@ ISOLATED_STATE: tuple[tuple[str, tuple[str, ...]], ...] = (
     # Today's grace-floor lift; every shutdown add reads and writes it.
     (
         "grace_floor.json",
-        ("_constants.GRACE_STATE_FILE", "_grace_floor.GRACE_STATE_FILE"),
+        (
+            "_constants.GRACE_STATE_FILE",
+            "_grace_floor.GRACE_STATE_FILE",
+            "_sick_floor.GRACE_STATE_FILE",
+        ),
     ),
     # wake-alarm's workday-stick file. A test that forgot this would read
     # the developer's real penalty state.

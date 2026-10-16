@@ -101,9 +101,6 @@ def _wired_locker(mock_tk: MagicMock, tmp_path: Path, wtype: str) -> ScreenLocke
         locker, "_read_shutdown_config", MagicMock(side_effect=lambda: config["value"])
     )
     object.__setattr__(locker, "_write_shutdown_config", MagicMock(side_effect=write))
-    object.__setattr__(
-        locker, "_clear_debt_on_verified_workout", MagicMock(return_value=None)
-    )
     return locker
 
 

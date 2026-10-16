@@ -149,7 +149,6 @@ class TestRefreshAndCheckPhoneFlow:
         fake_verifier._apply_workout_credit = MagicMock(
             return_value=WorkoutCreditResult(
                 shutdown_adjusted=True,
-                new_debt=None,
                 extra_bonus_delta=0,
                 weekly_count=1,
                 already_counted_today=False,
@@ -186,7 +185,6 @@ class TestRefreshAndCheckPhoneFlow:
         fake_verifier._apply_workout_credit = MagicMock(
             return_value=WorkoutCreditResult(
                 shutdown_adjusted=False,
-                new_debt=None,
                 extra_bonus_delta=0,
                 weekly_count=1,
                 already_counted_today=False,

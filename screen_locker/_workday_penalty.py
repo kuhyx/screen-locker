@@ -6,10 +6,16 @@ instead of just resetting to normal. This module never re-derives that
 policy: the file carries a signed ``penalty_date``, and the only decision
 here is *HMAC ok, dated today*. Anything else -- missing file, stale date,
 bad signature -- is "no penalty", i.e. today's ordinary relaxed-day rule.
+
+The file is void when EITHER its ``issued_date`` (the day of the missed
+ring) OR its ``penalty_date`` is a sick day (``sickdays``): a sick day stands
+every gate down, and wake-alarm's own retraction of the file can lag its
+sync by ~15 min, so it is not relied on here.
 """
 
 from __future__ import annotations
 
+from datetime import date
 import json
 import logging
 from typing import TYPE_CHECKING
@@ -18,6 +24,7 @@ from gatelock.log_integrity import verify_entry_hmac
 
 from screen_locker._constants import WORKDAY_PENALTY_FILE
 from screen_locker._day import today_str
+from screen_locker._sick import is_sick
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -44,6 +51,22 @@ def _read_verified() -> dict[str, object] | None:
 def workday_penalty_today(now: datetime | None = None) -> bool:
     """Whether today lost its relaxed-day leniency to a missed prior ring."""
     entry = _read_verified()
-    if entry is None:
+    if entry is None or entry.get("penalty_date") != today_str(now):
         return False
-    return entry.get("penalty_date") == today_str(now)
+    for field in ("issued_date", "penalty_date"):
+        if _is_sick_iso(entry.get(field)):
+            _logger.warning("Workday penalty void: its %s is a sick day", field)
+            return False
+    return True
+
+
+def _is_sick_iso(value: object) -> bool:
+    """Whether ``value`` is a ``YYYY-MM-DD`` that the sickdays pool marks sick."""
+    if value is None:
+        return False  # an older file without issued_date: penalty_date rules
+    try:
+        day = date.fromisoformat(str(value))
+    except ValueError:
+        _logger.warning("Workday penalty: %r is not a date; not a sick day", value)
+        return False
+    return is_sick(day)

@@ -148,11 +148,7 @@ class TestSyncPassCreditsRunnerUp:
             locker, "_write_shutdown_config", MagicMock(side_effect=write)
         )
 
-        with (
-            patch("screen_locker._log_mixin.compute_entry_hmac", return_value="sig"),
-            patch("screen_locker._workout_credit._sick_tracker.load_history") as hist,
-        ):
-            hist.return_value.debt = 0
+        with patch("screen_locker._log_mixin.compute_entry_hmac", return_value="sig"):
             locker._auto_fill_week_runnerup_bonus()
             locker._auto_fill_week_runnerup_bonus()
 

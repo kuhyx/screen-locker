@@ -5,7 +5,7 @@ from elsewhere) arrives via crdt-sync as a ``kind="manual_workout"`` payload
 (see :func:`screen_locker._manual_workout.build_sync_payload`). This module
 turns those synced payloads into ordinary signed ``manual_workout`` entries in
 ``log.json`` so they count toward the weekly minimum and — via the
-optional ``on_ingested`` callback — earn the same shutdown/debt reward a
+optional ``on_ingested`` callback — earn the same shutdown reward a
 live-logged workout would.
 
 Trust model: the PC never trusts the phone's derived fields. Every synced
@@ -94,7 +94,7 @@ def ingest_manual_records(
     right after each newly-appended record — ``prior_entries`` being that
     entry's own date's entries written before it — so the caller (see
     ``screen_lock.ScreenLocker._ingest_synced_manual_workouts``) can apply the
-    identical live-workout shutdown/debt reward. This applies regardless of
+    identical live-workout shutdown reward. This applies regardless of
     whether ``date`` is today or back-dated: there's only one current shutdown
     config, so a back-dated sync still pushes it exactly as a live workout
     would have that day.

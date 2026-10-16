@@ -34,7 +34,7 @@ from screen_locker._day import today_str
 from screen_locker._earned import ceiling, first_credit_time, gate_earners, hhmm
 from screen_locker._log_io import load_workout_log
 from screen_locker._rest_day import is_rest_day
-from screen_locker._sick_tracker import is_sick_day, load_history
+from screen_locker._sick import is_sick
 from screen_locker._weekly_check import credit_key, day_workout_index
 from screen_locker._workout_ledger import entry_done_at
 
@@ -96,16 +96,6 @@ def first_done_at(
     return min(on_day, default=None)
 
 
-def sick_on(day: date) -> bool:
-    """Whether ``day`` is a sick day, from the sick-day history itself.
-
-    On a sick day the sick-day shutdown wins and there is no grace floor (the
-    user's call, 2026-10-09): the floor would otherwise lift the sick-day
-    reduction straight back up.
-    """
-    return is_sick_day(load_history(), today=day.isoformat())
-
-
 def grace_for(first_done: float | None, day: date) -> int | None:
     """The floor for ``day`` in minutes after midnight, or ``None`` if none."""
     if first_done is None:
@@ -117,7 +107,8 @@ def grace_for(first_done: float | None, day: date) -> int | None:
     return min(ceiling(day), done + GRACE_MINUTES)
 
 
-def _load_lift(state_file: Path, today: str) -> int:
+def load_lift(state_file: Path, today: str) -> int:
+    """Today's recorded floor lift (grace or sick), 0 when none or unreadable."""
     if not state_file.exists():
         return 0  # no lift recorded yet: nothing to absorb
     try:
@@ -147,7 +138,7 @@ def plan_absorb(minutes: int, state_file: Path | None = None) -> tuple[int, int]
 
     Commit the lift with :func:`save_lift` only once the write succeeded.
     """
-    lift = _load_lift(state_file or GRACE_STATE_FILE, today_str())
+    lift = load_lift(state_file or GRACE_STATE_FILE, today_str())
     return max(0, minutes - lift), max(0, lift - minutes)
 
 
@@ -177,7 +168,8 @@ class GraceFloorMixin:
         simulations). Returns True when the config was raised on this call.
         """
         day = date.fromisoformat(today_str())
-        if sick_on(day):
+        if is_sick(day):
+            # The sick floor (20:00, _sick_floor) stands in for it that day.
             _logger.info("Grace floor: skipped, today is a sick day")
             return False
         if first_done is None:
@@ -199,7 +191,7 @@ class GraceFloorMixin:
             ):
                 _logger.warning("Grace floor: failed to write shutdown config")
                 return False
-            lift = _load_lift(GRACE_STATE_FILE, today_str()) + floor - current
+            lift = load_lift(GRACE_STATE_FILE, today_str()) + floor - current
             save_lift(lift, GRACE_STATE_FILE)
         _logger.info(
             "Grace floor: shutdown %s -> %s (first task done + %d min).",

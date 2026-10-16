@@ -73,7 +73,7 @@ class LockoutFlowMixin:
             if self.demo_mode
             else PHONE_PENALTY_DELAY_PRODUCTION
         )
-        # Disconnecting the phone shouldn't be a fast path into sick mode.
+        # Disconnecting the phone shouldn't be a fast path to the manual log.
         delay = (
             base_delay
             if self.demo_mode
@@ -99,6 +99,8 @@ class LockoutFlowMixin:
             scale=2.5,
             pad="md",
         )
+        # A sick day needs no wait: it is one tap on every screen.
+        self._sick_button(self._button_row())
         self._update_phone_penalty()
 
     def _update_phone_penalty(self) -> None:

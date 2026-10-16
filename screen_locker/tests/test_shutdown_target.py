@@ -7,6 +7,8 @@ import json
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
+import earned_time
+
 from screen_locker import _grace_floor
 from screen_locker._shutdown_target import (
     DayInputs,
@@ -21,6 +23,7 @@ if TYPE_CHECKING:
 
 _DAY = date(2026, 10, 10)
 _ISO = _DAY.isoformat()
+SICK_FLOOR = earned_time.SICK_SHUTDOWN_FLOOR_MINUTES
 _FLAT = {"leetcode": False, "reading": False, "anki": False, "tutor": False}
 
 
@@ -48,10 +51,26 @@ class TestTarget:
         assert target.minutes == max(target.earned, 19 * 60 + 55)
         assert target.lift == target.minutes - target.earned
 
-    def test_a_sick_day_drops_the_floor(self) -> None:
+    def test_a_sick_day_has_no_grace_floor_but_the_20_00_one(self) -> None:
         target = derive(DayInputs(_DAY, _FLAT, first_done=at("18:55"), sick_day=True))
         assert target.grace is None
+        assert target.resolution.sick is True
+        assert target.minutes == max(SICK_FLOOR, target.earned)
+        # The lift is the sick floor's, so later credits absorb it first.
+        assert target.lift == target.resolution.sick_lift_minutes
+        assert target.lift == SICK_FLOOR - target.earned
+
+    def test_a_sick_day_above_20_00_keeps_the_ladder_value(self) -> None:
+        busy = dict.fromkeys(_FLAT, True)
+        target = derive(DayInputs(_DAY, busy, workout_credits=1, sick_day=True))
         assert target.minutes == target.earned
+        assert target.minutes > SICK_FLOOR
+        assert target.lift == 0
+
+    def test_not_sick_is_the_plain_sum(self) -> None:
+        target = derive(DayInputs(_DAY, _FLAT))
+        assert target.resolution.sick is False
+        assert target.minutes == target.earned == target.resolution.shutdown_minutes
 
     def test_no_log_counts_no_workouts(self) -> None:
         assert day_credit_count(None, _DAY) == 0

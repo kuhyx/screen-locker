@@ -23,7 +23,6 @@ if TYPE_CHECKING:
         DayStatus,
         ManualWorkoutBudgetStatus,
         ShutdownProjection,
-        SickBudgetStatus,
         WeeklySummary,
     )
 
@@ -101,19 +100,6 @@ class StatusSectionsMixin:
                 role="label",
                 color=self._colors.palette.warning,
             )
-
-    def _section_sick_budget(self, parent: tk.Widget, sick: SickBudgetStatus) -> None:
-        """Render rolling sick-day budget usage."""
-        del parent
-        self._label("Sick Budget", role="body", pad="sm")
-        self._text(
-            f"{sick.used_7d}/{sick.budget_7d} week · {sick.used_30d}/{sick.budget_30d} "
-            f"month · {sick.used_90d}/{sick.budget_90d} quarter · debt {sick.debt}",
-            role="body",
-            color=self._colors.palette.danger
-            if sick.exhausted
-            else self._colors.palette.muted,
-        )
 
     def _section_manual_workout_budget(
         self, parent: tk.Widget, manual: ManualWorkoutBudgetStatus

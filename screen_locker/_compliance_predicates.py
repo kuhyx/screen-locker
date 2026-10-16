@@ -23,14 +23,12 @@ from gatelock.log_integrity import compute_entry_hmac, verify_entry_hmac
 
 from screen_locker._day import today_str
 from screen_locker._log_io import load_workout_log
-from screen_locker._sick_tracker import is_sick_day as _is_sick_day
+from screen_locker._sick import is_sick
 from screen_locker._weekly_check import RELAXED_DAY_SKIP_TYPE
 
 if TYPE_CHECKING:
     from datetime import date
     from pathlib import Path
-
-    from screen_locker._sick_tracker import SickHistory
 
 _logger = logging.getLogger(__name__)
 
@@ -129,10 +127,10 @@ def is_early_bird_pending(pending_file: Path, *, today: str | None = None) -> bo
     return False
 
 
-def is_sick_day_today(history: SickHistory, *, today: str | None = None) -> bool:
-    """Return True if today is recorded as a sick day.
+def is_sick_day_today(today: date | None = None) -> bool:
+    """Return True if ``today`` (default: today) is in the sickdays pool.
 
-    Thin wrapper around ``_sick_tracker.is_sick_day`` kept here so callers of
-    the status layer have one predicate module to import from.
+    Kept here so callers of the status layer have one predicate module to
+    import from; the answer itself is ``_sick.is_sick``'s.
     """
-    return _is_sick_day(history, today=today)
+    return is_sick(today)

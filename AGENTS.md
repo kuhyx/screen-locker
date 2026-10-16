@@ -56,6 +56,13 @@ processes can run them at once. The base is the registry
 constant, not the state file: the file once persisted `base_*_hour`, which
 made the code's default dead.
 
+A sick day is a date in the shared `sickdays` pool, read only through
+`_sick.py`. The reset resolves it with `earned_time.resolve(..., sick=True)`
+(shutdown >= 20:00) and saves the lift above the earned sum like the grace
+lift; a day marked after the reset is lifted by `_sick_floor` on the next
+live pass. Both are floors, never terms: later credits are paid out of the
+lift first (`_grace_floor.plan_absorb`), so nothing stacks on 20:00.
+
 Flat earners are read from their gate's ledger by `earned_time.done_today`
 via `_earned.py`: HMAC-verified `credit` rows matched by the earner's own
 rule (LeetCode's `submitted_at`, book-guard's `detail.bonus == "1"` +

@@ -27,7 +27,6 @@ from screen_locker._compliance_predicates import has_logged_today
 from screen_locker._compliance_state import explain_lock_decision
 from screen_locker._log_io import load_workout_log
 from screen_locker._log_mixin import write_signed_entry
-from screen_locker._sick_tracker import SickHistory
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -100,7 +99,6 @@ class TestAfterMidnightLog:
             result = explain_lock_decision(
                 log_file=log_file,
                 early_bird_pending_file=tmp_path / "early_bird_pending.json",
-                sick_history=SickHistory(),
                 weekly_minimum_met=True,
                 relaxed_day=False,
                 now=JUST_AFTER_MIDNIGHT_UTC,

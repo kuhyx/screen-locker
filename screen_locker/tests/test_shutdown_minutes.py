@@ -9,7 +9,6 @@ as ``HH:MM`` rather than being floored.
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
@@ -63,45 +62,6 @@ class TestReadShutdownConfigKeys:
             "THU_SUN_HOUR=20\nMORNING_END_HOUR=5\nno-equals-sign\n"
         )
         assert self._read(tmp_path, body) == (1260, 1200, 300)
-
-
-class TestLegacySickDayState:
-    """A state file written before the migration still restores correctly."""
-
-    def _load(
-        self, tmp_path: Path, state: dict[str, object]
-    ) -> tuple[str, int, int] | None:
-        locker = create_locker(MagicMock(), tmp_path)
-        state_file = tmp_path / "sick.json"
-        state_file.write_text(json.dumps(state))
-        with patch(
-            "screen_locker._shutdown_sick_state.SICK_DAY_STATE_FILE", state_file
-        ):
-            return locker._load_sick_day_state()
-
-    def test_legacy_hour_keys_are_read_as_minutes(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        state = {"date": "2026-10-03", "original_mon_wed_hour": 21}
-        state["original_thu_sun_hour"] = 20
-        assert self._load(tmp_path, state) == ("2026-10-03", 1260, 1200)
-
-    def test_minutes_keys_win_over_legacy_keys(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        state = {
-            "date": "2026-10-03",
-            "original_mon_wed_minutes": 1290,
-            "original_mon_wed_hour": 21,
-            "original_thu_sun_minutes": 1200,
-        }
-        assert self._load(tmp_path, state) == ("2026-10-03", 1290, 1200)
-
-    def test_a_missing_band_is_none(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        state = {"date": "2026-10-03", "original_mon_wed_hour": 21}
-        assert self._load(tmp_path, state) is None
 
 
 @pytest.mark.usefixtures("pre_ladder")
@@ -162,30 +122,3 @@ class TestMinutesReachTheHelperScript:
     ) -> None:
         args = self._run(mock_tk, tmp_path, config, "_adjust_shutdown_time_later")
         assert args == expected
-
-    @pytest.mark.parametrize(
-        ("config", "expected"),
-        [
-            ((1290, 1290, 300), ["20:30", "20:30", "05:00"]),
-            ((1100, 1085, 300), ["18:00", "18:00", "05:00"]),
-        ],
-    )
-    def test_sick_day_steps_back_an_hour_but_not_before_18_00(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-        config: tuple[int, int, int],
-        expected: list[str],
-    ) -> None:
-        locker = create_locker(mock_tk, tmp_path)
-        script = tmp_path / "adjust.sh"
-        script.write_text("")
-        with (
-            patch.object(locker, "_read_shutdown_config", return_value=config),
-            patch.object(locker, "_save_sick_day_state", return_value=True),
-            patch("screen_locker._shutdown.ADJUST_SHUTDOWN_SCRIPT", script),
-            patch("screen_locker._shutdown.subprocess.run") as run,
-        ):
-            assert locker._apply_earlier_shutdown("2026-10-04") is True
-        assert run.call_args.args[0][2:] == expected

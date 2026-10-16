@@ -2,21 +2,22 @@
 
 Split out to keep the script under the 250-line cap. Every class here runs
 the production methods it inherits; only the I/O edges (the drop directory,
-adb, the sudo-written config, the sick history) point at a temporary place.
+adb, the sudo-written config, the sickdays pool) point at a temporary place.
 """
 
 from __future__ import annotations
 
 from datetime import date, datetime, time
-import json
+import importlib
 from typing import TYPE_CHECKING
 
 import earned_time
+import sickdays
 
-from screen_locker import _grace_floor, _sick_tracker
 from screen_locker._earned import first_minutes
 from screen_locker._runnerup_verification import RunnerUpVerificationMixin
 from screen_locker._shutdown import ShutdownMixin
+from screen_locker._sick import is_sick
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -88,18 +89,41 @@ class SimShutdown(ShutdownMixin):
         self.config = (*clamp, morning_end)
         return True
 
-    def credit(self, name: str, day: date, first_done: float) -> None:
-        """One live pass: the earner's add (lift-absorbing), then the floor."""
-        if name == earned_time.WORKOUT.name:
+    def credit(self, name: str, day: date, first_done: float | None) -> None:
+        """One live pass: the earner's add (lift-absorbing), then the floors.
+
+        ``sick`` is not an earner: it marks the (temporary) pool and runs the
+        live sick-floor pass, as the lock screen's button and the 5-minute
+        tick do.
+        """
+        if name == SICK_STEP:
+            sick_pool(day, sick_day=True)
+        elif name == earned_time.WORKOUT.name:
             self._adjust_shutdown_time_later()
         else:
             self._adjust_shutdown_time_by(first_minutes(earned_time.earner(name), day))
-        self._apply_grace_floor(None, first_done=first_done)
+        self._apply_sick_floor()
+        if first_done is not None:
+            self._apply_grace_floor(None, first_done=first_done)
 
 
-def sick_history(day: date, tmp: Path, *, sick_day: bool) -> bool:
-    """A temp sick history naming ``day``, read back through the real check."""
-    history = tmp / "sick_history.json"
-    history.write_text(json.dumps({"sick_days": [day.isoformat()] if sick_day else []}))
-    vars(_sick_tracker)["SICK_HISTORY_FILE"] = history
-    return _grace_floor.sick_on(day)
+# The --sequence step that marks the day sick instead of crediting an earner.
+SICK_STEP = "sick"
+
+
+def use_temp_pool(tmp: Path) -> None:
+    """Point every sickdays read and write at a pool under ``tmp``."""
+    pool = sickdays.Paths.under(tmp / "sickdays")
+    api = importlib.import_module("sickdays._api")
+    vars(api)["resolve_paths"] = lambda paths: paths or pool
+
+
+def sick_pool(day: date, *, sick_day: bool) -> bool:
+    """Mark ``day`` sick in the temp pool, read back through the real check.
+
+    Call :func:`use_temp_pool` first: this writes through sickdays' own
+    ``add_sick_day``, with ``day`` as "today" and no free-day check.
+    """
+    if sick_day and not is_sick(day):
+        sickdays.add_sick_day(day, is_free=lambda _day: False, now=day)
+    return is_sick(day)

@@ -84,7 +84,7 @@ class ManualWorkoutFormWidgetsMixin:
         """Add a half-width label+entry cell and return its backing StringVar.
 
         Builds its own cell inline (rather than reusing ``_add_label_entry``,
-        which is pack-based and shared with the sick dialog) so it slots into
+        which is pack-based) so it slots into
         the two-column grid. Paste stays disabled via ``disable_paste``.
 
         Args:

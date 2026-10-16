@@ -39,7 +39,6 @@ def credit(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     stub = MagicMock(
         return_value=WorkoutCreditResult(
             shutdown_adjusted=True,
-            new_debt=None,
             extra_bonus_delta=0,
             weekly_count=1,
             already_counted_today=False,

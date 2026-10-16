@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from screen_locker import _compliance_state
-from screen_locker._sick_tracker import SickHistory
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -24,14 +23,12 @@ class TestEarlyBirdWindowIsTheCarrot:
         }
         open_ = _compliance_state.explain_lock_decision(
             **files,
-            sick_history=SickHistory(),
             weekly_minimum_met=False,
             relaxed_day=False,
             wake_skip=True,
         )
         shut = _compliance_state.explain_lock_decision(
             **files,
-            sick_history=SickHistory(),
             weekly_minimum_met=False,
             relaxed_day=False,
             wake_skip=False,

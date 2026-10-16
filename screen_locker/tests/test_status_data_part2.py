@@ -42,8 +42,6 @@ class TestGatherStatus:
         assert snap.shutdown.tonight is None
         assert snap.shutdown.rest_of_week[0].minutes == 20 * 60
         assert snap.shutdown.rest_of_week[0].speculative is False
-        assert snap.sick_budget.used_7d == 0
-        assert snap.sick_budget.exhausted is False
         assert snap.streak == 0
         assert snap.early_bird_extended is False
         assert snap.lock_explanation.fired is True
@@ -169,7 +167,7 @@ class TestDayStatus:
 
     def test_no_entries_not_sick(self) -> None:
         """No entries not sick."""
-        day = _day_status(date(2024, 1, 5), [], set())
+        day = _day_status(date(2024, 1, 5), [], frozenset())
         assert day.entry_types == ()
         assert day.counted is False
         assert day.day_count == 0
@@ -177,12 +175,12 @@ class TestDayStatus:
 
     def test_no_entries_but_sick(self) -> None:
         """No entries but sick."""
-        day = _day_status(date(2024, 1, 5), [], {"2024-01-05"})
+        day = _day_status(date(2024, 1, 5), [], frozenset({date(2024, 1, 5)}))
         assert day.is_sick_day is True
 
     def test_non_dict_entries_dropped(self) -> None:
         """Corrupt log data (non-dict entries in the list) are skipped."""
-        day = _day_status(date(2024, 1, 5), ["corrupt-string-entry"], set())
+        day = _day_status(date(2024, 1, 5), ["corrupt-string-entry"], frozenset())
         assert day.entry_types == ()
         assert day.counted is False
         assert day.day_count == 0
@@ -198,7 +196,7 @@ class TestDayStatus:
                 {"workout_data": {"type": "manual_workout", "source": "tt"}},
                 {"workout_data": {"type": "manual_workout", "source": "squash"}},
             ],
-            set(),
+            frozenset(),
         )
         assert day.entry_types == (
             "runnerup_verified",

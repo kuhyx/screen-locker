@@ -102,22 +102,6 @@ class TestCheckTodayStateExits:
             result = locker._check_today_state_exits()
         assert result is True
 
-    def test_sick_day_auto_upgrade_returns_true(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Sick day auto upgrade returns true."""
-        locker = self._make_locker(mock_tk, tmp_path)
-        with (
-            patch.object(locker, "_is_early_bird_pending", return_value=False),
-            patch.object(locker, "_is_sick_day_today", return_value=True),
-            patch.object(locker, "_try_auto_upgrade_sick_day", return_value=True),
-        ):
-            result = locker._check_today_state_exits()
-        assert result is True
-
     def test_sick_day_no_upgrade_still_returns_true(
         self,
         mock_tk: MagicMock,
@@ -133,7 +117,6 @@ class TestCheckTodayStateExits:
         with (
             patch.object(locker, "_is_early_bird_pending", return_value=False),
             patch.object(locker, "_is_sick_day_today", return_value=True),
-            patch.object(locker, "_try_auto_upgrade_sick_day", return_value=False),
         ):
             result = locker._check_today_state_exits()
         assert result is True

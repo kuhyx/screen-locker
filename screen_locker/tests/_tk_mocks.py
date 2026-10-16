@@ -21,7 +21,6 @@ from unittest.mock import MagicMock
 # display and a ``mock_tk`` holder sees widgets made on that same mock.
 _TK_MODULES = (
     "screen_locker.screen_lock",
-    "screen_locker._sick_dialog",
     "screen_locker._manual_workout_dialog",
     "screen_locker._manual_workout_sport_fields",
     "screen_locker._manual_workout_widgets",

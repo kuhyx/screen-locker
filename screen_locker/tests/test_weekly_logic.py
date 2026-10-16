@@ -56,7 +56,6 @@ class TestRelaxedDayBranch:
             ),
             patch.object(ScreenLocker, "_start_phone_check") as mock_phone,
             patch.object(ScreenLocker, "_start_relaxed_day_flow") as mock_relaxed,
-            patch.object(ScreenLocker, "_start_verify_workout_check"),
         ):
             ScreenLocker(demo_mode=True)
 
@@ -91,7 +90,6 @@ class TestRelaxedDayBranch:
             patch.object(ScreenLocker, "_setup_relaxed_day_window") as mock_small,
             patch.object(ScreenLocker, "_start_phone_check"),
             patch.object(ScreenLocker, "_start_relaxed_day_flow"),
-            patch.object(ScreenLocker, "_start_verify_workout_check"),
         ):
             ScreenLocker(demo_mode=True)
 
@@ -125,7 +123,6 @@ class TestRelaxedDayBranch:
             patch("screen_locker.screen_lock.LockWindow") as mock_lock_window,
             patch.object(ScreenLocker, "_start_phone_check"),
             patch.object(ScreenLocker, "_start_relaxed_day_flow"),
-            patch.object(ScreenLocker, "_start_verify_workout_check"),
         ):
             ScreenLocker(demo_mode=True)
 

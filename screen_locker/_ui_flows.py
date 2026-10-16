@@ -5,7 +5,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor  # pylint: disable=no-name-in-module
 from typing import TYPE_CHECKING
 
-from screen_locker import _manual_workout, _sick_tracker
+from screen_locker import _manual_workout
 from screen_locker._source_health import collect_source_findings, explain_findings
 from screen_locker._ui_flows_lockout import LockoutFlowMixin
 from screen_locker._ui_flows_sick import SickDayFlowMixin
@@ -54,7 +54,7 @@ class UIFlowsMixin(SickDayFlowMixin, LockoutFlowMixin):
             self.root.after(500, self._poll_phone_check)
 
     def _show_retry_and_sick(self, message: str) -> None:
-        """Show TRY AGAIN and (if budget allows) I'm sick after a failed check."""
+        """Show TRY AGAIN, I'm sick and (budget allowing) the manual log."""
         self.clear_container()
         self._label(
             "No Workout Found",
@@ -70,10 +70,6 @@ class UIFlowsMixin(SickDayFlowMixin, LockoutFlowMixin):
         diagnosis = explain_findings(collect_source_findings())
         if diagnosis:
             self._text(diagnosis, color=self._colors.palette.muted)
-        history = _sick_tracker.load_history()
-        self._text(
-            _sick_tracker.budget_summary(history), color=self._colors.palette.muted
-        )
         self._text(
             _manual_workout.budget_summary(self.log_file),
             color=self._colors.palette.muted,
@@ -86,19 +82,7 @@ class UIFlowsMixin(SickDayFlowMixin, LockoutFlowMixin):
             command=self._start_phone_check,
             width=12,
         ).pack(side="left", padx=self._colors.space("sm"))
-        if _sick_tracker.is_budget_exhausted(history):
-            self._text(
-                "Sick budget exhausted. No 'I'm sick' option available.",
-                color=self._colors.palette.danger,
-            )
-        else:
-            self._button(
-                frame,
-                "I'm sick",
-                bg=self._colors.palette.warning,
-                command=self.ask_if_sick,
-                width=12,
-            ).pack(side="left", padx=self._colors.space("sm"))
+        self._sick_button(frame)
         if _manual_workout.is_budget_exhausted(self.log_file):
             self._text(
                 "Manual-workout budget exhausted. No manual-log option available.",

@@ -49,7 +49,6 @@ from screen_locker._compliance_state import (
 from screen_locker._constants import (
     EARLY_BIRD_PENDING_FILE,
 )
-from screen_locker._sick_tracker import load_history
 from screen_locker._status_data import format_summary_line, gather_status
 from screen_locker._status_projection import compliance_state_word
 
@@ -64,7 +63,7 @@ logger = logging.getLogger(__name__)
 
 mcp = MCPServer("screen-locker")
 
-# Every tool here only reads local state: the workout log, the sick history
+# Every tool here only reads local state: the workout log, the sickdays pool
 # and the clock. Saying so lets a client run them without asking -- and the
 # day one of them stops being read-only, this annotation is the thing that
 # has to change with it. (See the section banner below: "never mutate" was
@@ -92,7 +91,7 @@ def get_status() -> dict[str, Any]:
 
     A JSON-friendly projection of ``gather_status()``: today's and this week's
     workout outcomes, the shutdown-time projection, the lock-decision trace,
-    and the rolling sick-day / manual-workout budgets. Reads on-disk state
+    and the rolling manual-workout budget. Reads on-disk state
     only (no ADB, sudo, or network) and never mutates anything.
     """
     return asdict(gather_status())
@@ -137,13 +136,15 @@ def get_flags() -> dict[str, bool]:
     ``scheduled_skips.json``: it is now the shared, fleet-wide free-day pool
     (``~/src/utils/freedays``), so a true here also means diet-guard, wake-alarm,
     leetcode-guard and home-guard are standing down today.
+
+    ``is_sick_day_today`` reads the shared ``sickdays`` pool (the same fleet-wide
+    answer every gate stands down on), never a screen-locker file.
     """
-    history = load_history()
     return {
         "has_logged_today": has_logged_today(_LOG_FILE),
         "is_scheduled_skip_today": is_scheduled_skip_today(),
         "is_early_bird_pending": is_early_bird_pending(EARLY_BIRD_PENDING_FILE),
-        "is_sick_day_today": is_sick_day_today(history),
+        "is_sick_day_today": is_sick_day_today(),
     }
 
 

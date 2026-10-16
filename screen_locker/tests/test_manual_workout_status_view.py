@@ -77,7 +77,6 @@ class TestOnManualWorkoutSaved:
     ) -> None:
         credit = WorkoutCreditResult(
             shutdown_adjusted=True,
-            new_debt=None,
             extra_bonus_delta=0,
             weekly_count=2,
             already_counted_today=False,
@@ -100,12 +99,11 @@ class TestOnManualWorkoutSaved:
         assert "table tennis at Solec" in message
         assert "Shutdown time +2h later!" in message
 
-    def test_shows_debt_and_extra_bonus_lines(
+    def test_shows_extra_bonus_line_and_no_debt(
         self, mock_tk: MagicMock, temp_log_file: Path
     ) -> None:
         credit = WorkoutCreditResult(
             shutdown_adjusted=False,
-            new_debt=1,
             extra_bonus_delta=60,
             weekly_count=5,
             already_counted_today=False,
@@ -123,14 +121,13 @@ class TestOnManualWorkoutSaved:
         message = window._credit_message
         assert message is not None
         assert "Extra workout today! +1h tonight" in message
-        assert "Workout debt: 1" in message
+        assert "debt" not in message.lower()
 
     def test_already_counted_today_shows_no_extra_credit_note(
         self, mock_tk: MagicMock, temp_log_file: Path
     ) -> None:
         credit = WorkoutCreditResult(
             shutdown_adjusted=False,
-            new_debt=None,
             extra_bonus_delta=0,
             weekly_count=3,
             already_counted_today=True,

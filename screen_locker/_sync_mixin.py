@@ -2,7 +2,7 @@
 
 Split out of ``screen_lock.py`` to keep every file under the 250-line cap.
 These methods form one cohesive unit: they publish this PC's workouts, ingest
-records other devices produced, and apply the same shutdown/debt credit a
+records other devices produced, and apply the same shutdown credit a
 live-logged workout earns.
 """
 
@@ -56,7 +56,7 @@ class SyncMixin:
     def _ingest_synced_manual_workouts(self) -> None:
         """Sync manual workouts: publish this PC's, ingest everyone else's.
 
-        Each newly-ingested record earns the identical shutdown/debt reward a
+        Each newly-ingested record earns the identical shutdown reward a
         live-logged workout would (see
         ``WorkoutCreditMixin._apply_credit_for_written_entry``), regardless of
         whether it's dated today or back-dated — there's only one current

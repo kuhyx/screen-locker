@@ -1,94 +1,86 @@
-"""Sick-day flow for the screen locker's locked screen.
+"""The "I'm sick" button: one tap marks today sick and unlocks.
+
+A sick day is a date in the shared ``sickdays`` pool (``_sick.py``). There is
+no budget, countdown, justification, commitment or debt any more: the tap
+writes today into the local pool, pushes it in the background (best
+effort, so the phone sees it before the next sickdays-sync tick), raises
+tonight's shutdown to the sick floor right
+away (``_sick_floor``) and closes the lock. Every other gate reads the same
+pool and stands down too.
+
+The button is offered on every screen that can end in a lock or a prompt:
+the retry screen, the no-phone penalty screen and both relaxed-day screens.
+A refusal (a free day, an unreadable pool) is shown on screen and the lock
+stays up.
 
 Split out of :mod:`screen_locker._ui_flows` to keep every file under the
-250-line cap. Composed back into ``UIFlowsMixin`` there, so the set of mixins
-``ScreenLocker`` inherits is unchanged.
+250-line cap. Composed back into ``UIFlowsMixin`` there.
 """
 
 from __future__ import annotations
 
-from screen_locker import _sick_tracker
+from typing import TYPE_CHECKING
+
+from screen_locker._constants import SHUTDOWN_BASE_FILE
+from screen_locker._credit_slot import locked_shutdown_state
+from screen_locker._sick import mark_today_sick, push_in_background
+
+if TYPE_CHECKING:
+    import tkinter as tk
 
 
 class SickDayFlowMixin:
-    """Sick-day justification, countdown and debt bookkeeping."""
+    """The one-tap sick-day button and what follows it."""
 
-    def ask_if_sick(self) -> None:
-        """Display the structured sick-day justification dialog."""
-        self._show_sick_justification()
+    def _sick_button(self, frame: tk.Widget) -> None:
+        """Pack the "I'm sick" button into ``frame``."""
+        self._button(
+            frame,
+            "I'm sick",
+            bg=self._colors.palette.warning,
+            command=self.mark_sick_and_unlock,
+            width=12,
+        ).pack(side="left", padx=self._colors.space("sm"))
 
-    def _get_sick_day_status(self) -> tuple[str, str]:
-        """Determine sick day status text and color."""
-        if self._sick_mode_used_today():
-            return "Shutdown time already adjusted today", self._colors.palette.warning
-        if self._adjust_shutdown_time_earlier():
-            return (
-                "Shutdown time moved 1.5 hours earlier ✓\n(Will revert tomorrow)"
-            ), self._colors.palette.success
-        return (
-            "Could not adjust shutdown time (check permissions)",
-            self._colors.palette.danger,
+    def mark_sick_and_unlock(self) -> None:
+        """Mark today sick, lift tonight's shutdown to 20:00 and unlock."""
+        result = mark_today_sick()
+        if not result.ok:
+            self._show_sick_refused(result.message)
+            return
+        # Now, not at the next 5-minute tick: while this window is up that
+        # tick stands down at the instance lock.
+        with locked_shutdown_state(SHUTDOWN_BASE_FILE):
+            self._apply_sick_floor()
+        # Best effort and off the UI thread: the unlock never waits for it.
+        push_in_background()
+        self._record_decision(
+            locked=False,
+            reason="sick_day_marked",
+            detail=f"Marked today sick from the lock screen. {result.message}",
         )
+        self.close()
 
-    def _proceed_to_sick_countdown(self) -> None:
-        """Start the (escalated) sick day countdown after justification."""
-        history = getattr(
-            self,
-            "_sick_history_cache",
-            None,
-        )
-        if history is None:
-            history = _sick_tracker.load_history()
-            self._sick_history_cache = history
-        countdown = _sick_tracker.compute_lockout_seconds(history)
+    def _show_sick_refused(self, message: str) -> None:
+        """Say why today could not be marked sick; the lock stays up."""
         self.clear_container()
-        status_text, status_color = self._get_sick_day_status()
-        self._show_sick_day_ui(status_text, status_color, countdown)
-        self.sick_remaining_time = countdown
-        self._update_sick_countdown()
-
-    def _show_sick_day_ui(
-        self,
-        status_text: str,
-        status_color: str,
-        countdown: int,
-    ) -> None:
-        """Display sick day UI labels and countdown."""
-        self._label("Sick Day Mode", color=self._colors.palette.warning, pad="md")
-        self._text(status_text, color=status_color)
-        minutes = countdown // 60
-        self._text(
-            f"Please wait ~{minutes} min before unlocking...",
-            role="title",
+        self._label(
+            "Could not mark today as sick",
+            role="display",
+            color=self._colors.palette.danger,
             pad="md",
         )
-        self.sick_countdown_label = self._label(
-            str(countdown),
-            role="display",
-            scale=2.5,
-            pad="lg",
+        self._text(message, color=self._colors.palette.warning)
+        frame = self._button_row()
+        back = (
+            self._start_relaxed_day_flow
+            if self._relaxed_day_mode
+            else self._start_phone_check
         )
-
-    def _update_sick_countdown(self) -> None:
-        """Update the sick day countdown timer."""
-        if self.sick_remaining_time > 0:
-            self.sick_countdown_label.config(text=str(self.sick_remaining_time))
-            self.sick_remaining_time -= 1
-            self.root.after(1000, self._update_sick_countdown)
-        else:
-            self._finalize_sick_day()
-
-    def _finalize_sick_day(self) -> None:
-        """Persist sick-day history and unlock the screen."""
-        history = getattr(self, "_sick_history_cache", None)
-        if history is None:
-            history = _sick_tracker.load_history()
-        if _sick_tracker.had_commitment_for_today(history):
-            _sick_tracker.mark_commitment_broken(history)
-            self.workout_data["broke_commitment"] = "true"
-        new_debt = _sick_tracker.add_sick_day(history)
-        _sick_tracker.save_history(history)
-        self.workout_data["type"] = "sick_day"
-        self.workout_data["note"] = "Sick day - shutdown moved earlier"
-        self.workout_data["debt"] = str(new_debt)
-        self.unlock_screen()
+        self._button(
+            frame,
+            "Back",
+            bg=self._colors.palette.accent,
+            command=back,
+            width=12,
+        ).pack(side="left", padx=self._colors.space("sm"))

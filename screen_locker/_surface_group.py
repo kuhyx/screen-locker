@@ -13,10 +13,10 @@ proxy that mirrors later ``configure`` calls to every copy. Nesting works the
 same way: a frame group can be the parent of another group, so
 ``_button_row()`` still reads like it returns one frame.
 
-The degenerate case matters as much as the general one. The status window,
-the post-sick-day verify window and the relaxed-day prompt are ordinary
-single windows with no lock and no surfaces; they build a group of exactly
-one frame and every call site below behaves as it always did.
+The degenerate case matters as much as the general one. The status window
+and the relaxed-day prompt are ordinary single windows with no lock and no
+surfaces; they build a group of exactly one frame and every call site below
+behaves as it always did.
 """
 
 from __future__ import annotations
@@ -76,28 +76,6 @@ class WidgetGroup[W: tk.Misc]:
         for widget in self._widgets:
             with contextlib.suppress(tk.TclError):
                 widget.destroy()
-
-
-class TextGroup(WidgetGroup[tk.Text]):
-    """A multi-line text box, mirrored onto every monitor.
-
-    Entries can share a ``StringVar`` and so are typed once for all screens.
-    ``tk.Text`` has no such variable, so the copies genuinely diverge: the
-    user types into exactly one of them, whichever screen they are looking
-    at. Reading therefore returns the first copy with anything in it, which
-    keeps the "answer on any monitor" property the per-output lock exists
-    for. Falls back to the primary's (empty) content so callers still get a
-    string to validate and reject.
-    """
-
-    def get(self, start: str, end: str) -> str:
-        """Return the content of whichever copy was actually typed into."""
-        for widget in self._widgets:
-            with contextlib.suppress(tk.TclError):
-                content = widget.get(start, end)
-                if content.strip():
-                    return str(content)
-        return str(self._widgets[0].get(start, end))
 
 
 class FrameGroup(WidgetGroup[tk.Frame]):

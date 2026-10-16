@@ -220,7 +220,7 @@ class PhoneCheckMixin:
         Shared by the "Check Phone" verify path and the "Log Manual Workout"
         path so both report the reward identically: the base +2h shutdown push
         for the day's first workout, the +1h bonus for an additional same-day
-        verified workout, and any debt cleared — or a note when this exact
+        verified workout — or a note when this exact
         workout was already recorded today (idempotent, no new credit).
         """
         lines = [header]
@@ -233,6 +233,4 @@ class PhoneCheckMixin:
             lines.append(
                 f"Extra workout today! +{span(credit.extra_bonus_delta)} tonight"
             )
-        if credit.new_debt is not None:
-            lines.append(f"Workout debt: {credit.new_debt}")
         return lines

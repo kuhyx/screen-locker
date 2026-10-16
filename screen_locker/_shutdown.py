@@ -16,7 +16,7 @@ from screen_locker._constants import (
 from screen_locker._day import today_str
 from screen_locker._earned import ceiling, first_minutes, hhmm, span
 from screen_locker._grace_floor import GraceFloorMixin, plan_absorb, save_lift
-from screen_locker._shutdown_sick_state import SickDayStateMixin
+from screen_locker._sick_floor import SickFloorMixin
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -29,9 +29,6 @@ _logger = logging.getLogger(__name__)
 _SHUTDOWN_CONFIG_NAMES = ("MON_WED", "THU_SUN", "MORNING_END")
 _MINUTES_PER_HOUR = 60
 
-# A sick day moves shutdown an hour earlier, but never before 18:00.
-_SICK_DAY_STEP = 60
-_SICK_DAY_FLOOR = 18 * _MINUTES_PER_HOUR
 # Extra bonuses may name midnight; the helper still clamps them to 23:00.
 _MIDNIGHT = 24 * _MINUTES_PER_HOUR
 
@@ -70,42 +67,8 @@ def read_shutdown_config(path: Path) -> tuple[int, int, int] | None:
     return mon_wed, thu_sun, morning_end
 
 
-class ShutdownMixin(GraceFloorMixin, SickDayStateMixin):
+class ShutdownMixin(GraceFloorMixin, SickFloorMixin):
     """Mixin providing shutdown schedule adjustment functionality."""
-
-    def _apply_earlier_shutdown(self, today: str) -> bool:
-        """Read config, save state, and write an earlier shutdown time."""
-        config_values = self._read_shutdown_config()
-        if config_values is None:
-            return False
-        mon_wed, thu_sun, morning_end = config_values
-        if not self._save_sick_day_state(today, mon_wed, thu_sun):
-            _logger.error("Failed to save state - aborting adjustment")
-            return False
-        return self._write_shutdown_config(
-            max(_SICK_DAY_FLOOR, mon_wed - _SICK_DAY_STEP),
-            max(_SICK_DAY_FLOOR, thu_sun - _SICK_DAY_STEP),
-            morning_end,
-        )
-
-    def _adjust_shutdown_time_earlier(self) -> bool:
-        """Adjust shutdown schedule an hour earlier (stricter).
-
-        This can only be used once per day. Original values are saved and
-        automatically restored when checked the next day.
-
-        Returns True if successful, False otherwise.
-        """
-        today = today_str()
-        self._restore_original_config_if_needed()
-        if self._sick_mode_used_today():
-            _logger.warning("Sick mode already used today")
-            return False
-        try:
-            return self._apply_earlier_shutdown(today)
-        except (OSError, ValueError) as e:
-            _logger.warning("Failed to adjust shutdown time: %s", e)
-            return False
 
     def _adjust_shutdown_time_later(self) -> bool:
         """Push shutdown later by the first workout's reward, capped at the ceiling.

@@ -15,7 +15,7 @@ from screen_locker._compliance_state import (
     is_scheduled_skip_today,
     is_sick_day_today,
 )
-from screen_locker._sick_tracker import SickHistory
+from screen_locker.tests._sick_helpers import mark_sick
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -224,21 +224,19 @@ class TestIsEarlyBirdPending:
 
 
 class TestIsSickDayToday:
-    """Reading today's sick-day status out of the sick history."""
+    """Today's sick-day status, from the shared sickdays pool."""
 
-    """Thin wrapper around _sick_tracker.is_sick_day."""
+    def test_true_when_in_pool(self) -> None:
+        """Today in the pool is a sick day."""
+        mark_sick()
+        assert is_sick_day_today() is True
 
-    def test_true_when_listed(self) -> None:
-        """Today present in the history is a sick day."""
-        history = SickHistory(sick_days=[_today()])
-        assert is_sick_day_today(history) is True
+    def test_false_when_not_in_pool(self) -> None:
+        """Another day in the pool does not make today sick."""
+        mark_sick("1999-01-01")
+        assert is_sick_day_today() is False
 
-    def test_false_when_not_listed(self) -> None:
-        """Today absent from the history is not a sick day."""
-        history = SickHistory(sick_days=["1999-01-01"])
-        assert is_sick_day_today(history) is False
-
-    def test_explicit_today_override(self) -> None:
-        """The `today` argument overrides the real date."""
-        history = SickHistory(sick_days=["2020-05-05"])
-        assert is_sick_day_today(history, today="2020-05-05") is True
+    def test_explicit_day(self) -> None:
+        """The day argument picks which date is asked."""
+        mark_sick("2020-05-05")
+        assert is_sick_day_today(date(2020, 5, 5)) is True

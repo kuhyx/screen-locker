@@ -5,7 +5,7 @@ The phone POSTs a finished session straight to the PC
 path a synced session takes -- :func:`ingest_session_records`, which
 re-validates and dedups under ``log.lock``, then the shared
 :meth:`~screen_locker._workout_credit.WorkoutCreditMixin._apply_credit_for_written_entry`
-(slot-based credit, shutdown push, debt, the "Workout credited" notification).
+(slot-based credit, shutdown push, the "Workout credited" notification).
 Nothing here computes a reward of its own.
 
 Each call builds a FRESH headless locker, the same object
@@ -24,7 +24,6 @@ from screen_locker._constants import (
     EXTRA_BENEFITS_FILE,
     SHUTDOWN_BASE_FILE,
     SHUTDOWN_CONFIG_FILE,
-    SICK_DAY_STATE_FILE,
 )
 from screen_locker._credit_notify import gaming_minutes_today
 from screen_locker._day import today_str
@@ -88,7 +87,6 @@ class PokeLocker(ScreenLocker):
         reset_to_base_if_new_day(
             SHUTDOWN_BASE_FILE,
             self,
-            sick_day_state_file=SICK_DAY_STATE_FILE,
             log_file=self.log_file,
         )
 

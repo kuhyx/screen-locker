@@ -92,10 +92,10 @@ def format_summary_line(snapshot: StatusSnapshot) -> str:
     mark = "✓" if week.remaining == 0 else "…"
     tonight = _tonight_minutes(snapshot)
     tonight_str = hhmm(tonight) if tonight is not None else "?"
-    sick = snapshot.sick_budget
+    sick = " · sick day" if snapshot.today.is_sick_day else ""
     return (
         f"{mark} {week.counted_count}/{week.minimum} workouts · "
-        f"{tonight_str} tonight · sick {sick.used_7d}/{sick.budget_7d}"
+        f"{tonight_str} tonight{sick}"
     )
 
 

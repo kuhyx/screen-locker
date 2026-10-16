@@ -4,12 +4,12 @@ bandit==1.9.4
 codespell==2.4.3
 coverage==7.16.2
 crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.9.2#subdirectory=crdt-sync
-earned-time @ git+https://github.com/kuhyx/utils@earned-time-v0.10.0#subdirectory=earned_time
-freedays @ git+https://github.com/kuhyx/utils@freedays-v0.3.1#subdirectory=freedays
+earned-time @ git+https://github.com/kuhyx/utils@earned-time-v0.11.0#subdirectory=earned_time
+freedays @ git+https://github.com/kuhyx/utils@freedays-v0.4.0#subdirectory=freedays
 gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.9.0#subdirectory=gatelock
 mcp==2.3.0
 mypy==2.4.0
-pre-commit==4.6.2
+pre-commit==4.7.0
 pylint==4.1.3
 pytest==9.1.1
 pytest-cov==7.1.0
@@ -20,7 +20,8 @@ pytest-xdist==3.8.0
 # token over the REST endpoint; crdt-sync already pulls requests in, but this
 # module imports it itself, so it is declared rather than assumed.
 requests==2.34.2
-ruff==0.17.0
+ruff==0.17.1
+sickdays @ git+https://github.com/kuhyx/utils@sickdays-v0.1.0#subdirectory=sickdays
 types-requests==2.33.0.20261006
 # Direct dependency since the Firebase session stream (_session_stream) catches
 # urllib3's own errors on the long-lived SSE read; requests pulls it in, but

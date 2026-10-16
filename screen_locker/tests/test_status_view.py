@@ -13,7 +13,6 @@ from screen_locker.tests._status_view_helpers import (
     _lock_explanation,
     _make_window,
     _shutdown,
-    _sick_budget,
     _snapshot,
     _texts,
     _week,
@@ -154,32 +153,6 @@ class TestSectionLockExplanation:
         )
         _make_window(mock_tk, snap)
         assert any("Warsaw Temperature" in t for t in _texts(mock_tk))
-
-
-class TestSectionSickBudget:
-    """SectionSickBudget."""
-
-    def test_exhausted_uses_warning_color(self, mock_tk: MagicMock) -> None:
-        """Exhausted uses warning color."""
-        snap = _snapshot(sick_budget=_sick_budget(used_7d=1, exhausted=True))
-        window = _make_window(mock_tk, snap)
-        calls = [
-            c
-            for c in mock_tk.Label.call_args_list
-            if "week" in c.kwargs.get("text", "")
-        ]
-        assert any(c.kwargs.get("fg") == window._colors.palette.danger for c in calls)
-
-    def test_not_exhausted_uses_normal_color(self, mock_tk: MagicMock) -> None:
-        """Not exhausted uses normal color."""
-        snap = _snapshot(sick_budget=_sick_budget(used_7d=0, exhausted=False))
-        window = _make_window(mock_tk, snap)
-        calls = [
-            c
-            for c in mock_tk.Label.call_args_list
-            if "week" in c.kwargs.get("text", "")
-        ]
-        assert any(c.kwargs.get("fg") == window._colors.palette.muted for c in calls)
 
 
 class TestSectionShutdown:

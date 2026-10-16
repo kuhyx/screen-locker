@@ -1,9 +1,13 @@
-"""Mixin: auto-upgrade early_bird/sick_day pending states via phone or RunnerUp.
+"""Mixin: the today-state rungs of the lock ladder, and the early-bird upgrade.
 
-Neither early_bird (a same-day pending marker, see ``_early_bird.py``) nor
-sick_day (tracked in ``sick_history.json`` via ``_sick_tracker.py``) live in
-log.json — this module only checks their pending state and, on
-success, writes the *real* outcome (phone_verified/runnerup_verified) there.
+early_bird is a same-day pending marker (``_early_bird.py``), not a log.json
+entry — this module only checks its pending state and, on success, writes
+the *real* outcome (phone_verified/runnerup_verified) there.
+
+A sick day is a date in the shared ``sickdays`` pool (``_sick.py``): the
+lock stands down for it and nothing is written. A workout done on a sick
+day still reaches the log through the ordinary sync paths and earns
+normally, so there is no sick-day upgrade any more.
 
 The upgrade credits through ``_apply_workout_credit`` -- save first, reward
 only if the entry was actually appended. It used to push the shutdown hour
@@ -18,10 +22,10 @@ from __future__ import annotations
 import logging
 import sys
 
-from screen_locker import _sick_tracker
 from screen_locker._decision_log import LockDecision, record_decision
 from screen_locker._decision_reasons import reasons_extra
 from screen_locker._morning_session import has_workout_skip_today
+from screen_locker._sick import is_sick
 from screen_locker._weekly_check import has_weekly_minimum, is_relaxed_day
 
 _logger = logging.getLogger(__name__)
@@ -79,15 +83,11 @@ class AutoUpgradeMixin(_ReasonsMixin):
     """
 
     def _is_sick_day_today(self) -> bool:
-        """Check if today is marked as a sick day in sick_history.json."""
-        return _sick_tracker.is_sick_day(_sick_tracker.load_history())
+        """Whether today is a date in the shared sickdays pool."""
+        return is_sick()
 
-    def _check_early_exits(self, *, verify_only: bool) -> None:
+    def _check_early_exits(self) -> None:
         """Check startup conditions and exit early when appropriate."""
-        if verify_only:
-            if not self._is_sick_day_today():
-                _skip("no_sick_day_to_verify", "No sick day logged today.")
-            return
         self._check_non_verify_exits()
 
     def _check_today_state_exits(self) -> bool:
@@ -119,17 +119,11 @@ class AutoUpgradeMixin(_ReasonsMixin):
                 **self._other_conditions("early_bird_window_active"),
             )
         elif self._is_sick_day_today():
-            if self._try_auto_upgrade_sick_day():
-                _skip(
-                    "sick_day_auto_upgraded",
-                    "Auto-upgraded today's sick_day entry to phone_verified.",
-                )
-            else:
-                _skip(
-                    "sick_day",
-                    "Sick day already logged today.",
-                    **self._other_conditions("sick_day"),
-                )
+            _skip(
+                "sick_day",
+                "Today is a sick day (sickdays pool).",
+                **self._other_conditions("sick_day"),
+            )
         elif self.has_logged_today():
             _skip(
                 "workout_logged_today",
@@ -150,44 +144,6 @@ class AutoUpgradeMixin(_ReasonsMixin):
             )
         else:
             return False
-        return True
-
-    def _try_auto_upgrade_sick_day(self) -> bool:
-        """Upgrade sick_day entry when phone or RunnerUp detects a valid workout."""
-        try:
-            status, message = self._verify_phone_workout()
-        except (OSError, RuntimeError) as exc:
-            _logger.warning(
-                "Sick-day auto-upgrade could not reach the phone (%s) — today's "
-                "sick_day entry stays unverified; trying RunnerUp next",
-                exc,
-            )
-            status, message = "error", str(exc)
-        if status == "verified":
-            self.workout_data["type"] = "phone_verified"
-            self.workout_data["source"] = message
-            self.workout_data["after_sick_day"] = "true"
-            self._apply_workout_credit()
-            return True
-        _logger.info("Auto-upgrade phone skipped (%s), trying RunnerUp...", status)
-        try:
-            runnerup_status, runnerup_msg = self._verify_runnerup_workout()
-        except (OSError, RuntimeError) as exc:
-            _logger.warning(
-                "Sick-day auto-upgrade could not read RunnerUp either (%s) — "
-                "today stays a sick_day, NOT upgraded to a verified workout",
-                exc,
-            )
-            return False
-        if runnerup_status != "verified":
-            _logger.info(
-                "Auto-upgrade RunnerUp skipped (%s): %s", runnerup_status, runnerup_msg
-            )
-            return False
-        self.workout_data["type"] = "runnerup_verified"
-        self.workout_data["source"] = runnerup_msg
-        self.workout_data["after_sick_day"] = "true"
-        self._apply_workout_credit()
         return True
 
     def _try_auto_upgrade_early_bird(self) -> bool:

@@ -9,21 +9,15 @@ The runtime half of this guarantee is the ``warning``
 ``ScrollableSurface.finalize`` logs; this script is the half that runs before
 the code ships, so a layout change cannot quietly reintroduce overflow.
 
-``StatusWindow`` is deliberately absent: it is a normal, resizable,
-dismissible window rather than a lock surface, so a user who needs more of it
-can resize it. Every screen that grabs the display is here.
+``StatusWindow`` is absent: it is a resizable window, not a lock surface.
 
-Not a pytest test because ``screen_locker/tests/conftest.py`` replaces the
-whole ``tk`` module for every test so the suite can never reach a display, and
-widget heights can only be measured by really rendering them. Like
-``verify_lock_popup_safety.py``, this re-executes itself under Xvfb:
+Not a pytest test: conftest replaces ``tk`` so no test reaches a display, and
+heights need real rendering. It re-executes itself under Xvfb:
 
     cd ~/src/screen-locker && python3 -m scripts.verify_screen_fits
 
-Run as a *module*, not a path: ``-m`` puts the repo root on ``sys.path`` so
-``screen_locker`` resolves from the checkout. Running it as a path only works
-where the package happens to be pip-installed, which is why it passed here and
-died in CI.
+Run as a *module*: ``-m`` puts the repo root on ``sys.path``, so
+``screen_locker`` resolves from the checkout (as a path it died in CI).
 """
 
 from __future__ import annotations
@@ -40,7 +34,6 @@ from gatelock import LockConfig, measure_fit, report_fit
 from screen_locker._constants import MANUAL_WORKOUT_REFLECTION_MIN_CHARS
 from screen_locker._heat_skip import build_heat_skip_content
 from screen_locker._manual_workout_dialog import ManualWorkoutDialogMixin
-from screen_locker._sick_dialog import SickDialogMixin
 from screen_locker._surface_group import FrameGroup
 from screen_locker._ui_flows import UIFlowsMixin
 from screen_locker._ui_flows_relaxed import UIFlowsRelaxedMixin
@@ -72,12 +65,17 @@ LONG_MESSAGE = (
     "Go do your workout first!"
 )
 
+# sickdays' FreeDayConflictError text: its longest refusal.
+SICK_REFUSAL = (
+    "2026-10-16 is a free day -- release it with 'freedays release' before "
+    "marking it sick"
+)
+
 
 class ScreenHost(
     UIWidgetsMixin,
     UIFlowsMixin,
     UIFlowsRelaxedMixin,
-    SickDialogMixin,
     ManualWorkoutDialogMixin,
 ):
     """The real screen-painting mixins, over a throwaway surface.
@@ -94,7 +92,7 @@ class ScreenHost(
         """Point the mixins at one surface's content frame."""
         self.root = surface.content.winfo_toplevel()
         self.demo_mode = False
-        self.verify_only = False
+        self._relaxed_day_mode = False
         # Deliberately NOT the real log.json: is_budget_exhausted() reads it,
         # and the real file's content depends on today's actual usage --
         # exhausting the manual-workout budget in production made this crash
@@ -157,17 +155,21 @@ class ScreenHost(
             )
         )
 
-    def paint_sick(self) -> None:
-        """Paint the sick-day justification screen."""
-        self._show_sick_justification()
+    def paint_sick_refused(self) -> None:
+        """Paint the screen shown when today cannot be marked sick."""
+        self._show_sick_refused(SICK_REFUSAL)
+
+    def paint_phone_penalty(self) -> None:
+        """Paint the no-phone penalty screen (countdown + I'm sick)."""
+        self._show_phone_penalty(LONG_MESSAGE)
+
+    def paint_relaxed_prompt(self) -> None:
+        """Paint the optional Tue-Thu prompt (Skip / Log / I'm sick)."""
+        self._start_relaxed_day_flow()
 
     def paint_relaxed_retry(self) -> None:
         """Paint the relaxed-day (Tue-Thu) retry screen."""
         self._show_relaxed_retry(LONG_MESSAGE, "no_workout")
-
-    def paint_verify_retry(self) -> None:
-        """Paint the verify-mode retry screen."""
-        self._show_verify_retry(LONG_MESSAGE)
 
 
 @dataclass(frozen=True)
@@ -194,10 +196,11 @@ SCREENS: tuple[Screen, ...] = (
     Screen("no-workout-retry", ScreenHost.paint_retry),
     Screen("manual-workout-form", ScreenHost.paint_manual_form),
     Screen("manual-workout-form+error", ScreenHost.paint_manual_form_with_error),
-    Screen("sick-justification", ScreenHost.paint_sick),
+    Screen("sick-refused", ScreenHost.paint_sick_refused),
+    Screen("phone-penalty", ScreenHost.paint_phone_penalty),
+    Screen("relaxed-day-prompt", ScreenHost.paint_relaxed_prompt),
     Screen("lockout", ScreenHost.lockout),
     Screen("relaxed-day-retry", ScreenHost.paint_relaxed_retry),
-    Screen("verify-retry", ScreenHost.paint_verify_retry),
 )
 
 # Screens built without a ScreenHost, measured through their own builder.

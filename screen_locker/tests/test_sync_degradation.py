@@ -23,7 +23,6 @@ from crdt_sync import FirebaseAuthError
 from screen_locker import _sync_client, _workout_sync
 from screen_locker._compliance_state import explain_lock_decision
 from screen_locker._credential_recovery import RecoveryResult
-from screen_locker._sick_tracker import SickHistory
 from screen_locker.tests._workout_sync_fixtures import (
     ReachableClient,
     _firebase_config,
@@ -61,7 +60,6 @@ class TestUnreadableSourceIsNotNoWorkout:
         result = explain_lock_decision(
             **self._files(tmp_path),
             now=self._NOON,
-            sick_history=SickHistory(),
             weekly_minimum_met=False,
             relaxed_day=False,
             degraded_sources=(_sync_client.DegradedSource("firebase", "HTTP 400"),),
@@ -75,7 +73,6 @@ class TestUnreadableSourceIsNotNoWorkout:
         result = explain_lock_decision(
             **self._files(tmp_path),
             now=self._NOON,
-            sick_history=SickHistory(),
             weekly_minimum_met=False,
             relaxed_day=False,
         )

@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from screen_locker._surface_group import FrameGroup, TextGroup, WidgetGroup
+from screen_locker._surface_group import FrameGroup, WidgetGroup
 from screen_locker.tests.conftest import TWO_OUTPUTS, create_locker
 
 if TYPE_CHECKING:
@@ -132,32 +132,6 @@ class TestGroupsInIsolation:
         FrameGroup([dead, alive]).clear()
 
         child.destroy.assert_called_once_with()
-
-    def test_text_reads_whichever_copy_was_typed_into(self) -> None:
-        """Text boxes cannot share a variable, so the non-empty one wins."""
-        untouched, typed = MagicMock(), MagicMock()
-        untouched.get.return_value = "   "
-        typed.get.return_value = "I have a migraine"
-
-        group = TextGroup([untouched, typed])
-
-        assert group.get("1.0", "end") == "I have a migraine"
-
-    def test_text_falls_back_to_the_primary_when_all_blank(self) -> None:
-        """An untouched form still yields a string for validation to reject."""
-        first, second = MagicMock(), MagicMock()
-        first.get.return_value = ""
-        second.get.return_value = ""
-
-        assert TextGroup([first, second]).get("1.0", "end") == ""
-
-    def test_text_skips_a_dead_copy(self) -> None:
-        """A destroyed monitor's box is stepped over, not fatal."""
-        dead, typed = MagicMock(), MagicMock()
-        dead.get.side_effect = tk.TclError("gone")
-        typed.get.return_value = "fever since 3am"
-
-        assert TextGroup([dead, typed]).get("1.0", "end") == "fever since 3am"
 
     def test_single_builds_a_group_of_one(self) -> None:
         """The non-lock windows' degenerate case."""

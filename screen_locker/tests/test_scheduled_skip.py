@@ -140,22 +140,3 @@ class TestScheduledSkipEarlyExit:
             create_locker(mock_tk, tmp_path, has_logged=False)
 
         mock_sys_exit.assert_called_once_with(0)
-
-    def test_verify_only_mode_ignores_scheduled_skip(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """verify_only mode does not consult scheduled skips."""
-        self._write_today_skip(tmp_path)
-
-        # verify_only exits because no sick day log, not because of scheduled skip
-        create_locker(
-            mock_tk,
-            tmp_path,
-            verify_only=True,
-            is_sick_day_log=False,
-        )
-
-        mock_sys_exit.assert_called_once_with(0)

@@ -3,8 +3,7 @@
 The fullscreen lock-window mechanics (overrideredirect, input grab,
 VT-disable) now live in the shared ``gatelock`` package. This module keeps
 only the screen-locker-specific windows that are never the lock itself: the
-post-sick-day verification window, the demo close button, and the optional
-relaxed-day prompt.
+demo close button and the optional relaxed-day prompt.
 """
 
 from __future__ import annotations
@@ -171,9 +170,9 @@ class WindowSetupMixin:
         ring that (before the focus-ring fix) was invisible black-on-black, with
         no way to tell what was selected or whether the keypress had landed.
 
-        The screens that take typed input (the manual-workout form, the sick
-        dialog) still focus their own first field as they are built; this only
-        covers the button-only screens that previously focused nothing.
+        The screen that takes typed input (the manual-workout form) still
+        focuses its own first field as it is built; this only covers the
+        button-only screens that previously focused nothing.
 
         ``surface`` is None when no output is live at all -- the lock is held
         with nothing to show, which is still a valid state and needs no focus.
@@ -199,10 +198,6 @@ class WindowSetupMixin:
 
     def on_close(self) -> None:
         """No extra hardware/state beyond what close() already handles."""
-
-    def _setup_verify_window(self) -> None:
-        """Configure window for post-sick-day workout verification."""
-        self._setup_aux_window(min_width=600, min_height=400)
 
     def _setup_demo_close_button(self) -> None:
         """Add close button for demo mode."""

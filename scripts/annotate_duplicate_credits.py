@@ -12,8 +12,8 @@ Annotates, never deletes, for two independent reasons. Deleting is
 self-undoing: every re-ingest path dedups against ``log.json``'s own contents,
 so ``_session_sync`` re-pulls a removed ``pc_workout_verified`` from the CRDT
 store on the next 15-minute ``workout-sync.timer`` tick and re-applies its
-shutdown credit. And it is the repo's stated position on signed data -- see
-``scripts/revoke_sick_day.py``. No entry is modified, so no HMAC is touched.
+shutdown credit. And it is the repo's stated position on signed data: never
+rewrite a signed entry. No entry is modified, so no HMAC is touched.
 
 The ledger is descriptive: nothing reads it to decide a lock. If it ever
 disagrees with :func:`~screen_locker._weekly_check.count_day_credits` the

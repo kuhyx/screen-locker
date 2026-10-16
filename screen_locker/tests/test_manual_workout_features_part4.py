@@ -1,4 +1,4 @@
-"""More workout-credit cases: bonuses, unreadable config, sick days.
+"""More workout-credit cases: bonuses and an unreadable config.
 
 Split out of test_manual_workout_features_part2.py for the 250-line cap.
 """
@@ -54,9 +54,6 @@ class TestApplyWorkoutCredit:
         object.__setattr__(
             locker, "_adjust_shutdown_time_by", MagicMock(return_value=True)
         )
-        object.__setattr__(
-            locker, "_clear_debt_on_verified_workout", MagicMock(return_value=None)
-        )
 
         result = locker._apply_workout_credit()
 
@@ -84,9 +81,6 @@ class TestApplyWorkoutCredit:
         object.__setattr__(
             locker, "_adjust_shutdown_time_by", MagicMock(return_value=True)
         )
-        object.__setattr__(
-            locker, "_clear_debt_on_verified_workout", MagicMock(return_value=None)
-        )
 
         with patch(
             "screen_locker._workout_credit._credit_notify.notify_workout_credit"
@@ -98,23 +92,3 @@ class TestApplyWorkoutCredit:
         locker._try_adjust_shutdown_for_workout.assert_not_called()
         locker._adjust_shutdown_time_by.assert_not_called()
         notify.assert_not_called()
-
-    def test_skips_save_for_sick_day_type(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        """Skips save for sick day type."""
-        locker = create_locker(mock_tk, tmp_path)
-        locker.workout_data = {"type": "sick_day"}
-        object.__setattr__(
-            locker, "_try_adjust_shutdown_for_workout", MagicMock(return_value=False)
-        )
-        object.__setattr__(
-            locker, "_clear_debt_on_verified_workout", MagicMock(return_value=None)
-        )
-        object.__setattr__(locker, "save_workout_log", MagicMock())
-
-        result = locker._apply_workout_credit()
-
-        assert result.already_counted_today is False
-        assert result.shutdown_adjusted is False
-        locker.save_workout_log.assert_not_called()

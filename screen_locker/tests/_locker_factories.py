@@ -44,7 +44,6 @@ def create_locker(
     *,
     demo_mode: bool = True,
     has_logged: bool = False,
-    verify_only: bool = False,
     is_sick_day_log: bool = False,
 ) -> ScreenLocker:
     """Create a ScreenLocker instance with early bird paths disabled."""
@@ -65,13 +64,9 @@ def create_locker(
         ),
         patch.object(ScreenLocker, "_start_phone_check"),
         patch.object(ScreenLocker, "_start_relaxed_day_flow"),
-        patch.object(ScreenLocker, "_start_verify_workout_check"),
         patch.object(ScreenLocker, "_scan_and_fill_week_runnerup", return_value=0),
     ):
-        return ScreenLocker(
-            demo_mode=demo_mode,
-            verify_only=verify_only,
-        )
+        return ScreenLocker(demo_mode=demo_mode)
 
 
 def create_locker_relaxed_day(
@@ -101,7 +96,6 @@ def create_locker_relaxed_day(
         ),
         patch.object(ScreenLocker, "_start_phone_check"),
         patch.object(ScreenLocker, "_start_relaxed_day_flow"),
-        patch.object(ScreenLocker, "_start_verify_workout_check"),
     ):
         return ScreenLocker(demo_mode=demo_mode)
 
@@ -139,6 +133,5 @@ def create_locker_early_bird(
         patch.object(ScreenLocker, "_try_auto_upgrade_early_bird", return_value=False),
         patch.object(ScreenLocker, "_start_phone_check"),
         patch.object(ScreenLocker, "_start_relaxed_day_flow"),
-        patch.object(ScreenLocker, "_start_verify_workout_check"),
     ):
         return ScreenLocker(demo_mode=demo_mode)

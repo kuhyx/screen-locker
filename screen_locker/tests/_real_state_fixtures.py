@@ -51,6 +51,25 @@ def _no_free_days_by_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
 
 
 @pytest.fixture(autouse=True)
+def _no_sick_days_by_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Never let a test read or write the developer's real sick-day pool.
+
+    Same seam and same reason as ``_no_free_days_by_default``: sickdays binds
+    ``~/.local/share/sickdays`` at import time, so only its ``resolve_paths``
+    can redirect it. A real sick day would otherwise stand the whole lock
+    chain down, and the lock screen's "I'm sick" tests would mark the
+    developer's real today sick. ``sync_quietly`` is stubbed so the button's
+    background push never reaches Firebase.
+    """
+    import sickdays
+    import sickdays._api
+
+    pool = sickdays.Paths.under(tmp_path / "sickdays")
+    monkeypatch.setattr(sickdays._api, "resolve_paths", lambda paths: paths or pool)
+    monkeypatch.setattr(sickdays, "sync_quietly", lambda **_kw: False)
+
+
+@pytest.fixture(autouse=True)
 def _isolate_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Point ``$HOME`` and ``Path.home()`` at tmp_path for every test.
 

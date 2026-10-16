@@ -1,4 +1,4 @@
-"""Shared workout-credit logic: save + shutdown bonus + debt-clear.
+"""Shared workout-credit logic: save + shutdown bonus.
 
 Extracted from ``screen_lock.py`` so both the locked-screen flow
 (``ScreenLocker.unlock_screen``) and the voluntary ``StatusWindow``
@@ -16,17 +16,13 @@ from typing import TYPE_CHECKING
 
 import earned_time
 
-from screen_locker import _credit_notify, _sick_tracker
+from screen_locker import _credit_notify
 from screen_locker._constants import SHUTDOWN_BASE_FILE
 from screen_locker._credit_slot import CreditSlot, credit_slot, locked_shutdown_state
 from screen_locker._day import today_str
 from screen_locker._earned import extra_minutes
 from screen_locker._rest_day import is_rest_day
-from screen_locker._weekly_check import (
-    COUNTED_WORKOUT_TYPES,
-    PC_WORKOUT_TYPE,
-    count_weekly_workouts,
-)
+from screen_locker._weekly_check import COUNTED_WORKOUT_TYPES, count_weekly_workouts
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -55,14 +51,13 @@ class WorkoutCreditResult:
     """Outcome of :meth:`WorkoutCreditMixin._apply_workout_credit`."""
 
     shutdown_adjusted: bool
-    new_debt: int | None
     extra_bonus_delta: int
     weekly_count: int
     already_counted_today: bool
 
 
 class WorkoutCreditMixin:
-    """Save a workout entry and apply its shutdown/debt/extra-bonus reward.
+    """Save a workout entry and apply its shutdown/extra-bonus reward.
 
     Requires ``self.workout_data``, ``self.log_file``, and the ``LogMixin``/
     ``ShutdownMixin`` methods it calls into.
@@ -81,30 +76,10 @@ class WorkoutCreditMixin:
             _logger.info("Shutdown time moved later as workout reward")
         return adjusted
 
-    def _clear_debt_on_verified_workout(self) -> int | None:
-        """Decrement workout debt by one for a verified workout.
-
-        Returns the new debt count, or ``None`` when this wasn't a
-        phone-verified workout.
-        """
-        if self.workout_data.get("type") not in (
-            "phone_verified",
-            "runnerup_verified",
-            PC_WORKOUT_TYPE,
-            "manual_workout",
-        ):
-            return None
-        history = _sick_tracker.load_history()
-        if history.debt <= 0:
-            return 0
-        new_debt = _sick_tracker.clear_one_debt(history)
-        _sick_tracker.save_history(history)
-        return new_debt
-
     def _apply_credit_for_written_entry(
         self, prior_entries: list[dict]
     ) -> WorkoutCreditResult:
-        """Apply the shutdown/debt reward for an already-written ``workout_data``.
+        """Apply the shutdown reward for an already-written ``workout_data``.
 
         Shared by :meth:`_apply_workout_credit` (the live locked-screen,
         Status-Window, and Check-Phone paths, which always write under today)
@@ -133,14 +108,13 @@ class WorkoutCreditMixin:
         if slot is CreditSlot.OCCUPIED:
             _logger.warning(
                 "Workout %s (%s) shares its credit slot with an entry already "
-                "credited today — no shutdown time, no debt change; the daily "
+                "credited today — no shutdown time; the daily "
                 "reset counts the two as one workout too",
                 self.workout_data.get("type", ""),
                 self.workout_data.get("source", ""),
             )
             return WorkoutCreditResult(
                 shutdown_adjusted=False,
-                new_debt=None,
                 extra_bonus_delta=0,
                 weekly_count=weekly_count,
                 already_counted_today=True,
@@ -174,13 +148,11 @@ class WorkoutCreditMixin:
                     extra_bonus_delta = new_cfg[1] - before[1]
             after = self._read_shutdown_config()
 
-        new_debt = self._clear_debt_on_verified_workout()
         if slot is not CreditSlot.NONE:
             self._notify_credit(before, after)
 
         return WorkoutCreditResult(
             shutdown_adjusted=shutdown_adjusted,
-            new_debt=new_debt,
             extra_bonus_delta=extra_bonus_delta,
             weekly_count=weekly_count,
             already_counted_today=False,
@@ -216,24 +188,12 @@ class WorkoutCreditMixin:
         (a duplicate — same ``workout_id`` already logged — earns no new
         credit).
         """
-        # sick_day is already persisted to sick_history.json by
-        # _finalize_sick_day — log.json is reserved for real outcomes.
-        if self.workout_data.get("type") == "sick_day":
-            return WorkoutCreditResult(
-                shutdown_adjusted=False,
-                new_debt=None,
-                extra_bonus_delta=0,
-                weekly_count=count_weekly_workouts(self.log_file),
-                already_counted_today=False,
-            )
-
         result = self.save_workout_log()
 
         if not result.appended:
             # A workout with this id was already recorded today — idempotent.
             return WorkoutCreditResult(
                 shutdown_adjusted=False,
-                new_debt=None,
                 extra_bonus_delta=0,
                 weekly_count=count_weekly_workouts(self.log_file),
                 already_counted_today=True,

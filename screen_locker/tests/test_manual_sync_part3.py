@@ -62,7 +62,7 @@ _OTHER_DRAFT = ManualWorkoutDraft(
 
 
 class TestIngestManualRecordsCallback:
-    """Tests for the ``on_ingested`` callback that drives shutdown/debt credit."""
+    """Tests for the ``on_ingested`` callback that drives shutdown credit."""
 
     def test_on_ingested_called_with_entry_and_prior_entries(
         self, tmp_path: Path

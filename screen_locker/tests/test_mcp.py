@@ -24,7 +24,6 @@ from screen_locker._status_data import (
     ManualWorkoutBudgetStatus,
     ShutdownProjection,
     ShutdownProjectionDay,
-    SickBudgetStatus,
     StatusSnapshot,
     WeeklySummary,
 )
@@ -71,16 +70,6 @@ def _snapshot() -> StatusSnapshot:
             explanation="explanation text",
         ),
         lock_explanation=_lock_explanation(),
-        sick_budget=SickBudgetStatus(
-            used_7d=0,
-            budget_7d=1,
-            used_30d=0,
-            budget_30d=3,
-            used_90d=0,
-            budget_90d=10,
-            debt=0,
-            exhausted=False,
-        ),
         manual_workout_budget=ManualWorkoutBudgetStatus(
             used_7d=0, budget_7d=2, used_30d=0, budget_30d=5, exhausted=False
         ),
@@ -121,7 +110,6 @@ class TestReadTools:
 class TestGetFlags:
     def test_flags_dict_and_predicate_wiring(self) -> None:
         with (
-            patch.object(_mcp, "load_history", return_value="HIST") as lh,
             patch.object(_mcp, "has_logged_today", return_value=True) as hlt,
             patch.object(_mcp, "is_scheduled_skip_today", return_value=False) as iss,
             patch.object(_mcp, "is_early_bird_pending", return_value=True) as iep,
@@ -134,11 +122,10 @@ class TestGetFlags:
             "is_early_bird_pending": True,
             "is_sick_day_today": False,
         }
-        lh.assert_called_once_with()
         hlt.assert_called_once_with(_mcp._LOG_FILE)
         iss.assert_called_once_with()
         iep.assert_called_once_with(_mcp.EARLY_BIRD_PENDING_FILE)
-        isd.assert_called_once_with("HIST")
+        isd.assert_called_once_with()
 
 
 def test_main_runs_stdio_server() -> None:

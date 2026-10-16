@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-import json
 import tkinter as tk
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -34,98 +32,28 @@ class TestRun:
         locker.root.mainloop.assert_called_once()
 
 
-class TestAutoUpgradeSickDay:
-    """Tests for sick_day → phone_verified silent upgrade helpers."""
+class TestSickDayStandsDown:
+    """A sick day (sickdays pool) skips the lock; nothing is upgraded or logged."""
 
-    def test_upgrade_succeeds_when_phone_verified(
+    def test_init_exits_on_a_sick_day_without_touching_the_phone(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Verified phone workout overwrites today's sick_day entry."""
-        log_file = tmp_path / "log.json"
-        locker = create_locker(mock_tk, tmp_path)
-        locker.log_file = log_file
-        with (
-            patch.object(
-                locker,
-                "_verify_phone_workout",
-                return_value=("verified", "Workout verified! (1 session)"),
-            ),
-            patch.object(
-                locker,
-                "_adjust_shutdown_time_later",
-                return_value=True,
-            ) as mock_adjust,
-            patch(
-                "screen_locker._log_mixin.compute_entry_hmac",
-                return_value="sig",
-            ),
-        ):
-            assert locker._try_auto_upgrade_sick_day() is True
-            mock_adjust.assert_called_once()
-
-        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
-        with log_file.open() as f:
-            data: dict[str, Any] = json.load(f)
-        # The log is day-keyed with a LIST of workouts; the upgrade appends one.
-        assert len(data[today]) == 1
-        entry = data[today][0]
-        assert entry["workout_data"]["type"] == "phone_verified"
-        assert entry["workout_data"]["after_sick_day"] == "true"
-        assert entry["workout_id"] == f"phone_verified:{today}"
-
-    def test_upgrade_skipped_when_not_verified(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Non-verified statuses leave the sick_day entry untouched."""
-        locker = create_locker(mock_tk, tmp_path)
-        with patch.object(
-            locker,
-            "_verify_phone_workout",
-            return_value=("no_phone", "No phone connected"),
-        ):
-            assert locker._try_auto_upgrade_sick_day() is False
-        assert locker.workout_data == {}
-
-    def test_upgrade_skipped_on_exception(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Transient OSError/RuntimeError during check is non-fatal."""
-        locker = create_locker(mock_tk, tmp_path)
-        with patch.object(
-            locker,
-            "_verify_phone_workout",
-            side_effect=OSError("transient"),
-        ):
-            assert locker._try_auto_upgrade_sick_day() is False
-
-    def test_init_exits_when_sick_day_upgrade_succeeds(
-        self,
-        mock_tk: MagicMock,
-        mock_sys_exit: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Startup exits 0 after a successful silent sick_day upgrade."""
+        """Startup exits 0 and never runs a phone or RunnerUp check."""
         mock_sys_exit.side_effect = SystemExit(0)
         with (
-            patch.object(
-                ScreenLocker,
-                "_try_auto_upgrade_sick_day",
-                return_value=True,
-            ) as mock_upgrade,
+            patch.object(ScreenLocker, "_verify_phone_workout") as phone,
+            patch.object(ScreenLocker, "_verify_runnerup_workout") as runnerup,
+            patch("screen_locker._auto_upgrade.record_decision") as record,
             pytest.raises(SystemExit),
         ):
             create_locker(mock_tk, tmp_path, is_sick_day_log=True)
-        mock_upgrade.assert_called_once()
         mock_sys_exit.assert_called_once_with(0)
+        phone.assert_not_called()
+        runnerup.assert_not_called()
+        assert record.call_args.args[0].reason == "sick_day"
 
 
 class TestMainEntry:

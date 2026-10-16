@@ -118,7 +118,6 @@ class StatusWindow(
         self._section_week(self.container, snapshot.week)
         self._section_lock_explanation(self.container, snapshot.lock_explanation)
         self._section_temperature(self.container)
-        self._section_sick_budget(self.container, snapshot.sick_budget)
         self._section_manual_workout_budget(
             self.container, snapshot.manual_workout_budget
         )
@@ -186,7 +185,7 @@ class StatusWindow(
         submitted the evidence form, so this is not a silent log. Uses the
         same ``_apply_workout_credit`` the locked screen's ``unlock_screen``
         uses, so this voluntary path earns the identical shutdown-later
-        bonus / debt-clear / extra-bonus credit (guarded against being
+        bonus / extra-bonus credit (guarded against being
         applied twice on the same day).
         """
         verifier = self.verifier_factory(self.log_file)

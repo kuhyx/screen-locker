@@ -179,7 +179,7 @@ def frozen_day() -> Iterator[Callable[[date], Any]]:
     def at_day(day: date) -> Any:
         iso = day.isoformat()
         return patch.multiple(_shutdown, today_str=lambda: iso), patch.multiple(
-            _grace_floor, today_str=lambda: iso, sick_on=lambda _d: False
+            _grace_floor, today_str=lambda: iso, is_sick=lambda _d: False
         )
 
     return at_day

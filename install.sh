@@ -138,6 +138,16 @@ if [[ -d "$GATELOCK_DIR" ]]; then
 fi
 echo "  ok: screen_locker and gatelock both import under $PROD_PYTHON"
 
+# One-shot, idempotent: the old sick_history.json's dates move into the shared
+# sickdays pool and the file is removed once they read back. Rerunning (or a
+# machine that never had the file) is a no-op. A failure keeps the file and
+# is retried by the next install; it does not block the locker itself.
+echo "Migrating the legacy sick history into the sickdays pool..."
+if ! "$PROD_PYTHON" "$REPO_DIR/scripts/migrate_sick_history.py"; then
+    echo "  WARNING: sick-history migration failed (file kept); rerun" >&2
+    echo "           $REPO_DIR/scripts/migrate_sick_history.py" >&2
+fi
+
 echo
 echo "=== Done ==="
 echo "The locker is live. Check when it next fires with:"

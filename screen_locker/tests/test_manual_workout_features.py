@@ -7,8 +7,7 @@ import pathlib
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-from screen_locker import _manual_workout, _sick_tracker
-from screen_locker._sick_tracker import SickHistory
+from screen_locker import _manual_workout
 from screen_locker.tests.conftest import create_locker
 
 # The Dart mirror of the budget caps; read at test time so drift on
@@ -35,7 +34,6 @@ class TestShowRetryAndManualWorkoutBudget:
         """Shows button when budget available."""
         locker = create_locker(mock_tk, tmp_path)
         with (
-            patch.object(_sick_tracker, "load_history", return_value=SickHistory()),
             patch.object(_manual_workout, "is_budget_exhausted", return_value=False),
         ):
             locker._show_retry_and_sick("nope")
@@ -48,7 +46,6 @@ class TestShowRetryAndManualWorkoutBudget:
         """Hides button when budget exhausted."""
         locker = create_locker(mock_tk, tmp_path)
         with (
-            patch.object(_sick_tracker, "load_history", return_value=SickHistory()),
             patch.object(_manual_workout, "is_budget_exhausted", return_value=True),
         ):
             locker._show_retry_and_sick("nope")

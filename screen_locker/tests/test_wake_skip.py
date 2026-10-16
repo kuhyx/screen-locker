@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 
 from screen_locker._morning_session import MorningSkip
 from screen_locker.screen_lock import ScreenLocker
-from screen_locker.tests.conftest import create_locker
 
 _SKIP = MorningSkip(outcome="completed", exempt_until=datetime(2099, 1, 1).astimezone())
 
@@ -26,7 +25,6 @@ def _locker(
         patch.object(ScreenLocker, "_try_auto_upgrade_early_bird", return_value=False),
         patch.object(ScreenLocker, "_start_phone_check"),
         patch.object(ScreenLocker, "_start_relaxed_day_flow"),
-        patch.object(ScreenLocker, "_start_verify_workout_check"),
         patch.object(ScreenLocker, "_scan_and_fill_week_runnerup", return_value=0),
     ):
         ScreenLocker(demo_mode=True)
@@ -61,10 +59,3 @@ class TestWakeSkipIntegration:
             _locker(tmp_path, carrot=_SKIP, has_logged=True)
         mock_sys_exit.assert_called_once_with(0)
         assert record.call_args.args[0].reason == "workout_logged_today"
-
-    def test_verify_only_mode_ignores_wake_skip(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
-    ) -> None:
-        with patch("screen_locker._early_bird.morning_skip_today", return_value=_SKIP):
-            create_locker(mock_tk, tmp_path, verify_only=True, is_sick_day_log=True)
-        mock_sys_exit.assert_not_called()
