@@ -11,6 +11,8 @@ import freedays
 import sickdays
 
 from screen_locker import _sick, _ui_flows_sick
+from screen_locker._auto_upgrade import AutoUpgradeMixin
+from screen_locker._compliance_predicates import is_sick_day_today
 from screen_locker.tests._locker_factories import create_locker_relaxed_day
 from screen_locker.tests._sick_helpers import mark_sick
 from screen_locker.tests.conftest import create_locker
@@ -36,10 +38,58 @@ class TestSeam:
         assert _sick.is_sick(day - timedelta(days=1)) is False
         assert _sick.sick_dates() >= {day, old}
 
+    def test_stands_down_workout_follows_the_keep_set(self) -> None:
+        day = mark_sick(keep=[sickdays.LOCKER_WORKOUT])
+        other = mark_sick(day + timedelta(days=1), keep=[sickdays.LOCKER_LEETCODE])
+        assert _sick.stands_down_workout(day) is False
+        assert _sick.stands_down_workout(other) is True
+        assert _sick.stands_down_workout(other + timedelta(days=1)) is False
+        # The shutdown floor ignores keep: the day is sick either way.
+        assert _sick.is_sick(day) is True
+
+    def test_stands_down_workout_defaults_to_today(self) -> None:
+        assert _sick.stands_down_workout() is False
+        mark_sick()
+        assert _sick.stands_down_workout() is True
+
+    def test_workout_standdown_dates_drop_the_kept_days(self) -> None:
+        kept = mark_sick("2026-06-21", keep=[sickdays.LOCKER_WORKOUT])
+        off = mark_sick("2026-07-24")
+        assert _sick.workout_standdown_dates() >= {off}
+        assert kept not in _sick.workout_standdown_dates()
+        assert _sick.sick_dates() >= {kept, off}
+
+    def test_the_startup_ladder_asks_the_workout_switch(self) -> None:
+        """``_is_sick_day_today`` is what the lock skip reads: keep-aware."""
+        mark_sick(keep=[sickdays.LOCKER_WORKOUT])
+        assert AutoUpgradeMixin._is_sick_day_today(MagicMock()) is False
+        sickdays.set_kept_lockers(sickdays.today(), [sickdays.LOCKER_BOOK])
+        assert AutoUpgradeMixin._is_sick_day_today(MagicMock()) is True
+
+    def test_the_pool_fixture_covers_keep_edits(self) -> None:
+        """``set_kept_lockers`` must land in the tmp pool, never the real one."""
+        day = mark_sick()
+        sickdays.set_kept_lockers(day, [sickdays.LOCKER_DIET])
+        assert sickdays.kept_lockers(day) == {sickdays.LOCKER_DIET}
+
+    def test_the_status_predicate_follows_the_workout_switch(self) -> None:
+        mark_sick(keep=[sickdays.LOCKER_WORKOUT])
+        assert is_sick_day_today() is False
+        sickdays.set_kept_lockers(sickdays.today(), [sickdays.LOCKER_LEETCODE])
+        assert is_sick_day_today() is True
+
     def test_mark_today_sick(self) -> None:
         result = _sick.mark_today_sick()
         assert result.ok is True
         assert sickdays.is_sick_day() is True
+
+    def test_the_one_tap_button_keeps_nothing(self) -> None:
+        """The lock screen's "I'm sick" is ALL-OFF: every locker stands down."""
+        assert _sick.mark_today_sick().ok is True
+        assert sickdays.kept_lockers() == frozenset()
+        for locker in sickdays.LOCKERS:
+            assert sickdays.stands_down(locker) is True
+        assert _sick.stands_down_workout() is True
 
     def test_already_sick_is_success(self) -> None:
         mark_sick()

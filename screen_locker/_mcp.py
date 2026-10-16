@@ -137,8 +137,9 @@ def get_flags() -> dict[str, bool]:
     (``~/src/utils/freedays``), so a true here also means diet-guard, wake-alarm,
     leetcode-guard and home-guard are standing down today.
 
-    ``is_sick_day_today`` reads the shared ``sickdays`` pool (the same fleet-wide
-    answer every gate stands down on), never a screen-locker file.
+    ``is_sick_day_today`` reads the shared ``sickdays`` pool and answers "is the
+    workout lock switched off today": a sick day that keeps the ``workout``
+    locker reads False. Never a screen-locker file.
     """
     return {
         "has_logged_today": has_logged_today(_LOG_FILE),

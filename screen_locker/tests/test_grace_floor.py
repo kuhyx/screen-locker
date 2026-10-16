@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import earned_time
 import pytest
+import sickdays
 
 from screen_locker import _earned, _grace_floor
 from screen_locker._grace_floor import (
@@ -192,6 +193,13 @@ class TestApply:
             assert host._apply_grace_floor(None, first_done=at("18:55")) is False
         assert "failed to write" in caplog.text
         assert plan_absorb(0) == (0, 0)
+
+    def test_a_sick_day_that_keeps_the_workout_lock_still_has_no_floor(self) -> None:
+        """The sick floor is shutdown's, so keep does not bring the grace floor back."""
+        mark_sick(_DAY, keep=[sickdays.LOCKER_WORKOUT])
+        host = Host((18 * 60, 18 * 60, 300))
+        assert host._apply_grace_floor(None, first_done=at("18:55")) is False
+        assert host.config == (18 * 60, 18 * 60, 300)
 
     def test_a_sick_day_has_no_floor(self) -> None:
         """A sick day has the 20:00 sick floor instead."""

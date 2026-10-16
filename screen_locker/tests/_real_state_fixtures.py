@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
+import sys
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
@@ -62,10 +63,15 @@ def _no_sick_days_by_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     background push never reaches Firebase.
     """
     import sickdays
-    import sickdays._api
 
     pool = sickdays.Paths.under(tmp_path / "sickdays")
-    monkeypatch.setattr(sickdays._api, "resolve_paths", lambda paths: paths or pool)
+    # Every sickdays module that bound ``resolve_paths`` by name: the readers
+    # (``_api``, which ``stands_down`` / ``kept_lockers`` load through) and the
+    # writers (``set_kept_lockers`` lives in ``_keep_api``). Patching only
+    # ``_api`` once let a keep edit land in the developer's real pool.
+    for name, module in list(sys.modules.items()):
+        if name.startswith("sickdays.") and hasattr(module, "resolve_paths"):
+            monkeypatch.setattr(module, "resolve_paths", lambda paths: paths or pool)
     monkeypatch.setattr(sickdays, "sync_quietly", lambda **_kw: False)
 
 

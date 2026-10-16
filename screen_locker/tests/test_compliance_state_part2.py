@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import freedays
+import sickdays
 
 from screen_locker._compliance_state import explain_lock_decision
 from screen_locker.tests._sick_helpers import mark_sick
@@ -99,6 +100,21 @@ class TestExplainLockDecision:
         )
         assert result.fired is False
         assert result.stage == "sick_day"
+
+    def test_a_sick_day_that_keeps_the_workout_lock_does_not_skip(
+        self, tmp_path: Path
+    ) -> None:
+        files = self._files(tmp_path)
+        mark_sick(keep=[sickdays.LOCKER_WORKOUT])
+        result = explain_lock_decision(
+            **files,
+            weekly_minimum_met=False,
+            relaxed_day=False,
+            now=datetime.now(tz=UTC).astimezone().replace(hour=12, minute=0),
+        )
+        assert result.stage == "would_lock"
+        sick_step = next(t for t in result.trace if t.name == "sick_day")
+        assert sick_step.fired is False
 
     def test_already_logged_skips(self, tmp_path: Path) -> None:
         files = self._files(tmp_path)

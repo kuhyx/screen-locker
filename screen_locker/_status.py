@@ -16,7 +16,7 @@ from screen_locker._extra_benefits import (
     has_extended_early_bird,
 )
 from screen_locker._log_io import load_workout_log
-from screen_locker._sick import sick_dates
+from screen_locker._sick import workout_standdown_dates
 from screen_locker._weekly_check import (
     COUNTED_WORKOUT_TYPES,
     WEEKLY_WORKOUT_MINIMUM,
@@ -77,7 +77,7 @@ def run_status(locker: ScreenLocker) -> None:
     monday = today - timedelta(days=today.weekday())
     log_file: Path = locker.log_file
     log_data = load_workout_log(log_file)
-    sick_days = sick_dates()
+    sick_days = workout_standdown_dates()
 
     print("=== Weekly Workout Status ===")
 

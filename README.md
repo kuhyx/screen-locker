@@ -19,6 +19,13 @@ and is paid out of that lift first, so it lands on the ladder value (e.g.
 20:40), never 20:00 plus its whole reward. `install.sh` migrates the old
 `sick_history.json` dates into the pool once (`scripts/migrate_sick_history.py`).
 
+A sick day may *keep* lockers (`sickdays add --keep workout`). A kept workout
+lock behaves exactly as on a normal day (lock, quota, relaxed-day penalty on
+that date); only the 20:00 shutdown floor still applies, since it belongs to
+the day, not to a locker. The one-tap button keeps nothing. The missed-alarm
+penalty is void on its ring day only if `alarm` is off, and on its penalty day
+only if `workout` is off. All of it goes through `_sick.stands_down_workout`.
+
 ## Shutdown time
 
 Every day starts at **19:00** from 2026-10-01, 20:00 before it (`base_minutes()` in

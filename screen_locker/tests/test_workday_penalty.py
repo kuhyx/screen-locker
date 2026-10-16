@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from gatelock.log_integrity import compute_entry_hmac
 import pytest
+import sickdays
 
 from screen_locker import _workday_penalty
 from screen_locker._workday_penalty import workday_penalty_today
@@ -87,3 +88,27 @@ class TestSickDayVoidsThePenalty:
         _write({"penalty_date": "2026-09-23", "issued_date": "yesterday"})
         assert workday_penalty_today(NOW) is True
         assert "not a date" in caplog.text
+
+
+class TestKeptLockersDecideThePenalty:
+    """Ring date -> the alarm switch; penalty date -> the workout lock."""
+
+    def test_a_kept_alarm_on_the_ring_day_keeps_the_penalty(self) -> None:
+        mark_sick("2026-09-22", keep=[sickdays.LOCKER_ALARM])
+        _write({"penalty_date": "2026-09-23", "issued_date": "2026-09-22"})
+        assert workday_penalty_today(NOW) is True
+
+    def test_a_kept_workout_on_the_ring_day_still_voids_it(self) -> None:
+        mark_sick("2026-09-22", keep=[sickdays.LOCKER_WORKOUT])
+        _write({"penalty_date": "2026-09-23", "issued_date": "2026-09-22"})
+        assert workday_penalty_today(NOW) is False
+
+    def test_a_kept_workout_on_the_penalty_day_keeps_it(self) -> None:
+        mark_sick("2026-09-23", keep=[sickdays.LOCKER_WORKOUT])
+        _write({"penalty_date": "2026-09-23", "issued_date": "2026-09-22"})
+        assert workday_penalty_today(NOW) is True
+
+    def test_a_kept_alarm_on_the_penalty_day_still_voids_it(self) -> None:
+        mark_sick("2026-09-23", keep=[sickdays.LOCKER_ALARM])
+        _write({"penalty_date": "2026-09-23", "issued_date": "2026-09-22"})
+        assert workday_penalty_today(NOW) is False

@@ -7,6 +7,15 @@ them and tests have one seam.
 
 Reading never raises: an unreadable pool is logged by ``sickdays`` and reads
 as *not sick* -- fail closed, the locks apply.
+
+Two questions, deliberately not one: a sick day may *keep* some lockers active
+(``sickdays`` 0.2.0), so
+
+* :func:`stands_down_workout` -- "is the workout lock off?" -- is sick AND the
+  workout locker not kept. The lock ladder, its explanation, the status view
+  and the missed-alarm penalty's penalised day ask this.
+* :func:`is_sick` -- "is the day sick at all?" -- feeds only the 20:00
+  shutdown floor, which applies on every sick day whatever it keeps.
 """
 
 from __future__ import annotations
@@ -29,9 +38,32 @@ def is_sick(day: date | None = None) -> bool:
     return sickdays.is_sick_day(day)
 
 
+def stands_down(locker: str, day: date | None = None) -> bool:
+    """Whether ``locker`` (a ``sickdays.LOCKER_*``) is off on ``day``.
+
+    For the few consumers that judge a date by a locker other than the workout
+    one (the missed-alarm penalty's ring day is the alarm switch's).
+    """
+    return sickdays.stands_down(locker, day)
+
+
+def stands_down_workout(day: date | None = None) -> bool:
+    """Whether the workout lock is off on ``day`` (default: today).
+
+    True iff the day is sick and does not keep ``sickdays.LOCKER_WORKOUT``.
+    A kept workout lock behaves exactly as on a normal day.
+    """
+    return stands_down(sickdays.LOCKER_WORKOUT, day)
+
+
 def sick_dates() -> frozenset[date]:
     """Every date the pool marks sick, past and future."""
     return sickdays.sick_days()
+
+
+def workout_standdown_dates() -> frozenset[date]:
+    """Every sick date on which the workout lock is off (keep-aware)."""
+    return frozenset(d for d in sickdays.sick_days() if stands_down_workout(d))
 
 
 def push_in_background() -> threading.Thread:

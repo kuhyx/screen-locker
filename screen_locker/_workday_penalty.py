@@ -8,9 +8,13 @@ here is *HMAC ok, dated today*. Anything else -- missing file, stale date,
 bad signature -- is "no penalty", i.e. today's ordinary relaxed-day rule.
 
 The file is void when EITHER its ``issued_date`` (the day of the missed
-ring) OR its ``penalty_date`` is a sick day (``sickdays``): a sick day stands
-every gate down, and wake-alarm's own retraction of the file can lag its
-sync by ~15 min, so it is not relied on here.
+ring) belongs to a sick day whose ``alarm`` switch is off, OR its
+``penalty_date`` belongs to a sick day whose ``workout`` lock is off
+(``sickdays``). Each date is judged by what it owns: the ring is the alarm's,
+and the penalty it costs -- the relaxed-day leniency -- is the workout lock's.
+A sick day that keeps that locker leaves its half of the penalty in force.
+Wake-alarm's own retraction of the file can lag its sync by ~15 min, so it
+is not relied on here.
 """
 
 from __future__ import annotations
@@ -21,10 +25,11 @@ import logging
 from typing import TYPE_CHECKING
 
 from gatelock.log_integrity import verify_entry_hmac
+import sickdays
 
 from screen_locker._constants import WORKDAY_PENALTY_FILE
 from screen_locker._day import today_str
-from screen_locker._sick import is_sick
+from screen_locker._sick import stands_down
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -53,15 +58,20 @@ def workday_penalty_today(now: datetime | None = None) -> bool:
     entry = _read_verified()
     if entry is None or entry.get("penalty_date") != today_str(now):
         return False
-    for field in ("issued_date", "penalty_date"):
-        if _is_sick_iso(entry.get(field)):
-            _logger.warning("Workday penalty void: its %s is a sick day", field)
+    for field, locker in (
+        ("issued_date", sickdays.LOCKER_ALARM),
+        ("penalty_date", sickdays.LOCKER_WORKOUT),
+    ):
+        if _stands_down_iso(entry.get(field), locker):
+            _logger.warning(
+                "Workday penalty void: its %s is a sick day with %s off", field, locker
+            )
             return False
     return True
 
 
-def _is_sick_iso(value: object) -> bool:
-    """Whether ``value`` is a ``YYYY-MM-DD`` that the sickdays pool marks sick."""
+def _stands_down_iso(value: object, locker: str) -> bool:
+    """Whether ``value`` is a ``YYYY-MM-DD`` on which ``locker`` is switched off."""
     if value is None:
         return False  # an older file without issued_date: penalty_date rules
     try:
@@ -69,4 +79,4 @@ def _is_sick_iso(value: object) -> bool:
     except ValueError:
         _logger.warning("Workday penalty: %r is not a date; not a sick day", value)
         return False
-    return is_sick(day)
+    return stands_down(locker, day)

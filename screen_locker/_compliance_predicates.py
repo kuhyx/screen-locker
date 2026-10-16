@@ -23,7 +23,7 @@ from gatelock.log_integrity import compute_entry_hmac, verify_entry_hmac
 
 from screen_locker._day import today_str
 from screen_locker._log_io import load_workout_log
-from screen_locker._sick import is_sick
+from screen_locker._sick import stands_down_workout
 from screen_locker._weekly_check import RELAXED_DAY_SKIP_TYPE
 
 if TYPE_CHECKING:
@@ -128,9 +128,10 @@ def is_early_bird_pending(pending_file: Path, *, today: str | None = None) -> bo
 
 
 def is_sick_day_today(today: date | None = None) -> bool:
-    """Return True if ``today`` (default: today) is in the sickdays pool.
+    """Return True if the sickdays pool switches the workout lock off that day.
 
     Kept here so callers of the status layer have one predicate module to
-    import from; the answer itself is ``_sick.is_sick``'s.
+    import from; the answer itself is ``_sick.stands_down_workout``'s, so a
+    sick day that keeps the workout locker reads False.
     """
-    return is_sick(today)
+    return stands_down_workout(today)

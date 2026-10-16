@@ -25,7 +25,7 @@ import sys
 from screen_locker._decision_log import LockDecision, record_decision
 from screen_locker._decision_reasons import reasons_extra
 from screen_locker._morning_session import has_workout_skip_today
-from screen_locker._sick import is_sick
+from screen_locker._sick import stands_down_workout
 from screen_locker._weekly_check import has_weekly_minimum, is_relaxed_day
 
 _logger = logging.getLogger(__name__)
@@ -83,8 +83,11 @@ class AutoUpgradeMixin(_ReasonsMixin):
     """
 
     def _is_sick_day_today(self) -> bool:
-        """Whether today is a date in the shared sickdays pool."""
-        return is_sick()
+        """Whether the sickdays pool switches the workout lock off today.
+
+        A sick day that keeps the workout locker is a normal day here.
+        """
+        return stands_down_workout()
 
     def _check_early_exits(self) -> None:
         """Check startup conditions and exit early when appropriate."""
@@ -121,7 +124,7 @@ class AutoUpgradeMixin(_ReasonsMixin):
         elif self._is_sick_day_today():
             _skip(
                 "sick_day",
-                "Today is a sick day (sickdays pool).",
+                "Today is a sick day (sickdays pool); the workout lock is off.",
                 **self._other_conditions("sick_day"),
             )
         elif self.has_logged_today():

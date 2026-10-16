@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 import earned_time
 import pytest
+import sickdays
 
 from screen_locker import _grace_floor, _shutdown, _sick_floor
 from screen_locker._earned import first_minutes
@@ -64,6 +65,13 @@ class TestApplySickFloor:
         host = Host((18 * 60, 18 * 60, 300))
         assert host._apply_sick_floor() is False
         assert host.config == (18 * 60, 18 * 60, 300)
+
+    def test_a_kept_workout_lock_does_not_lift_the_floor_away(self) -> None:
+        """The 20:00 floor is the day's, not the workout lock's: keep is moot."""
+        mark_sick(_DAY, keep=[sickdays.LOCKER_WORKOUT])
+        host = Host((18 * 60, 18 * 60 + 30, 300))
+        assert host._apply_sick_floor() is True
+        assert host.config == (_FLOOR, _FLOOR, 300)
 
     def test_marked_sick_lifts_to_20_00_and_records_the_lift(self) -> None:
         mark_sick(_DAY)

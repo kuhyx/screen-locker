@@ -51,7 +51,7 @@ from screen_locker._extra_benefits import (
 )
 from screen_locker._log_io import load_workout_log
 from screen_locker._morning_session import has_workout_skip_today
-from screen_locker._sick import sick_dates
+from screen_locker._sick import workout_standdown_dates
 from screen_locker._weekly_check import (
     COUNTED_WORKOUT_TYPES,
     WEEKLY_WORKOUT_MINIMUM,
@@ -102,7 +102,7 @@ def _day_status(
 def _week_days(log_file: Path, *, today_local: datetime) -> tuple[DayStatus, ...]:
     """Return this ISO week's days from Monday through today."""
     log_data = load_workout_log(log_file)
-    sick_days = sick_dates()
+    sick_days = workout_standdown_dates()
     today_date = today_local.date()
     monday = today_date - timedelta(days=today_date.weekday())
     days: list[DayStatus] = []

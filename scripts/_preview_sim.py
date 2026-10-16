@@ -8,7 +8,7 @@ adb, the sudo-written config, the sickdays pool) point at a temporary place.
 from __future__ import annotations
 
 from datetime import date, datetime, time
-import importlib
+import sys
 from typing import TYPE_CHECKING
 
 import earned_time
@@ -114,8 +114,11 @@ SICK_STEP = "sick"
 def use_temp_pool(tmp: Path) -> None:
     """Point every sickdays read and write at a pool under ``tmp``."""
     pool = sickdays.Paths.under(tmp / "sickdays")
-    api = importlib.import_module("sickdays._api")
-    vars(api)["resolve_paths"] = lambda paths: paths or pool
+    # Every sickdays module that bound ``resolve_paths`` by name: ``_api`` (the
+    # reads, ``stands_down`` included) and the writers (``_keep_api``, ...).
+    for name, module in tuple(sys.modules.items()):
+        if name.startswith("sickdays.") and "resolve_paths" in vars(module):
+            vars(module)["resolve_paths"] = lambda paths: paths or pool
 
 
 def sick_pool(day: date, *, sick_day: bool) -> bool:

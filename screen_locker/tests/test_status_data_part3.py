@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import freedays
+import sickdays
 
 from screen_locker._status_data import format_summary_line, gather_status
 from screen_locker.tests._sick_helpers import mark_sick
@@ -45,6 +46,21 @@ class TestGatherStatusLockSuppression:
         assert format_summary_line(snap).endswith("· sick day")
         assert snap.lock_explanation.fired is False
         assert snap.lock_explanation.stage == "sick_day"
+
+    def test_sick_day_keeping_the_workout_lock_still_locks(
+        self, tmp_path: Path
+    ) -> None:
+        """A kept workout lock is a normal day: not marked sick, not skipped."""
+        files = _files(tmp_path)
+        mark_sick("2024-01-05", keep=[sickdays.LOCKER_WORKOUT])
+        with patch(
+            "screen_locker._status_data.has_workout_skip_today", return_value=False
+        ):
+            snap = gather_status(**files, now=_FRIDAY_NOON_UTC)
+
+        assert snap.today.is_sick_day is False
+        assert not format_summary_line(snap).endswith("· sick day")
+        assert snap.lock_explanation.stage != "sick_day"
 
     def test_wake_alarm_skip_stops_lock(self, tmp_path: Path) -> None:
         """Wake alarm skip stops lock."""

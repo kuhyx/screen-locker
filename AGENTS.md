@@ -57,7 +57,10 @@ constant, not the state file: the file once persisted `base_*_hour`, which
 made the code's default dead.
 
 A sick day is a date in the shared `sickdays` pool, read only through
-`_sick.py`. The reset resolves it with `earned_time.resolve(..., sick=True)`
+`_sick.py`. It may keep lockers: the workout lock asks
+`_sick.stands_down_workout` (keep-aware), while everything that only computes
+shutdown (this floor, `_grace_floor`, `_shutdown_base`, `_shutdown_target`,
+the preview scripts) asks `is_sick` and ignores keep. The reset resolves it with `earned_time.resolve(..., sick=True)`
 (shutdown >= 20:00) and saves the lift above the earned sum like the grace
 lift; a day marked after the reset is lifted by `_sick_floor` on the next
 live pass. Both are floors, never terms: later credits are paid out of the

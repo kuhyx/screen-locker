@@ -8,15 +8,19 @@ from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import earned_time
+import sickdays
 
 from screen_locker import _grace_floor
+from screen_locker._shutdown_base import base_minutes
 from screen_locker._shutdown_target import (
     DayInputs,
     day_credit_count,
     derive,
     gather,
+    gather_inputs,
     workout_units,
 )
+from screen_locker.tests._sick_helpers import mark_sick
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -66,6 +70,19 @@ class TestTarget:
         assert target.minutes == target.earned
         assert target.minutes > SICK_FLOOR
         assert target.lift == 0
+
+    def test_gather_keeps_the_sick_floor_when_the_workout_lock_is_kept(self) -> None:
+        """Rule 2: the 20:00 floor is the day's, whatever the keep set says."""
+        mark_sick(_DAY, keep=[sickdays.LOCKER_WORKOUT])
+        assert gather_inputs(_DAY, None).sick_day is True
+
+    def test_base_minutes_keeps_the_sick_floor_when_the_workout_lock_is_kept(
+        self,
+    ) -> None:
+        plain = base_minutes(_DAY)
+        assert plain < SICK_FLOOR  # reading's cut is in force on this date
+        mark_sick(_DAY, keep=[sickdays.LOCKER_WORKOUT])
+        assert base_minutes(_DAY) == SICK_FLOOR
 
     def test_not_sick_is_the_plain_sum(self) -> None:
         target = derive(DayInputs(_DAY, _FLAT))
