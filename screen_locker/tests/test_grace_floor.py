@@ -1,4 +1,4 @@
-"""Tests for the grace floor, its lift bookkeeping and the derived target."""
+"""Tests for when the day started and the lift bookkeeping (the floor is gone)."""
 
 from __future__ import annotations
 
@@ -10,22 +10,19 @@ from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import earned_time
-import pytest
-import sickdays
 
-from screen_locker import _earned, _grace_floor
+from screen_locker import _grace_floor
 from screen_locker._grace_floor import (
-    GraceFloorMixin,
     first_done_at,
-    grace_for,
     plan_absorb,
     save_lift,
     workout_done_at,
 )
-from screen_locker.tests._sick_helpers import mark_sick
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    import pytest
 
 _DAY = date(2026, 10, 10)
 _ISO = _DAY.isoformat()
@@ -99,18 +96,6 @@ class TestWhenTheDayStarted:
             assert first_done_at(_DAY, None) is None
 
 
-class TestGraceFor:
-    def test_an_hour_after_the_first_task(self) -> None:
-        assert grace_for(at("18:55"), _DAY) == 19 * 60 + 55
-
-    def test_capped_at_the_ceiling(self) -> None:
-        assert grace_for(at("22:40"), _DAY) == _earned.ceiling(_DAY)
-
-    def test_nothing_done_or_another_day_is_no_floor(self) -> None:
-        assert grace_for(None, _DAY) is None
-        assert grace_for(at("12:00", _DAY - timedelta(1)), _DAY) is None
-
-
 class TestLift:
     def test_absorb_pays_from_the_lift_first(self) -> None:
         with patch.object(_grace_floor, "today_str", return_value=_ISO):
@@ -139,71 +124,3 @@ class TestLift:
         with caplog.at_level(logging.WARNING):
             save_lift(5, tmp_path / "missing-dir" / "g.json")
         assert "Could not record the grace lift" in caplog.text
-
-
-class Host(GraceFloorMixin):
-    """The mixin over an in-memory config."""
-
-    def __init__(self, config: tuple[int, int, int] | None, *, ok: bool = True) -> None:
-        self.config = config
-        self.ok = ok
-
-    def _read_shutdown_config(self) -> tuple[int, int, int] | None:
-        return self.config
-
-    def _write_shutdown_config(
-        self, mon_wed: int, thu_sun: int, morning_end: int, *, restore: bool = False
-    ) -> bool:
-        assert restore
-        if self.ok:
-            self.config = (mon_wed, thu_sun, morning_end)
-        return self.ok
-
-
-@pytest.fixture
-def saturday() -> Any:
-    with patch.object(_grace_floor, "today_str", return_value=_ISO):
-        yield
-
-
-@pytest.mark.usefixtures("saturday")
-class TestApply:
-    def test_lifts_to_the_floor_and_records_the_lift(self) -> None:
-        host = Host((19 * 60 + 25, 19 * 60 + 25, 300))
-        assert host._apply_grace_floor(None, first_done=at("18:55")) is True
-        assert host.config == (19 * 60 + 55, 19 * 60 + 55, 300)
-        assert plan_absorb(0) == (0, 30)
-
-    def test_already_above_the_floor(self) -> None:
-        host = Host((21 * 60, 21 * 60, 300))
-        assert host._apply_grace_floor(None, first_done=at("18:55")) is False
-
-    def test_no_first_task_no_floor(self) -> None:
-        with patch.object(_grace_floor, "first_done_at", return_value=None):
-            assert Host((1140, 1140, 300))._apply_grace_floor(None) is False
-
-    def test_unreadable_config(self, caplog: pytest.LogCaptureFixture) -> None:
-        with caplog.at_level(logging.WARNING):
-            assert Host(None)._apply_grace_floor(None, first_done=at("18:55")) is False
-        assert "config unreadable" in caplog.text
-
-    def test_failed_write(self, caplog: pytest.LogCaptureFixture) -> None:
-        host = Host((1140, 1140, 300), ok=False)
-        with caplog.at_level(logging.WARNING):
-            assert host._apply_grace_floor(None, first_done=at("18:55")) is False
-        assert "failed to write" in caplog.text
-        assert plan_absorb(0) == (0, 0)
-
-    def test_a_sick_day_that_keeps_the_workout_lock_still_has_no_floor(self) -> None:
-        """The sick floor is shutdown's, so keep does not bring the grace floor back."""
-        mark_sick(_DAY, keep=[sickdays.LOCKER_WORKOUT])
-        host = Host((18 * 60, 18 * 60, 300))
-        assert host._apply_grace_floor(None, first_done=at("18:55")) is False
-        assert host.config == (18 * 60, 18 * 60, 300)
-
-    def test_a_sick_day_has_no_floor(self) -> None:
-        """A sick day has the 20:00 sick floor instead."""
-        mark_sick(_DAY)
-        host = Host((18 * 60, 18 * 60, 300))
-        assert host._apply_grace_floor(None, first_done=at("18:55")) is False
-        assert host.config == (18 * 60, 18 * 60, 300)

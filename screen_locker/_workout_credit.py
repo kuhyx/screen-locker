@@ -23,6 +23,7 @@ from screen_locker._day import today_str
 from screen_locker._earned import extra_minutes
 from screen_locker._rest_day import is_rest_day
 from screen_locker._weekly_check import COUNTED_WORKOUT_TYPES, count_weekly_workouts
+from screen_locker._workout_ledger import entry_done_at
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -66,12 +67,22 @@ class WorkoutCreditMixin:
     workout_data: dict[str, str]
     log_file: Path
 
+    def _done_at(self, day: date) -> float | None:
+        """When this workout ended; ``None`` (now) when it records no end.
+
+        ``workout_data`` is the entry's inner dict, so it is wrapped as the
+        log entry ``entry_done_at`` reads. The run's own end anchors a late
+        workout, never the moment a sync applied it.
+        """
+        return entry_done_at({"workout_data": self.workout_data}, day)
+
     def _try_adjust_shutdown_for_workout(self) -> bool:
         """Try to adjust shutdown time later for actual workouts."""
         workout_type = self.workout_data.get("type", "")
         if workout_type not in COUNTED_WORKOUT_TYPES:
             return False
-        adjusted = self._adjust_shutdown_time_later()
+        day = date.fromisoformat(today_str())
+        adjusted = self._adjust_shutdown_time_later(at=self._done_at(day))
         if adjusted:
             _logger.info("Shutdown time moved later as workout reward")
         return adjusted
@@ -141,7 +152,7 @@ class WorkoutCreditMixin:
                 slot is CreditSlot.FURTHER
                 and extra
                 and before
-                and self._adjust_shutdown_time_by(extra)
+                and self._adjust_shutdown_time_by(extra, at=self._done_at(day))
             ):
                 new_cfg = self._read_shutdown_config()
                 if new_cfg:

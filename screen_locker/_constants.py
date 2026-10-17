@@ -105,7 +105,6 @@ SHUTDOWN_BASE_FILE = Path(__file__).resolve().parent / "shutdown_base.json"
 REST_DAY_FILE = Path(__file__).resolve().parent / "rest_days.json"
 REST_DAYS_PER_ISO_WEEK = 2
 GRACE_STATE_FILE = Path(__file__).resolve().parent / "grace_floor.json"
-GRACE_MINUTES = 60
 # A day's RunnerUp walks (commute legs) count as the workout once their
 # MOVING time sums to this; moving = trackpoint pairs at walking speed.
 WALK_MIN_MOVING_MINUTES = 40

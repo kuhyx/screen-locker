@@ -28,6 +28,7 @@ from screen_locker.tests._gatelock_fixtures import (
     dual_output,
 )
 from screen_locker.tests._isolated_state import ISOLATED_STATE
+from screen_locker.tests._late_credit_fixtures import _untimed_credits_land_at_noon
 from screen_locker.tests._locker_factories import (
     _make_locker,
     create_locker,
@@ -47,15 +48,15 @@ from screen_locker.tests._tk_mocks import (
     _make_mock_tk,
 )
 
-# Re-exported so pytest still resolves these by name: a fixture defined in a
-# sibling module is only visible to tests once conftest imports it. __all__
-# keeps ruff from pruning them as unused.
+# Re-exported: a sibling module's fixture is visible to tests only once
+# conftest imports it, and __all__ keeps ruff from pruning them as unused.
 __all__ = [
     "FAKE_OUTPUTS",
     "TWO_OUTPUTS",
     "_hermetic_gatelock",
     "_make_locker",
     "_mock_sys_exit",
+    "_untimed_credits_land_at_noon",
     "create_locker",
     "create_locker_early_bird",
     "create_locker_relaxed_day",

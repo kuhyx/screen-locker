@@ -114,14 +114,15 @@ class TestUnlockScreenShutdownAdjustment:
         """Test unlock_screen adjusts shutdown for phone-verified workout."""
         locker = create_locker(mock_tk, tmp_path)
         locker.log_file = tmp_path / "log.json"
-        locker.workout_data = {"type": "phone_verified"}
+        locker.workout_data = {"type": "phone_verified", "completed_at": "123.0"}
         object.__setattr__(
             locker, "_adjust_shutdown_time_later", MagicMock(return_value=True)
         )
 
         locker.unlock_screen()
 
-        locker._adjust_shutdown_time_later.assert_called_once()
+        # Anchored on the workout's own end, so a late upload buys nothing.
+        locker._adjust_shutdown_time_later.assert_called_once_with(at=123.0)
 
     def test_unlock_screen_skips_adjustment_for_sick_day(
         self,

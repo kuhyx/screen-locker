@@ -6,8 +6,8 @@ in ``earned_time.earners_for(day)`` is done to its full units (the tutor's
 four blocks included) must shut down exactly at ``shutdown_ceiling_for(day)``
 -- never short of it, and never past it. Checked through screen-locker's own
 paths, not a re-implementation: the daily reset's :func:`derive`, and the live
-pass (first workout, further workouts, flat gates, counted gate blocks, grace
-floor) over :class:`ShutdownMixin` with an in-memory config.
+pass (first workout, further workouts, flat gates, counted gate blocks, each
+timed at ``first`` so a 22:30 one is a late credit) over :class:`ShutdownMixin` with an in-memory config.
 
 Every gate maturity state is covered: ``first_credits`` omitted (0.5.0
 ``penalty_from``), empty (every earner on its ``confirmed_on``), never paid
@@ -18,13 +18,14 @@ maturing (paid yesterday), mature, and a new tutor beside mature gates.
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
+from functools import partial
 from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import earned_time
 import pytest
 
-from screen_locker import _gate_bonus, _grace_floor, _shutdown
+from screen_locker import _gate_bonus, _grace_floor, _late_credit, _shutdown
 from screen_locker._earned import ceiling, extra_minutes, first_minutes, is_gate
 from screen_locker._earned import registry as registry_for
 from screen_locker._gate_bonus import apply_counted_bonus
@@ -148,26 +149,29 @@ def _live_pass(day: date, case: tuple[str, bool, int, str]) -> int:
     """Reset with nothing done, then every credit as the live pass applies it."""
     _, rest, workouts, first = case
     host = _Host(derive(_inputs(day, case, done=False)).minutes)
-    first_done = _at(day, first)
-    if first_done is not None:
-        host._apply_grace_floor(None, first_done=first_done)
+    # Every credit lands at ``first`` (09:00 when "none"): at 22:30 they are
+    # late credits (_late_credit), which must still land on the ceiling.
+    when = _at(day, first) or _at(day, "09:00")
     # A rest day's first unit is already in the reset; a real workout on it
     # is a further unit (_workout_credit's rest_paid rule).
     further = workouts if rest else workouts - 1
     if not rest:
-        host._adjust_shutdown_time_later()
+        host._adjust_shutdown_time_later(at=when)
     extra = extra_minutes(earned_time.WORKOUT, day)
     for _ in range(further if extra else 0):
-        host._adjust_shutdown_time_by(extra)
+        host._adjust_shutdown_time_by(extra, at=when)
     state: dict[str, Any] = {}
     for gate in (e for e in registry_for(day) if is_gate(e)):
         if gate.kind == "flat":
-            host._adjust_shutdown_time_by(first_minutes(gate, day))
+            host._adjust_shutdown_time_by(first_minutes(gate, day), at=when)
             continue
         for units in range(1, (gate.max_units or 1) + 1):
             with patch.object(_gate_bonus, "earned_units", return_value=units):
                 apply_counted_bonus(
-                    state, host._adjust_shutdown_time_by, gate, day.isoformat()
+                    state,
+                    partial(host._adjust_shutdown_time_by, at=when),
+                    gate,
+                    day.isoformat(),
                 )
     return host.config[1]
 
@@ -178,8 +182,10 @@ def frozen_day() -> Iterator[Callable[[date], Any]]:
 
     def at_day(day: date) -> Any:
         iso = day.isoformat()
-        return patch.multiple(_shutdown, today_str=lambda: iso), patch.multiple(
-            _grace_floor, today_str=lambda: iso, is_sick=lambda _d: False
+        return (
+            patch.multiple(_shutdown, today_str=lambda: iso, is_sick=lambda _d: False),
+            patch.multiple(_grace_floor, today_str=lambda: iso),
+            patch.multiple(_late_credit, today_str=lambda: iso),
         )
 
     return at_day
@@ -197,8 +203,8 @@ def test_the_live_pass_lands_every_all_done_day_on_the_ceiling(
     case = (maturity, rest, workouts, first)
     misses = []
     for day in _DAYS:
-        shutdown_patch, grace_patch = frozen_day(day)
-        with shutdown_patch, grace_patch:
+        shutdown_patch, grace_patch, late_patch = frozen_day(day)
+        with shutdown_patch, grace_patch, late_patch:
             got = _live_pass(day, case)
         _grace_floor.GRACE_STATE_FILE.unlink(missing_ok=True)
         if got != ceiling(day):

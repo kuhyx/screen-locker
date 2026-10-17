@@ -3,12 +3,14 @@
 
 from __future__ import annotations
 
+from datetime import date, datetime, time
 import pathlib
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from screen_locker._day import today_str
 from screen_locker._log_mixin import RecordResult
 from screen_locker.tests.conftest import create_locker
 
@@ -25,6 +27,13 @@ DART_MANUAL_WORKOUT = (
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+def _today_at(hhmm: str) -> float:
+    """Unix time of ``hhmm`` local on the locker's today."""
+    hours, minutes = (int(p) for p in hhmm.split(":"))
+    day = date.fromisoformat(today_str())
+    return datetime.combine(day, time(hours, minutes)).astimezone().timestamp()
 
 
 @pytest.mark.usefixtures("pre_ladder")
@@ -92,7 +101,7 @@ class TestApplyWorkoutCredit:
         ``test_additional_verified_workout_earns_plus_one_hour``.
         """
         locker = create_locker(mock_tk, tmp_path)
-        locker.workout_data = {"type": "manual_workout"}
+        locker.workout_data = {"type": "manual_workout", "end_time": "17:00"}
         prior = [{"workout_data": {"type": "manual_workout"}}]
         object.__setattr__(
             locker,
@@ -121,7 +130,9 @@ class TestApplyWorkoutCredit:
         assert result.shutdown_adjusted is False
         assert result.extra_bonus_delta == 60
         locker._try_adjust_shutdown_for_workout.assert_not_called()
-        locker._adjust_shutdown_time_by.assert_called_once_with(60)
+        locker._adjust_shutdown_time_by.assert_called_once_with(
+            60, at=_today_at("17:00")
+        )
 
     def test_additional_verified_workout_earns_plus_one_hour(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -162,4 +173,4 @@ class TestApplyWorkoutCredit:
         assert result.shutdown_adjusted is False
         assert result.extra_bonus_delta == 60
         locker._try_adjust_shutdown_for_workout.assert_not_called()
-        locker._adjust_shutdown_time_by.assert_called_once_with(60)
+        locker._adjust_shutdown_time_by.assert_called_once_with(60, at=None)

@@ -48,16 +48,16 @@ class TestTarget:
         assert workout_units(2, rest_day=True) == 2
         assert workout_units(0, rest_day=False) == 0
 
-    def test_the_floor_lifts_and_the_lift_is_reported(self) -> None:
+    def test_an_early_first_task_no_longer_lifts_the_sum(self) -> None:
+        """The grace floor is gone (2026-10-17): late credits replace it."""
         target = derive(
             DayInputs(_DAY, {**_FLAT, "anki": True}, first_done=at("18:55"))
         )
-        assert target.minutes == max(target.earned, 19 * 60 + 55)
-        assert target.lift == target.minutes - target.earned
+        assert target.minutes == target.earned
+        assert target.lift == 0
 
-    def test_a_sick_day_has_no_grace_floor_but_the_20_00_one(self) -> None:
+    def test_a_sick_day_has_the_20_00_floor(self) -> None:
         target = derive(DayInputs(_DAY, _FLAT, first_done=at("18:55"), sick_day=True))
-        assert target.grace is None
         assert target.resolution.sick is True
         assert target.minutes == SICK_FLOOR + sum(
             t.gaming_minutes for t in target.resolution.terms
@@ -112,5 +112,5 @@ class TestTarget:
             target = gather(_DAY, log)
         assert target.resolution.term("workout").answer == 1
         assert target.first_done_at == at("18:00")
-        assert target.grace == 19 * 60
+        assert target.minutes == target.earned
         assert not target.rest_day

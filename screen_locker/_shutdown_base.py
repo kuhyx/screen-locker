@@ -18,10 +18,9 @@ followed -- on 2026-09-13 that left the bar at 21:00 with a counted workout on
 disk. Any bonus source that is not a term of this derivation has that bug;
 registering it in ``earned_time`` makes it one.
 
-A sick day (``sickdays``) is resolved with ``sick=True``: shutdown is at least
-20:00, and the lift above the earned sum is saved like the grace lift. A day
-marked sick after the reset is lifted by the live pass
-(:mod:`screen_locker._sick_floor`).
+A sick day (``sickdays``) is resolved with ``sick=True``: 20:00 plus the
+gaming pay of the day's credits, with no lift saved. A day marked sick after
+the reset is raised by the live pass (:mod:`screen_locker._sick_floor`).
 """
 
 from __future__ import annotations
@@ -38,6 +37,7 @@ from screen_locker._day import today_str
 from screen_locker._earned import (
     counted_gate_earners,
     earned_today,
+    first_credit_time,
     first_credits,
     first_minutes,
     flat_earners,
@@ -166,7 +166,7 @@ def _reset(
         _logger.warning("Daily base reset: failed to write shutdown config.")
         return False
 
-    # Later additions are paid out of the floor lift (grace or sick) first.
+    # 0 now that no floor lifts the sum; overwrites a stale lift from before.
     save_lift(derived.lift)
 
     # The bonuses the reset already included are stamped, so the live pass
@@ -179,13 +179,12 @@ def _reset(
         f"{span(t.shutdown_minutes)} {t.earner.label}" for t in day.terms
     )
     _logger.info(
-        "Daily base reset: %s (base %s + %s already earned today%s%s%s).",
+        "Daily base reset: %s (base %s + %s already earned today%s%s).",
         hhmm(target),
         hhmm(day.base.shutdown_minutes),
         earned,
         "; rest day" if derived.rest_day else "",
         "; sick day" if day.sick else "",
-        f"; grace floor {hhmm(derived.grace)}" if derived.grace is not None else "",
     )
     return True
 
@@ -218,8 +217,10 @@ def _apply_flat_bonus(
         return False
     if not answer:
         return False
-    minutes = first_minutes(earner, date.fromisoformat(today))
-    if not mixin._adjust_shutdown_time_by(minutes):
+    day = date.fromisoformat(today)
+    minutes = first_minutes(earner, day)
+    # Anchored on the credit's own row, so a late solve counts from its time.
+    if not mixin._adjust_shutdown_time_by(minutes, at=first_credit_time(earner, day)):
         _logger.warning("%s bonus: failed to write shutdown config.", earner.label)
         return False
     state[stamp] = today
@@ -242,7 +243,6 @@ def apply_flat_bonuses_if_new(state_file: Path, mixin: object) -> None:
             state = _load_state(state_file)
             if apply_counted_bonus(state, adjust, earner, today_str()):
                 _save_state(state_file, state)
-        # Last, so the floors compare against everything earned so far. The
-        # sick floor covers a day marked sick after today's reset.
+        # Last, so the sick target sees everything earned so far; it covers a
+        # day marked sick after today's reset.
         mixin._apply_sick_floor()
-        mixin._apply_grace_floor(getattr(mixin, "log_file", None))

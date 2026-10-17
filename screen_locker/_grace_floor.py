@@ -1,22 +1,15 @@
-"""Grace floor: shutdown is never earlier than the day's first task + 60 min.
+"""When the day's first task was done, and the day's floor lift.
 
-Someone who gets home at 18:10 and finishes their first task at 18:55 is not
-cut off at 19:00. The floor is ``first done + GRACE_MINUTES``, capped at the
-day's ceiling. "First done" is the earliest of every gate earner's first
-verified credit, flat or counted (``earned_time.first_credit_at``), and the
-workout's own completion time -- the end of the run or walk, never the
-moment a sync happened to log it, so a late upload does not move the floor
-later.
+The grace floor (first task + 60 min) is gone since 2026-10-17: a credit at
+or after tonight's shutdown now counts from its own time
+(:mod:`screen_locker._late_credit`), which is what the floor approximated,
+and the floor's lift then absorbed minutes the late credit had already
+restarted from (LeetCode late at 19:00, reading at 19:30: 20:10, not 20:20).
 
-**A floor, not a bonus.** The config is otherwise read-add-write: every
-earner adds its minutes to whatever is there. Lifting it to the floor and
-then letting the next earner add on top would pay the lift twice (anki at
-21:00 lifts to 22:00; reading then makes 22:30 where max(earned, floor) is
-22:00). So the lift is remembered for the day in ``grace_floor.json`` and
-later additions are paid out of it first: with ``E`` earned, floor ``G`` and
-lift ``L = max(0, G - E)``, adding ``m`` moves the config by
-``max(0, m - L)`` and leaves ``L' = max(0, L - m)`` -- which keeps the config
-at ``max(E + m, G)`` without ever needing to know ``E``.
+What stays: :func:`first_done_at` (shown by the preview and the reset log)
+and the lift file. The lift is ``0`` on every day now (no floor lifts the
+config above the earned sum), but ``plan_absorb`` still spends a stale one
+recorded before the change, once.
 """
 
 from __future__ import annotations
@@ -28,13 +21,10 @@ from typing import TYPE_CHECKING
 
 import earned_time
 
-from screen_locker._bonus_lock import bonus_lock
-from screen_locker._constants import GRACE_MINUTES, GRACE_STATE_FILE
+from screen_locker._constants import GRACE_STATE_FILE
 from screen_locker._day import today_str
-from screen_locker._earned import ceiling, first_credit_time, gate_earners, hhmm
+from screen_locker._earned import first_credit_time, gate_earners
 from screen_locker._log_io import load_workout_log
-from screen_locker._rest_day import is_rest_day
-from screen_locker._sick import is_sick
 from screen_locker._weekly_check import credit_key, day_workout_index
 from screen_locker._workout_ledger import entry_done_at
 
@@ -96,17 +86,6 @@ def first_done_at(
     return min(on_day, default=None)
 
 
-def grace_for(first_done: float | None, day: date) -> int | None:
-    """The floor for ``day`` in minutes after midnight, or ``None`` if none."""
-    if first_done is None:
-        return None
-    moment = datetime.fromtimestamp(first_done).astimezone()
-    if moment.date() != day:
-        return None
-    done = moment.hour * 60 + moment.minute
-    return min(ceiling(day), done + GRACE_MINUTES)
-
-
 def load_lift(state_file: Path, today: str) -> int:
     """Today's recorded floor lift (grace or sick), 0 when none or unreadable."""
     if not state_file.exists():
@@ -146,57 +125,3 @@ def tonight_minutes(config: tuple[int, int, int], day: date) -> int:
     """``day``'s shutdown from a (mon_wed, thu_sun, morning_end) config."""
     mon_wed, thu_sun, _ = config
     return mon_wed if day.weekday() in _MON_WED else thu_sun
-
-
-class GraceFloorMixin:
-    """Lifts tonight's shutdown to the grace floor; composed into ShutdownMixin."""
-
-    if TYPE_CHECKING:
-
-        def _read_shutdown_config(self) -> tuple[int, int, int] | None: ...
-
-        def _write_shutdown_config(
-            self, mon_wed: int, thu_sun: int, morning_end: int, *, restore: bool = ...
-        ) -> bool: ...
-
-    def _apply_grace_floor(
-        self, log_file: Path | None, *, first_done: float | None = None
-    ) -> bool:
-        """Lift tonight's shutdown to the grace floor if it sits below it.
-
-        ``first_done`` overrides the ledgers' answer (the preview script's
-        simulations). Returns True when the config was raised on this call.
-        """
-        day = date.fromisoformat(today_str())
-        if is_sick(day):
-            # The sick floor (20:00, _sick_floor) stands in for it that day.
-            _logger.info("Grace floor: skipped, today is a sick day")
-            return False
-        if first_done is None:
-            first_done = first_done_at(day, log_file, rest_day=is_rest_day(day))
-        floor = grace_for(first_done, day)
-        if floor is None:
-            return False
-        with bonus_lock(GRACE_STATE_FILE):
-            config = self._read_shutdown_config()
-            if config is None:
-                _logger.warning("Grace floor: shutdown config unreadable; not applied")
-                return False
-            current = tonight_minutes(config, day)
-            if current >= floor:
-                return False
-            mon_wed, thu_sun, morning = config
-            if not self._write_shutdown_config(
-                max(mon_wed, floor), max(thu_sun, floor), morning, restore=True
-            ):
-                _logger.warning("Grace floor: failed to write shutdown config")
-                return False
-            lift = load_lift(GRACE_STATE_FILE, today_str()) + floor - current
-            save_lift(lift, GRACE_STATE_FILE)
-        _logger.info(
-            "Grace floor: shutdown %s -> %s (first task done + %d min).",
-            hhmm(current),
-            hhmm(floor),
-            GRACE_MINUTES,
-        )
-        return True

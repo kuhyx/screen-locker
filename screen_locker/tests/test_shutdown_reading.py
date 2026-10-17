@@ -185,7 +185,7 @@ class TestReadingLivePass:
         mixin = _mixin()
         assert apply_reading_bonus_if_new(state, mixin) is True
         assert apply_reading_bonus_if_new(state, mixin) is False
-        mixin._adjust_shutdown_time_by.assert_called_once_with(60)
+        mixin._adjust_shutdown_time_by.assert_called_once_with(60, at=None)
         assert json.loads(state.read_text()) == {
             "last_reset_date": today_str(),
             "reading_bonus_date": today_str(),

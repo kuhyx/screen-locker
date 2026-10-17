@@ -1,12 +1,14 @@
-"""Tonight's shutdown, derived from scratch: earned time, rest day, grace floor.
+"""Tonight's shutdown, derived from scratch: earned time and rest day.
 
 :func:`derive` is pure, and is the one formula behind both the daily reset
 (:mod:`screen_locker._shutdown_base`) and the read-only preview
 (``scripts/preview_shutdown.py``), so a dry run exercises the real sum::
 
-    earned = earned_time.resolve(answers, sick=...)  # base + every earner, capped;
-                                                     # sick: at least 20:00
-    target = min(ceiling, max(earned, grace floor))  # no grace floor when sick
+    target = earned_time.resolve(answers, sick=...)  # base + every earner, capped;
+    # sick: 20:00 + gaming pay
+
+A late credit (``_late_credit``) is live-only: it restarts tonight from its own
+time, and the next day's reset re-derives from scratch.
 
 A declared rest day answers the workout with at least one unit, i.e. its
 first-unit bonus; a real workout on top of it earns only what a further unit
@@ -20,8 +22,8 @@ from typing import TYPE_CHECKING
 
 import earned_time
 
-from screen_locker._earned import ceiling, first_credits, gate_answers, registry
-from screen_locker._grace_floor import first_done_at, grace_for
+from screen_locker._earned import first_credits, gate_answers, registry
+from screen_locker._grace_floor import first_done_at
 from screen_locker._log_io import load_workout_log
 from screen_locker._rest_day import is_rest_day
 from screen_locker._sick import is_sick
@@ -42,14 +44,12 @@ class Target:
             day raised to the 20:00 sick floor).
         rest_day: Whether the day is a declared rest day.
         first_done_at: Unix time the day's first earner was done, if any.
-        grace: The grace floor in minutes, or ``None``.
         minutes: The shutdown to write, minutes after midnight.
     """
 
     resolution: earned_time.Resolution
     rest_day: bool
     first_done_at: float | None
-    grace: int | None
     minutes: int
 
     @property
@@ -59,7 +59,7 @@ class Target:
 
     @property
     def lift(self) -> int:
-        """How far the floors (grace or sick) lift the earned shutdown.
+        """How far a floor lifts the earned shutdown: 0 since the grace floor went.
 
         Saved as the day's lift (``_grace_floor.save_lift``), so a credit that
         lands later is paid out of it first instead of stacking on 20:00.
@@ -86,7 +86,8 @@ class DayInputs:
         rest_day: Declared rest day.
         first_done: Unix time the day's first earner was done, if any.
         sick_day: Sick day (``sickdays``): shutdown is at least 20:00
-            (``earned_time.resolve(..., sick=True)``) and no grace floor.
+            plus the gaming pay of the credits
+            (``earned_time.resolve(..., sick=True)``).
         first_credits: Each penalised gate's first real credit
             (:func:`~screen_locker._earned.first_credits`); ``None`` resolves
             on ``penalty_from`` alone, as before earned_time 0.6.
@@ -102,7 +103,7 @@ class DayInputs:
 
 
 def derive(inputs: DayInputs) -> Target:
-    """The pure formula: earned time, then the grace floor, then the ceiling."""
+    """The pure formula: earned time, capped (a sick day stacks on 20:00)."""
     day = inputs.day
     answers: dict[str, int | bool | None] = dict(inputs.flat)
     answers[earned_time.WORKOUT.name] = workout_units(
@@ -118,16 +119,11 @@ def derive(inputs: DayInputs) -> Target:
         if starts is None
         else earned_time.resolve(answers, day, earners, first_credits=starts, sick=sick)
     )
-    grace = None if inputs.sick_day else grace_for(inputs.first_done, day)
-    minutes = resolution.shutdown_minutes
-    if grace is not None:
-        minutes = min(ceiling(day), max(minutes, grace))
     return Target(
         resolution=resolution,
         rest_day=inputs.rest_day,
         first_done_at=inputs.first_done,
-        grace=grace,
-        minutes=minutes,
+        minutes=resolution.shutdown_minutes,
     )
 
 

@@ -59,12 +59,25 @@ made the code's default dead.
 A sick day is a date in the shared `sickdays` pool, read only through
 `_sick.py`. It may keep lockers: the workout lock asks
 `_sick.stands_down_workout` (keep-aware), while everything that only computes
-shutdown (this floor, `_grace_floor`, `_shutdown_base`, `_shutdown_target`,
-the preview scripts) asks `is_sick` and ignores keep. The reset resolves it with `earned_time.resolve(..., sick=True)`
-(shutdown >= 20:00) and saves the lift above the earned sum like the grace
-lift; a day marked after the reset is lifted by `_sick_floor` on the next
-live pass. Both are floors, never terms: later credits are paid out of the
-lift first (`_grace_floor.plan_absorb`), so nothing stacks on 20:00.
+shutdown (`_sick_floor`, `_shutdown_base`, `_shutdown_target`, the preview
+scripts) asks `is_sick` and ignores keep. A sick day's shutdown is absolute:
+20:00 plus the GAMING pay of everything credited that day, capped at 23:00
+(`earned_time.sick_shutdown_from`, 0.13). The reset writes it, `_sick_floor`
+re-derives it on every live pass from the ledgers, and a sick-day credit only
+raises to it (`_raise_on_sick_day`), never adds -- its row is already in the
+sum. No lift is saved on a sick day.
+
+## A shutdown never blocks submitting a finished task
+
+A credit timed at or after tonight's shutdown moves tonight to
+`min(23:00, the credit's OWN time + its reward)` (`_late_credit.late_tonight`):
+only the 23:00 ceiling is hard. The anchor is the credit's own time (the run's
+end via `_workout_ledger.entry_done_at`, the ledger row via
+`_earned.first_credit_time`), never the sync time, so a late upload buys
+nothing. It is live-only: the next day's reset re-derives from scratch. This
+replaced the first-credit +60 grace floor (gone 2026-10-17); `_grace_floor`
+keeps only `first_done_at`, `tonight_minutes` and the lift file, which
+`plan_absorb` spends once if a stale one is left.
 
 Flat earners are read from their gate's ledger by `earned_time.done_today`
 via `_earned.py`: HMAC-verified `credit` rows matched by the earner's own

@@ -89,7 +89,7 @@ class SimShutdown(ShutdownMixin):
         self.config = (*clamp, morning_end)
         return True
 
-    def credit(self, name: str, day: date, first_done: float | None) -> None:
+    def credit(self, name: str, day: date, at: float | None = None) -> None:
         """One live pass: the earner's add (lift-absorbing), then the floors.
 
         ``sick`` is not an earner: it marks the (temporary) pool and runs the
@@ -99,12 +99,11 @@ class SimShutdown(ShutdownMixin):
         if name == SICK_STEP:
             sick_pool(day, sick_day=True)
         elif name == earned_time.WORKOUT.name:
-            self._adjust_shutdown_time_later()
+            self._adjust_shutdown_time_later(at=at)
         else:
-            self._adjust_shutdown_time_by(first_minutes(earned_time.earner(name), day))
+            minutes = first_minutes(earned_time.earner(name), day)
+            self._adjust_shutdown_time_by(minutes, at=at)
         self._apply_sick_floor()
-        if first_done is not None:
-            self._apply_grace_floor(None, first_done=first_done)
 
 
 # The --sequence step that marks the day sick instead of crediting an earner.

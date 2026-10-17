@@ -173,7 +173,7 @@ def first_credit_time(earner: earned_time.Earner, day: date) -> float | None:
 
     ``None`` when there is none, when it cannot be checked, and on an
     ``earned_time`` without ``first_credit_at`` (0.3.0) -- logged, because
-    then the grace floor sees no ledger earner at all.
+    then a late ledger credit counts from now, not from its row.
     """
     fn = getattr(earned_time, "first_credit_at", None)
     if fn is None:
@@ -187,8 +187,8 @@ def first_credit_time(earner: earned_time.Earner, day: date) -> float | None:
 def _warn_no_first_credit() -> None:
     """Once per process: the installed earned_time predates first_credit_at."""
     _logger.warning(
-        "earned_time has no first_credit_at (needs >= 0.4); the grace floor "
-        "sees no ledger earner, only the workout log"
+        "earned_time has no first_credit_at (needs >= 0.4); a late ledger "
+        "credit counts from now, not from its own time"
     )
 
 
