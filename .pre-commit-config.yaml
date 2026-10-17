@@ -179,9 +179,28 @@ repos:
 
   - repo: local
     hooks:
-      - id: ci-mirror
-        name: CI mirror (clean-venv pytest + pre-commit --all-files)
-        entry: bash scripts/ci_mirror.sh
+      # The CI mirror, one step per hook so each call stays under the 60 s
+      # action cap. Order matters: ci-venv (re)builds .ci-mirror-venv from
+      # requirements.txt when it changed, so ci-pytest only reuses it.
+      - id: ci-venv
+        name: CI mirror (clean requirements.txt venv)
+        entry: bash scripts/ci_mirror.sh venv
+        language: system
+        pass_filenames: false
+        always_run: true
+        require_serial: true
+        stages: [manual]
+      - id: ci-precommit
+        name: CI mirror (pre-commit --all-files)
+        entry: bash scripts/ci_mirror.sh precommit
+        language: system
+        pass_filenames: false
+        always_run: true
+        require_serial: true
+        stages: [manual]
+      - id: ci-pytest
+        name: CI mirror (clean-venv pytest, xdist)
+        entry: bash scripts/ci_mirror.sh pytest
         language: system
         pass_filenames: false
         always_run: true

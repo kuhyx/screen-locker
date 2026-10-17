@@ -18,6 +18,12 @@
 # Runs on demand (`scripts/check_gate_stamp.sh full`, pre-commit's manual
 # stage) and in CI. It left the pre-push path on 2026-09-20: 10+ minutes
 # per push under the resource cap, for work finish_auto.sh had just done.
+#
+# Usage: ci_mirror.sh [venv|precommit|pytest|all] [pytest args...]
+#   Each step is its own manual hook (ci-venv, ci-precommit, ci-pytest) so no
+#   single call outlives the 60 s action cap; `all` (the default) is the old
+#   one-shot behaviour. pytest runs under xdist (-n auto --dist worksteal):
+#   serial it was ~85 s, and pytest-cov merges the workers' coverage.
 # ============================================================================
 
 set -euo pipefail
@@ -80,15 +86,32 @@ run_precommit_all_files() {
 
 run_pytest_clean_venv() {
     log "pytest in the clean venv (mirrors the Tests workflow)"
-    "$VENV_DIR/bin/python" -m pytest "$@" || fail "pytest (clean requirements.txt venv)"
+    "$VENV_DIR/bin/python" -m pytest -n auto --dist worksteal "$@" \
+        || fail "pytest (clean requirements.txt venv)"
 }
 
 main() {
+    local mode="all"
+    case "${1:-}" in
+        venv | precommit | pytest | all) mode="$1"; shift ;;
+        *) ;;
+    esac
+
+    case "$mode" in
+        precommit) run_precommit_all_files; return ;;
+        *) ;;
+    esac
     require_file
     ensure_venv
-    run_precommit_all_files
-    run_pytest_clean_venv "$@"
-    log "all CI gates passed locally — safe to push"
+    case "$mode" in
+        venv) ;;
+        pytest) run_pytest_clean_venv "$@" ;;
+        *)
+            run_precommit_all_files
+            run_pytest_clean_venv "$@"
+            log "all CI gates passed locally — safe to push"
+            ;;
+    esac
 }
 
 main "$@"
