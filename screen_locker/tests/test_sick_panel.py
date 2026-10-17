@@ -99,8 +99,6 @@ class TestLink:
         locker._show_retry_and_sick("nope")
         buttons = mock_tk.Button.call_args_list
         texts = _texts(mock_tk.Button)
-        assert "I'm sick" in texts
-        assert LINK_TEXT in texts
         sick = next(c for c in buttons if c.kwargs.get("text") == "I'm sick")
         link = next(c for c in buttons if c.kwargs.get("text") == LINK_TEXT)
         assert sick.kwargs["command"] == locker.mark_sick_and_unlock
@@ -111,7 +109,6 @@ class TestLink:
         self, locker: ScreenLocker, panels: list[FakePanel]
     ) -> None:
         locker.open_sick_panel()
-        assert len(panels) == len(locker.container.surfaces)
         panel = panels[0]
         assert panel.day == sickdays.today()
         assert panel.packed
@@ -121,11 +118,13 @@ class TestLink:
         )
 
     @pytest.mark.usefixtures("dual_output")
-    def test_every_monitor_gets_a_panel(
+    def test_every_monitor_gets_a_panel_and_the_primary_gets_focus(
         self, locker: ScreenLocker, panels: list[FakePanel]
     ) -> None:
         locker.open_sick_panel()
         assert len(panels) == 2
+        panels[0].parent.tk_focusNext.return_value.focus_set.assert_called_once_with()
+        panels[1].parent.tk_focusNext.return_value.focus_set.assert_not_called()
 
     def test_reopening_closes_the_previous_panel(
         self, locker: ScreenLocker, panels: list[FakePanel]
@@ -189,6 +188,7 @@ class TestSaved:
         locker.close.assert_not_called()
         backdrop.destroy.assert_called_once_with()
         assert KEPT_NOTE in _texts(mock_tk.Label)
+        mock_tk.Button.return_value.focus_set.assert_called_once_with()
         back = next(
             c for c in mock_tk.Button.call_args_list if c.kwargs.get("text") == "Back"
         )

@@ -95,13 +95,21 @@ class SickPanelFlowMixin:
     def open_sick_panel(self) -> None:
         """Lay today's KeepPanel over every monitor's surface."""
         overlay = self._new_sick_overlay()
-        for backdrop in overlay:
+        panels = [
             build_sick_panel(
                 backdrop,
                 self._colors,
                 on_saved=self._on_sick_panel_saved,
                 on_cancel=self._close_sick_panel,
             )
+            for backdrop in overlay
+        ]
+        # Into the panel on the primary monitor: left on the link, Tab and
+        # Enter would reach the hidden buttons of the screen underneath. Tk
+        # skips unmapped widgets when traversing, so lay the panel out first.
+        for panel in panels[:1]:
+            panel.update_idletasks()
+            (panel.tk_focusNext() or panel).focus_set()
 
     def _new_sick_overlay(self) -> FrameGroup:
         """Replace any open overlay with a fresh full-surface backdrop group."""
@@ -152,10 +160,12 @@ class SickPanelFlowMixin:
             fg=self._colors.palette.warning,
             bg=self._colors.palette.bg,
         ).pack(pady=self._colors.space("md"))
-        self._button(
+        back = self._button(
             box,
             "Back",
             bg=self._colors.palette.accent,
             command=self._close_sick_panel,
             width=12,
-        ).pack(pady=self._colors.space("sm"))
+        )
+        back.pack(pady=self._colors.space("sm"))
+        back.first.focus_set()
