@@ -29,6 +29,7 @@ from screen_locker._decision_log import (
 from screen_locker._degraded_sources import degraded_sources
 from screen_locker._extra_benefits import process_week_transition
 from screen_locker._lock_invariant import refuse_to_lock_over_logged_workout
+from screen_locker._night_lockdown import skip_after_evening_lockdown
 from screen_locker._shutdown_base import (
     apply_flat_bonuses_if_new,
     reset_to_base_if_new_day,
@@ -157,7 +158,11 @@ class StartupChecksMixin(SyncMixin):
         # there is no banked "skip a workout" credit — that mechanic works
         # against the goal of maximizing weekly workouts, so it was removed.
         # A logged workout outranks every rung above, whatever their order.
-        if refuse_to_lock_over_logged_workout(self.has_logged_today, self._record_skip):
+        # Then: once tonight's lockdown fired (a late credit may have lifted
+        # it), never re-arm behind the workout gate the same evening.
+        if refuse_to_lock_over_logged_workout(
+            self.has_logged_today, self._record_skip
+        ) or skip_after_evening_lockdown(self._record_skip):
             return
         heat = self._check_heat_skip_exit()
         # Nothing excused today: falling through here means the lock WILL be

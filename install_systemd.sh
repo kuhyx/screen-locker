@@ -71,7 +71,7 @@ ensure_runtime_deps() {
 			echo "WARNING: could not install $1 automatically" >&2
 	}
 	_pip_runtime_dep gatelock \
-		"gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.9.0#subdirectory=gatelock"
+		"gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.10.0#subdirectory=gatelock"
 	_pip_runtime_dep crdt_sync \
 		"crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.9.2#subdirectory=crdt-sync"
 }

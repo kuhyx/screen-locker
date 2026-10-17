@@ -51,6 +51,7 @@ from screen_locker._extra_benefits import (
 )
 from screen_locker._log_io import load_workout_log
 from screen_locker._morning_session import has_workout_skip_today
+from screen_locker._night_lockdown import tonights_lockdown
 from screen_locker._sick import workout_standdown_dates
 from screen_locker._weekly_check import (
     COUNTED_WORKOUT_TYPES,
@@ -167,6 +168,7 @@ def gather_status(
         weekly_minimum_met=week.counted_count >= WEEKLY_WORKOUT_MINIMUM,
         relaxed_day=is_relaxed_day(today=today_local),
         wake_skip=has_workout_skip_today(),
+        evening_lockdown=tonights_lockdown(instant) is not None,
         now=instant,
     )
 

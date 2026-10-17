@@ -25,6 +25,7 @@ import sys
 from screen_locker._decision_log import LockDecision, record_decision
 from screen_locker._decision_reasons import reasons_extra
 from screen_locker._morning_session import has_workout_skip_today
+from screen_locker._night_lockdown import has_evening_lockdown_today
 from screen_locker._sick import stands_down_workout
 from screen_locker._weekly_check import has_weekly_minimum, is_relaxed_day
 
@@ -71,6 +72,7 @@ class _ReasonsMixin:
                 "wake_alarm_skip": has_workout_skip_today,
                 "relaxed_day": is_relaxed_day,
                 "weekly_minimum_met": lambda: has_weekly_minimum(self.log_file),
+                "evening_lockdown_today": has_evening_lockdown_today,
             },
         )
 

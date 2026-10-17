@@ -66,6 +66,7 @@ def explain_lock_decision(
     weekly_minimum_met: bool,
     relaxed_day: bool,
     wake_skip: bool = False,
+    evening_lockdown: bool = False,
     now: datetime | None = None,
     degraded_sources: Sequence[DegradedSource] = (),
 ) -> LockExplanation:
@@ -211,6 +212,17 @@ def explain_lock_decision(
         reason_true="Weekly workout minimum already reached.",
         reason_false="Weekly workout minimum not yet reached.",
         terminal_reason="Weekly workout minimum already met — lock skipped.",
+    )
+    if result is not None:
+        return result
+
+    result = _check(
+        "evening_lockdown_today",
+        fired=evening_lockdown,
+        reason_true="Tonight's night lockdown already fired (>= 12:00 today).",
+        reason_false="No evening night lockdown yet today.",
+        terminal_reason="Night lockdown already happened tonight — the workout "
+        "lock does not re-arm.",
     )
     if result is not None:
         return result

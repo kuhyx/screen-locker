@@ -170,3 +170,20 @@ def pre_ladder(monkeypatch: pytest.MonkeyPatch) -> None:
     Opt-in: tests that assert the ladder itself must keep the real cutover.
     """
     monkeypatch.setattr("earned_time._ladder.LADDER_FROM", date.max)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_night_lockdown(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Never let the lock chain read the machine's real night-lockdown stamp.
+
+    ``/var/lib/night-lockdown/locked_at_epoch`` is world-readable, so without
+    this every enforce-path test would skip the lock on any evening after the
+    real lockdown fired -- and pass in the morning.
+    """
+    import screen_locker._night_lockdown
+
+    monkeypatch.setattr(
+        screen_locker._night_lockdown,
+        "NIGHT_LOCKDOWN_STAMP",
+        tmp_path / "locked_at_epoch",
+    )
