@@ -32,17 +32,16 @@ from typing import TYPE_CHECKING
 from gatelock import LockConfig, measure_fit, report_fit
 
 from screen_locker._constants import MANUAL_WORKOUT_REFLECTION_MIN_CHARS
-from screen_locker._heat_skip import build_heat_skip_content
 from screen_locker._manual_workout_dialog import ManualWorkoutDialogMixin
 from screen_locker._surface_group import FrameGroup
 from screen_locker._ui_flows import UIFlowsMixin
 from screen_locker._ui_flows_relaxed import UIFlowsRelaxedMixin
 from screen_locker._ui_widgets import UIWidgetsMixin
+from scripts._fit_extra_screens import EXTRA_SCREENS
 from scripts._xvfb_reexec import reexec_under_xvfb
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    import tkinter as tk
 
     from gatelock import FitResult, ScrollableSurface
 
@@ -180,17 +179,6 @@ class Screen:
     paint: Callable[[ScreenHost], None]
 
 
-def _build_heat_skip(surface: ScrollableSurface) -> tk.Misc:
-    """Paint the heat-skip screen and return the frame to measure.
-
-    Built through its extracted content builder because in production it owns
-    a fullscreen ``tk.Tk()`` of its own, which this harness cannot measure.
-    """
-    return build_heat_skip_content(
-        surface.content, 34.0, on_skip=lambda: None, on_decline=lambda: None
-    )
-
-
 SCREENS: tuple[Screen, ...] = (
     Screen("phone-check", ScreenHost.paint_phone_check),
     Screen("no-workout-retry", ScreenHost.paint_retry),
@@ -202,9 +190,6 @@ SCREENS: tuple[Screen, ...] = (
     Screen("lockout", ScreenHost.lockout),
     Screen("relaxed-day-retry", ScreenHost.paint_relaxed_retry),
 )
-
-# Screens built without a ScreenHost, measured through their own builder.
-EXTRA_SCREENS: tuple[tuple[str, object], ...] = (("heat-skip", _build_heat_skip),)
 
 
 def measure_all() -> list[FitResult]:

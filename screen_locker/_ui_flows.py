@@ -9,12 +9,13 @@ from screen_locker import _manual_workout
 from screen_locker._source_health import collect_source_findings, explain_findings
 from screen_locker._ui_flows_lockout import LockoutFlowMixin
 from screen_locker._ui_flows_sick import SickDayFlowMixin
+from screen_locker._ui_flows_sick_panel import SickPanelFlowMixin
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-class UIFlowsMixin(SickDayFlowMixin, LockoutFlowMixin):
+class UIFlowsMixin(SickDayFlowMixin, SickPanelFlowMixin, LockoutFlowMixin):
     """Mixin providing UI flow logic for the screen locker.
 
     The sick-day and lockout/penalty flows live in sibling modules and are

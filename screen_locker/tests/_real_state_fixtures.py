@@ -63,16 +63,34 @@ def _no_sick_days_by_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     background push never reaches Firebase.
     """
     import sickdays
+    import sickdays.gui  # so its modules are in sys.modules below
 
     pool = sickdays.Paths.under(tmp_path / "sickdays")
     # Every sickdays module that bound ``resolve_paths`` by name: the readers
-    # (``_api``, which ``stands_down`` / ``kept_lockers`` load through) and the
-    # writers (``set_kept_lockers`` lives in ``_keep_api``). Patching only
-    # ``_api`` once let a keep edit land in the developer's real pool.
+    # (``_api``, which ``stands_down`` / ``kept_lockers`` load through), the
+    # writers (``set_kept_lockers`` lives in ``_keep_api``) and the embedded
+    # KeepPanel (``sickdays.gui._panel``). Patching only ``_api`` once let a
+    # keep edit land in the developer's real pool. ``sync_quietly`` is bound
+    # by name the same way (the panel's background push), so it goes too.
     for name, module in list(sys.modules.items()):
-        if name.startswith("sickdays.") and hasattr(module, "resolve_paths"):
+        if not name.startswith("sickdays"):
+            continue
+        if hasattr(module, "resolve_paths"):
             monkeypatch.setattr(module, "resolve_paths", lambda paths: paths or pool)
-    monkeypatch.setattr(sickdays, "sync_quietly", lambda **_kw: False)
+        if hasattr(module, "sync_quietly"):
+            monkeypatch.setattr(module, "sync_quietly", lambda **_kw: False)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_keep_panel() -> Iterator[None]:
+    """Never build sickdays' real ``KeepPanel`` (a real ``tk.Frame``) in a test.
+
+    The lock's "choose lockers" overlay embeds it; under the mocked ``tk`` a
+    real one would still reach Tcl and write the pool on a click. Tests that
+    drive the panel swap in their own recording fake on top of this one.
+    """
+    with patch("screen_locker._ui_flows_sick_panel.KeepPanel"):
+        yield
 
 
 @pytest.fixture(autouse=True)

@@ -13,6 +13,10 @@ the retry screen, the no-phone penalty screen and both relaxed-day screens.
 A refusal (a free day, an unreadable pool) is shown on screen and the lock
 stays up.
 
+Next to the button sits a small "choose lockers…" link: the same day, but
+with some lockers kept (``_ui_flows_sick_panel``). The button itself still
+keeps nothing.
+
 Split out of :mod:`screen_locker._ui_flows` to keep every file under the
 250-line cap. Composed back into ``UIFlowsMixin`` there.
 """
@@ -41,6 +45,8 @@ class SickDayFlowMixin:
             command=self.mark_sick_and_unlock,
             width=12,
         ).pack(side="left", padx=self._colors.space("sm"))
+        # The keep-aware alternative (``_ui_flows_sick_panel``), next to it.
+        self._choose_lockers_link(frame)
 
     def mark_sick_and_unlock(self) -> None:
         """Mark today sick, lift tonight's shutdown to 20:00 and unlock."""
@@ -48,17 +54,27 @@ class SickDayFlowMixin:
         if not result.ok:
             self._show_sick_refused(result.message)
             return
+        self._raise_sick_floor()
+        # Best effort and off the UI thread: the unlock never waits for it.
+        push_in_background()
+        self._unlock_sick_day(
+            f"Marked today sick from the lock screen. {result.message}"
+        )
+
+    def _raise_sick_floor(self) -> None:
+        """Lift tonight's shutdown to the sick floor (a no-op unless sick)."""
         # Now, not at the next 5-minute tick: while this window is up that
         # tick stands down at the instance lock.
         with locked_shutdown_state(SHUTDOWN_BASE_FILE):
             self._apply_sick_floor()
-        # Best effort and off the UI thread: the unlock never waits for it.
-        push_in_background()
-        self._record_decision(
-            locked=False,
-            reason="sick_day_marked",
-            detail=f"Marked today sick from the lock screen. {result.message}",
-        )
+
+    def _unlock_sick_day(self, detail: str) -> None:
+        """Record the sick-day unlock and close the lock.
+
+        Shared by the one-tap button and the keep panel; neither pushes here
+        (the panel starts its own sync).
+        """
+        self._record_decision(locked=False, reason="sick_day_marked", detail=detail)
         self.close()
 
     def _show_sick_refused(self, message: str) -> None:
