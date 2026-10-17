@@ -97,6 +97,25 @@ class TestSeam:
         assert result.ok is True
         assert "already" in result.message
 
+    def test_one_tap_on_a_day_that_keeps_lockers_clears_the_keep_set(self) -> None:
+        """One tap is ALL-OFF even on a sick day that already keeps lockers."""
+        mark_sick(keep=(sickdays.LOCKER_WORKOUT, sickdays.LOCKER_LEETCODE))
+        result = _sick.mark_today_sick()
+        assert result.ok is True
+        assert sickdays.kept_lockers() == frozenset()
+        assert _sick.stands_down_workout() is True
+
+    def test_one_tap_that_cannot_clear_the_keep_set_stays_locked(self) -> None:
+        mark_sick(keep=(sickdays.LOCKER_WORKOUT,))
+        with patch.object(
+            sickdays,
+            "set_kept_lockers",
+            side_effect=sickdays.UnreadablePoolError("pool unreadable"),
+        ):
+            result = _sick.mark_today_sick()
+        assert result.ok is False
+        assert "pool unreadable" in result.message
+
     def test_a_free_day_is_refused_with_the_reason(self) -> None:
         freedays.mark(date.today(), reason="test")
         result = _sick.mark_today_sick()

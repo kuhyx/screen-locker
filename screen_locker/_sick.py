@@ -97,18 +97,37 @@ class MarkResult:
 def mark_today_sick() -> MarkResult:
     """Mark today sick in the shared pool; every gate stands down for it.
 
-    Already sick counts as success. Any other refusal (a free day, an
-    unreadable pool, freedays not importable) is returned with sickdays' own
-    explanation, so the lock screen can show it instead of unlocking.
+    The one tap is ALL-OFF. Already sick counts as success; if that sick day
+    keeps some lockers, the keep set is cleared so every locker stands down,
+    and a failure to clear it is a refusal (the lock stays up). Any other
+    refusal (a free day, an unreadable pool, freedays not importable) is
+    returned with sickdays' own explanation, so the lock screen can show it
+    instead of unlocking.
     """
     today = sickdays.today()
     try:
         sickdays.add_sick_day(today)
     except sickdays.AlreadySickError:
-        _logger.warning("%s was already a sick day; unlocking", today)
-        return MarkResult(ok=True, message="Today is already a sick day.")
+        if not sickdays.kept_lockers(today):
+            _logger.warning("%s was already a sick day; unlocking", today)
+            return MarkResult(ok=True, message="Today is already a sick day.")
+        return _clear_kept_lockers(today)
     except sickdays.SickDayError as exc:
         _logger.warning("Could not mark %s as a sick day: %s", today, exc)
         return MarkResult(ok=False, message=str(exc))
     _logger.warning("Marked %s as a sick day from the lock screen", today)
     return MarkResult(ok=True, message="Today is a sick day. Get well soon.")
+
+
+def _clear_kept_lockers(today: date) -> MarkResult:
+    """Clear the keep set of an already-sick ``today`` so every locker stands down."""
+    try:
+        sickdays.set_kept_lockers(today, ())
+    except sickdays.SickDayError as exc:
+        _logger.warning("Could not clear the kept lockers of %s: %s", today, exc)
+        return MarkResult(ok=False, message=str(exc))
+    _logger.warning("%s was already a sick day; cleared its kept lockers", today)
+    return MarkResult(
+        ok=True,
+        message="Today was already a sick day; every locker now stands down.",
+    )
