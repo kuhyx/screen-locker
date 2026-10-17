@@ -1,18 +1,18 @@
-"""Sick-day shutdown floor, applied live: 20:00 the moment today turns sick.
+"""Sick-day shutdown, applied live: 20:00 plus the day's gaming pay.
 
 The daily reset already resolves a sick day with ``earned_time.resolve(...,
 sick=True)``. But a day is usually marked sick *after* that reset ran --
 at 10:00 from the lock screen or the phone -- and the reset is stamped once
 per day. This pass closes the gap: on every 5-minute locker tick, every
 ``--sync-only`` / ``--apply-bonuses`` pass and right after the lock screen's
-"I'm sick" tap, it lifts tonight's shutdown to
-``earned_time.sick_shutdown_minutes`` (``max(20:00, current)``, capped at the
-day's ceiling).
+"I'm sick" tap, it raises tonight's shutdown to the derived sick target
+(:func:`sick_target`: 20:00 plus every credit's gaming pay, earned_time 0.13.0).
 
-The lift is a floor, not a bonus, exactly like the grace floor: it is added
-to the same ``grace_floor.json`` lift, so a workout credited later is paid
-out of it first (``_grace_floor.plan_absorb``) and lands on
-``max(20:00, ladder)`` -- 20:40, not 20:00 + the workout's whole reward.
+Credits stack on 20:00 (kuhy, 2026-10-17: LeetCode + reading is 22:00, not
+the 20:10 that 0.11.0's non-stacking floor gave). The target is absolute,
+re-derived from the ledgers, so on a sick day a live credit raises to it
+instead of adding (``ShutdownMixin``): the new row is already in the sum.
+No lift is recorded, so nothing is absorbed.
 
 Raise-only. Un-marking today does not lower the config until the next
 daily reset re-derives it.
@@ -24,16 +24,23 @@ from datetime import date
 import logging
 from typing import TYPE_CHECKING
 
-import earned_time
-
 from screen_locker._bonus_lock import bonus_lock
 from screen_locker._constants import GRACE_STATE_FILE
 from screen_locker._day import today_str
 from screen_locker._earned import hhmm
-from screen_locker._grace_floor import load_lift, save_lift, tonight_minutes
+from screen_locker._grace_floor import save_lift, tonight_minutes
+from screen_locker._shutdown_target import gather
 from screen_locker._sick import is_sick
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 _logger = logging.getLogger(__name__)
+
+
+def sick_target(day: date, log_file: Path | None) -> int:
+    """Tonight's sick-day shutdown, re-derived from the ledgers and the log."""
+    return gather(day, log_file).minutes
 
 
 class SickFloorMixin:
@@ -48,7 +55,7 @@ class SickFloorMixin:
         ) -> bool: ...
 
     def _apply_sick_floor(self) -> bool:
-        """Raise tonight's shutdown to the sick floor if today is sick.
+        """Raise tonight's shutdown to the sick target if today is sick.
 
         Returns True when the config was raised on this call.
         """
@@ -62,7 +69,7 @@ class SickFloorMixin:
                 _logger.warning("Sick floor: shutdown config unreadable; not applied")
                 return False
             current = tonight_minutes(config, day)
-            floor = earned_time.sick_shutdown_minutes(current, day)
+            floor = sick_target(day, getattr(self, "log_file", None))
             if floor <= current:
                 return False
             mon_wed, thu_sun, morning = config
@@ -71,8 +78,7 @@ class SickFloorMixin:
             ):
                 _logger.warning("Sick floor: failed to write shutdown config")
                 return False
-            lift = load_lift(GRACE_STATE_FILE, today) + floor - current
-            save_lift(lift, GRACE_STATE_FILE)
+            save_lift(0, GRACE_STATE_FILE)  # stacked: nothing to absorb
         _logger.info(
             "Sick floor: shutdown %s -> %s (sick day).", hhmm(current), hhmm(floor)
         )

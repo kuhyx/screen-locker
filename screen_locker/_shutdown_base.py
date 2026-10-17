@@ -78,7 +78,7 @@ def base_minutes(day: date | None = None) -> int:
         else earned_time.base_for(target, earners, first_credits=starts)
     ).shutdown_minutes
     if is_sick(target):
-        return earned_time.sick_shutdown_minutes(base, target)
+        return max(base, earned_time.sick_shutdown_from(0, target))
     return base
 
 

@@ -59,16 +59,19 @@ class TestTarget:
         target = derive(DayInputs(_DAY, _FLAT, first_done=at("18:55"), sick_day=True))
         assert target.grace is None
         assert target.resolution.sick is True
-        assert target.minutes == max(SICK_FLOOR, target.earned)
-        # The lift is the sick floor's, so later credits absorb it first.
-        assert target.lift == target.resolution.sick_lift_minutes
-        assert target.lift == SICK_FLOOR - target.earned
+        assert target.minutes == SICK_FLOOR + sum(
+            t.gaming_minutes for t in target.resolution.terms
+        )
+        # earned_time 0.13.0: credits stack on 20:00, so there is no lift.
+        assert target.lift == 0
 
-    def test_a_sick_day_above_20_00_keeps_the_ladder_value(self) -> None:
+    def test_a_sick_day_stacks_gaming_pay_on_20_00(self) -> None:
         busy = dict.fromkeys(_FLAT, True)
         target = derive(DayInputs(_DAY, busy, workout_credits=1, sick_day=True))
-        assert target.minutes == target.earned
-        assert target.minutes > SICK_FLOOR
+        assert target.minutes >= target.earned
+        assert target.minutes == min(
+            23 * 60, SICK_FLOOR + sum(t.gaming_minutes for t in target.resolution.terms)
+        )
         assert target.lift == 0
 
     def test_gather_keeps_the_sick_floor_when_the_workout_lock_is_kept(self) -> None:

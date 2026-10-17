@@ -64,6 +64,8 @@ class Target:
         Saved as the day's lift (``_grace_floor.save_lift``), so a credit that
         lands later is paid out of it first instead of stacking on 20:00.
         """
+        if self.resolution.sick:
+            return 0  # earned_time 0.13.0: credits stack on 20:00
         return self.minutes - self.earned
 
 

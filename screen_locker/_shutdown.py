@@ -16,6 +16,7 @@ from screen_locker._constants import (
 from screen_locker._day import today_str
 from screen_locker._earned import ceiling, first_minutes, hhmm, span
 from screen_locker._grace_floor import GraceFloorMixin, plan_absorb, save_lift
+from screen_locker._sick import is_sick
 from screen_locker._sick_floor import SickFloorMixin
 
 if TYPE_CHECKING:
@@ -76,6 +77,8 @@ class ShutdownMixin(GraceFloorMixin, SickFloorMixin):
         Returns True if successful, False otherwise.
         """
         day = date.fromisoformat(today_str())
+        if is_sick(day):
+            return self._raise_on_sick_day()
         bonus, lift = plan_absorb(first_minutes(earned_time.WORKOUT, day))
         try:
             config_values = self._read_shutdown_config()
@@ -104,6 +107,8 @@ class ShutdownMixin(GraceFloorMixin, SickFloorMixin):
 
         Returns True if successful, False otherwise.
         """
+        if is_sick(date.fromisoformat(today_str())):
+            return self._raise_on_sick_day()
         # Paid out of the grace lift first, so the floor is never stacked on.
         moved, lift = plan_absorb(extra_minutes)
         try:
@@ -125,6 +130,17 @@ class ShutdownMixin(GraceFloorMixin, SickFloorMixin):
         if ok:
             save_lift(lift)
         return ok
+
+    def _raise_on_sick_day(self) -> bool:
+        """A sick day's credit: raise to the derived target, never add.
+
+        The credit's row is already in the target (``_sick_floor``), so adding
+        its minutes on top would pay it twice. True even when nothing moved
+        (capped, or already there): the credit is accounted for, and a failed
+        write is retried by the next tick's sick pass.
+        """
+        self._apply_sick_floor()
+        return True
 
     def _read_shutdown_config(self) -> tuple[int, int, int] | None:
         """Read shutdown config as (mon_wed, thu_sun, morning_end) minutes, or None."""
