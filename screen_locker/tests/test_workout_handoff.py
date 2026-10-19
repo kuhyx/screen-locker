@@ -43,6 +43,10 @@ class _FakeLock:
 
         self.root = _Root()
 
+    def report_grab_held(self, *, held: bool) -> None:
+        """gatelock 0.11: what leisure-watch reads via ``held_grabs``."""
+        self.events.append(f"held={held}")
+
     def grab_input(self) -> None:
         self.events.append("grab_input")
         self._recovery.running = True
@@ -59,14 +63,14 @@ class TestLockGrabHandoff:
         lock = _FakeLock()
         lock_grab_handoff(lock).release()
         assert lock._recovery.events == ["stop"]
-        assert lock.events == ["grab_release"]
+        assert lock.events == ["held=False", "grab_release"]
         assert not lock._recovery.running
 
     def test_reacquire_restores_the_grab_and_the_watchdog(self) -> None:
         handoff = lock_grab_handoff(lock := _FakeLock())
         handoff.release()
         handoff.reacquire()
-        assert lock.events == ["grab_release", "grab_input"]
+        assert lock.events == ["held=False", "grab_release", "grab_input"]
         assert lock._recovery.running
 
     def test_never_closes_the_lock_window(self) -> None:
@@ -81,7 +85,7 @@ class TestLockGrabHandoff:
         handoff = lock_grab_handoff(lock := _FakeLock(release_raises=True))
         handoff.release()
         handoff.reacquire()
-        assert lock.events == ["grab_release", "grab_input"]
+        assert lock.events == ["held=False", "grab_release", "grab_input"]
 
 
 class TestStartWorkout:
