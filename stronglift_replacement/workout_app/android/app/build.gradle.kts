@@ -70,7 +70,7 @@ android {
     productFlavors {
         create("daily") {
             dimension = "store"
-            manifestPlaceholders["appLabel"] = "workout_app"
+            manifestPlaceholders["appLabel"] = "Workout"
         }
         create("sandbox") {
             dimension = "store"

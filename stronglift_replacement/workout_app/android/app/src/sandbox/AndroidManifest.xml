@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The sandbox flavor is a debug build for Claude, not for the user: it must
+     not appear in the launcher. Dropping only the LAUNCHER category keeps
+     action MAIN (and exported=true from main), so
+     `adb shell am start -n com.kuhy.workout_app.sandbox/com.kuhy.workout_app.MainActivity`
+     still starts it. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <activity android:name="com.kuhy.workout_app.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category
+                    android:name="android.intent.category.LAUNCHER"
+                    tools:node="remove"/>
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
