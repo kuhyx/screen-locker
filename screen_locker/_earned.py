@@ -16,7 +16,7 @@ midnight, so a 30-minute earner is applied exactly.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 import functools
 import logging
 from pathlib import Path
@@ -26,6 +26,7 @@ import earned_time
 
 from screen_locker._constants import HMAC_KEY_FILE
 from screen_locker._day import today_str
+from screen_locker._gate_off import gate_off
 
 _logger: Final = logging.getLogger(__name__)
 
@@ -105,12 +106,25 @@ def earned_today(
     earner: earned_time.Earner, now: datetime | None = None
 ) -> bool | None:
     """Whether ``earner``'s gate recorded today's credit; ``None`` if unknown."""
-    return earned_time.done_today(earner, ledger_file(earner), HMAC_KEY_FILE, now=now)
+    day = (now or datetime.now(tz=UTC)).astimezone().date()
+    return earned_time.done_today(
+        earner,
+        ledger_file(earner),
+        HMAC_KEY_FILE,
+        now=now,
+        gate_off=gate_off(earner, day),
+    )
 
 
 def earned_units(earner: earned_time.Earner, day: date) -> int | None:
     """How many of a counted earner's units count for ``day``; ``None`` if unknown."""
-    return earned_time.credit_units(earner, ledger_file(earner), HMAC_KEY_FILE, day)
+    return earned_time.credit_units(
+        earner,
+        ledger_file(earner),
+        HMAC_KEY_FILE,
+        day,
+        gate_off=gate_off(earner, day),
+    )
 
 
 def gate_answers(day: date | None = None) -> dict[str, int | bool | None]:
@@ -179,7 +193,9 @@ def first_credit_time(earner: earned_time.Earner, day: date) -> float | None:
     if fn is None:
         _warn_no_first_credit()
         return None
-    stamp: float | None = fn(earner, ledger_file(earner), HMAC_KEY_FILE, day)
+    stamp: float | None = fn(
+        earner, ledger_file(earner), HMAC_KEY_FILE, day, gate_off=gate_off(earner, day)
+    )
     return stamp
 
 

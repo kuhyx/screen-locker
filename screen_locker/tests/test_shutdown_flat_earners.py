@@ -145,6 +145,7 @@ class TestANewlyRegisteredEarner:
         assert (base_minutes(eve), base_minutes(cut)) == (before[0], before[1] - 60)
 
 
+@pytest.mark.usefixtures("leetcode_gate_off")
 class TestRealLedgers:
     @pytest.mark.usefixtures("pre_ladder")
     def test_signed_credits_on_disk_reach_the_reset(self, tmp_path: Path) -> None:

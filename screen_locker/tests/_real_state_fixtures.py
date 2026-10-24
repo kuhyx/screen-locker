@@ -10,8 +10,10 @@ other. ``_isolate_home`` covers paths resolved at *call* time from
 ``Path.home()``; ``_no_free_days_by_default`` covers paths bound into module
 constants at *import* time, which redirecting home afterwards cannot reach.
 
-``pre_ladder`` is the one opt-in fixture here: it keeps a test off the real
-calendar's ladder cutover, the date-dependent half of the same question.
+``pre_ladder`` and ``leetcode_gate_off`` are the opt-in fixtures here:
+``pre_ladder`` keeps a test off the real calendar's ladder cutover, the
+date-dependent half of the same question; ``leetcode_gate_off`` keeps
+ledger-plumbing tests off LeetCode's paid-in-full rule.
 """
 
 from __future__ import annotations
@@ -170,6 +172,17 @@ def pre_ladder(monkeypatch: pytest.MonkeyPatch) -> None:
     Opt-in: tests that assert the ladder itself must keep the real cutover.
     """
     monkeypatch.setattr("earned_time._ladder.LADDER_FROM", date.max)
+
+
+@pytest.fixture
+def leetcode_gate_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Let a bare LeetCode credit earn, as on a free or stood-down sick day.
+
+    These tests pin the shared ledger plumbing with one credit row per earner.
+    Since earned_time 0.18.0 a LeetCode credit alone earns only while the gate
+    is off; the paid-in-full rule itself is ``test_leetcode_gate_off.py``.
+    """
+    monkeypatch.setattr("screen_locker._earned.gate_off", lambda _earner, _day: True)
 
 
 @pytest.fixture(autouse=True)

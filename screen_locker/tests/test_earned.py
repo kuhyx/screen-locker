@@ -133,6 +133,7 @@ class TestFlatEarners:
             assert f"{earner.name}_bonus_date" in seeded
 
 
+@pytest.mark.usefixtures("leetcode_gate_off")
 class TestEarnedToday:
     @_LEDGERED
     def test_signed_credit_today_earns(
@@ -215,6 +216,7 @@ class TestCannotCheck:
         assert "not valid JSON" in caplog.text
 
 
+@pytest.mark.usefixtures("leetcode_gate_off")
 class TestFlatAnswers:
     def test_every_flat_earner_answers_by_name(self, key: Path) -> None:
         write_ledger(earned_time.LEETCODE, [credit(earned_time.LEETCODE)])
