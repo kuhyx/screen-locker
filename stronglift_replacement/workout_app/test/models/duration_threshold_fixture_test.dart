@@ -89,10 +89,13 @@ void main() {
     }
   });
 
-  test('the rejection message advertises 40 and never the real cutoff', () {
-    final error = validateManualWorkout(_draft(10));
-    expect(error, isNotNull);
-    expect(error, contains('$kMinWorkoutDurationMinutes'));
-    expect(error, isNot(contains('$kWorkoutDurationAcceptMinutes')));
-  });
+  test(
+    'the rejection message advertises the round bar and never the real cutoff',
+    () {
+      final error = validateManualWorkout(_draft(10));
+      expect(error, isNotNull);
+      expect(error, contains('$kMinWorkoutDurationMinutes'));
+      expect(error, isNot(contains('$kWorkoutDurationAcceptMinutes')));
+    },
+  );
 }

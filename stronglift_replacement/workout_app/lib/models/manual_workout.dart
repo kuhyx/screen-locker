@@ -31,22 +31,22 @@ const int kManualWorkoutBudgetPer7Days = 2;
 /// Max manual workouts allowed in any rolling 30-day window.
 const int kManualWorkoutBudgetPer30Days = 10;
 
-/// The ONE duration bar every workout type answers to, in minutes. This is
+/// The ONE duration bar every activity answers to, in minutes. This is
 /// the ADVERTISED number — the only one that may appear in a message the user
 /// reads. Mirrors `MIN_WORKOUT_DURATION_MINUTES` in the locker's
 /// `_constants.py`; the two must move together.
-const int kMinWorkoutDurationMinutes = 40;
+const int kMinWorkoutDurationMinutes = 30;
 
 /// The leeway that is deliberately INVISIBLE. A session is accepted at
-/// [kMinWorkoutDurationMinutes] minus this, so 35 minutes passes while every
-/// string still says 40. That gap is intentional: do NOT "fix" it by
+/// [kMinWorkoutDurationMinutes] minus this, so 25 minutes passes while every
+/// string still says 30. That gap is intentional: do NOT "fix" it by
 /// advertising the real cutoff, and never interpolate
 /// [kWorkoutDurationAcceptMinutes] into a user-facing string.
 const int kWorkoutDurationLeewayMinutes = 5;
 
 /// Derived so the advertised and accept bars cannot drift apart. Comparisons
 /// use this; messages use [kMinWorkoutDurationMinutes]. Compare with `>=`,
-/// matching the locker, so 35.0 cannot pass one side and fail the other.
+/// matching the locker, so 25.0 cannot pass one side and fail the other.
 const int kWorkoutDurationAcceptMinutes =
     kMinWorkoutDurationMinutes - kWorkoutDurationLeewayMinutes;
 
@@ -184,7 +184,6 @@ class ManualWorkoutDraft {
   /// Other sport: equipment used.
   final String equipment;
 }
-
 
 /// Builds the persisted `workout_data` dict for a validated draft.
 ///
