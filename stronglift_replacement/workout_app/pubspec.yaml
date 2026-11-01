@@ -16,6 +16,12 @@ dependencies:
       path: crdt_sync_dart
   # HMAC-SHA256 for the signed phone->PC workout poke (pc_poke_wire.dart).
   crypto: 3.0.8
+  # Export/import file plumbing (Save-as picker, open picker), shared.
+  data_transfer_flutter:
+    git:
+      url: https://github.com/kuhyx/utils
+      ref: data_transfer_flutter-v0.2.0
+      path: data_transfer_flutter
   flutter:
     sdk: flutter
   # Keeps the rest-period deadline ticking with the screen off, and owns the

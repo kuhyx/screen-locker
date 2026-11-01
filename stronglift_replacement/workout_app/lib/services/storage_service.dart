@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' show log;
 import 'dart:io' show Platform;
+import 'package:crdt_sync/crdt_sync.dart' show Log, Record, mergeLogs;
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -15,6 +16,7 @@ import 'package:workout_app/models/manual_deload.dart';
 import 'package:workout_app/models/progression.dart';
 import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/services/backup_service.dart';
+import 'package:workout_app/services/manual_workout_port.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
 
 // Re-exported: ExerciseState was defined here until it moved to models/, and
@@ -26,6 +28,8 @@ export 'package:workout_app/models/progression.dart';
 part 'storage_service_backup.dart';
 part 'storage_service_deload.dart';
 part 'storage_service_exercises.dart';
+part 'storage_service_export.dart';
+part 'storage_service_import.dart';
 part 'storage_service_pc_link.dart';
 part 'storage_service_sandbox.dart';
 part 'storage_service_schema.dart';
@@ -64,7 +68,14 @@ class StorageService {
     _instance = null;
     _testDbPath = dbPath;
     remoteActiveSessionReader = null;
+    manualWorkouts = const OfflineManualWorkoutPort();
   }
+
+  /// The remote manual-workout log the data export/import reads and writes.
+  ///
+  /// Defaults to the real crdt_sync client; [resetForTesting] swaps in an
+  /// offline stub because the real one needs the OS keystore and a network.
+  static ManualWorkoutPort manualWorkouts = SyncManualWorkoutPort();
 
   /// Reads the shared in-progress session from Firebase. Injected because the
   /// real implementation reaches the OS keystore through a platform channel,
@@ -83,7 +94,7 @@ class StorageService {
     // coverage:ignore-end
     _db = await openDatabase(
       dbPath,
-      version: 7,
+      version: 8,
       onCreate: _createSchema,
       onUpgrade: _migrateSchema,
       // In tests resetForTesting() reopens a ':memory:' DB per test; sqflite's
@@ -108,6 +119,7 @@ class StorageService {
     await _db.insert('settings', {
       'key': key,
       'value': value,
+      'updated_at': _nowMs(),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
@@ -205,6 +217,7 @@ class StorageService {
         'fail_threshold': 2,
         'success_streak': 0,
         'fail_streak': 0,
+        'updated_at': _nowMs(),
       },
       where: 'name = ?',
       whereArgs: [name],

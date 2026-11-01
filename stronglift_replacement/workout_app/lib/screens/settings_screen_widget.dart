@@ -8,16 +8,8 @@ part of 'settings_screen.dart';
 
 /// Screen for per-exercise settings and manual weight/rep overrides.
 ///
-/// No [BackupSlot] is wired into the shared Sync settings screen: unlike the
-/// notes app and home_inventory, workout_app has no user-facing export/import
-/// action to hand it. `BackupService.export`/`readBackup` are called only from
-/// [StorageService]'s automatic paths (on every weight/threshold write, and
-/// once at startup via `restoreFromBackupIfNeeded`) -- there is nothing for a
-/// manual "Export"/"Import" button to trigger that isn't already automatic,
-/// and a blind manual import would risk clobbering current progression with
-/// whatever is on external storage. The storage-permission affordance itself
-/// is a device permission, not a sync action, so it stays here rather than
-/// moving to either sync screen.
+/// The user-owned export/import lives in OFFLINE BACKUP
+/// ([DataTransferButtons]); its import only merges, never clobbers.
 class SettingsScreen extends StatefulWidget {
   /// Creates a [SettingsScreen].
   const SettingsScreen({

@@ -29,6 +29,14 @@ const _progressionEventsTable = '''
   )
 ''';
 
+/// The v8 last-write stamp (ms since epoch, UTC), shared by create and
+/// migrate. 0 = never edited by the user (seeded, or older than v8): any
+/// stamped import row beats it.
+const _updatedAtColumn = 'updated_at INTEGER NOT NULL DEFAULT 0';
+
+/// Milliseconds since the epoch, UTC: the value every user write stamps.
+int _nowMs() => DateTime.now().toUtc().millisecondsSinceEpoch;
+
 /// Schema creation, migration, and seeding.
 extension StorageServiceSchema on StorageService {
   Future<void> _createSchema(Database db, int version) async {
@@ -47,7 +55,8 @@ extension StorageServiceSchema on StorageService {
         reps_low INTEGER NOT NULL DEFAULT $kDefaultRepsLow,
         has_warmup INTEGER,
         paused_until TEXT,
-        $_restColumns
+        $_restColumns,
+        $_updatedAtColumn
       )
     ''');
     await db.execute('''
@@ -63,7 +72,8 @@ extension StorageServiceSchema on StorageService {
     await db.execute('''
       CREATE TABLE settings (
         key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
+        value TEXT NOT NULL,
+        $_updatedAtColumn
       )
     ''');
     await db.execute('''
@@ -128,6 +138,13 @@ extension StorageServiceSchema on StorageService {
     if (oldVersion < 7) {
       // A new table, nothing to backfill: deloads before v7 left no trace.
       await db.execute(_progressionEventsTable);
+    }
+    if (oldVersion < 8) {
+      // NOT NULL DEFAULT 0 backfills every existing row with 0: their real
+      // edit time is unknown, so an import with a stamp may overwrite them.
+      for (final table in const ['exercise_state', 'settings']) {
+        await db.execute('ALTER TABLE $table ADD COLUMN $_updatedAtColumn');
+      }
     }
   }
 

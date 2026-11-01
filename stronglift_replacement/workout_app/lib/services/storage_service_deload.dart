@@ -50,6 +50,7 @@ extension StorageServiceDeload on StorageService {
           'reps': t.reps,
           'success_streak': 0,
           'fail_streak': 0,
+          'updated_at': _nowMs(),
         },
         where: 'name = ?',
         whereArgs: [name],

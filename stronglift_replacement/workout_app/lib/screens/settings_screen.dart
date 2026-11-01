@@ -24,6 +24,7 @@ import 'package:workout_app/services/pc_pairing.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/ui/theme.dart';
+import 'package:workout_app/widgets/data_transfer_buttons.dart';
 import 'package:workout_app/widgets/exercise_settings_sheet.dart';
 
 part 'settings_screen_actions.dart';

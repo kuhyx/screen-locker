@@ -61,7 +61,7 @@ extension StorageServiceSessions on StorageService {
       }
       await _db.update(
         'exercise_state',
-        update,
+        {...update, 'updated_at': _nowMs()},
         where: 'name = ?',
         whereArgs: [entry.key],
       );

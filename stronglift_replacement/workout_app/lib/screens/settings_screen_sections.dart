@@ -145,6 +145,11 @@ class _OfflineBackupSection extends StatelessWidget {
               label: const Text('Grant storage permission'),
             ),
           ),
+        DataTransferButtons(
+          onImported: () => unawaited(
+            context.findAncestorStateOfType<_SettingsScreenState>()!._load(),
+          ),
+        ),
       ],
     );
   }
@@ -171,10 +176,7 @@ class _SettingsAppBar extends StatelessWidget implements PreferredSizeWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return AppBar(
       backgroundColor: colorScheme.surfaceContainerHigh,
-      title: Text(
-        'Settings',
-        style: TextStyle(color: colorScheme.onSurface),
-      ),
+      title: Text('Settings', style: TextStyle(color: colorScheme.onSurface)),
       iconTheme: IconThemeData(color: colorScheme.onSurface),
       actions: [
         TextButton(

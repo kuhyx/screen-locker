@@ -57,7 +57,11 @@ extension StorageServiceExercises on StorageService {
   }) async {
     await _db.update(
       'exercise_state',
-      {'success_threshold': successThreshold, 'fail_threshold': failThreshold},
+      {
+        'success_threshold': successThreshold,
+        'fail_threshold': failThreshold,
+        'updated_at': _nowMs(),
+      },
       where: 'name = ?',
       whereArgs: [name],
     );
@@ -82,6 +86,7 @@ extension StorageServiceExercises on StorageService {
         'has_warmup': state.hasWarmup ? 1 : 0,
         'paused_until': _pauseColumn(state),
         ..._restColumnValues(state),
+        'updated_at': _nowMs(),
       },
       where: 'name = ?',
       whereArgs: [state.name],
@@ -109,7 +114,12 @@ extension StorageServiceExercises on StorageService {
   Future<void> setExerciseReps(String name, int reps) async {
     await _db.update(
       'exercise_state',
-      {'reps': reps, 'success_streak': 0, 'fail_streak': 0},
+      {
+        'reps': reps,
+        'success_streak': 0,
+        'fail_streak': 0,
+        'updated_at': _nowMs(),
+      },
       where: 'name = ?',
       whereArgs: [name],
     );
@@ -143,6 +153,7 @@ extension StorageServiceExercises on StorageService {
       'has_warmup': state.hasWarmup ? 1 : 0,
       'paused_until': _pauseColumn(state),
       ..._restColumnValues(state),
+      'updated_at': _nowMs(),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
@@ -150,7 +161,12 @@ extension StorageServiceExercises on StorageService {
   Future<void> setExerciseWeight(String name, double weight) async {
     await _db.update(
       'exercise_state',
-      {'weight': weight, 'success_streak': 0, 'fail_streak': 0},
+      {
+        'weight': weight,
+        'success_streak': 0,
+        'fail_streak': 0,
+        'updated_at': _nowMs(),
+      },
       where: 'name = ?',
       whereArgs: [name],
     );

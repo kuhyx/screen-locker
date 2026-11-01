@@ -70,6 +70,7 @@ class WorkoutSyncSession {
 
   /// Runs one tick, merging [addition] into this device's log if given.
   ///
+  /// [additions] merges many records in one round trip (the data import).
   /// Pass null for [addition] to round-trip the existing log unchanged — that
   /// is how a connectivity check gets a real answer without inventing a
   /// record to push.
@@ -82,6 +83,7 @@ class WorkoutSyncSession {
     required String successReason,
     required String failurePrefix,
     Record? addition,
+    Log? additions,
   }) async {
     final github = GitHubClient(
       owner: owner,
@@ -99,9 +101,13 @@ class WorkoutSyncSession {
       final existingLog = existingText == null
           ? <String, Record>{}
           : decode(existingText);
-      final localLog = addition == null
+      final incoming = <String, Record>{
+        ...?additions,
+        ?addition?.id: ?addition,
+      };
+      final localLog = incoming.isEmpty
           ? existingLog
-          : mergeLogs(existingLog, {addition.id: addition});
+          : mergeLogs(existingLog, incoming);
       await syncLog(
         client: client,
         deviceId: currentSyncDeviceId,

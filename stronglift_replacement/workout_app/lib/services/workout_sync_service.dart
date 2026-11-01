@@ -15,6 +15,7 @@ import 'package:workout_app/services/sync_state_factory.dart';
 import 'package:workout_app/services/workout_sync_session.dart';
 
 part 'workout_sync_service_read.dart';
+part 'workout_sync_service_transfer.dart';
 
 const _pathPrefix = 'screen-locker-sync/devices';
 const _logFilename = 'log.json';
@@ -81,8 +82,7 @@ class WorkoutSyncService {
     http.Client? httpClient,
     this.firebaseFactory,
     this.stateStore,
-    // Dart forbids private named params, so this can't be an initializing
-    // formal; assign it explicitly (mirrors crdt_sync_dart's GitHubClient).
+    // Dart forbids private named params; assign explicitly (as GitHubClient).
     // ignore: prefer_initializing_formals
   }) : _httpClient = httpClient;
 
