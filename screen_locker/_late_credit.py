@@ -19,8 +19,9 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
+from screen_locker._ceiling import ceiling
 from screen_locker._day import today_str
-from screen_locker._earned import ceiling, hhmm
+from screen_locker._earned import hhmm
 from screen_locker._grace_floor import save_lift, tonight_minutes
 
 _logger = logging.getLogger(__name__)

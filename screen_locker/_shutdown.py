@@ -9,12 +9,13 @@ from typing import TYPE_CHECKING
 
 import earned_time
 
+from screen_locker._ceiling import ceiling
 from screen_locker._constants import (
     ADJUST_SHUTDOWN_SCRIPT,
     SHUTDOWN_CONFIG_FILE,
 )
 from screen_locker._day import today_str
-from screen_locker._earned import ceiling, first_minutes, hhmm, span
+from screen_locker._earned import first_minutes, hhmm, span
 from screen_locker._grace_floor import plan_absorb, save_lift
 from screen_locker._late_credit import LateCreditMixin
 from screen_locker._sick import is_sick
@@ -30,9 +31,6 @@ _logger = logging.getLogger(__name__)
 # whole-hour *_HOUR keys, read as HOUR * 60.
 _SHUTDOWN_CONFIG_NAMES = ("MON_WED", "THU_SUN", "MORNING_END")
 _MINUTES_PER_HOUR = 60
-
-# Extra bonuses may name midnight; the helper still clamps them to 23:00.
-_MIDNIGHT = 24 * _MINUTES_PER_HOUR
 
 
 def _parse_config(path: Path) -> dict[str, int]:
@@ -107,16 +105,17 @@ class ShutdownMixin(SickFloorMixin, LateCreditMixin):
     def _adjust_shutdown_time_by(
         self, extra_minutes: int, at: float | None = None
     ) -> bool:
-        """Push shutdown later by *extra_minutes*, capped at 24:00 (midnight).
+        """Push shutdown later by *extra_minutes*, capped at the day's ceiling.
 
-        Used for earner and extra-workout bonuses. A cap of midnight works
-        because ``day-specific-shutdown-check.sh`` fires at 00:00 and catches it
-        via the morning-window condition; the helper clamps it to 23:00 anyway.
+        Used for earner and extra-workout bonuses. The cap is
+        ``earned_time.shutdown_ceiling_for(today)`` (23:00 today, lower if
+        ``WAKE_MINUTES`` ever moves); the helper's 23:00 stays the hard bound.
 
         ``at`` is when the credit was earned (default now): a late one counts
         from it (:mod:`._late_credit`). Returns True if successful.
         """
-        if is_sick(date.fromisoformat(today_str())):
+        day = date.fromisoformat(today_str())
+        if is_sick(day):
             return self._raise_on_sick_day(extra_minutes, at)
         late = self._late_write(extra_minutes, at)
         if late is not None:
@@ -129,8 +128,8 @@ class ShutdownMixin(SickFloorMixin, LateCreditMixin):
                 return False
             mw, ts, morning = config_values
             ok = self._write_shutdown_config(
-                min(_MIDNIGHT, mw + moved),
-                min(_MIDNIGHT, ts + moved),
+                min(ceiling(day), mw + moved),
+                min(ceiling(day), ts + moved),
                 morning,
                 restore=True,
             )

@@ -26,7 +26,8 @@ import earned_time
 import pytest
 
 from screen_locker import _gate_bonus, _grace_floor, _late_credit, _shutdown
-from screen_locker._earned import ceiling, extra_minutes, first_minutes, is_gate
+from screen_locker._ceiling import HARD_CEILING_MINUTES, ceiling
+from screen_locker._earned import extra_minutes, first_minutes, is_gate
 from screen_locker._earned import registry as registry_for
 from screen_locker._gate_bonus import apply_counted_bonus
 from screen_locker._shutdown import ShutdownMixin
@@ -40,7 +41,7 @@ _LAST = date(2026, 12, 31)
 _DAYS = tuple(_FIRST + timedelta(days=n) for n in range((_LAST - _FIRST).days + 1))
 # adjust_shutdown_schedule.sh's RESTORE_CEILING: the helper clamps every
 # --restore write to 23:00, so the double does too.
-_HELPER_CEILING = 23 * 60
+_HELPER_CEILING = HARD_CEILING_MINUTES
 _MORNING = 5 * 60
 
 Credits = dict[str, date | None] | None

@@ -15,7 +15,7 @@ from unittest.mock import patch
 import earned_time
 import pytest
 
-from screen_locker import _cli, _earned, _grace_floor, _runnerup_tcx, _workout_credit
+from screen_locker import _ceiling, _cli, _earned, _grace_floor, _runnerup_tcx, _workout_credit
 from screen_locker._shutdown import ShutdownMixin
 from screen_locker._workout_credit import WorkoutCreditMixin
 
@@ -129,7 +129,7 @@ class TestPreLadderEarnedTime:
         workout = earned_time.WORKOUT
         assert _earned.first_minutes(workout, day) == workout.shutdown_minutes
         assert _earned.extra_minutes(workout, day) == workout.extra_shutdown_minutes
-        assert _earned.ceiling(day) == earned_time.SHUTDOWN_CEILING_MINUTES
+        assert _ceiling.ceiling(day) == earned_time.SHUTDOWN_CEILING_MINUTES
         _earned._warn_no_first_credit.cache_clear()
         with caplog.at_level(logging.WARNING):
             assert _earned.first_credit_time(earned_time.ANKI, day) is None

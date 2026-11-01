@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 import earned_time
 import sickdays
 
+from screen_locker._ceiling import HARD_CEILING_MINUTES as HELPER_CEILING
 from screen_locker._earned import first_minutes
 from screen_locker._runnerup_verification import RunnerUpVerificationMixin
 from screen_locker._shutdown import ShutdownMixin
@@ -23,7 +24,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 _NS = "http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"
-HELPER_CEILING = 23 * 60  # adjust_shutdown_schedule.sh's RESTORE_CEILING
 
 
 def stamp(day: date, hhmm_text: str) -> float:

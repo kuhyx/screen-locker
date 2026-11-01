@@ -176,12 +176,6 @@ def extra_minutes(earner: earned_time.Earner, day: date) -> int:
     return earner.extra_shutdown_minutes if fn is None else int(fn(earner, day))
 
 
-def ceiling(day: date) -> int:
-    """The latest shutdown ``day`` can earn, minutes after its midnight."""
-    fn = getattr(earned_time, "shutdown_ceiling_for", None)
-    return earned_time.SHUTDOWN_CEILING_MINUTES if fn is None else int(fn(day))
-
-
 def first_credit_time(earner: earned_time.Earner, day: date) -> float | None:
     """Unix time of ``earner``'s first verified credit counting for ``day``.
 
