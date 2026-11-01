@@ -41,7 +41,7 @@ def lock_grab_handoff(lock: LockWindow) -> GrabHandoff:
     def release() -> None:
         # Stop first: a watchdog tick between the release and the app's own
         # grab would take the screen straight back off it.
-        lock._recovery.stop()
+        lock.recovery.stop()
         # Claim.grab_held false BEFORE the release (fail closed), so
         # leisure-watch never reads "held" while the workout app has input.
         # reacquire() -> grab_input() sets it true once the grab lands.

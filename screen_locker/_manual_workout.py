@@ -20,11 +20,14 @@ import logging
 
 from screen_locker._constants import (
     MANUAL_WORKOUT_DESCRIPTION_MIN_CHARS,
-    MANUAL_WORKOUT_REFLECTION_MIN_CHARS,
     MANUAL_WORKOUT_RPE_MAX,
     MANUAL_WORKOUT_RPE_MIN,
     MIN_WORKOUT_DURATION_MINUTES,
     WORKOUT_DURATION_ACCEPT_MINUTES,
+)
+from screen_locker._manual_workout_checks import (
+    validate_reflections,
+    validate_required,
 )
 from screen_locker._manual_workout_types import (
     MANUAL_WORKOUT_TYPE,
@@ -82,19 +85,9 @@ def _duration_minutes(draft: ManualWorkoutDraft) -> float | None:
 
 def validate_manual_workout(draft: ManualWorkoutDraft) -> str | None:
     """Return an error message if the draft is invalid, else None."""
-    if draft.sport not in SPORT_CHOICES:
-        return "Please choose a sport"
-
-    required = {
-        "Start time": draft.start_time,
-        "End time": draft.end_time,
-        "Location name": draft.location_name,
-        "Transport method": draft.transport_method,
-        "Cost": draft.cost,
-    }
-    for label, value in required.items():
-        if not value.strip():
-            return f"{label} is required"
+    error = validate_required(draft)
+    if error is not None:
+        return error
 
     duration = _duration_minutes(draft)
     if duration is None:
@@ -119,18 +112,7 @@ def validate_manual_workout(draft: ManualWorkoutDraft) -> str | None:
     if error is not None:
         return error
 
-    for label, value in (
-        ("What went well", draft.went_well),
-        ("What to improve", draft.to_improve),
-        ("Overall feeling", draft.overall_feeling),
-    ):
-        if len(value.strip()) < MANUAL_WORKOUT_REFLECTION_MIN_CHARS:
-            return (
-                f"{label} must be at least {MANUAL_WORKOUT_REFLECTION_MIN_CHARS} "
-                f"characters (currently {len(value.strip())})"
-            )
-
-    return None
+    return validate_reflections(draft)
 
 
 def _validate_table_tennis(draft: ManualWorkoutDraft) -> str | None:
@@ -143,7 +125,7 @@ def _validate_table_tennis(draft: ManualWorkoutDraft) -> str | None:
     ):
         if value < 0:
             return f"{label} cannot be negative"
-    if draft.matches_won + draft.matches_lost == 0:
+    if not draft.matches_won + draft.matches_lost:
         return "Enter at least one match played (won + lost)"
     if not draft.racket.strip():
         return "Racket is required"

@@ -69,7 +69,7 @@ def _start_stream(server: PokeServer) -> None:
         # Same lock as the HTTP handler: a poke and a streamed copy of one
         # session must never be credited concurrently.
         SessionStream(server.gate).start()
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught  # daemon boundary: logged, LAN poke must survive
         _logger.exception(
             "Could not start the Firebase session stream; off-LAN workouts will "
             "only be credited by the 15-min workout-sync until the daemon restarts"

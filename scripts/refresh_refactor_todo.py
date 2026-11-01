@@ -110,7 +110,7 @@ def commits_last_year(path: Path) -> int:
         text=True,
         check=False,
     )
-    if result.returncode != 0:
+    if result.returncode:
         _logger.warning(
             "git log failed for %s (%s) — counting 0 commits, so its ROI "
             "rank will read lower than it should",

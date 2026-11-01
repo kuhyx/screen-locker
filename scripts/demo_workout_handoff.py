@@ -29,19 +29,15 @@ also still works -- but the hatch above is the one this demo is testing.
 
 One thing a green run does NOT prove: under the demo's local grab gatelock's
 watchdog early-returns and never re-takes the grab, so the 1000ms steal-back
-that makes ``_recovery.stop()`` load-bearing in production is not exercised.
+that makes ``recovery.stop()`` load-bearing in production is not exercised.
 
-    python3 scripts/demo_workout_handoff.py
+    python3 -m scripts.demo_workout_handoff   # from the repo root
 """
 
 from __future__ import annotations
 
 import logging
-from pathlib import Path
-import sys
 import tkinter as tk
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from gatelock import GrabPolicy, LockConfig, LockWindow
 
@@ -59,6 +55,7 @@ class _DemoHooks:
         self.session: WorkoutSession | None = None
 
     def build_surface(self, parent: tk.Misc, _surface: object) -> None:
+        """Draw the status line and the release/reacquire buttons."""
         tk.Label(
             parent,
             text="DEMO LOCK — local grab, VT switching still enabled",
@@ -115,11 +112,14 @@ class _DemoHooks:
         if self.lock is not None:  # pragma: no cover
             self.lock.close()
 
-    def teardown_surface(self, _surface: object) -> None: ...
+    def teardown_surface(self, _surface: object) -> None:
+        """Nothing to tear down in the demo."""
 
-    def on_focus_ready(self, _surface: object) -> None: ...
+    def on_focus_ready(self, _surface: object) -> None:
+        """The demo needs no focus handling."""
 
-    def on_close(self) -> None: ...
+    def on_close(self) -> None:
+        """The demo needs no close handling."""
 
 
 def main() -> int:

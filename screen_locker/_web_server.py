@@ -89,7 +89,7 @@ def _decision_limit(query: str) -> int:
 class _Handler(BaseHTTPRequestHandler):
     """Serve the status payloads and the static frontend bundle (read-only)."""
 
-    def log_message(self, fmt: str, *args: object) -> None:
+    def log_message(self, fmt: str, /, *args: object) -> None:
         """Route the default request log to ``logging`` at debug level.
 
         Args:

@@ -89,7 +89,7 @@ def _tonight_minutes(snapshot: StatusSnapshot) -> int | None:
 def format_summary_line(snapshot: StatusSnapshot) -> str:
     """Cheap one-liner for the i3blocks summary (e.g. before/after a click)."""
     week = snapshot.week
-    mark = "✓" if week.remaining == 0 else "…"
+    mark = "…" if week.remaining else "✓"
     tonight = _tonight_minutes(snapshot)
     tonight_str = hhmm(tonight) if tonight is not None else "?"
     sick = " · sick day" if snapshot.today.is_sick_day else ""

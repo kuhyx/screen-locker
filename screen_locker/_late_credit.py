@@ -54,11 +54,13 @@ class LateCreditMixin:
 
     if TYPE_CHECKING:
 
-        def _read_shutdown_config(self) -> tuple[int, int, int] | None: ...
+        def _read_shutdown_config(self) -> tuple[int, int, int] | None:
+            raise NotImplementedError
 
         def _write_shutdown_config(
             self, mon_wed: int, thu_sun: int, morning_end: int, *, restore: bool = ...
-        ) -> bool: ...
+        ) -> bool:
+            raise NotImplementedError
 
         def _apply_sick_floor(self) -> bool: ...
 

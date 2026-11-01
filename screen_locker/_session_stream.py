@@ -123,7 +123,7 @@ class SessionStream:
         except StreamError as exc:
             _logger.warning("Firebase session stream failed: %s; %s", exc, _FALLBACK)
             return False
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught  # daemon boundary: logged, loop reconnects
             _logger.exception("Firebase session stream crashed; %s", _FALLBACK)
             return False
         return True

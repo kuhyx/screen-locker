@@ -45,6 +45,9 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping
     from pathlib import Path
 
+    from screen_locker._log_mixin import RecordResult
+    from screen_locker._manual_workout import ManualWorkoutDraft
+
     OnIngestedCallback = Callable[[dict, "list[dict]"], None]
 
 __all__ = ["ingest_manual_records", "is_empty_stub", "reconstruct_draft"]
@@ -113,6 +116,76 @@ def _due_date(
     return date
 
 
+def _new_valid_draft(
+    log_file: Path,
+    record_id: str,
+    payload: Mapping[str, object],
+    reference: str,
+) -> tuple[str, ManualWorkoutDraft] | None:
+    """The due date and valid draft of a not-yet-ingested record, else ``None``."""
+    date = _due_date(record_id, payload, reference)
+    if date is None:
+        return None
+    if _already_ingested(load_workout_log(log_file), record_id):
+        return None
+    draft = _draft_or_report(record_id, payload)
+    if draft is None:
+        return None
+    error = validate_manual_workout(draft)
+    if error is not None:
+        _logger.warning("Manual record %s invalid: %s", record_id, error)
+        return None
+    return date, draft
+
+
+def _ingest_one(
+    log_file: Path,
+    record_id: str,
+    payload: Mapping[str, object],
+    reference: str,
+    pending: Mapping[str, str],
+) -> tuple[dict[str, object], RecordResult] | None:
+    """Validate, budget-check and append one record; ``None`` when skipped."""
+    ready = _new_valid_draft(log_file, record_id, payload, reference)
+    if ready is None:
+        return None
+    date, draft = ready
+    over_budget = budget_error_for_date(
+        log_file,
+        date,
+        [day for rid, day in pending.items() if rid != record_id],
+    )
+    if over_budget is not None:
+        _logger.info(
+            "Manual-workout budget exhausted — %s not ingested (%s)",
+            record_id,
+            over_budget,
+        )
+        return None
+    entry = build_entry(draft)
+    entry[_SYNC_ID_FIELD] = record_id
+    # The wire id IS the workout's id: the device that logged it minted
+    # ``manual:<date>T<start>`` once, and the publisher keys on the same
+    # id. Without this the chokepoint re-derived one from ``date`` +
+    # start, and when the two dates disagreed (a record whose day key was
+    # later corrected to the local day) the same workout landed twice
+    # under two ids -- and then consumed two manual-budget slots.
+    entry["workout_id"] = record_id
+    result = write_signed_entry(log_file, date, entry)
+    if not result.appended:
+        # This is dedup working, not credit being lost: the workout is
+        # already in the log under this same workout_id. It was logged at
+        # warning and re-reported on every 15-minute cycle, which read like
+        # a recurring fault and buried the lines that did need attention.
+        _logger.info(
+            "Manual record %s is already logged under the same workout_id "
+            "— skipped as a duplicate (its credit is already counted)",
+            record_id,
+        )
+        return None
+    return entry, result
+
+
 def ingest_manual_records(
     log_file: Path,
     records: Iterable[tuple[str, Mapping[str, object]]],
@@ -157,51 +230,10 @@ def ingest_manual_records(
     pending = pending_future_dates(log_file, batch, today=reference)
     ingested: list[str] = []
     for record_id, payload in batch:
-        date = _due_date(record_id, payload, reference)
-        if date is None:
+        outcome = _ingest_one(log_file, record_id, payload, reference, pending)
+        if outcome is None:
             continue
-        if _already_ingested(load_workout_log(log_file), record_id):
-            continue
-        draft = _draft_or_report(record_id, payload)
-        if draft is None:
-            continue
-        error = validate_manual_workout(draft)
-        if error is not None:
-            _logger.warning("Manual record %s invalid: %s", record_id, error)
-            continue
-        over_budget = budget_error_for_date(
-            log_file,
-            date,
-            [day for rid, day in pending.items() if rid != record_id],
-        )
-        if over_budget is not None:
-            _logger.info(
-                "Manual-workout budget exhausted — %s not ingested (%s)",
-                record_id,
-                over_budget,
-            )
-            continue
-        entry = build_entry(draft)
-        entry[_SYNC_ID_FIELD] = record_id
-        # The wire id IS the workout's id: the device that logged it minted
-        # ``manual:<date>T<start>`` once, and the publisher keys on the same
-        # id. Without this the chokepoint re-derived one from ``date`` +
-        # start, and when the two dates disagreed (a record whose day key was
-        # later corrected to the local day) the same workout landed twice
-        # under two ids -- and then consumed two manual-budget slots.
-        entry["workout_id"] = record_id
-        result = write_signed_entry(log_file, date, entry)
-        if not result.appended:
-            # This is dedup working, not credit being lost: the workout is
-            # already in the log under this same workout_id. It was logged at
-            # warning and re-reported on every 15-minute cycle, which read like
-            # a recurring fault and buried the lines that did need attention.
-            _logger.info(
-                "Manual record %s is already logged under the same workout_id "
-                "— skipped as a duplicate (its credit is already counted)",
-                record_id,
-            )
-            continue
+        entry, result = outcome
         ingested.append(record_id)
         if on_ingested is not None:
             on_ingested(entry, result.prior_entries)

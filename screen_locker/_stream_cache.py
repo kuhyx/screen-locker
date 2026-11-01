@@ -128,7 +128,7 @@ class DeviceLogCache:
                 outcome = _poke_credit.credit_sessions(
                     [(rid, payload) for rid, payload, _hlc in pending]
                 )
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught  # one bad event must not drop the stream
             # Not a stream problem: keep the connection (a reconnect would
             # re-download the snapshot and fail the same way). Nothing is
             # marked seen, so the next event retries.

@@ -183,7 +183,7 @@ class WorkoutCreditMixin:
         """
         try:
             _credit_notify.notify_workout_credit(before, after, self.log_file)
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught  # notification must never fail the credit
             _logger.exception(
                 "Workout credit notification failed — the credit itself is "
                 "applied; only the desktop notification is missing"

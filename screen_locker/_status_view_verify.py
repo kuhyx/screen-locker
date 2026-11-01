@@ -8,7 +8,7 @@ screen's unlock does.
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor  # pylint: disable=no-name-in-module
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING
@@ -19,6 +19,7 @@ from screen_locker._day import today_str
 from screen_locker._earned import extra_minutes, span
 from screen_locker._status_data import gather_status
 from screen_locker._weekly_check import WEEKLY_WORKOUT_MINIMUM, count_weekly_workouts
+from screen_locker.screen_lock import ScreenLocker
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -26,7 +27,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from screen_locker._workout_credit import WorkoutCreditResult
-    from screen_locker.screen_lock import ScreenLocker
 
 
 @dataclass(frozen=True)
@@ -53,8 +53,6 @@ def _make_bare_verifier(log_file: Path) -> ScreenLocker:
     ``--status`` — just enough state for the verification mixins' methods
     to run, no Tk lock UI, no ``__init__`` side effects.
     """
-    from screen_locker.screen_lock import ScreenLocker
-
     verifier = object.__new__(ScreenLocker)
     verifier.log_file = log_file
     verifier.workout_data = {}

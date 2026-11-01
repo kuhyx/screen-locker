@@ -13,12 +13,17 @@ forever.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 _logger = logging.getLogger(__name__)
 
@@ -63,8 +68,7 @@ def reexec_under_xvfb(
     repo_root = Path(__file__).resolve().parent.parent
     # Absolute argv, no shell.
     target = ["-m", module] if module is not None else [str(script)]
-    server, display = _start_xvfb(xvfb)
-    try:
+    with _xvfb_display(xvfb) as display:
         if display is None:
             _logger.error("Xvfb exited before it was ready to accept clients")
             return 1
@@ -73,26 +77,28 @@ def reexec_under_xvfb(
         return subprocess.run(
             [sys.executable, *target], check=False, cwd=repo_root, env=env
         ).returncode
-    finally:
-        server.terminate()
-        server.wait(timeout=5)
 
 
-def _start_xvfb(xvfb: str) -> tuple[subprocess.Popen[bytes], str | None]:
-    """Start Xvfb on a free display; return it and ``:N`` once it is ready.
+@contextlib.contextmanager
+def _xvfb_display(xvfb: str) -> Iterator[str | None]:
+    """Run Xvfb on a free display; yield ``:N`` once ready (``None`` if it died).
 
     ``-displayfd`` makes Xvfb pick a free display and write its number only
     once it accepts clients. ``xvfb-run`` instead sleeps a fixed 3 s after
     starting it, which was most of this pre-commit hook's runtime.
     """
     read_fd, write_fd = os.pipe()
-    server = subprocess.Popen(
+    with subprocess.Popen(
         [xvfb, "-displayfd", str(write_fd), "-nolisten", "tcp", *_SCREEN_ARG],
         pass_fds=(write_fd,),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
-    )
-    os.close(write_fd)
-    with os.fdopen(read_fd) as ready:
-        number = ready.readline().strip()
-    return server, f":{number}" if number else None
+    ) as server:
+        os.close(write_fd)
+        try:
+            with os.fdopen(read_fd) as ready:
+                number = ready.readline().strip()
+            yield f":{number}" if number else None
+        finally:
+            server.terminate()
+            server.wait(timeout=5)

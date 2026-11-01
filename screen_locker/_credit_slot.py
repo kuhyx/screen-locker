@@ -57,7 +57,7 @@ def credit_slot(
     if with_new == before:
         # No new slot: either it earns nothing at all, or its slot is taken.
         return CreditSlot.OCCUPIED if _counts_alone(new_entry) else CreditSlot.NONE
-    return CreditSlot.FIRST if before == 0 else CreditSlot.FURTHER
+    return CreditSlot.FURTHER if before else CreditSlot.FIRST
 
 
 def _counts_alone(entry: Mapping[str, Any]) -> bool:

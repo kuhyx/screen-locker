@@ -11,7 +11,7 @@ Deciding whether what came back counts as a workout stays in
 
 from __future__ import annotations
 
-from concurrent.futures import (  # pylint: disable=no-name-in-module
+from concurrent.futures import (
     ThreadPoolExecutor,
     as_completed,
 )

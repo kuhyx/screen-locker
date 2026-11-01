@@ -103,7 +103,7 @@ def send_notification(title: str, body: str) -> bool:
     except (OSError, subprocess.TimeoutExpired) as exc:
         _logger.warning("Desktop notification failed (%s): %s", exc, body)
         return False
-    if result.returncode != 0:
+    if result.returncode:
         _logger.warning(
             "notify-send exited %d (%s) — no desktop notification: %s",
             result.returncode,

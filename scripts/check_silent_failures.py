@@ -24,8 +24,13 @@ from __future__ import annotations
 
 import ast
 import logging
-from pathlib import Path
 import sys
+from typing import TYPE_CHECKING
+
+from scripts._silent_cli import run_hook
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 _logger = logging.getLogger(__name__)
 
@@ -61,7 +66,9 @@ def _is_silent_exit(node: ast.AST) -> bool:
     if not is_exit or len(node.args) != 1:
         return False
     arg = node.args[0]
-    return isinstance(arg, ast.Constant) and arg.value == 0
+    return isinstance(arg, ast.Constant) and (
+        isinstance(arg.value, int) and not arg.value
+    )
 
 
 def _find_silent_exits(tree: ast.AST) -> list[ast.Call]:
@@ -177,24 +184,7 @@ def _check_source(path: Path, source: str) -> list[str]:
 
 def main() -> int:
     """Return 1 if any file swallows an exception silently, else 0."""
-    problems: list[str] = []
-    for filename in sys.argv[1:]:
-        path = Path(filename)
-        try:
-            source = path.read_text(encoding="utf-8", errors="replace")
-        except OSError as exc:
-            _logger.warning(
-                "Could not read %s (%s) — reporting it as a problem rather than "
-                "skipping it, since its handlers cannot be checked",
-                path,
-                exc,
-            )
-            problems.append(f"{path}: could not read ({exc})")
-            continue
-        problems.extend(_check_source(path, source))
-    for problem in problems:
-        sys.stdout.write(f"{problem}\n")
-    return 1 if problems else 0
+    return run_hook(_check_source)
 
 
 if __name__ == "__main__":

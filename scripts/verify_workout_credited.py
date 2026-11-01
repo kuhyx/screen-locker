@@ -63,7 +63,7 @@ def main() -> int:
         return 1
 
     try:
-        log = json.loads(log_path.read_text())
+        log = json.loads(log_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         _logger.exception(
             "Could not read %s — cannot tell whether the workout was "

@@ -174,7 +174,7 @@ def locker_unit_active() -> bool | None:
     if not systemctl_available():
         return None
     code, out = _run(["systemctl", "--user", "is-active", LOCKER_UNIT])
-    if code != 0 and not out.strip():
+    if code and not out.strip():
         return None
     return out.strip() == "active"
 
@@ -186,7 +186,7 @@ def _login_target_active() -> bool:
         True when ``graphical-session.target`` is active.
     """
     code, out = _run(["systemctl", "--user", "is-active", _LOGIN_TARGET])
-    return code == 0 and out.strip() == "active"
+    return not code and out.strip() == "active"
 
 
 def collect_states() -> list[TimerState]:
@@ -205,7 +205,7 @@ def collect_states() -> list[TimerState]:
         states.append(
             TimerState(
                 name=name,
-                enabled=code == 0 and raw == "enabled",
+                enabled=not code and raw == "enabled",
                 enabled_raw=raw,
                 # For a timer this is "systemd has a next trigger for it";
                 # for the login-run service it is "the target it is wanted by

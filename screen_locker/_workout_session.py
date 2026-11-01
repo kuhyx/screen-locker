@@ -38,9 +38,11 @@ if TYPE_CHECKING:
         stdout: IO[str] | None
         returncode: int | None
 
-        def poll(self) -> int | None: ...
+        def poll(self) -> int | None:
+            """Return the exit code, or ``None`` while it still runs."""
 
-        def terminate(self) -> None: ...
+        def terminate(self) -> None:
+            """Ask the process to stop."""
 
 
 __all__ = ["WorkoutSession"]

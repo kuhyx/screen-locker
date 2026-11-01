@@ -88,7 +88,7 @@ def _top_level_imports(module: Path) -> set[str]:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 imported.add(alias.name.split(".", 1)[0])
-        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+        elif isinstance(node, ast.ImportFrom) and not node.level and node.module:
             imported.add(node.module.split(".", 1)[0])
     return imported
 

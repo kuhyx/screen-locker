@@ -103,8 +103,8 @@ def count_in_window(
     dated after today are NOT in it. Whether a new entry fits is a different
     question, answered per workout date by ``_manual_future``.
     """
-    today_str = today or _today_iso()
-    today_dt = _parse_iso(today_str)
+    day = today or _today_iso()
+    today_dt = _parse_iso(day)
     if today_dt is None:
         return 0
     cutoff = today_dt - timedelta(days=days)

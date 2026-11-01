@@ -135,7 +135,7 @@ class PokeHandler(BaseHTTPRequestHandler):
         started = time.perf_counter()
         try:
             status, reply = self._handle()
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught  # handler boundary: logged, answered 500
             _logger.exception("Workout poke from %s crashed", self.client_address[0])
             status = HTTPStatus.INTERNAL_SERVER_ERROR
             reply = _refused(

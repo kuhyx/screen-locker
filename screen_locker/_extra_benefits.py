@@ -18,7 +18,7 @@ State is persisted in ``extra_benefits_state.json`` next to this file.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 import json
 import logging
 from typing import TYPE_CHECKING, Any
@@ -62,7 +62,7 @@ def _save_state(state_file: Path, state: dict[str, Any]) -> None:
         _logger.warning("Failed to save extra benefits state: %s", exc)
 
 
-def _current_iso_week(now: datetime) -> str:
+def _current_iso_week(now: date) -> str:
     """Return *now*'s ISO week as ``YYYY-Www``."""
     year, week, _ = now.isocalendar()
     return f"{year}-W{week:02d}"
@@ -103,8 +103,7 @@ def process_week_transition(log_file: Path, state_file: Path) -> list[str]:
     eb_weeks: list[str] = list(state.get("extended_early_bird_iso_weeks", []))
 
     rewards: list[str] = []
-    prev_year, prev_week, _ = sunday_prev_week.isocalendar()
-    prev_week_str = f"{prev_year}-W{prev_week:02d}"
+    prev_week_str = _current_iso_week(sunday_prev_week)
 
     if prev_week_count >= _BONUS_THRESHOLD:
         streak += 1

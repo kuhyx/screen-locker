@@ -8,6 +8,9 @@ the user Ctrl+Alt+F2 out of the obligation the lock exists to enforce.
 from __future__ import annotations
 
 import tkinter as tk
+from unittest.mock import MagicMock
+
+from gatelock import LockWindow
 
 from screen_locker._workout_handoff import lock_grab_handoff, start_workout
 
@@ -28,7 +31,7 @@ class _FakeLock:
     """A lock window that records the order of grab operations."""
 
     def __init__(self, *, release_raises: bool = False) -> None:
-        self._recovery = _FakeRecovery()
+        self.recovery = _FakeRecovery()
         self.events: list[str] = []
         self.closed = False
         self._release_raises = release_raises
@@ -49,7 +52,7 @@ class _FakeLock:
 
     def grab_input(self) -> None:
         self.events.append("grab_input")
-        self._recovery.running = True
+        self.recovery.running = True
 
     def close(self) -> None:
         self.closed = True
@@ -62,16 +65,16 @@ class TestLockGrabHandoff:
         """A tick between release and the app's own grab would steal it back."""
         lock = _FakeLock()
         lock_grab_handoff(lock).release()
-        assert lock._recovery.events == ["stop"]
+        assert lock.recovery.events == ["stop"]
         assert lock.events == ["held=False", "grab_release"]
-        assert not lock._recovery.running
+        assert not lock.recovery.running
 
     def test_reacquire_restores_the_grab_and_the_watchdog(self) -> None:
         handoff = lock_grab_handoff(lock := _FakeLock())
         handoff.release()
         handoff.reacquire()
         assert lock.events == ["held=False", "grab_release", "grab_input"]
-        assert lock._recovery.running
+        assert lock.recovery.running
 
     def test_never_closes_the_lock_window(self) -> None:
         """close() also restores VT switching -- that is the escape hatch."""
@@ -116,3 +119,31 @@ class TestStartWorkout:
             _workout_handoff, "launch_workout_app", lambda _h: _Result()
         )
         assert "checking whether it counted" in start_workout(_FakeLock())
+
+
+class _Recorder:
+    """A lock stand-in that records every attribute the handoff reads."""
+
+    def __init__(self) -> None:
+        self.names: set[str] = set()
+
+    def __getattr__(self, name: str) -> MagicMock:
+        self.names.add(name)
+        return MagicMock()
+
+
+class TestAgainstTheRealGatelockApi:
+    """The fakes above cannot notice a renamed or private gatelock attribute."""
+
+    def test_the_handoff_only_reads_attributes_a_real_lock_window_has(self) -> None:
+        """``lock._recovery`` raised AttributeError live while fakes passed."""
+        spy = _Recorder()
+        handoff = lock_grab_handoff(spy)
+        handoff.release()
+        handoff.reacquire()
+        missing = {
+            name
+            for name in spy.names
+            if name != "root" and not hasattr(LockWindow, name)
+        }
+        assert not missing

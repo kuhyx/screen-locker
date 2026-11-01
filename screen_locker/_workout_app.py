@@ -49,9 +49,11 @@ if TYPE_CHECKING:
         stdout: IO[str] | None
         returncode: int | None
 
-        def terminate(self) -> None: ...
+        def terminate(self) -> None:
+            """Ask the process to stop."""
 
-        def wait(self) -> int: ...
+        def wait(self) -> int:
+            """Block until the process exits; return its exit code."""
 
     class _Spawner(Protocol):
         """``subprocess.Popen``, narrowed to the one call shape used here."""

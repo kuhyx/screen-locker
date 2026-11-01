@@ -71,7 +71,7 @@ def main() -> int:
 
     log_path = Path(args.log_file)
     try:
-        log = json.loads(log_path.read_text())
+        log = json.loads(log_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         _logger.exception("Cannot read %s", log_path)
         _report(f"ERROR: cannot read {log_path}: {exc}")
@@ -83,7 +83,7 @@ def main() -> int:
         _report(f"ERROR: {exc} — nothing changed")
         return 1
     try:
-        log_path.write_text(json.dumps(log, indent=2))
+        log_path.write_text(json.dumps(log, indent=2), encoding="utf-8")
     except OSError as exc:
         _logger.exception("Could not write %s", log_path)
         _report(f"ERROR: could not write {log_path}: {exc}")

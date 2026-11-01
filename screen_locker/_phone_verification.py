@@ -28,6 +28,18 @@ _HTTP_OK = _http_client.OK
 _logger = logging.getLogger(__name__)
 
 
+def _in_current_week(date_str: str) -> bool:
+    """True if *date_str* parses and falls in this ISO week up to today."""
+    today = datetime.now(tz=UTC).astimezone().date()
+    week_start = today - timedelta(days=today.weekday())
+    try:
+        entry_date = date.fromisoformat(date_str)
+    except ValueError:
+        _logger.warning("StrongLifts JSON has an unparsable date: %r", date_str)
+        return False
+    return week_start <= entry_date <= today
+
+
 class PhoneVerificationMixin(AdbTransportMixin, HttpWorkoutFetchMixin):
     """Mixin providing phone-based workout verification via ADB."""
 
@@ -119,16 +131,7 @@ class PhoneVerificationMixin(AdbTransportMixin, HttpWorkoutFetchMixin):
             return 0
         data = self._pull_workout_app_json()
         date_str = data.get("date") if data else None
-        if not date_str:
-            return 0
-        today = datetime.now(tz=UTC).astimezone().date()
-        week_start = today - timedelta(days=today.weekday())
-        try:
-            entry_date = date.fromisoformat(date_str)
-        except ValueError:
-            _logger.warning("StrongLifts JSON has an unparsable date: %r", date_str)
-            return 0
-        if not week_start <= entry_date <= today:
+        if not date_str or not _in_current_week(date_str):
             return 0
         status, msg = self._validate_json_content(data)
         if status != "verified":
@@ -145,6 +148,33 @@ class PhoneVerificationMixin(AdbTransportMixin, HttpWorkoutFetchMixin):
 
     # ── HTTP fallback (no ADB / developer options required) ───────────────────
 
+    def _pull_sync_result(self) -> tuple[tuple[str, str] | None, str | None]:
+        """Firebase sync first: the validated result (if any) and sync error.
+
+        Firebase sync is the primary channel -- it works without the phone
+        being on the same network as the PC. Only a *verified* result
+        short-circuits ADB/HTTP: a stale/incomplete cloud entry (e.g. the
+        phone's last push predates today, or a later push failed offline)
+        must not preempt a fresher ADB pull, so anything less than
+        "verified" is kept by the caller as a fallback-of-last-resort
+        candidate. A sync error never blocks unlocking either; `sync_failed`
+        only surfaces if ADB/HTTP also come up empty.
+        """
+        synced_data, sync_error = pull_synced_workout()
+        if synced_data is None:
+            if sync_error is not None:
+                _logger.info(
+                    "Firebase sync unavailable (%s) — trying ADB/HTTP...", sync_error
+                )
+            return None, sync_error
+        sync_result = self._validate_json_data(synced_data)
+        if sync_result[0] != "verified":
+            _logger.info(
+                "Synced data not fully verified (%s) — trying ADB/HTTP...",
+                sync_result[0],
+            )
+        return sync_result, sync_error
+
     def _verify_phone_workout(self) -> tuple[str, str]:
         """Verify today's workout: Firebase sync first, ADB/HTTP as fallback.
 
@@ -156,28 +186,9 @@ class PhoneVerificationMixin(AdbTransportMixin, HttpWorkoutFetchMixin):
         if not clock_ok:
             return "clock_tampered", clock_msg
 
-        # Firebase sync is the primary channel — it works without the phone
-        # being on the same network as the PC. Only a *verified* sync result
-        # short-circuits ADB/HTTP: a stale/incomplete cloud entry (e.g. the
-        # phone's last push predates today, or a later push failed offline)
-        # must not preempt a fresher ADB pull, so anything less than
-        # "verified" is kept as a fallback-of-last-resort candidate instead
-        # of being returned immediately. A sync error never blocks unlocking
-        # either; `sync_failed` only surfaces if ADB/HTTP also come up empty.
-        synced_data, sync_error = pull_synced_workout()
-        sync_result: tuple[str, str] | None = None
-        if synced_data is not None:
-            sync_result = self._validate_json_data(synced_data)
-            if sync_result[0] == "verified":
-                return sync_result
-            _logger.info(
-                "Synced data not fully verified (%s) — trying ADB/HTTP...",
-                sync_result[0],
-            )
-        elif sync_error is not None:
-            _logger.info(
-                "Firebase sync unavailable (%s) — trying ADB/HTTP...", sync_error
-            )
+        sync_result, sync_error = self._pull_sync_result()
+        if sync_result is not None and sync_result[0] == "verified":
+            return sync_result
 
         # Prefer ADB when a device is visible, but if the pull yields no usable
         # JSON, fall through to the HTTP/WiFi scan — the app's in-memory HTTP
@@ -194,13 +205,23 @@ class PhoneVerificationMixin(AdbTransportMixin, HttpWorkoutFetchMixin):
         data = self._fetch_http_workout()
         if data is not None:
             return self._validate_json_data(data)
-        if sync_result is not None:
-            return sync_result
-        if sync_error is not None:
-            return "sync_failed", sync_error
-        if adb_connected:
-            return (
-                "not_verified",
-                "Workout app JSON not found. Complete a workout in the app first.",
-            )
-        return "no_phone", "Phone not reachable via ADB or HTTP on local network"
+        return _no_data_result(sync_result, sync_error, adb_connected=adb_connected)
+
+
+def _no_data_result(
+    sync_result: tuple[str, str] | None,
+    sync_error: str | None,
+    *,
+    adb_connected: bool,
+) -> tuple[str, str]:
+    """The verdict when neither ADB nor HTTP produced a workout JSON."""
+    if sync_result is not None:
+        return sync_result
+    if sync_error is not None:
+        return "sync_failed", sync_error
+    if adb_connected:
+        return (
+            "not_verified",
+            "Workout app JSON not found. Complete a workout in the app first.",
+        )
+    return "no_phone", "Phone not reachable via ADB or HTTP on local network"

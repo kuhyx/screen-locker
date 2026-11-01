@@ -33,8 +33,8 @@ def stamp(day: date, hhmm_text: str) -> float:
     return moment.timestamp()
 
 
-def _iso(stamp: float) -> str:
-    return datetime.fromtimestamp(stamp).astimezone().isoformat()
+def _iso(moment: float) -> str:
+    return datetime.fromtimestamp(moment).astimezone().isoformat()
 
 
 def write_walk(folder: Path, day: date, start: str, minutes: int) -> None:

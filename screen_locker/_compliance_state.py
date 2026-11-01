@@ -18,6 +18,7 @@ surfaces the pending opportunity separately via ``AutoUpgradeOpportunity``.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -59,6 +60,135 @@ __all__ = [
 ]
 
 
+@dataclass(frozen=True)
+class _Step:
+    """One predicate of the lock-decision chain, in evaluation order."""
+
+    name: str
+    reason_true: str
+    reason_false: str
+    terminal_reason: str | None = None
+    note_when_false: bool = False
+
+
+# Order mirrors ``_check_non_verify_exits`` / ``_check_today_state_exits``.
+# ``early_bird_pending_expired`` is recorded but never terminal on its own: an
+# expired pending marker still falls through toward a full lock, with the
+# upgrade opportunity surfaced separately (see module docstring).
+_CHAIN: tuple[_Step, ...] = (
+    _Step(
+        "scheduled_skip",
+        "Today is in scheduled_skips.json (unconditional manual skip).",
+        "Today is not a manually scheduled skip day.",
+        "Manually scheduled skip day — no lock, no workout required.",
+    ),
+    _Step(
+        "early_bird_pending_expired",
+        "Logged in during the early-bird window and it has since closed "
+        "with no workout confirmed yet.",
+        "No expired early-bird pending marker.",
+    ),
+    _Step(
+        "early_bird_window_open",
+        "Logged in during the early-bird window earlier today; still "
+        "waiting to see a workout before the window closes.",
+        "Not pending inside an open early-bird window.",
+        "Early-bird window still open — lock skipped while waiting for a workout.",
+    ),
+    _Step(
+        "sick_day",
+        "Today is a sick day in the shared sickdays pool.",
+        "Today is not a sick day.",
+        "Sick day today — lock skipped.",
+    ),
+    _Step(
+        "already_logged",
+        "A validly-signed workout is already logged for today.",
+        "No workout logged for today yet.",
+        "Workout already logged today — lock skipped.",
+        note_when_false=True,
+    ),
+    _Step(
+        "wake_alarm_skip",
+        "The morning session earned a workout skip for now.",
+        "No morning-session skip in force.",
+        "Morning session earned a skip — lock skipped.",
+    ),
+    _Step(
+        "relaxed_day_already_skipped",
+        "Relaxed day already dismissed via Skip — No Penalty today.",
+        "No same-day relaxed-day dismissal on record.",
+        "Relaxed day already skipped today — lock skipped, prompt not shown again.",
+    ),
+    _Step(
+        "relaxed_day",
+        "Today is a relaxed day (Tue/Wed/Thu).",
+        "Today is not a relaxed day.",
+        "Relaxed day (Tue/Wed/Thu) — workout optional, lock skipped.",
+    ),
+    _Step(
+        "weekly_minimum_met",
+        "Weekly workout minimum already reached.",
+        "Weekly workout minimum not yet reached.",
+        "Weekly workout minimum already met — lock skipped.",
+    ),
+    _Step(
+        "evening_lockdown_today",
+        "Tonight's night lockdown already fired (>= 12:00 today).",
+        "No evening night lockdown yet today.",
+        "Night lockdown already happened tonight — the workout lock does not re-arm.",
+    ),
+)
+
+
+def _chain_flags(
+    *,
+    log_file: Path,
+    weekly_minimum_met: bool,
+    relaxed_day: bool,
+    wake_skip: bool,
+    evening_lockdown: bool,
+    local_dt: datetime,
+    pending: bool,
+) -> dict[str, bool]:
+    """Evaluate every predicate once; the keys are the ``_CHAIN`` step names."""
+    today_str = local_day(local_dt)
+    # The early-bird window IS the wake-alarm carrot (EarlyBirdMixin).
+    return {
+        "scheduled_skip": is_scheduled_skip_today(local_dt.date()),
+        "early_bird_pending_expired": pending and not wake_skip,
+        "early_bird_window_open": pending and wake_skip,
+        "sick_day": is_sick_day_today(local_dt.date()),
+        "already_logged": has_logged_today(log_file, today=today_str),
+        "wake_alarm_skip": wake_skip,
+        "relaxed_day_already_skipped": relaxed_day
+        and is_relaxed_day_skipped_today(log_file, today=today_str),
+        "relaxed_day": relaxed_day,
+        "weekly_minimum_met": weekly_minimum_met,
+        "evening_lockdown_today": evening_lockdown,
+    }
+
+
+def _walk_chain(
+    fired: dict[str, bool], context: StageContext, degraded_note: str
+) -> LockExplanation | None:
+    """Record each step in ``context.trace``; return the first terminal one."""
+    for step in _CHAIN:
+        hit = fired[step.name]
+        reason = step.reason_true if hit else step.reason_false
+        if step.note_when_false and not hit:
+            reason += degraded_note
+        context.trace.append(PredicateResult(step.name, hit, reason))
+        if hit and step.terminal_reason is not None:
+            return _stage(
+                fired=False,
+                stage=step.name,
+                reason=step.terminal_reason,
+                context=context,
+            )
+    return None
+
+
 def explain_lock_decision(
     *,
     log_file: Path,
@@ -77,155 +207,25 @@ def explain_lock_decision(
     reported via ``heat_skip_evaluated=False``, not guessed.
     """
     instant = now if now is not None else datetime.now(tz=UTC)
-    today_str = local_day(instant)
-    local_dt = instant.astimezone()
-
-    scheduled = is_scheduled_skip_today(local_dt.date())
-    pending = is_early_bird_pending(early_bird_pending_file, today=today_str)
-    # The early-bird window IS the wake-alarm carrot (EarlyBirdMixin).
-    window_open = wake_skip
-    expired = pending and not window_open
-    early_bird_open_and_pending = pending and window_open
-    sick_today = is_sick_day_today(local_dt.date())
-    logged = has_logged_today(log_file, today=today_str)
-    relaxed_day_already_skipped = relaxed_day and is_relaxed_day_skipped_today(
-        log_file, today=today_str
+    pending = is_early_bird_pending(early_bird_pending_file, today=local_day(instant))
+    fired = _chain_flags(
+        log_file=log_file,
+        weekly_minimum_met=weekly_minimum_met,
+        relaxed_day=relaxed_day,
+        wake_skip=wake_skip,
+        evening_lockdown=evening_lockdown,
+        local_dt=instant.astimezone(),
+        pending=pending,
     )
-
     auto_upgrade = describe_auto_upgrade_opportunity(
         early_bird_pending=pending,
-        early_bird_window_open=window_open,
+        early_bird_window_open=wake_skip,
     )
-
-    trace: list[PredicateResult] = []
-    stage_context = StageContext(trace, auto_upgrade, bool(degraded_sources))
-
-    def _check(
-        name: str,
-        *,
-        fired: bool,
-        reason_true: str,
-        reason_false: str,
-        terminal_reason: str | None = None,
-    ) -> LockExplanation | None:
-        """Record one trace step; return an explanation if it terminates the chain."""
-        reason = reason_true if fired else reason_false
-        trace.append(PredicateResult(name, fired, reason))
-        if fired and terminal_reason is not None:
-            return _stage(
-                fired=False,
-                stage=name,
-                reason=terminal_reason,
-                context=stage_context,
-            )
-        return None
-
-    result = _check(
-        "scheduled_skip",
-        fired=scheduled,
-        reason_true="Today is in scheduled_skips.json (unconditional manual skip).",
-        reason_false="Today is not a manually scheduled skip day.",
-        terminal_reason="Manually scheduled skip day — no lock, no workout required.",
-    )
-    if result is not None:
-        return result
-
-    # Recorded but never terminal on its own: an expired pending marker still
-    # falls through toward a full lock, with the upgrade opportunity surfaced
-    # separately via `auto_upgrade` (see module docstring).
-    _check(
-        "early_bird_pending_expired",
-        fired=expired,
-        reason_true="Logged in during the early-bird window and it has since closed "
-        "with no workout confirmed yet.",
-        reason_false="No expired early-bird pending marker.",
-    )
-
-    result = _check(
-        "early_bird_window_open",
-        fired=early_bird_open_and_pending,
-        reason_true="Logged in during the early-bird window earlier today; still "
-        "waiting to see a workout before the window closes.",
-        reason_false="Not pending inside an open early-bird window.",
-        terminal_reason=(
-            "Early-bird window still open — lock skipped while waiting for a workout."
-        ),
-    )
-    if result is not None:
-        return result
-
-    result = _check(
-        "sick_day",
-        fired=sick_today,
-        reason_true="Today is a sick day in the shared sickdays pool.",
-        reason_false="Today is not a sick day.",
-        terminal_reason="Sick day today — lock skipped.",
-    )
-    if result is not None:
-        return result
-
+    context = StageContext([], auto_upgrade, bool(degraded_sources))
     degraded_note = describe_degraded_sources(degraded_sources)
-    result = _check(
-        "already_logged",
-        fired=logged,
-        reason_true="A validly-signed workout is already logged for today.",
-        reason_false="No workout logged for today yet." + degraded_note,
-        terminal_reason="Workout already logged today — lock skipped.",
-    )
-    if result is not None:
-        return result
-
-    result = _check(
-        "wake_alarm_skip",
-        fired=wake_skip,
-        reason_true="The morning session earned a workout skip for now.",
-        reason_false="No morning-session skip in force.",
-        terminal_reason="Morning session earned a skip — lock skipped.",
-    )
-    if result is not None:
-        return result
-
-    result = _check(
-        "relaxed_day_already_skipped",
-        fired=relaxed_day_already_skipped,
-        reason_true="Relaxed day already dismissed via Skip — No Penalty today.",
-        reason_false="No same-day relaxed-day dismissal on record.",
-        terminal_reason="Relaxed day already skipped today — lock skipped, "
-        "prompt not shown again.",
-    )
-    if result is not None:
-        return result
-
-    result = _check(
-        "relaxed_day",
-        fired=relaxed_day,
-        reason_true="Today is a relaxed day (Tue/Wed/Thu).",
-        reason_false="Today is not a relaxed day.",
-        terminal_reason="Relaxed day (Tue/Wed/Thu) — workout optional, lock skipped.",
-    )
-    if result is not None:
-        return result
-
-    result = _check(
-        "weekly_minimum_met",
-        fired=weekly_minimum_met,
-        reason_true="Weekly workout minimum already reached.",
-        reason_false="Weekly workout minimum not yet reached.",
-        terminal_reason="Weekly workout minimum already met — lock skipped.",
-    )
-    if result is not None:
-        return result
-
-    result = _check(
-        "evening_lockdown_today",
-        fired=evening_lockdown,
-        reason_true="Tonight's night lockdown already fired (>= 12:00 today).",
-        reason_false="No evening night lockdown yet today.",
-        terminal_reason="Night lockdown already happened tonight — the workout "
-        "lock does not re-arm.",
-    )
-    if result is not None:
-        return result
+    terminal = _walk_chain(fired, context, degraded_note)
+    if terminal is not None:
+        return terminal
 
     # Named for the conclusion; "..._pending_heat_check" read as "stuck".
     return _stage(
@@ -237,5 +237,5 @@ def explain_lock_decision(
             "temperature is checked, and a run may or may not be happening "
             "right now (see Health)." + degraded_note
         ),
-        context=stage_context,
+        context=context,
     )

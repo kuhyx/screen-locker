@@ -130,7 +130,7 @@ def grab_holder(root: tk.Tk) -> str:
 class FormHost(UIWidgetsMixin, ManualWorkoutDialogMixin):
     """The two hooks the mixin requires, over a real Tk root."""
 
-    def __init__(self, root: tk.Tk) -> None:
+    def __init__(self, root: tk.Tk, log_file: Path) -> None:
         """Set only the attributes the form actually reads."""
         self.root = root
         self.demo_mode = False
@@ -139,8 +139,7 @@ class FormHost(UIWidgetsMixin, ManualWorkoutDialogMixin):
         # week's manual workouts are used up, so pointing at the live log made
         # this check pass or fail on how much the user had exercised that
         # week rather than on whether the widgets survive a recovery tick.
-        self._log_dir = TemporaryDirectory()
-        self.log_file = Path(self._log_dir.name) / "log.json"
+        self.log_file = log_file
         self.log_file.write_text("{}")
         self._colors = LockConfig()
         self.container = FrameGroup.single(root, bg=self._colors.palette.bg)
@@ -178,9 +177,15 @@ def radios(widget: tk.Misc) -> list[tk.Radiobutton]:
 
 def check_real_form_survives() -> bool:
     """Build the production form, pick "Other", hold it through the ticks."""
+    with TemporaryDirectory() as scratch:
+        return _check_form(Path(scratch) / "log.json")
+
+
+def _check_form(log_file: Path) -> bool:
+    """The body of :func:`check_real_form_survives`, over a throwaway log."""
     root = tk.Tk()
     root.geometry("1600x1200+0+0")
-    host = FormHost(root)
+    host = FormHost(root, log_file)
     host.render()
     root.update()
 

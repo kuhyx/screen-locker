@@ -63,8 +63,7 @@ def read_shutdown_config(path: Path) -> tuple[int, int, int] | None:
         else:
             _logger.warning("Shutdown config missing required values")
             return None
-    mon_wed, thu_sun, morning_end = values
-    return mon_wed, thu_sun, morning_end
+    return values[0], values[1], values[2]
 
 
 class ShutdownMixin(SickFloorMixin, LateCreditMixin):

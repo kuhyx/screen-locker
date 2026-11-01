@@ -49,7 +49,7 @@ def is_empty_stub(payload: Mapping[str, object]) -> bool:
     produced an unbounded stream of identical warnings (four every 15 minutes),
     which is how the genuinely actionable lines got lost in the noise.
     """
-    return not (_SUBSTANTIVE_FIELDS & set(payload))
+    return not _SUBSTANTIVE_FIELDS & set(payload)
 
 
 def _coerce_int(value: object) -> int:

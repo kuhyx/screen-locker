@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor  # pylint: disable=no-name-in-module
+from concurrent.futures import ThreadPoolExecutor
 
 from screen_locker._weekly_check import (
     RELAXED_DAY_SKIP_TYPE,

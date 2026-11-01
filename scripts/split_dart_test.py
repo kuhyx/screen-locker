@@ -33,7 +33,7 @@ def top_level_groups(lines: list[str]) -> list[int]:
 
 def split(path: Path, specs: list[tuple[Path, int]]) -> None:
     """Write each spec's group range to its own file, trimming the source."""
-    lines = path.read_text().splitlines(keepends=True)
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
     groups = top_level_groups(lines)
     main_idx = next(i for i, ln in enumerate(lines) if ln.startswith("void main("))
     header = "".join(lines[:main_idx])
@@ -47,16 +47,17 @@ def split(path: Path, specs: list[tuple[Path, int]]) -> None:
     )
     trailer = "".join(lines[main_end + 1 :])
 
-    bounds = [i for _, i in specs] + [len(groups)]
-    for (out, start), end in zip(specs, bounds[1:], strict=False):
-        first = groups[start]
+    ends = [i for _, i in specs[1:]] + [len(groups)]
+    for (out, start), end in zip(specs, ends, strict=True):
         last = groups[end] if end < len(groups) else main_end
-        body = "".join(lines[first:last]).rstrip("\n")
-        out.write_text(f"{header}void main() {{\n{preamble}{body}\n}}\n{trailer}")
+        body = "".join(lines[groups[start] : last]).rstrip("\n")
+        out.write_text(
+            f"{header}void main() {{\n{preamble}{body}\n}}\n{trailer}", encoding="utf-8"
+        )
 
-    keep = groups[specs[0][1]]
     path.write_text(
-        "".join(lines[:keep]).rstrip("\n") + "\n}\n" + trailer,
+        "".join(lines[: groups[specs[0][1]]]).rstrip("\n") + "\n}\n" + trailer,
+        encoding="utf-8",
     )
 
 

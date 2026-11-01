@@ -223,7 +223,7 @@ def count_weekly_workouts(
                 exc,
             )
             continue
-        if not (week_start <= entry_date <= today_date):
+        if entry_date < week_start or entry_date > today_date:
             continue
         count += count_day_credits(date_str, entries)
     return count

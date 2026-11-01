@@ -98,7 +98,6 @@ def _simulate(args: argparse.Namespace, tmp: Path) -> None:
     if args.rest_day:
         eve = datetime.combine(day - timedelta(days=1), time(12)).astimezone()
         _say(f"    declare: {declare(day, now=eve, path=rest_file).reason}")
-    rest = is_rest_day(day, rest_file)
     done = {n for n in (args.done or "").split(",") if n}
     flat = {e.name: e.name in done for e in _earned.flat_earners()}
     first = stamp(day, args.first_done) if args.first_done else None
@@ -109,7 +108,7 @@ def _simulate(args: argparse.Namespace, tmp: Path) -> None:
             day,
             flat,
             day_credit_count(log, day),
-            rest_day=rest,
+            rest_day=is_rest_day(day, rest_file),
             first_done=min(times, default=None),
             sick_day=sick_pool(day, sick_day=args.sick_day),
         )
@@ -130,9 +129,8 @@ def _sequence(args: argparse.Namespace, tmp: Path) -> None:
         vars(module)["GRACE_STATE_FILE"] = tmp / "grace_floor.json"
     use_temp_pool(tmp)
     done = {e.name: False for e in _earned.flat_earners()}
-    start = derive(DayInputs(day, done))
-    sim = SimShutdown(start.minutes)
-    _say(f"[sequence] {day} start {hhmm(start.minutes)} (nothing done, not sick)")
+    sim = SimShutdown(derive(DayInputs(day, done)).minutes)
+    _say(f"[sequence] {day} start {hhmm(sim.config[0])} (nothing done, not sick)")
     workouts, first, went_late = 0, None, False
     # The real target reads today's real ledgers; the sim's are ``done``.
     vars(_sick_floor)["sick_target"] = lambda d, _log: (
@@ -177,12 +175,10 @@ def main() -> int:
     parser.add_argument("--sequence", help="name@HH:MM,... live passes in order")
     parser.add_argument("--log", type=Path, default=_LOG, help="log.json (read-only)")
     args = parser.parse_args()
-    ladder = getattr(earned_time, "on_ladder", None)
     _say(f"earned_time from {Path(earned_time.__file__).parent}")
     if args.day is None:
         today = date.fromisoformat(today_str())
-        on = ladder(today) if ladder else False
-        _say(f"    ladder in force today: {on}")
+        _say(f"    ladder in force today: {earned_time.on_ladder(today)}")
         live = read_shutdown_config(SHUTDOWN_CONFIG_FILE)
         _say(
             f"    live config: {tuple(hhmm(m) for m in live) if live else 'unreadable'}"
@@ -195,7 +191,7 @@ def main() -> int:
             _report(f"today {label}", derive(replace(inputs, sick_day=sick)))
         return 0
     day = date.fromisoformat(args.day)
-    _say(f"    ladder in force on {day}: {ladder(day) if ladder else False}")
+    _say(f"    ladder in force on {day}: {earned_time.on_ladder(day)}")
     with tempfile.TemporaryDirectory(prefix="preview_shutdown_") as raw:
         if args.sequence:
             _sequence(args, Path(raw))
