@@ -14,9 +14,3 @@ Implementing design_v2.md improvements.
   workout and shows the status-bar notification; notification presses go
   through a durable prefs queue, never straight into sqflite (the CRDT
   sync layer owns that database's ordering)
-
-## Next Steps
-- Clarify user intent on "no break between sets" (contradicts design_v2.md which
-  explicitly requested per-set breaks)
-
-REMOVE ME AFTER FINISH
