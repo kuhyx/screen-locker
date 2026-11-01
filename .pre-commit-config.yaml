@@ -122,14 +122,13 @@ repos:
       #   duplicate-code    near-identical `with patch(...)` preambles; a test
       #                     should read top-to-bottom without chasing a fixture.
       # Splitting also removes the old failure mode where the score depended on
-      # what else happened to be staged alongside. See
-      # todo_fix_pylint_10_prompt.md for raising both to a hard 10.00.
+      # what else happened to be staged alongside. Both are a hard 10.00.
       - id: pylint
-        name: pylint (source)
+        name: pylint (source, 10.00)
         exclude: ^screen_locker/tests/
         args:
           - --rcfile=pyproject.toml
-          - --fail-under=8.0
+          - --fail-under=10
         additional_dependencies:
           - pytest
           # Kept in step with pyproject.toml: pip refuses two different
@@ -144,12 +143,12 @@ repos:
           - mcp>=2,<3
           - pydantic
       - id: pylint
-        name: pylint (tests)
+        name: pylint (tests, 10.00)
         alias: pylint-tests
         files: ^screen_locker/tests/
         args:
           - --rcfile=pyproject.toml
-          - --fail-under=8.0
+          - --fail-under=10
           - --disable=protected-access,unused-argument,duplicate-code
         additional_dependencies:
           - pytest
