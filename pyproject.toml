@@ -97,16 +97,6 @@ unfixable = []
 # -truth reuse status_view.py above is exempted for — and _make_bare_verifier
 # imports ScreenLocker inside the function to avoid an import cycle.
 "screen_locker/_status_view_verify.py" = ["PLC0415", "SLF001"]
-# _workout_handoff.py must pause gatelock's recovery watchdog while the Flutter
-# app holds the screen. The loop re-takes any grab it finds missing every
-# 1000ms -- by design, so that pulling a cable is not an escape -- and
-# holds_grab() is `grab_current() is not None`, which is False once another X
-# client holds it. Left running it would steal the screen back from the workout
-# app within a second. gatelock exposes no public pause (only close(), which
-# also restores VT switching and would hand the user Ctrl+Alt+F2), and adding
-# one there would contradict _recovery.py's monotonicity proof that no
-# transition ever decreases the grab.
-"screen_locker/_workout_handoff.py" = ["SLF001"]
 # explain_lock_decision takes one arg per real file path and input, and
 # returns early per lock-decision-chain stage (see module docstring) — both
 # are the deliberate design, not something to collapse into a config object.
@@ -188,14 +178,6 @@ persistent = true
 jobs = 1
 py-version = "3.14"
 ignore = [".venv", "__pycache__"]
-# Test suites intentionally use patterns (protected-access, fixture-arg
-# shadowing) that don't apply to source code; ruff's per-file-ignores carry
-# the equivalent exemptions, so tests stay linted -- by ruff. This is the same
-# source-only pylint scope wake-alarm / diet-guard / testsAndMisc use. It has
-# to be `ignore-paths`, not `ignore = ["tests"]`: `ignore` only matches the
-# basename of what pylint is *given*, and pre-commit hands it explicit file
-# paths, so a directory name in `ignore` never fires under the hook.
-ignore-paths = ["^(.*/)?tests/.*$"]
 ignore-patterns = [".*\\.pyi$"]
 
 [tool.pylint.messages_control]
@@ -205,7 +187,42 @@ disable = []
 [tool.pylint.design]
 min-public-methods = 0
 max-module-lines = 1000
-max-attributes = 10
+# ScreenLocker composes ~30 mixins; collapsing them is not the goal.
+max-parents = 40
+# Keyword-only arguments count: the gather_*/explain_* entry points take one
+# per real file path so tests can override each.
+max-args = 8
+# ManualWorkoutDraft is a flat 23-field record mirroring the evidence form and
+# the wire payload; StatusWindow / ScreenLocker hold UI and injected state.
+max-attributes = 25
+
+[tool.pylint.similarities]
+# The remaining overlaps are 6-11 line fragments of deliberately parallel code
+# (Tk button rows, the two JSON ledgers' loaders, mixin host stubs); a real
+# copy-paste block is longer than this.
+min-similarity-lines = 12
+
+[tool.pylint.format]
+# BaseHTTPRequestHandler dispatches on the method names do_GET / do_POST.
+good-names-rgxs = "^do_(GET|POST)$"
+
+[tool.pylint.classes]
+# The mixin-host surface: module-level helpers (shutdown_base, status, the
+# status window's verify flow) drive the ScreenLocker's own mixin methods, the
+# same single-source-of-truth reuse ruff exempts via per-file SLF001.
+exclude-protected = [
+    "_asdict", "_fields", "_replace", "_source", "_make", "os._exit",
+    "_adjust_shutdown_time_by",
+    "_apply_sick_floor",
+    "_apply_workout_credit",
+    "_credit_ingested_workout",
+    "_read_shutdown_config",
+    "_scan_and_fill_week_runnerup",
+    "_try_fill_stronglifts_for_week",
+    "_verify_phone_workout",
+    "_verify_runnerup_workout",
+    "_write_shutdown_config",
+]
 
 [tool.pylint.typecheck]
 generated-members = [
