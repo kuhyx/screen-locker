@@ -15,7 +15,14 @@ from unittest.mock import patch
 import earned_time
 import pytest
 
-from screen_locker import _ceiling, _cli, _earned, _grace_floor, _runnerup_tcx, _workout_credit
+from screen_locker import (
+    _ceiling,
+    _cli,
+    _earned,
+    _grace_floor,
+    _runnerup_tcx,
+    _workout_credit,
+)
 from screen_locker._shutdown import ShutdownMixin
 from screen_locker._workout_credit import WorkoutCreditMixin
 
