@@ -99,7 +99,7 @@ jobs:
       # cache cost ~38 s to restore even on a hit.
       - uses: kuhyx/utils/flutter-setup@flutter-setup-v1
         with:
-          flutter-version: 3.47.7
+          flutter-version: 3.47.9
           working-directory: stronglift_replacement/workout_app
 
       - name: flutter test --coverage, bucket ${{ matrix.shard }}
@@ -136,7 +136,7 @@ jobs:
           package_json_file: web/package.json
       - uses: actions/setup-node@v4
         with:
-          node-version: 24.22.1
+          node-version: 26.13.0
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
