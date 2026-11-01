@@ -231,6 +231,14 @@ addopts = [
     "--cov-branch",
     "--cov-report=term-missing",
     "--cov-report=lcov",
+    # The commit gate runs plain `python -m pytest -q`; serial it took 26 s of
+    # its 60 s budget, 4 workers 9 s. Fixed, not `auto`: auto is 24 workers
+    # here, past capped.sh's 4 GiB. CI's own `-n auto` comes later and wins;
+    # `-n0` gets a serial run back.
+    "-n",
+    "4",
+    "--dist",
+    "worksteal",
     # A fixture-only plugin module, not conftest.py (already at the
     # repo's 400-line-per-file cap) -- see its own docstring.
     "-p",
@@ -245,6 +253,9 @@ filterwarnings = [
 [tool.coverage.run]
 source = ["screen_locker"]
 branch = true
+# sys.monitoring (PEP 669) rather than the C tracer: test_shutdown_ceiling_
+# invariant.py alone measured 13 s vs 22 s, for the same line+branch data.
+core = "sysmon"
 omit = [
     "*/__pycache__/*",
     "*/tests/*",

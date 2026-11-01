@@ -161,12 +161,17 @@ def _live_pass(day: date, case: tuple[str, bool, int, str]) -> int:
     for _ in range(further if extra else 0):
         host._adjust_shutdown_time_by(extra, at=when)
     state: dict[str, Any] = {}
-    for gate in (e for e in registry_for(day) if is_gate(e)):
-        if gate.kind == "flat":
-            host._adjust_shutdown_time_by(first_minutes(gate, day), at=when)
-            continue
-        for units in range(1, (gate.max_units or 1) + 1):
-            with patch.object(_gate_bonus, "earned_units", return_value=units):
+    # One plain-function patch per day, not a MagicMock per unit: building
+    # ~5000 mocks was half of this file's runtime. ``answered`` is the ledger's
+    # unit count at the moment each counted credit is applied.
+    answered = [0]
+    with patch.object(_gate_bonus, "earned_units", lambda _e, _d: answered[0]):
+        for gate in (e for e in registry_for(day) if is_gate(e)):
+            if gate.kind == "flat":
+                host._adjust_shutdown_time_by(first_minutes(gate, day), at=when)
+                continue
+            for units in range(1, (gate.max_units or 1) + 1):
+                answered[0] = units
                 apply_counted_bonus(
                     state,
                     partial(host._adjust_shutdown_time_by, at=when),

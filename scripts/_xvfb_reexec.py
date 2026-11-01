@@ -5,7 +5,7 @@ to keep every file under the 250-line cap. Both had their own near-identical
 copy; they differ only in the sentinel env var and how the inner process is
 addressed, so both are parameters here.
 
-Each script runs itself twice: the outer run starts ``xvfb-run`` and re-execs,
+Each script runs itself twice: the outer run starts ``Xvfb`` and re-execs,
 the inner run (marked by the sentinel) does the real work against that
 display. Without the sentinel the inner process would start another Xvfb
 forever.
@@ -24,7 +24,7 @@ _logger = logging.getLogger(__name__)
 
 # Comfortably bigger than every size under test, so each surface is sized by
 # the geometry the harness sets rather than clamped by the display.
-_SCREEN_ARG = "-screen 0 1600x1200x24"
+_SCREEN_ARG = ("-screen", "0", "1600x1200x24")
 
 
 def reexec_under_xvfb(
@@ -46,27 +46,53 @@ def reexec_under_xvfb(
         script: Absolute path of the script file to run.
 
     Returns:
-        The inner process's exit code, or 1 if ``xvfb-run`` is unavailable.
+        The inner process's exit code, or 1 if ``Xvfb`` is unavailable or
+        never became ready.
     """
     if (module is None) == (script is None):
         msg = "pass exactly one of module= or script="
         raise ValueError(msg)
 
-    xvfb_run = shutil.which("xvfb-run")
-    if xvfb_run is None:
+    xvfb = shutil.which("Xvfb")
+    if xvfb is None:
         _logger.error(
-            "xvfb-run not found. Install it with: sudo pacman -S --needed "
-            "xorg-server-xvfb"
+            "Xvfb not found. Install it with: sudo pacman -S --needed xorg-server-xvfb"
         )
         return 1
 
-    env = dict(os.environ, **{inner_env: "1"})
     repo_root = Path(__file__).resolve().parent.parent
     # Absolute argv, no shell.
     target = ["-m", module] if module is not None else [str(script)]
-    return subprocess.run(
-        [xvfb_run, "-a", "-s", _SCREEN_ARG, sys.executable, *target],
-        check=False,
-        cwd=repo_root,
-        env=env,
-    ).returncode
+    server, display = _start_xvfb(xvfb)
+    try:
+        if display is None:
+            _logger.error("Xvfb exited before it was ready to accept clients")
+            return 1
+        env = dict(os.environ, DISPLAY=display, **{inner_env: "1"})
+        env.pop("XAUTHORITY", None)  # a throwaway server has no cookie to check
+        return subprocess.run(
+            [sys.executable, *target], check=False, cwd=repo_root, env=env
+        ).returncode
+    finally:
+        server.terminate()
+        server.wait(timeout=5)
+
+
+def _start_xvfb(xvfb: str) -> tuple[subprocess.Popen[bytes], str | None]:
+    """Start Xvfb on a free display; return it and ``:N`` once it is ready.
+
+    ``-displayfd`` makes Xvfb pick a free display and write its number only
+    once it accepts clients. ``xvfb-run`` instead sleeps a fixed 3 s after
+    starting it, which was most of this pre-commit hook's runtime.
+    """
+    read_fd, write_fd = os.pipe()
+    server = subprocess.Popen(
+        [xvfb, "-displayfd", str(write_fd), "-nolisten", "tcp", *_SCREEN_ARG],
+        pass_fds=(write_fd,),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    os.close(write_fd)
+    with os.fdopen(read_fd) as ready:
+        number = ready.readline().strip()
+    return server, f":{number}" if number else None

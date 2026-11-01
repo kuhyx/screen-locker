@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import http.client
+from inspect import signature
+import threading
 import time
 from unittest.mock import MagicMock, patch
 import urllib.error
@@ -134,16 +136,24 @@ class TestNothingEscapesTheFetch:
         assert result.timed_out is False
 
     def test_the_whole_check_is_bounded_by_the_hard_timeout(self) -> None:
-        """The user's requirement: at most 5s, then lock regardless."""
+        """The user's requirement: at most 5s, then lock regardless.
+
+        The bound is the default argument, so it is pinned to 5s here and the
+        mechanism is timed at 0.1s: the same guarantee without 5 real seconds.
+        """
+        default = signature(fetch_current_temp_with_status).parameters["hard_timeout"]
+        assert default.default == HARD_TIMEOUT_SECONDS == 5.0
+        hang = threading.Event()
         with patch(
             "screen_locker._temperature._fetch_current_temp_celsius_unbounded",
-            side_effect=lambda _city: time.sleep(30),
+            side_effect=lambda _city: hang.wait(30),
         ):
             started = time.monotonic()
-            result = fetch_current_temp_with_status("Warsaw")
+            result = fetch_current_temp_with_status("Warsaw", hard_timeout=0.1)
             elapsed = time.monotonic() - started
+        hang.set()  # release the abandoned worker thread
         assert result.timed_out is True
-        assert elapsed <= HARD_TIMEOUT_SECONDS + 0.5
+        assert elapsed <= 0.1 + 0.5
 
 
 class TestSubmitBackground:

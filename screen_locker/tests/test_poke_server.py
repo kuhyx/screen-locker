@@ -52,7 +52,8 @@ def port(monkeypatch: pytest.MonkeyPatch) -> Iterator[int]:
     """A running PokeServer on 127.0.0.1:0; shut down afterwards."""
     monkeypatch.setattr(socket, "create_connection", _REAL_CREATE_CONNECTION)
     server = PokeServer(("127.0.0.1", 0), _KEY)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    # poll_interval: shutdown() waits out one poll, 0.5 s per test by default.
+    thread = threading.Thread(target=server.serve_forever, args=(0.01,), daemon=True)
     thread.start()
     try:
         yield server.server_address[1]

@@ -58,11 +58,11 @@ jobs:
           enable-cache: true
           cache-dependency-glob: requirements.txt
 
-      # No apt step: the runner image already ships xvfb-run, and
+      # No apt step: the runner image already ships Xvfb, and
       # setup-python's interpreter has its own tkinter (python3-tk is for the
       # system python, which this job never runs). The apt-get update +
       # install cost ~35 s. If either ever goes missing the check does not
-      # skip -- _xvfb_reexec returns 1 without xvfb-run, and the import fails
+      # skip -- _xvfb_reexec returns 1 without Xvfb, and the import fails
       # without tkinter.
       - name: Install dependencies
         run: |

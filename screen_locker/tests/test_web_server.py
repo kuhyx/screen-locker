@@ -53,7 +53,8 @@ def _running() -> Iterator[int]:
         The bound port.
     """
     server = create_server("127.0.0.1", 0)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    # poll_interval: shutdown() waits out one poll, 0.5 s per test by default.
+    thread = threading.Thread(target=server.serve_forever, args=(0.01,), daemon=True)
     thread.start()
     try:
         yield server.server_address[1]

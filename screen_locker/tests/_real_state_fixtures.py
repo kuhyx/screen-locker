@@ -200,3 +200,17 @@ def _no_real_night_lockdown(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
         "NIGHT_LOCKDOWN_STAMP",
         tmp_path / "locked_at_epoch",
     )
+
+
+@pytest.fixture(autouse=True)
+def _no_real_ntp() -> Iterator[None]:
+    """Never send a real NTP query to pool.ntp.org from a test.
+
+    ``check_clock_skew`` (every phone and RunnerUp verification) opens a UDP
+    socket, which ``_block_real_network``'s ``create_connection`` stub cannot
+    reach. A lost reply cost a test the full 5 s ``_NTP_TIMEOUT``, at random.
+    Stubbed as "unreachable", what the real query answers on any OSError.
+    ``test_time_check`` drives the real query through its own import.
+    """
+    with patch("screen_locker._time_check._query_ntp_offset", return_value=None):
+        yield
