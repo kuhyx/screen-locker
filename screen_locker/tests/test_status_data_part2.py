@@ -121,6 +121,25 @@ class TestGatherStatus:
 
         assert snap.streak == 2
         assert snap.early_bird_extended is True
+        assert snap.week_rewards == ()
+
+    def test_this_weeks_transition_message_is_surfaced(self, tmp_path: Path) -> None:
+        """The reward text a week transition produced reaches the snapshot."""
+        files = _files(tmp_path)
+        msg = "5 workouts in 2023-W52! 3-week streak"
+        files["extra_benefits_file"].write_text(
+            json.dumps(
+                {
+                    "consecutive_5plus_weeks": 3,
+                    "week_rewards": {"iso_week": "2024-W01", "messages": [msg]},
+                }
+            )
+        )
+        with patch(
+            "screen_locker._status_data.has_workout_skip_today", return_value=False
+        ):
+            snap = gather_status(**files, now=_FRIDAY_NOON_UTC)
+        assert snap.week_rewards == (msg,)
         assert snap.shutdown.rest_of_week[0].minutes == 20 * 60  # base, no bonus
 
     def test_next_week_preview_is_speculative_rest_of_week_is_not(

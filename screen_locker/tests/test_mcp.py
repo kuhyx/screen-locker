@@ -87,6 +87,13 @@ class TestReadTools:
         # asdict output must be pure JSON (no datetime/dataclass leaks).
         json.dumps(out)
 
+    def test_get_status_carries_the_streak_fields(self) -> None:
+        """The streak and early-bird state are part of get_status (read-only)."""
+        with patch.object(_mcp, "gather_status", return_value=_snapshot()):
+            out = _mcp.get_status()
+        assert out["streak"] == 1
+        assert out["early_bird_extended"] is False
+
     def test_get_summary_combines_line_and_state(self) -> None:
         with (
             patch.object(_mcp, "gather_status") as gs,

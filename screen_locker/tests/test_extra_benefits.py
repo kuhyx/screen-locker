@@ -106,9 +106,8 @@ class TestProcessWeekTransition:
 
         assert len(rewards) == 1
         assert rewards[0].startswith("6 workouts in ")
-        assert rewards[0].endswith(
-            "! 1-week streak, early-bird extended to 09:00 this week"
-        )
+        assert rewards[0].endswith("! 1-week streak")
+        assert "09:00" not in rewards[0]
         assert not any("shutdown bonus" in r for r in rewards)
         state = json.loads(f.read_text())
         assert state["consecutive_5plus_weeks"] == 1

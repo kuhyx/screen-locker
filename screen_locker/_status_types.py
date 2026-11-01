@@ -86,3 +86,4 @@ class StatusSnapshot:
     lock_explanation: LockExplanation
     manual_workout_budget: ManualWorkoutBudgetStatus
     generated_at: str
+    week_rewards: tuple[str, ...] = ()

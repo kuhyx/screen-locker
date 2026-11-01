@@ -2,7 +2,10 @@
 
 Tracks:
 - Consecutive weeks with 5+ workouts (streak counter).
-- ISO weeks in which the early-bird window is extended to 09:00.
+- ISO weeks in which the early-bird window is extended to 09:00. Display-only
+  bookkeeping: nothing reads it to decide a lock (early bird is wake-alarm's
+  signed exemption since 2026-09-20).
+- The week-transition reward messages, for the status window.
 
 There is no weekly shutdown-time bonus (dropped entirely 2026-10-10, hours
 already banked for 2026-W41 included): every shutdown minute comes from the
@@ -108,8 +111,7 @@ def process_week_transition(log_file: Path, state_file: Path) -> list[str]:
         if current_week_str not in eb_weeks:
             eb_weeks.append(current_week_str)
         rewards.append(
-            f"{prev_week_count} workouts in {prev_week_str}! "
-            f"{streak}-week streak, early-bird extended to 09:00 this week"
+            f"{prev_week_count} workouts in {prev_week_str}! {streak}-week streak"
         )
     else:
         if streak > 0:
@@ -128,6 +130,9 @@ def process_week_transition(log_file: Path, state_file: Path) -> list[str]:
             "consecutive_5plus_weeks": streak,
             "last_processed_iso_week": current_week_str,
             "extended_early_bird_iso_weeks": eb_weeks,
+            # Kept for the status window (display only): the strings above
+            # used to go to the log and nowhere else.
+            "week_rewards": {"iso_week": current_week_str, "messages": rewards},
         }
     )
     _save_state(state_file, updated)
@@ -147,3 +152,15 @@ def has_extended_early_bird(state_file: Path, *, today: datetime | None = None) 
         "extended_early_bird_iso_weeks", []
     )
     return current_week_str in eb_weeks
+
+
+def week_rewards(state_file: Path, *, today: datetime | None = None) -> tuple[str, ...]:
+    """The reward messages this ISO week's transition produced, for display.
+
+    Empty once the week has passed, or when nothing was stored.
+    """
+    now = today if today is not None else datetime.now(tz=UTC).astimezone()
+    stored = _load_state(state_file).get("week_rewards", {})
+    if not isinstance(stored, dict) or stored.get("iso_week") != _current_iso_week(now):
+        return ()
+    return tuple(str(m) for m in stored.get("messages", []))

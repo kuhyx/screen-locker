@@ -81,6 +81,41 @@ class StatusSectionsMixin:
                 color=self._colors.palette.success,
             )
 
+    def _section_streak(
+        self, parent: tk.Widget, streak: int, week_rewards: tuple[str, ...] = ()
+    ) -> None:
+        """Render the consecutive 5+-workout-week streak and this week's reward.
+
+        Display only, and exactly the stored values (``extra_benefits_state``):
+        a streak of 0 is said plainly, never padded or rounded up. Nothing here
+        grants time or relaxes a lock. The early-bird extension is not shown:
+        it no longer changes anything (wake-alarm owns early bird).
+        """
+        del parent
+        self._label("Workout streak", role="body", pad="sm")
+        if streak > 0:
+            self._text(
+                f"🔥 {streak}-week streak (5+ workouts a week)",
+                role="body",
+                color=self._colors.palette.success,
+            )
+        else:
+            self._text(
+                "No streak yet: 5+ workouts in a week starts one.",
+                role="body",
+                color=self._colors.palette.muted,
+            )
+        for message in week_rewards:
+            # A reset is news, not a celebration: it must not be painted green.
+            lost = message.startswith("Streak reset")
+            self._text(
+                message,
+                role="body",
+                color=self._colors.palette.warning
+                if lost
+                else self._colors.palette.success,
+            )
+
     def _section_lock_explanation(
         self, parent: tk.Widget, expl: LockExplanation
     ) -> None:

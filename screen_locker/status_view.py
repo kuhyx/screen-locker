@@ -115,6 +115,7 @@ class StatusWindow(
         self._label("Workout Status", role="title", pad="md")
         self._section_today(self.container, snapshot.today)
         self._section_week(self.container, snapshot.week)
+        self._section_streak(self.container, snapshot.streak, snapshot.week_rewards)
         self._section_lock_explanation(self.container, snapshot.lock_explanation)
         self._section_temperature(self.container)
         self._section_manual_workout_budget(

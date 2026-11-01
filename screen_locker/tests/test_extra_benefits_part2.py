@@ -10,6 +10,7 @@ from unittest.mock import patch
 from screen_locker._extra_benefits import (
     has_extended_early_bird,
     process_week_transition,
+    week_rewards,
 )
 
 if TYPE_CHECKING:
@@ -49,12 +50,7 @@ class TestBonusDroppedAtW42:
         ):
             rewards = process_week_transition(tmp_path / "log.json", f)
 
-        assert rewards == [
-            (
-                "5 workouts in 2026-W41! 4-week streak, "
-                "early-bird extended to 09:00 this week"
-            )
-        ]
+        assert rewards == ["5 workouts in 2026-W41! 4-week streak"]
         state = json.loads(f.read_text())
         # Sibling keys (the compensation guard) survive; only the dead map goes.
         assert state == {
@@ -62,9 +58,21 @@ class TestBonusDroppedAtW42:
             "last_processed_iso_week": "2026-W42",
             "extended_early_bird_iso_weeks": ["2026-W41", "2026-W42"],
             "shutdown_bonus_granted_for": ["2026-08-24"],
+            "week_rewards": {"iso_week": "2026-W42", "messages": rewards},
         }
         w42 = datetime(2026, 10, 12, 12, 0, tzinfo=UTC)
         assert has_extended_early_bird(f, today=w42) is True
+        # The message the transition produced is kept for the status window,
+        # for the week it was earned in only.
+        assert week_rewards(f, today=w42) == tuple(rewards)
+        assert week_rewards(f, today=datetime(2026, 10, 19, 12, 0, tzinfo=UTC)) == ()
+
+    def test_no_stored_rewards_reads_as_empty(self, tmp_path: Path) -> None:
+        """Missing file, or a state without the key, has nothing to show."""
+        assert week_rewards(tmp_path / "absent.json") == ()
+        f = tmp_path / "state.json"
+        f.write_text(json.dumps({"consecutive_5plus_weeks": 2}))
+        assert week_rewards(f) == ()
 
 
 class TestHasExtendedEarlyBird:

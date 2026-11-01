@@ -48,6 +48,7 @@ from screen_locker._constants import (
 from screen_locker._extra_benefits import (
     current_streak,
     has_extended_early_bird,
+    week_rewards,
 )
 from screen_locker._log_io import load_workout_log
 from screen_locker._morning_session import has_workout_skip_today
@@ -177,6 +178,7 @@ def gather_status(
         week=week,
         streak=current_streak(extra_benefits_file),
         early_bird_extended=early_bird_extended,
+        week_rewards=week_rewards(extra_benefits_file, today=today_local),
         shutdown=_shutdown_projection(
             shutdown_config_file=shutdown_config_file,
             today_local=today_local,
