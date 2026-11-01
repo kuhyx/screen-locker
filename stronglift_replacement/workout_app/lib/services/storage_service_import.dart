@@ -62,8 +62,9 @@ extension StorageServiceImport on StorageService {
                 {record.id: record},
               )[record.id]!
             : record;
-      } on Object {
+      } on Object catch (error) {
         malformed++;
+        debugPrint('WorkoutApp: malformed manual workout: $error');
       }
     }
     if (malformed > 0) _warnSkipped('manual_workouts', malformed);
