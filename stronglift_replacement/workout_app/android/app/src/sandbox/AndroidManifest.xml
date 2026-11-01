@@ -14,6 +14,14 @@
                     android:name="android.intent.category.LAUNCHER"
                     tools:node="remove"/>
             </intent-filter>
+            <!-- Load-bearing: getLaunchIntentForPackage tries INFO before
+                 LAUNCHER, and flutter_foreground_task's notification needs
+                 that intent. Without it the service never calls
+                 startForeground and Android kills the app. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.INFO"/>
+            </intent-filter>
         </activity>
     </application>
 </manifest>
