@@ -106,7 +106,10 @@ repos:
           - types-requests>=2.31.0
 
   - repo: https://github.com/pylint-dev/pylint
-    rev: v4.0.8
+    # Same release as requirements.txt. No --jobs here: pyproject.toml holds
+    # it at 1, because parallel pylint pickles through dill, which crashes on
+    # Python 3.15 (see the comment on `jobs` there).
+    rev: v4.1.3
     hooks:
       # Two hooks, because the three checks below are not defects in a test
       # suite -- they are how pytest and unit-testing private mixins work --
@@ -127,7 +130,6 @@ repos:
         args:
           - --rcfile=pyproject.toml
           - --fail-under=8.0
-          - --jobs=4
         additional_dependencies:
           - pytest
           # Kept in step with pyproject.toml: pip refuses two different
@@ -148,7 +150,6 @@ repos:
         args:
           - --rcfile=pyproject.toml
           - --fail-under=8.0
-          - --jobs=4
           - --disable=protected-access,unused-argument,duplicate-code
         additional_dependencies:
           - pytest
