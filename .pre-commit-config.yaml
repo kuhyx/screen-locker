@@ -240,7 +240,9 @@ repos:
         # the gate it was being refactored to satisfy. ts/tsx joined on
         # 2026-08-29 with web/, for exactly the same reason: a language absent
         # from this list is a directory the cap silently does not apply to.
-        types_or: [python, shell, dart, ts, tsx]
+        # c/c++ and markdown joined on 2026-11-01 (the Linux runner had grown
+        # to 258; prose is under the same cap per the 250-line rule).
+        types_or: [python, shell, dart, ts, tsx, c, c++, markdown]
         exclude: '^web/(node_modules|dist|coverage)/'
       - id: no-silent-failures
         name: Block silent failures (swallowed exceptions and silent sys.exit(0) must say why)
