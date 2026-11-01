@@ -79,17 +79,20 @@ def _minutes(units: int) -> int:
 
 @pytest.fixture(autouse=True)
 def with_blocks(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Register the stand-in BLOCKS earner in the registries for every test."""
     register(monkeypatch, BLOCKS)
 
 
 @pytest.fixture
 def key(tmp_path: Path) -> Iterator[Path]:
+    """Provide a throwaway signing key for ledger HMACs."""
     with signing_key(tmp_path) as path:
         yield path
 
 
 @pytest.fixture
 def flat_no() -> Iterator[None]:
+    """Make every flat earner answer that it did not earn today."""
     with answering({}):
         yield
 
@@ -103,7 +106,10 @@ def _mixin() -> MagicMock:
 
 
 class TestRegistry:
+    """Counted gate earners are kept apart from flat earners and the workout."""
+
     def test_counted_gates_are_apart_from_flat_and_the_workout(self) -> None:
+        """The counted gate is watched but is neither a flat earner nor the workout."""
         assert counted_gate_earners()[-1] is BLOCKS
         assert earned_time.WORKOUT not in counted_gate_earners()
         assert BLOCKS not in flat_earners()
@@ -113,7 +119,10 @@ class TestRegistry:
 
 @pytest.mark.usefixtures("key", "flat_no")
 class TestGateAnswers:
+    """gate_answers reports counted units alongside the flat answers."""
+
     def test_units_alongside_flat_answers(self) -> None:
+        """gate_answers reports the counted unit total next to the flat answers."""
         write_ledger(BLOCKS, [_block(1), _block(2)])
         answers = gate_answers()
         assert answers["blocks"] == 2
@@ -122,6 +131,7 @@ class TestGateAnswers:
     def test_unreadable_ledger_is_none_and_logged(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """An unreadable ledger answers None and logs that state could not be checked."""
         path = write_ledger(BLOCKS, [])
         path.write_text("{not json", encoding="utf-8")
         assert gate_answers(TODAY)["blocks"] is None
@@ -130,7 +140,10 @@ class TestGateAnswers:
 
 @pytest.mark.usefixtures("key")
 class TestApplyCountedBonus:
+    """apply_counted_bonus pays each new unit once and tracks it with a stamp."""
+
     def test_pays_only_the_new_units(self) -> None:
+        """Each pass pays only the units not yet stamped, and then nothing more."""
         state: dict[str, Any] = {}
         adjust = MagicMock(return_value=True)
         write_ledger(BLOCKS, [_block(1), _block(2)])
@@ -149,11 +162,13 @@ class TestApplyCountedBonus:
         [{"date": "2000-01-01", "units": 9}, {"date": None}, "junk", {"units": "x"}],
     )
     def test_a_stale_or_broken_stamp_is_zero(self, stamp: object) -> None:
+        """A stale-dated or malformed stamp counts as zero applied units."""
         assert not applied_units({"blocks_bonus_units": stamp}, BLOCKS, today_str())
 
     def test_failed_write_keeps_the_stamp(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """A failed config write leaves the stamp unchanged and logs the failure."""
         state: dict[str, Any] = {}
         write_ledger(BLOCKS, [_block(1)])
         adjust = MagicMock(return_value=False)
@@ -164,6 +179,7 @@ class TestApplyCountedBonus:
     def test_unknown_earns_nothing_and_says_so(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """An unreadable unit count pays nothing and warns it could not be checked."""
         write_ledger(BLOCKS, []).write_text("[]", encoding="utf-8")
         with caplog.at_level(logging.WARNING):
             assert not apply_counted_bonus({}, MagicMock(), BLOCKS, today_str())
@@ -172,7 +188,10 @@ class TestApplyCountedBonus:
 
 @pytest.mark.usefixtures("key", "flat_no")
 class TestThroughTheShutdownBase:
+    """Counted units flow through the daily reset and the live bonus pass."""
+
     def test_reset_stamps_flat_dates_and_counted_units(self) -> None:
+        """reset_stamps records flat earners by date and counted ones by unit count."""
         answers = {"workout": 1, "leetcode": True, "blocks": 2}
         terms = earned_time.resolve(answers, TODAY, registry(TODAY)).terms
         stamps = reset_stamps(terms, today_str())
@@ -184,6 +203,7 @@ class TestThroughTheShutdownBase:
     def test_reset_includes_units_then_live_pass_adds_only_new(
         self, tmp_path: Path
     ) -> None:
+        """The reset includes existing units and a later live pass adds only new ones."""
         state = tmp_path / "state.json"
         write_ledger(BLOCKS, [_block(1)])
         mixin = _mixin()
@@ -201,6 +221,7 @@ class TestThroughTheShutdownBase:
         assert units == 2
 
     def test_live_pass_without_new_units_writes_nothing(self, tmp_path: Path) -> None:
+        """A live pass with no units adjusts nothing and creates no state file."""
         state = tmp_path / "state.json"
         write_ledger(BLOCKS, [])
         mixin = _mixin()

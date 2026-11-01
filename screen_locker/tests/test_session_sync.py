@@ -40,26 +40,31 @@ class TestValidateSession:
     """The PC re-derives the verdict rather than trusting the record."""
 
     def test_accepts_a_long_enough_session(self) -> None:
+        """A 108-minute session with exercises validates and the detail reports the minutes."""
         ok, detail = validate_session(_session())
         assert ok
         assert "108 min" in detail
 
     def test_rejects_a_session_with_no_exercises(self) -> None:
+        """A session with an empty exercise list is rejected as having no exercises."""
         ok, detail = validate_session(_session(exercises=[]))
         assert not ok
         assert "no exercises" in detail
 
     def test_rejects_a_non_list_exercises_field(self) -> None:
+        """An exercises field that is not a list is treated as no exercises."""
         ok, detail = validate_session(_session(exercises="Dumbbell Row"))
         assert not ok
         assert "no exercises" in detail
 
     def test_rejects_a_short_session(self) -> None:
+        """A 10-minute session is rejected and the detail names its length."""
         ok, detail = validate_session(_session(duration_seconds=10 * 60))
         assert not ok
         assert "10 min" in detail
 
     def test_rejects_a_non_numeric_duration(self) -> None:
+        """A non-numeric duration is rejected with a not-a-number reason."""
         ok, detail = validate_session(_session(duration_seconds="lots"))
         assert not ok
         assert "not a number" in detail
@@ -70,6 +75,7 @@ class TestValidateSession:
         assert ok
 
     def test_rejects_just_below_the_accept_threshold(self) -> None:
+        """A session one second under 25 minutes is rejected without leaking the real bar."""
         ok, detail = validate_session(_session(duration_seconds=24 * 60 + 59))
         assert not ok
         # The real bar (25) must never leak into a user-visible string.
@@ -81,20 +87,24 @@ class TestBuildSessionEntry:
     """The entry names the PC as the source, never the phone."""
 
     def test_marks_the_workout_as_pc_verified(self) -> None:
+        """The entry type is the PC-verified type, never the phone's own claim."""
         entry = build_session_entry(_session(), "108 min")
         assert entry["type"] == PC_WORKOUT_TYPE
         assert entry["type"] != "phone_verified"
 
     def test_describes_the_workout_and_its_outcome(self) -> None:
+        """The entry source names the workout letter and that all exercises succeeded."""
         entry = build_session_entry(_session(), "108 min")
         assert "workout B" in entry["source"]
         assert "all succeeded" in entry["source"]
 
     def test_reports_a_partial_workout_as_partial(self) -> None:
+        """A session with succeeded=False is described as partial in the entry source."""
         entry = build_session_entry(_session(succeeded=False), "107 min")
         assert "partial" in entry["source"]
 
     def test_carries_the_duration_and_record_id(self) -> None:
+        """The entry keeps the duration in minutes and the session start as its sync record id."""
         entry = build_session_entry(_session(), "108 min")
         assert entry["duration_minutes"] == "107.9"
         assert entry["sync_record_id"] == f"{_DATE}T10:39:24.531831"
@@ -106,6 +116,7 @@ class TestIngestSessionRecords:
     def test_appends_a_verified_session_under_its_own_date(
         self, tmp_path: Path
     ) -> None:
+        """A valid session is logged under its own date and counts as one weekly workout."""
         log = tmp_path / "log.json"
         ingested = ingest_session_records(log, [("r1", _session())])
         assert ingested == ["r1"]
@@ -120,22 +131,26 @@ class TestIngestSessionRecords:
         assert count_weekly_workouts(log, today=_TODAY) == 1
 
     def test_skips_a_session_with_no_date(self, tmp_path: Path) -> None:
+        """A session lacking a date is skipped and nothing is ingested."""
         payload = _session()
         del payload["date"]
         assert not ingest_session_records(tmp_path / "log.json", [("r1", payload)])
 
     def test_skips_a_session_whose_date_is_not_a_string(self, tmp_path: Path) -> None:
+        """A session whose date is not a string is skipped."""
         assert not (
             ingest_session_records(tmp_path / "log.json", [("r1", _session(date=7))])
         )
 
     def test_skips_a_session_that_fails_validation(self, tmp_path: Path) -> None:
+        """A session that fails validation is neither ingested nor counted."""
         log = tmp_path / "log.json"
         short = _session(duration_seconds=60)
         assert not ingest_session_records(log, [("r1", short)])
         assert not count_weekly_workouts(log, today=_TODAY)
 
     def test_calls_back_for_each_newly_ingested_session(self, tmp_path: Path) -> None:
+        """The on_ingested callback receives each new entry with the prior log entries."""
         seen: list[tuple[dict, list]] = []
         ingest_session_records(
             tmp_path / "log.json",
@@ -147,6 +162,7 @@ class TestIngestSessionRecords:
         assert seen[0][1] == []
 
     def test_does_not_call_back_for_a_duplicate(self, tmp_path: Path) -> None:
+        """Re-ingesting an already logged record does not fire the callback."""
         log = tmp_path / "log.json"
         records = [("r1", _session())]
         ingest_session_records(log, records)
@@ -161,10 +177,12 @@ class TestPullAllSessionRecords:
     """Sessions come from every device log, or from none at all."""
 
     def test_returns_nothing_without_a_sync_client(self) -> None:
+        """With no sync client configured the pull returns an empty list."""
         with patch("screen_locker._workout_sync.sync_client", return_value=None):
             assert pull_all_session_records() == []
 
     def test_returns_the_merged_records(self) -> None:
+        """The pull returns the merged device records as (record id, session) pairs."""
         merged = {"r1": (_session(), object())}
         with (
             patch("screen_locker._workout_sync.sync_client", return_value=object()),

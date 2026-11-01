@@ -27,6 +27,7 @@ class TestShowHeatSkipDialog:
     """_show_heat_skip_dialog blocks on mainloop() until a button fires destroy()."""
 
     def test_returns_true_when_skip_clicked(self, mock_tk: MagicMock) -> None:
+        """Clicking Skip workout makes the dialog return True and closes the window."""
         host = _HeatSkipHost()
 
         def _simulate_click() -> None:
@@ -37,6 +38,7 @@ class TestShowHeatSkipDialog:
         mock_tk.Tk.return_value.destroy.assert_called_once()
 
     def test_returns_false_when_declined(self, mock_tk: MagicMock) -> None:
+        """Declining makes the dialog return False."""
         host = _HeatSkipHost()
 
         def _simulate_click() -> None:
@@ -46,6 +48,7 @@ class TestShowHeatSkipDialog:
         assert host._show_heat_skip_dialog(35.0) is False
 
     def test_dialog_shows_temperature_and_threshold(self, mock_tk: MagicMock) -> None:
+        """The dialog text shows the rounded temperature and mentions the threshold."""
         host = _HeatSkipHost()
         mock_tk.Tk.return_value.mainloop.side_effect = None
         host._show_heat_skip_dialog(36.4)
@@ -58,6 +61,7 @@ class TestSaveHeatSkipLog:
     """_save_heat_skip_log builds workout_data and delegates to save_workout_log."""
 
     def test_saves_expected_workout_data(self) -> None:
+        """A heat skip is saved as a heat_skip entry with the rounded temperature and a city."""
         host = _HeatSkipHost()
         host._save_heat_skip_log(34.6)
         assert host.workout_data["type"] == "heat_skip"

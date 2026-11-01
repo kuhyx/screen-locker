@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def key(tmp_path: Path) -> Iterator[Path]:
+    """A signing key under tmp_path so ledger rows verify."""
     with signing_key(tmp_path) as path:
         yield path
 

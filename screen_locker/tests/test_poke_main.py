@@ -38,9 +38,11 @@ class FakeServer:
         self.instances.append(self)
 
     def serve_forever(self) -> None:
+        """Return immediately so main() proceeds to shutdown."""
         return
 
     def server_close(self) -> None:
+        """Record that the daemon closed the server."""
         self.closed = True
 
 
@@ -65,29 +67,38 @@ def stream_fixture(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
 
 
 class TestLoadKey:
+    """Loading the shared poke key from disk and refusing unsafe files."""
+
     def test_reads_a_600_key(self, tmp_path: Path) -> None:
+        """A 0600 file holding 64 hex digits loads as 32 raw bytes."""
         assert poke_server.load_key(_key_file(tmp_path)) == bytes.fromhex(_KEY_HEX)
 
     @pytest.mark.parametrize("mode", [0o640, 0o604, 0o660, 0o644])
     def test_group_or_world_access_is_refused_with_the_fix(
         self, tmp_path: Path, mode: int
     ) -> None:
+        """Any group or world access to the key file is refused with a chmod 600 hint."""
         with pytest.raises(ValueError, match="chmod 600"):
             poke_server.load_key(_key_file(tmp_path, mode=mode))
 
     def test_malformed_key_is_refused(self, tmp_path: Path) -> None:
+        """A key that is not valid hex of the right length is refused."""
         with pytest.raises(ValueError, match="hex"):
             poke_server.load_key(_key_file(tmp_path, text="short"))
 
     def test_missing_file_raises_oserror(self, tmp_path: Path) -> None:
+        """A missing key file surfaces as an OSError mentioning the key."""
         with pytest.raises(OSError, match="key"):
             poke_server.load_key(tmp_path / "key")
 
 
 class TestMain:
+    """Daemon startup: refusals, serving, the Firebase stream and cleanup."""
+
     def test_missing_key_refuses_to_start_at_critical(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """A missing key logs at CRITICAL, exits 1 and never builds a server."""
         with caplog.at_level(logging.CRITICAL):
             code = poke_server.main(["--key-file", str(tmp_path / "nope")])
         assert code == 1
@@ -96,6 +107,7 @@ class TestMain:
         assert not FakeServer.instances
 
     def test_loose_key_mode_refuses_to_start(self, tmp_path: Path) -> None:
+        """A world-readable key makes startup fail without building a server."""
         key = _key_file(tmp_path, mode=0o644)
         assert poke_server.main(["--key-file", str(key)]) == 1
         assert not FakeServer.instances
@@ -106,6 +118,8 @@ class TestMain:
         monkeypatch: pytest.MonkeyPatch,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
+        """A bind error logs the port and reason at CRITICAL and exits 1."""
+
         def busy(_address: tuple[str, int], _key: bytes) -> Any:
             msg = "address in use"
             raise OSError(msg)
@@ -124,6 +138,7 @@ class TestMain:
         stream: MagicMock,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
+        """The server gets the loaded key and address, the stream starts, and it is closed."""
         argv = ["--key-file", str(_key_file(tmp_path)), "--port", "1234"]
         with caplog.at_level(logging.INFO):
             code = poke_server.main([*argv, "--bind", "127.0.0.1"])
@@ -142,6 +157,7 @@ class TestMain:
     def test_default_bind_is_all_interfaces_on_the_default_port(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """Without --bind and --port the server listens on all interfaces at the default port."""
         with caplog.at_level(logging.INFO):
             poke_server.main(["--key-file", str(_key_file(tmp_path))])
         assert FakeServer.instances[0].address == ("", poke_server.DEFAULT_PORT)
@@ -153,6 +169,7 @@ class TestMain:
         stream: MagicMock,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
+        """--no-stream skips the Firebase stream and logs that it is disabled."""
         with caplog.at_level(logging.WARNING):
             code = poke_server.main(
                 ["--key-file", str(_key_file(tmp_path)), "--no-stream"]
@@ -168,6 +185,7 @@ class TestMain:
         stream: MagicMock,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
+        """A stream start failure is logged but the LAN server still runs and closes."""
         stream.return_value.start.side_effect = RuntimeError("no network")
         with caplog.at_level(logging.ERROR):
             code = poke_server.main(["--key-file", str(_key_file(tmp_path))])
@@ -178,6 +196,8 @@ class TestMain:
     def test_server_is_closed_even_when_serving_raises(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """The server socket is closed even when serving is interrupted."""
+
         def explode(_self: FakeServer) -> None:
             raise KeyboardInterrupt
 

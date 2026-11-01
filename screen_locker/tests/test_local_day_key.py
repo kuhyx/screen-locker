@@ -49,6 +49,7 @@ def warsaw_after_midnight_fixture(monkeypatch: pytest.MonkeyPatch) -> Iterator[N
 
         @staticmethod
         def now(tz: tzinfo | None = None) -> datetime:
+            """Return the frozen instant converted to the requested timezone."""
             return JUST_AFTER_MIDNIGHT_UTC.astimezone(tz or UTC)
 
     monkeypatch.setattr(_day, "datetime", _FrozenClock)
@@ -61,11 +62,13 @@ class TestTodayStr:
     """``_day.today_str`` is the single source of "what day is it"."""
 
     def test_uses_the_local_calendar_day(self, warsaw_after_midnight: None) -> None:
+        """today_str answers the local day, not the UTC day."""
         assert _day.today_str() == LOCAL_DAY
 
     def test_explicit_instant_is_converted_to_local(
         self, warsaw_after_midnight: None
     ) -> None:
+        """An explicit UTC instant is converted to its local calendar day."""
         assert _day.today_str(JUST_AFTER_MIDNIGHT_UTC) == LOCAL_DAY
 
 
@@ -75,6 +78,7 @@ class TestAfterMidnightLog:
     def test_write_and_lock_check_agree(
         self, tmp_path: Path, warsaw_after_midnight: None
     ) -> None:
+        """A workout written just after local midnight is found by the lock check."""
         log_file = tmp_path / "log.json"
         write_signed_entry(
             log_file,
@@ -129,6 +133,7 @@ class TestCrossDayDedup:
     def test_same_workout_id_on_another_day_is_not_appended(
         self, tmp_path: Path
     ) -> None:
+        """A workout id already logged on another day is not appended again."""
         log_file = tmp_path / "log.json"
         data = {"type": "manual_workout", "workout_id": "manual:2026-09-12T14:30"}
         assert write_signed_entry(log_file, LOCAL_DAY, data).appended is True

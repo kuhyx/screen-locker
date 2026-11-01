@@ -35,6 +35,7 @@ class TestDeferral:
     def test_a_future_record_is_not_ingested_or_credited(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """A record dated after today is neither ingested nor credited and is logged as deferred."""
         log_file = tmp_path / "log.json"
         calls: list[dict] = []
         with caplog.at_level(logging.INFO):
@@ -52,6 +53,7 @@ class TestDeferral:
     def test_the_same_record_is_ingested_and_credited_on_its_day(
         self, tmp_path: Path
     ) -> None:
+        """A deferred record is ingested and credited once its own day arrives."""
         log_file = tmp_path / "log.json"
         record = _manual_record(_TT_DRAFT, _TOMORROW)
         calls: list[dict] = []
@@ -71,6 +73,7 @@ class TestDeferral:
     def test_a_garbled_date_is_skipped_loudly(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """A record with an unparsable date is skipped with a warning."""
         record_id, payload = _manual_record(_TT_DRAFT, _TODAY)
         payload["date"] = "2026-13-99"
         with caplog.at_level(logging.WARNING):
@@ -82,10 +85,12 @@ class TestDeferral:
         assert "unparsable date" in caplog.text
 
     def test_an_empty_batch_touches_nothing(self, tmp_path: Path) -> None:
+        """An empty batch ingests nothing and does not create the log file."""
         assert not ingest_manual_records(tmp_path / "log.json", [], today=_TODAY)
         assert not (tmp_path / "log.json").exists()
 
     def test_a_non_manual_record_is_ignored(self, tmp_path: Path) -> None:
+        """A record that is not a manual workout is ignored."""
         assert not (
             ingest_manual_records(
                 tmp_path / "log.json", [("s", {"exercises": []})], today=_TODAY
@@ -93,6 +98,7 @@ class TestDeferral:
         )
 
     def test_defaults_to_the_real_local_day(self, tmp_path: Path) -> None:
+        """With no today argument the real local day is used, deferring a far-future record."""
         record = _manual_record(_TT_DRAFT, "2999-01-01")
         assert not ingest_manual_records(tmp_path / "log.json", [record])
 
@@ -103,6 +109,7 @@ class TestBudgetAgainstTheWorkoutDate:
     def test_a_pending_record_does_not_reject_itself_on_its_day(
         self, tmp_path: Path
     ) -> None:
+        """A due record is not counted against itself while later records stay pending."""
         log_file = tmp_path / "log.json"
         mine = _manual_record(_TT_DRAFT, _TOMORROW)
         later = _manual_record(_OTHER_DRAFT, "2026-10-18")
@@ -117,6 +124,7 @@ class TestBudgetAgainstTheWorkoutDate:
     ) -> None:
         # Three records inside one 7-day window: whichever comes due while the
         # other two are still pending would be the third, so it is refused.
+        """Pending future records hold budget slots, so a due record that is third is refused."""
         log_file = tmp_path / "log.json"
         due = _manual_record(_TT_DRAFT, _TOMORROW)
         pending = [
@@ -138,6 +146,7 @@ class TestBudgetAgainstTheWorkoutDate:
         assert "budget exhausted" in caplog.text
 
     def test_a_logged_week_blocks_a_due_record_inside_it(self, tmp_path: Path) -> None:
+        """Workouts already logged in the week block a due record that falls inside it."""
         log_file = tmp_path / "log.json"
         for day, draft in (("2026-10-12", _TT_DRAFT), ("2026-10-13", _OTHER_DRAFT)):
             assert ingest_manual_records(

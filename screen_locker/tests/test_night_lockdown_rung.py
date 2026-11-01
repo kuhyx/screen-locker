@@ -38,21 +38,26 @@ class TestTonightsLockdown:
     """The binding reads the (redirected) stamp through gatelock."""
 
     def test_missing_stamp_is_no_lockdown(self) -> None:
+        """Without a stamp file there is no lockdown tonight."""
         assert tonights_lockdown(NOW) is None
 
     def test_evening_stamp_today_is_tonights_lockdown(self) -> None:
+        """An evening stamp from today is returned as tonight's lockdown time."""
         _stamp("2026-10-17T21:05")
         assert tonights_lockdown(NOW) == EVENING
 
     def test_morning_relock_today_is_not(self) -> None:
+        """An early-morning stamp from today is not the evening lockdown."""
         _stamp("2026-10-17T04:01")
         assert tonights_lockdown(NOW) is None
 
     def test_yesterdays_evening_is_not(self) -> None:
+        """Yesterday's evening stamp does not count for tonight."""
         _stamp("2026-10-16T21:05")
         assert tonights_lockdown(NOW) is None
 
     def test_garbage_is_not(self) -> None:
+        """A stamp file that is not an epoch is treated as no lockdown."""
         _night_lockdown.NIGHT_LOCKDOWN_STAMP.write_text(
             "not an epoch", encoding="utf-8"
         )
@@ -63,12 +68,14 @@ class TestSkipAfterEveningLockdown:
     """The rung on its own."""
 
     def test_no_lockdown_lets_the_lock_proceed(self) -> None:
+        """With no lockdown tonight the rung does not skip and records nothing."""
         record_skip = MagicMock()
         with patch.object(_night_lockdown, "tonights_lockdown", return_value=None):
             assert skip_after_evening_lockdown(record_skip) is False
         record_skip.assert_not_called()
 
     def test_tonights_lockdown_records_the_skip(self) -> None:
+        """Tonight's lockdown records an evening_lockdown_today skip carrying its time."""
         record_skip = MagicMock()
         with patch.object(_night_lockdown, "tonights_lockdown", return_value=EVENING):
             assert skip_after_evening_lockdown(record_skip) is True
@@ -105,6 +112,7 @@ class TestLadder:
     def test_after_tonights_lockdown_the_lock_does_not_rearm(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """After the evening lockdown the ladder records the skip and exits without locking."""
         locker = create_locker(mock_tk, tmp_path)
         with (
             patch.object(_night_lockdown, "tonights_lockdown", return_value=EVENING),
@@ -126,6 +134,7 @@ class TestLadder:
     def test_morning_relock_still_enforces(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """A morning relock stamp does not stop the ladder from enforcing the lock."""
         _stamp(f"{datetime.now(tz=UTC).astimezone():%Y-%m-%d}T04:01")
         locker = create_locker(mock_tk, tmp_path)
         with (
@@ -141,6 +150,7 @@ class TestLadder:
     def test_other_conditions_name_tonights_lockdown(
         self, mock_tk: MagicMock, tmp_path: Path
     ) -> None:
+        """The other-conditions report lists the evening lockdown when it happened."""
         locker = create_locker(mock_tk, tmp_path)
         with patch.object(_night_lockdown, "tonights_lockdown", return_value=EVENING):
             also = locker._other_conditions("enforced")
@@ -160,10 +170,12 @@ class TestStatusMirror:
         )
 
     def test_tonights_lockdown_is_the_terminal_stage(self, tmp_path: Path) -> None:
+        """The status explanation stops at evening_lockdown_today without firing."""
         result = self._explain(tmp_path, evening_lockdown=True)
         assert result.stage == "evening_lockdown_today"
         assert result.fired is False
 
     def test_without_it_the_chain_still_would_lock(self, tmp_path: Path) -> None:
+        """Without a lockdown the status explanation still reaches would_lock."""
         result = self._explain(tmp_path, evening_lockdown=False)
         assert result.stage == "would_lock"

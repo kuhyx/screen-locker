@@ -23,6 +23,7 @@ class TestSectionManualWorkoutBudget:
     """Tests for StatusWindow._section_manual_workout_budget."""
 
     def test_exhausted_uses_warning_color(self, mock_tk: MagicMock) -> None:
+        """An exhausted weekly budget is drawn in the danger colour."""
         snap = _snapshot(
             manual_workout_budget=_manual_workout_budget(used_7d=2, exhausted=True)
         )
@@ -35,6 +36,7 @@ class TestSectionManualWorkoutBudget:
         assert any(c.kwargs.get("fg") == window._colors.palette.danger for c in calls)
 
     def test_not_exhausted_uses_normal_color(self, mock_tk: MagicMock) -> None:
+        """A budget that is not exhausted is drawn in the muted colour."""
         snap = _snapshot(
             manual_workout_budget=_manual_workout_budget(used_7d=0, exhausted=False)
         )
@@ -53,12 +55,14 @@ class TestManualWorkoutButtonVisibility:
     def test_shown_when_budget_available(
         self, mock_tk: MagicMock, temp_log_file: Path
     ) -> None:
+        """The Log Manual Workout button appears while budget remains."""
         _make_window(mock_tk, _snapshot(), log_file=temp_log_file)
         assert "Log Manual Workout" in _button_texts(mock_tk)
 
     def test_hidden_when_budget_exhausted(
         self, mock_tk: MagicMock, temp_log_file: Path
     ) -> None:
+        """The Log Manual Workout button is hidden once the budget is closed."""
         with patch(_CLOSED, return_value=True):
             _make_window(mock_tk, _snapshot(), log_file=temp_log_file)
         assert "Log Manual Workout" not in _button_texts(mock_tk)
@@ -68,6 +72,7 @@ class TestOnManualWorkoutSaved:
     """Tests for StatusWindow._on_manual_workout_saved."""
 
     def _make_fake_verifier(self, credit: WorkoutCreditResult) -> MagicMock:
+        """A stand-in verifier whose credit application returns ``credit``."""
         fake_verifier = MagicMock()
         fake_verifier._apply_workout_credit = MagicMock(return_value=credit)
         return fake_verifier
@@ -75,6 +80,7 @@ class TestOnManualWorkoutSaved:
     def test_saves_via_bare_verifier_and_shows_shutdown_message(
         self, mock_tk: MagicMock, temp_log_file: Path
     ) -> None:
+        """Saving applies the credit via the verifier and shows the shutdown extension."""
         credit = WorkoutCreditResult(
             shutdown_adjusted=True,
             extra_bonus_delta=0,
@@ -102,6 +108,7 @@ class TestOnManualWorkoutSaved:
     def test_shows_extra_bonus_line_and_no_debt(
         self, mock_tk: MagicMock, temp_log_file: Path
     ) -> None:
+        """An extra workout shows the extra-bonus line and never mentions debt."""
         credit = WorkoutCreditResult(
             shutdown_adjusted=False,
             extra_bonus_delta=60,
@@ -126,6 +133,7 @@ class TestOnManualWorkoutSaved:
     def test_already_counted_today_shows_no_extra_credit_note(
         self, mock_tk: MagicMock, temp_log_file: Path
     ) -> None:
+        """A second workout the same day says no additional credit was given."""
         credit = WorkoutCreditResult(
             shutdown_adjusted=False,
             extra_bonus_delta=0,
@@ -154,6 +162,7 @@ class TestOnManualWorkoutCancelled:
     def test_rerenders_current_snapshot(
         self, mock_tk: MagicMock, temp_log_file: Path
     ) -> None:
+        """Cancelling the dialog re-gathers and re-renders the status."""
         window = _make_window(mock_tk, _snapshot(), log_file=temp_log_file)
         with patch(
             "screen_locker.status_view.gather_status", return_value=_snapshot()
@@ -166,6 +175,7 @@ class TestManualWorkoutSavedMessageDisplay:
     """Tests for the saved-message line in StatusWindow.render."""
 
     def test_shown_when_present(self, mock_tk: MagicMock, temp_log_file: Path) -> None:
+        """A pending saved message is rendered as a label."""
         window = _make_window(mock_tk, _snapshot(), log_file=temp_log_file)
         window._credit_message = "Manual workout logged: test"
         window.render(_snapshot())
@@ -173,6 +183,7 @@ class TestManualWorkoutSavedMessageDisplay:
         assert any("Manual workout logged: test" in t for t in texts)
 
     def test_absent_when_none(self, mock_tk: MagicMock, temp_log_file: Path) -> None:
+        """No saved-message label is rendered when there is none."""
         _make_window(mock_tk, _snapshot(), log_file=temp_log_file)
         texts = [c.kwargs.get("text", "") for c in mock_tk.Label.call_args_list]
         assert not any("Manual workout logged" in t for t in texts)

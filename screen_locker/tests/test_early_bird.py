@@ -21,6 +21,7 @@ class TestIsEarlyBirdTime:
     def test_open_while_the_carrot_is_in_force(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """The early-bird window is open exactly while a morning-session skip is in force."""
         locker = create_locker(mock_tk, tmp_path)
         with patch(
             "screen_locker._early_bird.morning_skip_today", return_value=_SKIP
@@ -32,6 +33,7 @@ class TestIsEarlyBirdTime:
     def test_shut_without_a_carrot(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """With no morning-session skip the early-bird window is shut."""
         locker = create_locker(mock_tk, tmp_path)
         with patch("screen_locker._early_bird.morning_skip_today", return_value=None):
             assert locker._is_early_bird_time() is False

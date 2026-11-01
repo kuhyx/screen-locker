@@ -32,12 +32,14 @@ _ISO = _DAY.isoformat()
 
 
 def local(hhmm: str, day: date = _DAY) -> float:
+    """Local-time timestamp of an HH:MM wall-clock moment on the given day."""
     hours, minutes = map(int, hhmm.split(":"))
     return datetime.combine(day, time(hours, minutes)).astimezone().timestamp()
 
 
 @pytest.fixture(name="key")
 def key_fixture(tmp_path: Path) -> Iterator[Path]:
+    """Provide a signing key in a temp dir for the duration of the test."""
     with signing_key(tmp_path) as path:
         yield path
 
@@ -45,19 +47,25 @@ def key_fixture(tmp_path: Path) -> Iterator[Path]:
 def entry(
     data: dict[str, Any], stamp: str = "2026-10-04T20:00:00+00:00", **extra: Any
 ) -> dict[str, Any]:
+    """Build a ledger-source log entry around the given workout data."""
     return {"timestamp": stamp, "workout_data": data, **extra}
 
 
 def ledger() -> list[dict[str, Any]]:
+    """Read back the entries stored in the signed ledger file."""
     return json.loads(ledger_path().read_text())["entries"]
 
 
 class TestEntryDoneAt:
+    """entry_done_at picks the true end time of a workout from each entry shape."""
+
     def test_the_tcx_end_wins(self) -> None:
+        """A runnerup entry's TCX completed_at is used as the done time."""
         done = entry({"type": "runnerup_verified", "completed_at": 123.5})
         assert entry_done_at(done, _DAY) == 123.5
 
     def test_a_numeric_string_and_iso_are_read(self) -> None:
+        """completed_at is accepted as a numeric string or as an ISO timestamp."""
         assert entry_done_at(entry({"completed_at": "77.5"}), _DAY) == 77.5
         iso = entry({"completed_at": "2026-10-04T10:00:00+00:00"})
         assert (
@@ -66,10 +74,12 @@ class TestEntryDoneAt:
         )
 
     def test_a_manual_end_time_is_on_its_day(self) -> None:
+        """A manual workout's end_time is read as a clock time on the entry's own day."""
         manual = entry({"type": "manual_workout", "end_time": "18:40"})
         assert entry_done_at(manual, _DAY) == local("18:40")
 
     def test_a_pc_session_is_its_start_plus_duration(self) -> None:
+        """A PC session ends at its sync-record start plus its duration."""
         session = entry(
             {
                 "type": "pc_workout_verified",
@@ -82,6 +92,7 @@ class TestEntryDoneAt:
     def test_a_session_without_a_duration_falls_back_to_logging(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """A PC session with no duration falls back to the log timestamp and warns."""
         session = entry(
             {"type": "pc_workout_verified", "sync_record_id": "2026-10-04T15:42:00"}
         )
@@ -91,6 +102,7 @@ class TestEntryDoneAt:
         assert "no usable duration" in caplog.text
 
     def test_nothing_usable_is_none(self, caplog: pytest.LogCaptureFixture) -> None:
+        """An entry with no usable time yields None and logs a warning."""
         bare = {"workout_data": "?", "timestamp": "never"}
         with caplog.at_level(logging.WARNING):
             assert entry_done_at(bare, _DAY) is None
@@ -98,8 +110,11 @@ class TestEntryDoneAt:
 
 
 class TestCreditRow:
+    """credit_row maps workout entries to signed credit rows."""
+
     def test_each_source_is_named(self) -> None:
         # No workout_id on the entry: the credit slot names the row.
+        """Each workout type is credited under its own source name and entry id."""
         cases = {
             "runnerup_verified": ("runnerup_tcx", f"runnerup_verified:{_ISO}#0"),
             "phone_verified": ("stronglifts", f"stronglifts:{_ISO}"),
@@ -112,9 +127,11 @@ class TestCreditRow:
             assert row["entry_id"] == entry_id
 
     def test_a_non_credit_has_no_row(self) -> None:
+        """An entry that is not a credit (a relaxed-day skip) produces no row."""
         assert credit_row(_ISO, [entry({"type": "relaxed_day_skip"})], 0) is None
 
     def test_both_stronglifts_paths_share_one_row_and_the_real_end(self) -> None:
+        """The phone and PC StrongLifts entries collapse to one row with the real end time."""
         phone = entry({"type": "phone_verified"}, workout_id="phone_verified:x")
         pc = entry(
             {
@@ -133,12 +150,14 @@ class TestCreditRow:
     def test_a_credit_with_no_time_writes_no_row(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """A credit with no usable time writes no row and logs why."""
         with caplog.at_level(logging.WARNING):
             row = credit_row(_ISO, [{"workout_data": {"type": "phone_verified"}}], 0)
         assert row is None
         assert "no usable time" in caplog.text
 
     def test_a_rest_row_is_stamped_at_its_midnight(self) -> None:
+        """A rest-day row is stamped at that day's local midnight with its declared time."""
         row = rest_row(_DAY, 5.0)
         assert row["detail"] == {
             "completed_at": str(local("00:00")),
@@ -148,7 +167,10 @@ class TestCreditRow:
 
 
 class TestAppend:
+    """append_rows writes signed rows to the ledger and guards its integrity."""
+
     def test_rows_are_signed_once(self, key: Path) -> None:
+        """Rows are signed, verified and not appended twice."""
         del key
         row = credit_row(_ISO, [entry({"type": "phone_verified"})], 0)
         assert row is not None
@@ -158,6 +180,7 @@ class TestAppend:
         assert earned_time.verified(stored, KEY)
 
     def test_no_key_writes_nothing(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Without a signing key nothing is written and a warning is logged."""
         with caplog.at_level(logging.WARNING):
             assert not append_rows([rest_row(_DAY, 1.0)])
         assert "NOT updated" in caplog.text
@@ -167,6 +190,7 @@ class TestAppend:
     def test_a_malformed_ledger_is_left_alone(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """A ledger file that is not in the expected shape is not overwritten."""
         ledger_path().parent.mkdir(parents=True)
         ledger_path().write_text("[]")
         with caplog.at_level(logging.WARNING):
@@ -175,6 +199,7 @@ class TestAppend:
         assert ledger_path().read_text() == "[]"
 
     def test_new_rows_dedups_within_and_against_the_ledger(self) -> None:
+        """new_rows drops duplicates both within the batch and against existing rows."""
         a, b = rest_row(_DAY, 1.0), rest_row(date(2026, 10, 5), 1.0)
         assert new_rows([a, b, dict(b)], [a]) == [b]
 
@@ -194,4 +219,5 @@ class TestAppend:
 
 
 def test_the_ledger_lives_under_the_redirected_home() -> None:
+    """The ledger path follows the redirected home directory, never the real one."""
     assert ledger_path().is_relative_to(_workout_ledger._earned.LEDGER_HOME)

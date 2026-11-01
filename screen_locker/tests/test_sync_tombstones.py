@@ -28,6 +28,7 @@ class TestAddTombstone:
     """The ledger is written once per id, with a clock minted at that moment."""
 
     def test_creates_the_ledger_with_hlc_reason_and_time(self, tmp_path: Path) -> None:
+        """The first tombstone creates the ledger with a device-stamped HLC, reason and time."""
         path = tmp_path / "sync_tombstones.json"
         assert add_tombstone(_RID, _DEVICE, "duplicate", path) is True
         entry = json.loads(path.read_text())[_RID]
@@ -38,6 +39,7 @@ class TestAddTombstone:
     def test_second_add_is_a_no_op_and_keeps_the_original_clock(
         self, tmp_path: Path
     ) -> None:
+        """Tombstoning an id twice returns False and leaves the file, and its clock, untouched."""
         path = tmp_path / "sync_tombstones.json"
         add_tombstone(_RID, _DEVICE, "first", path)
         before = path.read_text()
@@ -45,6 +47,7 @@ class TestAddTombstone:
         assert path.read_text() == before
 
     def test_adds_alongside_existing_ids(self, tmp_path: Path) -> None:
+        """A new tombstone is added next to the ids already in the ledger."""
         path = tmp_path / "sync_tombstones.json"
         add_tombstone(_RID, _DEVICE, "a", path)
         add_tombstone("manual:2026-01-01T08:00", _DEVICE, "b", path)
@@ -55,9 +58,11 @@ class TestTombstoneRecords:
     """Ledger → crdt_sync Records, loud about anything it cannot push."""
 
     def test_missing_ledger_is_empty(self, tmp_path: Path) -> None:
+        """A ledger file that does not exist yields no records."""
         assert not tombstone_records(tmp_path / "absent.json")
 
     def test_ledgered_id_becomes_a_deleted_record(self, tmp_path: Path) -> None:
+        """A ledgered id becomes a deleted Record carrying its stored HLC."""
         path = tmp_path / "sync_tombstones.json"
         add_tombstone(_RID, _DEVICE, "duplicate", path)
         record = tombstone_records(path)[_RID]
@@ -77,6 +82,7 @@ class TestTombstoneRecords:
     def test_corrupt_ledger_pushes_nothing_and_warns(
         self, tmp_path: Path, caplog
     ) -> None:
+        """A corrupt ledger file pushes nothing and logs that it is unreadable."""
         path = tmp_path / "sync_tombstones.json"
         path.write_text("{not json")
         assert not tombstone_records(path)
@@ -85,12 +91,14 @@ class TestTombstoneRecords:
     def test_non_object_ledger_is_ignored_and_warns(
         self, tmp_path: Path, caplog
     ) -> None:
+        """A ledger that is not a JSON object is ignored with a warning."""
         path = tmp_path / "sync_tombstones.json"
         path.write_text("[]")
         assert not tombstone_records(path)
         assert "not a JSON object" in caplog.text
 
     def test_non_dict_entries_are_dropped(self, tmp_path: Path) -> None:
+        """Ledger entries that are not dicts are dropped."""
         path = tmp_path / "sync_tombstones.json"
         path.write_text(json.dumps({_RID: "garbage"}))
         assert not tombstone_records(path)
@@ -98,6 +106,7 @@ class TestTombstoneRecords:
     def test_entry_without_usable_hlc_is_skipped_and_warns(
         self, tmp_path: Path, caplog
     ) -> None:
+        """An entry with no usable deleted_hlc is skipped with a warning."""
         path = tmp_path / "sync_tombstones.json"
         path.write_text(json.dumps({_RID: {"reason": "x"}}))
         assert not tombstone_records(path)
@@ -125,6 +134,7 @@ class TestPushCarriesTombstones:
         return log_file
 
     def test_live_entry_is_pushed_when_not_ledgered(self, tmp_path: Path) -> None:
+        """An entry absent from the tombstone ledger is pushed as a live record."""
         log = records_from_workout_log(self._log(tmp_path))
         assert log[_RID].deleted is False
 
@@ -138,6 +148,7 @@ class TestPushCarriesTombstones:
     def test_tombstone_for_an_id_not_in_the_log_is_still_pushed(
         self, tmp_path: Path
     ) -> None:
+        """A tombstone is pushed even for an id the workout log no longer holds."""
         add_tombstone(
             "manual:2026-01-01T08:00",
             _DEVICE,

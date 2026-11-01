@@ -73,15 +73,18 @@ class TestBudgetError:
     """Budget sees the Firebase pull AND this PC's ledger."""
 
     def test_open_when_nothing_is_pending(self, stubs: SimpleNamespace) -> None:
+        """With nothing pending the weekly budget has no error."""
         assert budget_error(stubs.log_file, _plus(1)) is None
 
     def test_phone_pending_entries_hold_a_slot(self, stubs: SimpleNamespace) -> None:
+        """Entries pulled from the phone count against the budget."""
         for offset in (1, 2):
             payload = build_sync_payload(_draft(f"1{offset}:00"), _plus(offset))
             stubs.pulled.append((f"manual:{_plus(offset)}T1{offset}:00", payload))
         assert budget_error(stubs.log_file, _plus(3)) is not None
 
     def test_excluding_an_id_frees_its_slot(self, stubs: SimpleNamespace) -> None:
+        """Excluding a record id frees the slot that record held."""
         ids = []
         for offset in (1, 2):
             rid = f"manual:{_plus(offset)}T1{offset}:00"
@@ -95,6 +98,7 @@ class TestScheduleFutureWorkout:
     """Hold a validated draft for a later day and publish it."""
 
     def test_schedules_stores_and_publishes(self, stubs: SimpleNamespace) -> None:
+        """A valid future draft is stored in the ledger and pushed once without touching the log."""
         day = _plus(1)
 
         result = schedule_future_workout(stubs.log_file, _draft(), day)
@@ -109,6 +113,7 @@ class TestScheduleFutureWorkout:
     def test_an_unpublished_entry_is_still_scheduled_and_says_so(
         self, stubs: SimpleNamespace
     ) -> None:
+        """A failed publish still schedules the entry and reports it is unpublished."""
         stubs.push.return_value = PushResult(
             pushed=False, record_count=1, reason="Firebase down"
         )
@@ -117,6 +122,7 @@ class TestScheduleFutureWorkout:
         assert "not yet published: Firebase down" in result.reason
 
     def test_today_is_not_a_future_date(self, stubs: SimpleNamespace) -> None:
+        """Today is refused as a schedule date and nothing is pushed."""
         result = schedule_future_workout(stubs.log_file, _draft(), _plus(0))
         assert result.scheduled is False
         assert "is today" in result.reason
@@ -126,11 +132,13 @@ class TestScheduleFutureWorkout:
     def test_a_date_outside_the_window_is_refused(
         self, stubs: SimpleNamespace, ahead: int
     ) -> None:
+        """Dates in the past or beyond the window are refused with nothing stored."""
         result = schedule_future_workout(stubs.log_file, _draft(), _plus(ahead))
         assert result.scheduled is False
         assert not stubs.ledger.exists()
 
     def test_an_exhausted_budget_is_refused(self, stubs: SimpleNamespace) -> None:
+        """Once two workouts are scheduled a third is refused for budget."""
         assert schedule_future_workout(
             stubs.log_file, _draft("10:00"), _plus(1)
         ).scheduled
@@ -143,6 +151,7 @@ class TestScheduleFutureWorkout:
         assert len(json.loads(stubs.ledger.read_text())) == 2
 
     def test_the_same_entry_twice_is_refused(self, stubs: SimpleNamespace) -> None:
+        """Scheduling the same entry twice is refused and pushed only once."""
         day = _plus(1)
         assert schedule_future_workout(stubs.log_file, _draft(), day).scheduled
         again = schedule_future_workout(stubs.log_file, _draft(), day)

@@ -24,20 +24,25 @@ _ISO = _DAY.isoformat()
 
 @pytest.fixture
 def key(tmp_path: Path) -> Iterator[Path]:
+    """Provide a signing key in a temp dir for the duration of the test."""
     with signing_key(tmp_path) as path:
         yield path
 
 
 def entry(data: dict[str, Any]) -> dict[str, Any]:
+    """Build a log entry around the given workout data."""
     return {"timestamp": "2026-10-04T20:00:00+00:00", "workout_data": data}
 
 
 def ledger() -> list[dict[str, Any]]:
+    """Read back the entries stored in the signed ledger file."""
     return json.loads(ledger_path().read_text())["entries"]
 
 
 @pytest.mark.usefixtures("key")
 class TestBackfill:
+    """The backfill CLI rebuilds missing ledger rows from the workout log and rest days."""
+
     def _log(self, tmp_path: Path) -> Path:
         log = tmp_path / "log.json"
         log.write_text(
@@ -56,6 +61,7 @@ class TestBackfill:
         return log
 
     def test_rows_for_a_range_and_its_rest_days(self, tmp_path: Path) -> None:
+        """Backfill yields rows for the log entries in range plus its declared rest days."""
         with patch("screen_locker._rest_day.datetime") as clock:
             clock.now.return_value = datetime(2026, 10, 1).astimezone()
             assert declare(date(2026, 10, 6)).ok
@@ -70,6 +76,7 @@ class TestBackfill:
     def test_dry_run_prints_and_writes_nothing(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
+        """A dry run reports missing rows per source and writes no ledger."""
         argv = ["--dry-run", "--from", _ISO, "--to", "2026-10-05"]
         assert not run_backfill(self._log(tmp_path), argv)
         out = capsys.readouterr().out
@@ -80,6 +87,7 @@ class TestBackfill:
     def test_a_real_run_is_idempotent(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
+        """Running the backfill twice adds rows only the first time."""
         log = self._log(tmp_path)
         assert not run_backfill(log, ["--from", _ISO, "--to", "2026-10-05"])
         assert not run_backfill(log, ["--from", _ISO, "--to", "2026-10-05"])
@@ -90,6 +98,7 @@ class TestBackfill:
         assert "(present)" in capsys.readouterr().out
 
     def test_default_is_today(self, tmp_path: Path) -> None:
+        """With no range given, the backfill covers today only."""
         with patch("screen_locker._workout_ledger_cli.today_str", return_value=_ISO):
             assert not run_backfill(self._log(tmp_path), [])
         assert len(ledger()) == 1

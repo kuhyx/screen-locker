@@ -14,9 +14,11 @@ class TestEarlyBirdWindowIsTheCarrot:
     """The window is whatever wake-alarm's signed file says -- no wall clock."""
 
     def test_no_clock_predicate_remains(self) -> None:
+        """The wall-clock early-bird window predicate no longer exists."""
         assert not hasattr(_compliance_state, "_early_bird_window_open")
 
     def test_window_open_mirrors_wake_skip(self, tmp_path: Path) -> None:
+        """The early-bird decision follows wake_skip: true skips, false would lock."""
         files = {
             "log_file": tmp_path / "log.json",
             "early_bird_pending_file": tmp_path / "eb.json",

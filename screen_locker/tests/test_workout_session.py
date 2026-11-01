@@ -31,6 +31,7 @@ class _FakeAfter:
         return object()
 
     def drain(self, limit: int = 5000) -> None:
+        """Run queued callbacks in order until none are left or the limit is hit."""
         for _ in range(limit):
             if not self.queue:
                 return
@@ -42,6 +43,7 @@ class _FakeStdout:
         self._chunks = chunks
 
     def readline(self) -> str:
+        """Return the next canned chunk, or an empty string when exhausted."""
         return self._chunks.pop(0) if self._chunks else ""
 
 
@@ -54,6 +56,7 @@ class _FakeChild:
         self._exits_after = exits_after
 
     def poll(self) -> int | None:
+        """Report the exit code once the configured number of polls has passed."""
         self._polls += 1
         if self._polls >= self._exits_after:
             self.returncode = 0
@@ -61,6 +64,7 @@ class _FakeChild:
         return None
 
     def terminate(self) -> None:
+        """Record that the child was terminated and set a SIGTERM exit code."""
         self.terminated = True
         self.returncode = -15
 
@@ -85,6 +89,7 @@ class TestWorkoutSession:
     """Each phase hands control back to the event loop."""
 
     def test_releases_the_grab_only_after_the_ready_line(self) -> None:
+        """The grab is released only after the ready marker, and before it is reacquired."""
         after, calls = _FakeAfter(), []
         child = _FakeChild([f"{READY_MARKER}\n"], exits_after=2)
         _session(child, after, calls).start()
@@ -94,12 +99,14 @@ class TestWorkoutSession:
         assert calls.index("release") < calls.index("reacquire")
 
     def test_never_releases_when_the_app_dies_before_ready(self) -> None:
+        """If the app dies before signalling ready the grab is never released."""
         after, calls = _FakeAfter(), []
         _session(_FakeChild([]), after, calls).start()
         after.drain()
         assert "release" not in calls
 
     def test_reacquires_when_the_app_exits(self) -> None:
+        """When the app exits the grab is reacquired and a closed status is shown."""
         after, calls = _FakeAfter(), []
         child = _FakeChild([f"{READY_MARKER}\n"], exits_after=3)
         _session(child, after, calls).start()
@@ -129,6 +136,7 @@ class TestWorkoutSession:
         assert "reacquire" not in calls
 
     def test_times_out_without_ever_blocking(self) -> None:
+        """A silent app is terminated after the retry budget without releasing the grab."""
         after, calls = _FakeAfter(), []
         child = _FakeChild(["noise\n"] * 10, exits_after=99)
         session = _session(child, after, calls)
@@ -139,6 +147,7 @@ class TestWorkoutSession:
         assert "release" not in calls
 
     def test_says_so_when_the_app_is_not_built(self) -> None:
+        """A missing workout binary is reported in the status text."""
         after, calls = _FakeAfter(), []
         session = WorkoutSession(
             GrabHandoff(release=lambda: None, reacquire=lambda: None),
@@ -155,6 +164,7 @@ class TestWorkoutSession:
         assert any("not built" in c for c in calls)
 
     def test_handles_a_missing_stdout_pipe(self) -> None:
+        """A child without a stdout pipe never causes the grab to be released."""
         after, calls = _FakeAfter(), []
         child = _FakeChild([])
         child.stdout = None
@@ -191,6 +201,7 @@ class TestSessionEdges:
         assert child.terminated
 
     def test_abort_with_no_child_is_harmless(self) -> None:
+        """Aborting a never-started session just reports the app as closed."""
         after, calls = _FakeAfter(), []
         session = _session(_FakeChild([]), after, calls)
         session.abort()  # never started
@@ -231,6 +242,7 @@ class TestDemoEscapeFlag:
         assert "--demo-escape" not in self._argv_for(demo_escape=False)
 
     def test_demo_arms_the_hatch(self) -> None:
+        """With demo_escape on, the app is launched with --demo-escape in lock mode."""
         argv = self._argv_for(demo_escape=True)
         assert argv[-1] == "--demo-escape"
         assert "--lock-mode" in argv

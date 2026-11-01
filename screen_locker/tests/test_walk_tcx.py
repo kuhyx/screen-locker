@@ -47,25 +47,33 @@ def walk(seconds: int, speed: float = 1.3) -> ET.Element:
 
 
 class TestIsWalkingExport:
+    """is_walking_export recognises a walk from the file name or the activity sport."""
+
     def test_the_file_name_names_the_sport(self) -> None:
         """RunnerUp's default export writes Sport="Other"; the name says Walking."""
         assert is_walking_export("RunnerUp_2026-10-10-08-00-00_Walking.tcx", "Other")
 
     def test_the_strava_variant_tags_the_activity(self) -> None:
+        """The Strava export variant marks the walk on the Activity sport instead of the name."""
         assert is_walking_export("RunnerUp_2026-10-10-08-00-00.tcx", "Walking")
 
     def test_other_alone_is_not_a_walk(self) -> None:
+        """The generic Other sport with a non-walking file name is not a walk."""
         assert not is_walking_export("RunnerUp_2026-10-10_Running.tcx", "Other")
 
 
 class TestTrackSummary:
+    """track_summary derives moving time and end time from the GPS track."""
+
     def test_walking_speed_is_moving(self) -> None:
+        """Points at walking speed all count as moving time and set the end time."""
         summary = track_summary(walk(600))
         assert summary["moving_seconds"] == pytest.approx(600)
         assert summary["activity_id"] == "A1"
         assert summary["ended_at"] == (_START + timedelta(seconds=600)).timestamp()
 
     def test_standing_and_vehicles_are_not_moving(self) -> None:
+        """Standing-still and vehicle speeds add no moving time."""
         assert not track_summary(walk(600, speed=0.1))["moving_seconds"]
         assert not track_summary(walk(600, speed=8.0))["moving_seconds"]
 
@@ -77,6 +85,7 @@ class TestTrackSummary:
     def test_unusable_points_are_skipped(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """Points with no distance, no time or an unparsable time are skipped with a warning."""
         points = [
             (0, "0.1", None),
             (5, None, None),  # no distance
@@ -90,6 +99,7 @@ class TestTrackSummary:
         assert "unparsable time" in caplog.text
 
     def test_no_points_has_no_end(self) -> None:
+        """A track with no points has zero moving time and no end."""
         summary = track_summary(activity([]))
         assert summary == {"activity_id": "A1", "moving_seconds": 0.0, "ended_at": None}
 
@@ -97,6 +107,7 @@ class TestTrackSummary:
 def leg(
     ident: str, minutes: float, ended: float, metres: float = 2000
 ) -> dict[str, Any]:
+    """Build a per-walk summary dict like track_summary produces."""
     return {
         "activity_id": ident,
         "moving_seconds": minutes * 60,
@@ -106,7 +117,10 @@ def leg(
 
 
 class TestWalkDay:
+    """walk_day aggregates legs into one qualifying day."""
+
     def test_legs_sum_and_complete_when_the_bar_is_crossed(self) -> None:
+        """Legs are summed, deduplicated by order, and complete when the bar is crossed."""
         day = walk_day([leg("b", 20, 200.0), leg("a", 25, 100.0), leg("c", 5, 300.0)])
         assert day.legs == 3
         assert day.moving_minutes == pytest.approx(50)
@@ -116,6 +130,7 @@ class TestWalkDay:
         assert day.message() == "Walking: 3 walk(s), 6.0 km, 50 min moving"
 
     def test_the_same_walk_from_two_sources_counts_once(self) -> None:
+        """The same walk reported by two sources is counted once."""
         copy = leg("same", 20, 100.0)
         day = walk_day([copy, dict(copy)])
         assert day.legs == 1
@@ -123,6 +138,7 @@ class TestWalkDay:
         assert day.completed_at is None
 
     def test_a_walk_without_id_or_end_still_counts(self) -> None:
+        """A walk lacking an id or an end time still counts but has no completion time."""
         anonymous = {"moving_seconds": 45 * 60}
         day = walk_day([anonymous])
         assert day.legs == 1
@@ -130,11 +146,13 @@ class TestWalkDay:
         assert day.completed_at is None
 
     def test_shortfall_says_what_is_missing(self) -> None:
+        """The shortfall text states how much moving time is still needed."""
         text = walk_shortfall(walk_day([leg("a", 20, 1.0)]))
         assert text.endswith("need 30+ min moving")
 
     def test_walks_share_the_one_workout_accept_bar(self) -> None:
         # Same advertised-30 / accept-25 bar as every other workout type.
+        """Walks use the same accept threshold as every other workout type."""
         assert not walk_day([leg("a", 24.9, 1.0)]).qualifies
         day = walk_day([leg("a", 25, 1.0)])
         assert day.qualifies

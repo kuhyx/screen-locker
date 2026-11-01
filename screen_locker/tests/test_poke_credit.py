@@ -26,6 +26,7 @@ _DAY = "2026-10-09"
 
 
 def _session(**overrides: object) -> dict[str, Any]:
+    """Build a synced session payload for the poke tests, with optional overrides."""
     payload: dict[str, Any] = {
         "workout_type": "B",
         "date": _DAY,
@@ -39,6 +40,7 @@ def _session(**overrides: object) -> dict[str, Any]:
 
 
 def _result(*, counted: bool = False) -> WorkoutCreditResult:
+    """Build a WorkoutCreditResult, optionally marking the slot as already counted."""
     return WorkoutCreditResult(
         shutdown_adjusted=not counted,
         extra_bonus_delta=0,
@@ -53,6 +55,7 @@ def log_file_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     log = tmp_path / "poke_log.json"
 
     def headless(locker_cls: type[PokeLocker]) -> PokeLocker:
+        """Build a PokeLocker without a display, pointed at the temporary log."""
         locker = object.__new__(locker_cls)
         locker.log_file = log
         locker.workout_data = {}
@@ -73,14 +76,18 @@ def credit_fixture(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
 
 
 def _logged_ids(log: Path) -> list[str]:
+    """Return the sync record ids of every entry in the poke log."""
     data = json.loads(log.read_text())
     return [e["workout_data"]["sync_record_id"] for es in data.values() for e in es]
 
 
 class TestCreditSession:
+    """Groups crediting a single poked session end to end."""
+
     def test_happy_path_logs_and_credits_once(
         self, log_file: Path, credit: MagicMock
     ) -> None:
+        """A valid session is logged under its start time and credited exactly once."""
         outcome = credit_session("r1", _session())
         assert outcome == PokeOutcome(
             ok=True, credited=True, duplicate=False, reason="workout credited"
@@ -91,6 +98,7 @@ class TestCreditSession:
     def test_second_poke_of_the_same_session_is_a_duplicate(
         self, log_file: Path, credit: MagicMock
     ) -> None:
+        """A second poke of one session is a duplicate: not logged or credited again."""
         credit_session("r1", _session())
         outcome = credit_session("r1", _session())
         assert (outcome.ok, outcome.credited, outcome.duplicate) == (True, False, True)
@@ -104,6 +112,7 @@ class TestCreditSession:
         credit: MagicMock,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
+        """When the slot is already paid the session is logged and warned about but not credited."""
         credit.return_value = _result(counted=True)
         with caplog.at_level(logging.WARNING):
             outcome = credit_session("r1", _session())
@@ -116,6 +125,7 @@ class TestCreditSession:
     def test_session_without_a_usable_date_is_refused(
         self, log_file: Path, credit: MagicMock, day: object
     ) -> None:
+        """A session with a missing, empty or non-string date is refused and nothing is written."""
         outcome = credit_session("r1", _session(date=day))
         assert (outcome.ok, outcome.credited, outcome.duplicate) == (
             False,
@@ -141,6 +151,7 @@ class TestCreditSession:
         overrides: dict[str, object],
         fragment: str,
     ) -> None:
+        """An invalid session is refused with its validation reason, writing nothing."""
         outcome = credit_session("r1", _session(**overrides))
         assert outcome.ok is False
         assert "does not count" in outcome.reason
@@ -151,12 +162,15 @@ class TestCreditSession:
     def test_the_day_is_reset_before_the_credit(
         self, log_file: Path, credit: MagicMock, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """The day reset runs before the credit step."""
         order: list[str] = []
 
         def reset(_self: PokeLocker) -> None:
+            """Record that the day reset ran."""
             order.append("reset")
 
         def paid(*_args: object) -> WorkoutCreditResult:
+            """Record that the credit ran and return a fresh result."""
             order.append("credit")
             return _result()
 
@@ -167,9 +181,12 @@ class TestCreditSession:
 
 
 class TestCreditSessions:
+    """Groups crediting a batch of streamed sessions."""
+
     def test_batch_counts_ingested_and_credited(
         self, log_file: Path, credit: MagicMock
     ) -> None:
+        """A batch reports every newly ingested id and how many were credited."""
         other = _session(date="2026-10-08", start_time="2026-10-08T09:00:00.000")
         outcome = credit_sessions([("r1", _session()), ("r2", other)])
         assert outcome == BatchOutcome(ingested=("r1", "r2"), credited=2)
@@ -178,6 +195,7 @@ class TestCreditSessions:
     def test_already_logged_ids_cost_nothing(
         self, log_file: Path, credit: MagicMock
     ) -> None:
+        """Re-sending already logged ids ingests and credits nothing."""
         credit_sessions([("r1", _session())])
         outcome = credit_sessions([("r1", _session())])
         assert outcome == BatchOutcome(ingested=(), credited=0)
@@ -186,6 +204,7 @@ class TestCreditSessions:
     def test_invalid_session_in_a_batch_is_skipped(
         self, log_file: Path, credit: MagicMock
     ) -> None:
+        """An invalid session in a batch is skipped without writing a log."""
         outcome = credit_sessions([("bad", _session(exercises=[]))])
         assert outcome == BatchOutcome(ingested=(), credited=0)
         assert not log_file.exists()
@@ -196,6 +215,7 @@ class TestCreditSessions:
         credit: MagicMock,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
+        """A batch session on an already paid slot is ingested uncredited and warned about."""
         credit.return_value = _result(counted=True)
         with caplog.at_level(logging.WARNING):
             outcome = credit_sessions([("r1", _session())])

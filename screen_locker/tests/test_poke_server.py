@@ -14,8 +14,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from screen_locker import _poke_credit, _poke_server
-from screen_locker._poke_server import MAX_BODY_BYTES, POKE_PATH, PokeServer
+from screen_locker import _poke_credit
+from screen_locker._poke_server import POKE_PATH, PokeServer
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -116,9 +116,12 @@ def _raw(port: int, lines: list[str], send: bytes = b"") -> tuple[int, dict[str,
 
 
 class TestCredit:
+    """A signed poke over real HTTP and the status each failure mode maps to."""
+
     def test_valid_poke_credits_and_answers_the_contract_shape(
         self, port: int, credit: MagicMock
     ) -> None:
+        """A valid poke credits once and the reply carries the full contract shape."""
         body = _body()
         status, reply = _post(port, body, _sign(body))
         assert status == 200
@@ -136,6 +139,7 @@ class TestCredit:
     def test_replayed_nonce_is_409_and_credits_once(
         self, port: int, credit: MagicMock
     ) -> None:
+        """Replaying a nonce is refused with 409 and never credits twice."""
         body = _body()
         assert _post(port, body, _sign(body))[0] == 200
         status, reply = _post(port, body, _sign(body))
@@ -145,6 +149,7 @@ class TestCredit:
         assert credit.call_count == 1
 
     def test_stale_timestamp_is_401(self, port: int, credit: MagicMock) -> None:
+        """A poke with an old timestamp is rejected as stale and not credited."""
         body = _body(sent_at_ms=_now_ms() - 600_000)
         status, reply = _post(port, body, _sign(body))
         assert status == 401
@@ -154,12 +159,14 @@ class TestCredit:
     def test_bad_or_missing_signature_is_401(
         self, port: int, credit: MagicMock
     ) -> None:
+        """A wrong or absent signature is rejected with 401 and not credited."""
         body = _body()
         assert _post(port, body, "00" * 32)[0] == 401
         assert _post(port, body, None)[0] == 401
         credit.assert_not_called()
 
     def test_schema_violation_is_400(self, port: int, credit: MagicMock) -> None:
+        """An unsupported protocol version is a 400 and not credited."""
         body = _body(v=2)
         status, reply = _post(port, body, _sign(body))
         assert status == 400
@@ -172,6 +179,7 @@ class TestCredit:
         credit: MagicMock,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
+        """A crash in crediting gives a 500 that says the regular sync will still credit."""
         credit.side_effect = RuntimeError("boom")
         body = _body()
         status, reply = _post(port, body, _sign(body))
@@ -182,9 +190,12 @@ class TestCredit:
 
 
 class TestSandbox:
+    """Sandbox pokes are acknowledged but never credited, and still need a valid signature."""
+
     def test_sandbox_poke_over_http_is_answered_but_not_credited(
         self, port: int, credit: MagicMock
     ) -> None:
+        """A signed sandbox poke is answered ok without crediting anything."""
         body = _body(sandbox=True)
         status, reply = _post(port, body, _sign(body))
         assert (status, reply["ok"], reply["sandbox"]) == (200, True, True)
@@ -194,56 +205,7 @@ class TestSandbox:
     def test_sandbox_with_a_bad_signature_is_still_refused(
         self, port: int, credit: MagicMock
     ) -> None:
+        """A sandbox poke with a bad signature is refused and not flagged as sandbox."""
         status, reply = _post(port, _body(sandbox=True), "00" * 32)
         assert status == 401
         assert reply["sandbox"] is False
-
-
-class TestRouting:
-    def test_unknown_path_is_404(self, port: int, credit: MagicMock) -> None:
-        body = _body()
-        status, reply = _post(port, body, _sign(body), path="/v2/other")
-        assert status == 404
-        assert "unknown path" in reply["reason"]
-
-    def test_get_is_405(self, port: int) -> None:
-        conn = HTTPConnection("127.0.0.1", port, timeout=10)
-        conn.request("GET", POKE_PATH)
-        resp = conn.getresponse()
-        data = json.loads(resp.read())
-        conn.close()
-        assert resp.status == 405
-        assert "only POST" in data["reason"]
-
-    def test_missing_content_length_is_411(self, port: int) -> None:
-        status, _ = _raw(port, ["Host: x"])
-        assert status == 411
-
-    @pytest.mark.parametrize("value", ["abc", "-5", ""])
-    def test_malformed_content_length_is_400(self, port: int, value: str) -> None:
-        status, reply = _raw(port, [f"Content-Length: {value}"])
-        assert status == 400
-        assert "bad Content-Length" in reply["reason"]
-
-    def test_oversized_body_is_413_without_reading_it(self, port: int) -> None:
-        status, reply = _raw(port, [f"Content-Length: {MAX_BODY_BYTES + 1}"])
-        assert status == 413
-        assert str(MAX_BODY_BYTES) in reply["reason"]
-
-    def test_body_at_the_cap_is_read_and_judged_on_its_signature(
-        self, port: int
-    ) -> None:
-        body = b"x" * MAX_BODY_BYTES
-        assert _post(port, body, _sign(body))[0] == 400
-
-    def test_truncated_body_is_400(self, port: int) -> None:
-        status, reply = _raw(port, ["Content-Length: 100"], send=b"0123456789")
-        assert status == 400
-        assert "10 of 100 bytes" in reply["reason"]
-
-
-def test_reply_for_a_refusal_leaves_the_snapshot_null() -> None:
-    reply = _poke_server._refused("nope")
-    assert reply["ok"] is False
-    assert (reply["shutdown"], reply["gaming_budget_minutes"]) == (None, None)
-    assert reply["reason"] == "nope"

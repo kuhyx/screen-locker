@@ -56,10 +56,14 @@ def answers_fixture() -> Iterator[tuple[dict[str, bool | None], MagicMock]]:
 
 
 class TestBaseHour:
+    """base_minutes lowers the base evening shutdown once the reading cut starts."""
+
     def test_day_before_the_cut_keeps_twenty(self) -> None:
+        """Before the reading cut day the base stays at 20:00."""
         assert base_minutes(date(2026, 9, 30)) == 20 * 60
 
     def test_cut_day_is_nineteen(self) -> None:
+        """On the reading cut day the base is 19:00."""
         assert earned_time.READING.penalty_from == date(2026, 10, 1)
         assert base_minutes(date(2026, 10, 1)) == 19 * 60
 
@@ -80,14 +84,18 @@ class TestBaseHour:
         assert base.shutdown_minutes < base_minutes(date(2026, 9, 30))
 
     def test_default_is_the_local_today(self) -> None:
+        """Called without a day, base_minutes uses the local today."""
         assert base_minutes() == base_minutes(datetime.now().astimezone().date())
 
 
 class TestResetIncludesReading:
+    """The daily reset folds a paid reading hour in as a term and stamps it."""
+
     @pytest.mark.usefixtures("pre_ladder")
     def test_reset_writes_base_plus_reading_and_stamps_it(
         self, tmp_path: Path, answers: tuple[dict[str, bool | None], MagicMock]
     ) -> None:
+        """A reading credit raises the reset shutdown by one hour and stamps reading only."""
         answers[0]["reading"] = True
         state = tmp_path / "state.json"
         mixin = _mixin()
@@ -104,6 +112,7 @@ class TestResetIncludesReading:
     def test_reset_with_both_flat_hours_stamps_both(
         self, tmp_path: Path, answers: tuple[dict[str, bool | None], MagicMock]
     ) -> None:
+        """Earning both flat hours adds two hours and stamps both, leaving the live pass idle."""
         answers[0]["leetcode"] = True
         answers[0]["reading"] = True
         state = tmp_path / "state.json"
@@ -161,6 +170,7 @@ class TestResetIncludesReading:
         answers: tuple[dict[str, bool | None], MagicMock],
         caplog: pytest.LogCaptureFixture,
     ) -> None:
+        """The reset log message spells out every term of the derivation."""
         answers[0]["reading"] = True
         with caplog.at_level("INFO"):
             reset_to_base_if_new_day(tmp_path / "state.json", _mixin())
@@ -172,79 +182,3 @@ class TestResetIncludesReading:
             f"Daily base reset: {hhmm(base + 60)} (base {hhmm(base)} + 0h workout + "
             f"0h LeetCode + 1h reading{later} already earned today)."
         ) in caplog.text
-
-
-class TestReadingLivePass:
-    @pytest.mark.usefixtures("pre_ladder")
-    def test_applies_once_and_stamps(
-        self, tmp_path: Path, answers: tuple[dict[str, bool | None], MagicMock]
-    ) -> None:
-        answers[0]["reading"] = True
-        state = tmp_path / "state.json"
-        state.write_text(json.dumps({"last_reset_date": today_str()}))
-        mixin = _mixin()
-        assert apply_reading_bonus_if_new(state, mixin) is True
-        assert apply_reading_bonus_if_new(state, mixin) is False
-        mixin._adjust_shutdown_time_by.assert_called_once_with(60, at=None)
-        assert json.loads(state.read_text()) == {
-            "last_reset_date": today_str(),
-            "reading_bonus_date": today_str(),
-        }
-
-    def test_stamped_today_never_reads_the_ledger(
-        self, tmp_path: Path, answers: tuple[dict[str, bool | None], MagicMock]
-    ) -> None:
-        state = tmp_path / "state.json"
-        state.write_text(json.dumps({"reading_bonus_date": today_str()}))
-        assert apply_reading_bonus_if_new(state, _mixin()) is False
-        answers[1].assert_not_called()
-
-    def test_no_reading_no_write(
-        self, tmp_path: Path, answers: tuple[dict[str, bool | None], MagicMock]
-    ) -> None:
-        mixin = _mixin()
-        assert apply_reading_bonus_if_new(tmp_path / "state.json", mixin) is False
-        mixin._adjust_shutdown_time_by.assert_not_called()
-
-    def test_failed_write_leaves_no_stamp_and_warns(
-        self,
-        tmp_path: Path,
-        answers: tuple[dict[str, bool | None], MagicMock],
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        """A stamp without a write would silently forfeit the hour for the day."""
-        answers[0]["reading"] = True
-        state = tmp_path / "state.json"
-        mixin = _mixin(adjust_ok=False)
-        with caplog.at_level("WARNING"):
-            assert apply_reading_bonus_if_new(state, mixin) is False
-        assert "reading bonus: failed to write" in caplog.text
-        assert not state.exists()
-
-    def test_cannot_check_warns_and_leaves_no_stamp(
-        self,
-        tmp_path: Path,
-        answers: tuple[dict[str, bool | None], MagicMock],
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        """Unknown is not "no": logged, no hour, and re-asked on the next tick."""
-        answers[0]["reading"] = None
-        state = tmp_path / "state.json"
-        mixin = _mixin()
-        with caplog.at_level("WARNING"):
-            assert apply_reading_bonus_if_new(state, mixin) is False
-        assert "reading state could not be checked" in caplog.text
-        mixin._adjust_shutdown_time_by.assert_not_called()
-        assert not state.exists()
-
-    @pytest.mark.usefixtures("pre_ladder")
-    def test_applied_hour_is_logged(
-        self,
-        tmp_path: Path,
-        answers: tuple[dict[str, bool | None], MagicMock],
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        answers[0]["reading"] = True
-        with caplog.at_level("INFO"):
-            assert apply_reading_bonus_if_new(tmp_path / "state.json", _mixin())
-        assert "reading bonus: +1h shutdown time today." in caplog.text

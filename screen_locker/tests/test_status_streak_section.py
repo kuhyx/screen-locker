@@ -28,11 +28,13 @@ class TestSectionStreak:
     def test_shows_the_real_week_count_in_success_color(
         self, mock_tk: MagicMock
     ) -> None:
+        """The streak line shows the real week count in the success colour."""
         window = _make_window(mock_tk, _snapshot(streak=3))
         assert any("3-week streak" in t for t in _texts(mock_tk))
         assert window._colors.palette.success in _fg_of(mock_tk, "3-week streak")
 
     def test_zero_streak_is_stated_plainly_not_padded(self, mock_tk: MagicMock) -> None:
+        """A zero streak reads No streak in the muted colour, with no week count."""
         window = _make_window(mock_tk, _snapshot(streak=0))
         texts = _texts(mock_tk)
         assert any("No streak" in t for t in texts)
@@ -47,16 +49,19 @@ class TestSectionStreak:
     def test_week_reward_reaches_the_window_in_success_color(
         self, mock_tk: MagicMock
     ) -> None:
+        """A week reward message is shown in the success colour."""
         msg = "5 workouts in 2026-W41! 4-week streak"
         window = _make_window(mock_tk, _snapshot(streak=4, week_rewards=(msg,)))
         assert msg in _texts(mock_tk)
         assert window._colors.palette.success in _fg_of(mock_tk, msg)
 
     def test_no_reward_text_when_the_week_has_none(self, mock_tk: MagicMock) -> None:
+        """No reward line appears when the week has no reward."""
         _make_window(mock_tk, _snapshot(streak=4))
         assert not any("workouts in 20" in t for t in _texts(mock_tk))
 
     def test_a_streak_reset_is_not_painted_as_a_win(self, mock_tk: MagicMock) -> None:
+        """A streak-reset message is shown in the warning colour, not as a win."""
         msg = "Streak reset (was 3 weeks of 5+ workouts)"
         window = _make_window(mock_tk, _snapshot(streak=0, week_rewards=(msg,)))
         assert window._colors.palette.warning in _fg_of(mock_tk, msg)

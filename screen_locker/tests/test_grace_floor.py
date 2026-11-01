@@ -30,18 +30,23 @@ _FLAT = {"leetcode": False, "reading": False, "anki": False, "tutor": False}
 
 
 def at(hhmm: str, day: date = _DAY) -> float:
+    """Unix time of ``hhmm`` local on ``day``."""
     hours, minutes = map(int, hhmm.split(":"))
     return datetime.combine(day, time(hours, minutes)).astimezone().timestamp()
 
 
 def log_with(tmp_path: Path, entries: list[dict[str, Any]]) -> Path:
+    """Write a workout log holding ``entries`` under the test day and return its path."""
     log = tmp_path / "log.json"
     log.write_text(json.dumps({_ISO: entries}))
     return log
 
 
 class TestWhenTheDayStarted:
+    """How the first completion of the day is found across the log and the ledgers."""
+
     def test_the_first_counted_workout_by_its_own_end(self, tmp_path: Path) -> None:
+        """The first counted workout is timed by its own completion, skipping rest-day rows."""
         log = log_with(
             tmp_path,
             [
@@ -58,9 +63,11 @@ class TestWhenTheDayStarted:
         assert workout_done_at(log, _DAY) == at("17:00")
 
     def test_no_workout_is_none(self, tmp_path: Path) -> None:
+        """A day without any workout entry has no completion time."""
         assert workout_done_at(log_with(tmp_path, []), _DAY) is None
 
     def test_the_earliest_earner_on_the_day_wins(self, tmp_path: Path) -> None:
+        """The earliest credit among the earners and the log is the start of the day."""
         log = log_with(
             tmp_path,
             [{"workout_data": {"type": "manual_workout", "end_time": "19:30"}}],
@@ -86,6 +93,7 @@ class TestWhenTheDayStarted:
                 assert first_done_at(_DAY, None, rest_day=True) is None
 
     def test_without_a_workout_ledger_only_the_log_answers(self) -> None:
+        """Without a workout ledger only the log can supply a completion time."""
         bare = earned_time.Earner(
             name="workout", label="workout", gaming_minutes=0, shutdown_minutes=0
         )
@@ -97,7 +105,10 @@ class TestWhenTheDayStarted:
 
 
 class TestLift:
+    """Saving, spending and expiring the grace lift."""
+
     def test_absorb_pays_from_the_lift_first(self) -> None:
+        """Absorbing a credit spends the saved lift before paying anything new."""
         with patch.object(_grace_floor, "today_str", return_value=_ISO):
             assert plan_absorb(30) == (30, 0)
             save_lift(45)
@@ -105,6 +116,7 @@ class TestLift:
             assert plan_absorb(60) == (15, 0)
 
     def test_yesterdays_lift_is_spent(self) -> None:
+        """A lift saved on an earlier day no longer counts."""
         with patch.object(_grace_floor, "today_str", return_value="2026-10-09"):
             save_lift(45)
         with patch.object(_grace_floor, "today_str", return_value=_ISO):
@@ -113,6 +125,7 @@ class TestLift:
     def test_an_unreadable_state_is_no_lift(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """A corrupt state file means no lift and logs a warning."""
         _grace_floor.GRACE_STATE_FILE.write_text("{bad")
         with caplog.at_level(logging.WARNING):
             assert plan_absorb(10) == (10, 0)
@@ -121,6 +134,7 @@ class TestLift:
     def test_a_failed_save_is_logged(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """A lift that cannot be written is logged as a warning."""
         with caplog.at_level(logging.WARNING):
             save_lift(5, tmp_path / "missing-dir" / "g.json")
         assert "Could not record the grace lift" in caplog.text

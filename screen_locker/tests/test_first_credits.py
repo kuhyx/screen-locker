@@ -92,6 +92,8 @@ def _paid(day: date) -> None:
 
 @pytest.mark.usefixtures("today", "piano")
 class TestTheMap:
+    """first_credits maps penalised readers to the day they first paid out."""
+
     def test_each_penalised_reader_maps_to_its_first_credit(self) -> None:
         """A bonus, a ledger-less and a matcher-less earner are left out."""
         _paid(_DAY - _ONE)
@@ -106,14 +108,17 @@ class TestTheMap:
         assert first_credits(earners, _DAY) == {"piano": _DAY - _ONE, "never": None}
 
     def test_a_future_day_is_resolved_too(self) -> None:
+        """A day after today is resolved as well, giving no first credit yet."""
         assert first_credits((PIANO,), _DAY + _ONE) == {"piano": None}
 
     def test_history_is_never_re_resolved(self) -> None:
+        """A past day returns None so history is priced on penalty_from alone."""
         assert first_credits((PIANO,), _DAY - _ONE) is None
 
     def test_an_earned_time_without_maturity_says_so(
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """An earned_time without maturity yields None and warns 'no maturity'."""
         monkeypatch.delattr(earned_time, "maturity")
         _earned._warn_no_maturity.cache_clear()
         with caplog.at_level(logging.WARNING):
@@ -151,7 +156,10 @@ class TestTheBase:
 
 @pytest.mark.usefixtures("piano")
 class TestDerive:
+    """The derived target honours first-credit maturity."""
+
     def test_first_credits_reach_the_resolution(self) -> None:
+        """Supplying first credits lifts the penalty from the derived base."""
         answers = {e.name: False for e in registry(_DAY)}
         lenient = derive(DayInputs(_DAY, answers, first_credits={"piano": None}))
         strict = derive(DayInputs(_DAY, answers))

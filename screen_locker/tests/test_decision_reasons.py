@@ -15,12 +15,14 @@ class TestCollectReasons:
     """Every condition that holds is reported, not just the first."""
 
     def test_returns_only_the_predicates_that_hold(self) -> None:
+        """Only the names whose predicate is true are returned, in order."""
         held = collect_reasons(
             {"a": lambda: True, "b": lambda: False, "c": lambda: True}
         )
         assert held == ["a", "c"]
 
     def test_empty_when_nothing_holds(self) -> None:
+        """No true predicate yields an empty list."""
         assert collect_reasons({"a": lambda: False}) == []
 
     def test_a_failing_predicate_is_reported_and_skipped(
@@ -29,6 +31,7 @@ class TestCollectReasons:
         """A broken annotation must not take down the decision it annotates."""
 
         def boom() -> bool:
+            """Predicate that fails with an OSError."""
             msg = "log unreadable"
             raise OSError(msg)
 
@@ -46,6 +49,7 @@ class TestReasonsExtra:
     """The acting reason is never repeated back as an 'also'."""
 
     def test_excludes_the_acting_reason(self) -> None:
+        """The acting reason is left out of the 'also' list."""
         extra = reasons_extra(
             "early_bird_window_active",
             {
@@ -56,6 +60,7 @@ class TestReasonsExtra:
         assert extra == {"also": "workout_logged_today"}
 
     def test_orders_and_joins_every_other_condition(self) -> None:
+        """Every other holding condition is joined in order into the 'also' value."""
         extra = reasons_extra(
             "early_bird_window_active",
             {

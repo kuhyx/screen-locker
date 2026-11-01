@@ -18,6 +18,7 @@ from screen_locker._temperature import (
 
 
 def _mock_urlopen_returning(body: bytes) -> MagicMock:
+    """Build a urlopen stand-in whose response body is the given bytes."""
     mock_response = MagicMock()
     mock_response.read.return_value = body
     mock_urlopen = MagicMock()
@@ -26,7 +27,10 @@ def _mock_urlopen_returning(body: bytes) -> MagicMock:
 
 
 class TestFetchCurrentTempWithStatus:
+    """fetch_current_temp_with_status turns every outcome into a TemperatureCheck."""
+
     def test_returns_parsed_temperature_on_success(self) -> None:
+        """A well-formed wttr.in reply yields the parsed Celsius value."""
         body = b'{"current_condition": [{"temp_C": "27"}]}'
         with patch(
             "screen_locker._temperature.urllib.request.urlopen",
@@ -36,6 +40,7 @@ class TestFetchCurrentTempWithStatus:
         assert result == TemperatureCheck(temp_celsius=27.0, timed_out=False)
 
     def test_returns_none_on_url_error(self) -> None:
+        """A URLError gives no temperature and is not a timeout."""
         with patch(
             "screen_locker._temperature.urllib.request.urlopen",
             side_effect=urllib.error.URLError("unreachable"),
@@ -44,6 +49,7 @@ class TestFetchCurrentTempWithStatus:
         assert result == TemperatureCheck(temp_celsius=None, timed_out=False)
 
     def test_returns_none_on_timeout_error(self) -> None:
+        """A TimeoutError from urlopen gives no temperature and is not flagged timed out."""
         with patch(
             "screen_locker._temperature.urllib.request.urlopen",
             side_effect=TimeoutError("timed out"),
@@ -52,6 +58,7 @@ class TestFetchCurrentTempWithStatus:
         assert result == TemperatureCheck(temp_celsius=None, timed_out=False)
 
     def test_returns_none_on_os_error(self) -> None:
+        """An OSError gives no temperature and is not a timeout."""
         with patch(
             "screen_locker._temperature.urllib.request.urlopen",
             side_effect=OSError("network unreachable"),
@@ -60,6 +67,7 @@ class TestFetchCurrentTempWithStatus:
         assert result == TemperatureCheck(temp_celsius=None, timed_out=False)
 
     def test_returns_none_on_missing_key(self) -> None:
+        """A reply lacking current_condition gives no temperature."""
         body = b'{"unexpected": "shape"}'
         with patch(
             "screen_locker._temperature.urllib.request.urlopen",
@@ -69,6 +77,7 @@ class TestFetchCurrentTempWithStatus:
         assert result == TemperatureCheck(temp_celsius=None, timed_out=False)
 
     def test_returns_none_on_empty_current_condition(self) -> None:
+        """An empty current_condition list gives no temperature."""
         body = b'{"current_condition": []}'
         with patch(
             "screen_locker._temperature.urllib.request.urlopen",
@@ -78,6 +87,7 @@ class TestFetchCurrentTempWithStatus:
         assert result == TemperatureCheck(temp_celsius=None, timed_out=False)
 
     def test_returns_none_on_non_numeric_temp(self) -> None:
+        """A non-numeric temp_C gives no temperature."""
         body = b'{"current_condition": [{"temp_C": "not-a-number"}]}'
         with patch(
             "screen_locker._temperature.urllib.request.urlopen",
@@ -87,6 +97,7 @@ class TestFetchCurrentTempWithStatus:
         assert result == TemperatureCheck(temp_celsius=None, timed_out=False)
 
     def test_returns_none_on_invalid_json(self) -> None:
+        """A body that is not JSON gives no temperature."""
         with patch(
             "screen_locker._temperature.urllib.request.urlopen",
             _mock_urlopen_returning(b"not json{{{"),
@@ -95,7 +106,10 @@ class TestFetchCurrentTempWithStatus:
         assert result == TemperatureCheck(temp_celsius=None, timed_out=False)
 
     def test_reports_timed_out_when_fetch_exceeds_hard_timeout(self) -> None:
+        """A fetch slower than the hard timeout is reported as timed out."""
+
         def _slow_fetch(_city: str) -> float | None:
+            """Stand-in fetch that sleeps past the hard timeout and then returns 27.0."""
             time.sleep(0.3)
             return 27.0
 

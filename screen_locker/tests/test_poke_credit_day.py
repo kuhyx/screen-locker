@@ -22,6 +22,7 @@ def log_file_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     log = tmp_path / "poke_log.json"
 
     def headless(locker_cls: type[PokeLocker]) -> PokeLocker:
+        """Build a PokeLocker without a display, pointed at the temporary log."""
         locker = object.__new__(locker_cls)
         locker.log_file = log
         locker.workout_data = {}
@@ -49,16 +50,21 @@ def credit_fixture(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
 
 
 class TestStartTheDay:
+    """Groups the day-start steps run before a poked session is credited."""
+
     def test_new_day_runs_the_week_transition_then_the_reset(
         self, log_file: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """Starting the day runs the week transition first, then the base reset."""
         calls: list[str] = []
 
         def week(*_args: object) -> list[str]:
+            """Record the week transition and return a streak message."""
             calls.append("week")
             return ["+1h streak"]
 
         def reset(*_args: object, **_kwargs: object) -> bool:
+            """Record the base reset and report it ran."""
             calls.append("reset")
             return True
 
@@ -70,6 +76,7 @@ class TestStartTheDay:
     def test_credit_written_sets_the_entry_and_returns_the_result(
         self, log_file: Path, credit: MagicMock
     ) -> None:
+        """credit_written stores the entry as workout data and returns the shared credit result."""
         locker = _poke_credit.fresh_locker()
         assert locker.credit_written({"type": "x"}, [{"a": 1}]) == credit.return_value
         assert locker.workout_data == {"type": "x"}
@@ -77,9 +84,12 @@ class TestStartTheDay:
 
 
 class TestSnapshots:
+    """Groups the shutdown and gaming-minutes values snapshotted into poke replies."""
+
     def test_current_shutdown_renders_tonights_time(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """current_shutdown renders tonight's shutdown minutes as HH:MM."""
         monkeypatch.setattr(_poke_credit, "read_shutdown_config", lambda _p: (1, 2, 3))
         monkeypatch.setattr(_poke_credit, "tonight_minutes", lambda _c, _d: 20 * 60 + 5)
         assert _poke_credit.current_shutdown() == "20:05"
@@ -87,6 +97,7 @@ class TestSnapshots:
     def test_unreadable_config_is_none_and_warned(
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """An unreadable config gives a None shutdown and a shutdown=null warning."""
         monkeypatch.setattr(_poke_credit, "read_shutdown_config", lambda _p: None)
         with caplog.at_level(logging.WARNING):
             assert _poke_credit.current_shutdown() is None
@@ -95,9 +106,11 @@ class TestSnapshots:
     def test_current_gaming_minutes_delegates(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """current_gaming_minutes returns what gaming_minutes_today reports for the log."""
         seen: list[Path] = []
 
         def minutes(log: Path) -> int:
+            """Record the log path asked about and return 90 minutes."""
             seen.append(log)
             return 90
 

@@ -78,7 +78,10 @@ def _snapshot() -> StatusSnapshot:
 
 
 class TestReadTools:
+    """The read-only MCP tools expose the status snapshot as plain JSON."""
+
     def test_get_status_returns_json_friendly_asdict(self) -> None:
+        """get_status returns the snapshot as a JSON-serialisable dict."""
         snap = _snapshot()
         with patch.object(_mcp, "gather_status", return_value=snap) as gs:
             out = _mcp.get_status()
@@ -95,6 +98,7 @@ class TestReadTools:
         assert out["early_bird_extended"] is False
 
     def test_get_summary_combines_line_and_state(self) -> None:
+        """get_summary combines the summary line with the compliance state word."""
         with (
             patch.object(_mcp, "gather_status") as gs,
             patch.object(_mcp, "format_summary_line", return_value="LINE") as fsl,
@@ -106,6 +110,7 @@ class TestReadTools:
         csw.assert_called_once_with(gs.return_value)
 
     def test_explain_lock_returns_lock_explanation_asdict(self) -> None:
+        """explain_lock returns the snapshot's lock explanation as a dict."""
         snap = _snapshot()
         with patch.object(_mcp, "gather_status", return_value=snap):
             out = _mcp.explain_lock()
@@ -115,7 +120,10 @@ class TestReadTools:
 
 
 class TestGetFlags:
+    """get_flags reports the four daily predicates."""
+
     def test_flags_dict_and_predicate_wiring(self) -> None:
+        """get_flags maps each predicate to its key and passes it the right file argument."""
         with (
             patch.object(_mcp, "has_logged_today", return_value=True) as hlt,
             patch.object(_mcp, "is_scheduled_skip_today", return_value=False) as iss,
@@ -136,6 +144,7 @@ class TestGetFlags:
 
 
 def test_main_runs_stdio_server() -> None:
+    """main starts the MCP server over stdio."""
     with patch.object(_mcp.mcp, "run") as run:
         _mcp.main()
     run.assert_called_once_with()

@@ -24,6 +24,7 @@ class _FakeRecovery:
         self.events: list[str] = []
 
     def stop(self) -> None:
+        """Stop the watchdog and record the stop."""
         self.running = False
         self.events.append("stop")
 
@@ -40,6 +41,7 @@ class _FakeLock:
 
         class _Root:
             def grab_release(self) -> None:
+                """Record the release, raising TclError when told no grab is held."""
                 outer.events.append("grab_release")
                 if outer._release_raises:
                     msg = "no grab to release"
@@ -52,10 +54,12 @@ class _FakeLock:
         self.events.append(f"held={held}")
 
     def grab_input(self) -> None:
+        """Record a grab and restart the watchdog, as the real lock does."""
         self.events.append("grab_input")
         self.recovery.running = True
 
     def close(self) -> None:
+        """Mark the lock window as closed."""
         self.closed = True
 
 
@@ -71,6 +75,7 @@ class TestLockGrabHandoff:
         assert not lock.recovery.running
 
     def test_reacquire_restores_the_grab_and_the_watchdog(self) -> None:
+        """Reacquiring grabs input again and restarts the watchdog after a release."""
         handoff = lock_grab_handoff(lock := _FakeLock())
         handoff.release()
         handoff.reacquire()
@@ -96,6 +101,7 @@ class TestStartWorkout:
     """The button handler never raises onto a screen with no way out."""
 
     def test_reports_a_failed_launch_as_a_message(self, monkeypatch: object) -> None:
+        """A failed launch comes back as a message with the reason, not an exception."""
 
         class _Result:
             launched = False
@@ -109,6 +115,7 @@ class TestStartWorkout:
         assert "not built" in message
 
     def test_reports_a_finished_run(self, monkeypatch: object) -> None:
+        """A finished run tells the user the result is being checked."""
 
         class _Result:
             launched = True

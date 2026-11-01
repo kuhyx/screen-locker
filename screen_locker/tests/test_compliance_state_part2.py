@@ -32,6 +32,7 @@ class TestExplainLockDecision:
         }
 
     def test_scheduled_skip_short_circuits(self, tmp_path: Path) -> None:
+        """A freeday mark stops the chain at the scheduled_skip stage, first in the trace."""
         files = self._files(tmp_path)
         freedays.mark(
             freedays.today(),
@@ -47,6 +48,7 @@ class TestExplainLockDecision:
         assert result.trace[0].fired is True
 
     def test_early_bird_window_still_open_skips(self, tmp_path: Path) -> None:
+        """An open early-bird window with a wake-alarm skip stops at early_bird_window_open."""
         files = self._files(tmp_path)
         files["early_bird_pending_file"].write_text(
             json.dumps({"date": _today(), "hmac": "sig"})
@@ -68,6 +70,7 @@ class TestExplainLockDecision:
     def test_expired_early_bird_falls_through_to_full_lock(
         self, tmp_path: Path
     ) -> None:
+        """An expired early-bird marker leads to would_lock via early_bird_expired."""
         files = self._files(tmp_path)
         files["early_bird_pending_file"].write_text(
             json.dumps({"date": _today(), "hmac": "sig"})
@@ -91,6 +94,7 @@ class TestExplainLockDecision:
         assert expired_step.fired is True
 
     def test_sick_day_skips(self, tmp_path: Path) -> None:
+        """A sick day stops the chain at the sick_day stage."""
         files = self._files(tmp_path)
         mark_sick()
         result = explain_lock_decision(
@@ -105,6 +109,7 @@ class TestExplainLockDecision:
     def test_a_sick_day_that_keeps_the_workout_lock_does_not_skip(
         self, tmp_path: Path
     ) -> None:
+        """A sick day that keeps the workout lock does not fire the sick_day skip."""
         files = self._files(tmp_path)
         mark_sick(keep=[sickdays.LOCKER_WORKOUT])
         result = explain_lock_decision(
@@ -118,6 +123,7 @@ class TestExplainLockDecision:
         assert sick_step.fired is False
 
     def test_already_logged_skips(self, tmp_path: Path) -> None:
+        """A signed log entry for today stops the chain at already_logged."""
         files = self._files(tmp_path)
         files["log_file"].write_text(json.dumps({_today(): {"hmac": "sig"}}))
         with patch(
@@ -133,6 +139,7 @@ class TestExplainLockDecision:
         assert result.stage == "already_logged"
 
     def test_wake_alarm_skip_skips(self, tmp_path: Path) -> None:
+        """A wake-alarm skip stops the chain at wake_alarm_skip."""
         files = self._files(tmp_path)
         result = explain_lock_decision(
             **files,
@@ -158,6 +165,7 @@ class TestExplainLockDecision:
         assert "early-bird" not in result.reason
 
     def test_relaxed_day_skips(self, tmp_path: Path) -> None:
+        """A relaxed day stops the chain at the relaxed_day stage."""
         files = self._files(tmp_path)
         result = explain_lock_decision(
             **files,
@@ -190,6 +198,7 @@ class TestExplainLockDecision:
         assert result.stage == "relaxed_day_already_skipped"
 
     def test_weekly_minimum_met_skips(self, tmp_path: Path) -> None:
+        """A met weekly minimum stops the chain at weekly_minimum_met."""
         files = self._files(tmp_path)
         result = explain_lock_decision(
             **files,
@@ -201,6 +210,7 @@ class TestExplainLockDecision:
         assert result.stage == "weekly_minimum_met"
 
     def test_full_lock_when_nothing_applies(self, tmp_path: Path) -> None:
+        """With no skip applicable the decision is would_lock with no auto-upgrade."""
         files = self._files(tmp_path)
         result = explain_lock_decision(
             **files,

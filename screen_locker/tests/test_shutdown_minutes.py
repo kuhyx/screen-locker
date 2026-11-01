@@ -30,12 +30,14 @@ class TestReadShutdownConfigKeys:
         return read_shutdown_config(conf)
 
     def test_minutes_keys_are_read_exactly(self, tmp_path: Path) -> None:
+        """A file with *_MINUTES keys is read as exact minutes."""
         body = "MON_WED_MINUTES=1110\nTHU_SUN_MINUTES=1230\nMORNING_END_MINUTES=330\n"
         assert self._read(tmp_path, body) == (1110, 1230, 330)
 
     def test_legacy_hour_only_file_reads_as_hours_times_sixty(
         self, tmp_path: Path
     ) -> None:
+        """A legacy file with only *_HOUR keys reads as hours times sixty."""
         body = "MON_WED_HOUR=21\nTHU_SUN_HOUR=20\nMORNING_END_HOUR=5\n"
         assert self._read(tmp_path, body) == (1260, 1200, 300)
 
@@ -53,10 +55,12 @@ class TestReadShutdownConfigKeys:
         assert self._read(tmp_path, body) == (1110, 1200, 300)
 
     def test_a_missing_value_is_none(self, tmp_path: Path) -> None:
+        """A config missing one of the three values reads as None."""
         body = "MON_WED_MINUTES=1110\nTHU_SUN_MINUTES=1110\n"
         assert self._read(tmp_path, body) is None
 
     def test_non_numeric_values_and_comments_are_ignored(self, tmp_path: Path) -> None:
+        """Commented lines and non-numeric values are ignored, falling back to the hour keys."""
         body = (
             "# MON_WED_MINUTES=1\nMON_WED_MINUTES=oops\nMON_WED_HOUR=21\n"
             "THU_SUN_HOUR=20\nMORNING_END_HOUR=5\nno-equals-sign\n"
@@ -92,6 +96,7 @@ class TestMinutesReachTheHelperScript:
     def test_a_30_minute_bonus_becomes_18_30(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """A 30-minute bonus on 18:00 reaches the helper script as 18:30."""
         args = self._run(
             mock_tk, tmp_path, (1080, 1080, 300), "_adjust_shutdown_time_by", 30
         )
@@ -100,6 +105,7 @@ class TestMinutesReachTheHelperScript:
     def test_the_bonus_is_capped_at_24_00(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """A bonus that overshoots is capped at 24:00 in the helper script's arguments."""
         args = self._run(
             mock_tk, tmp_path, (1380, 1380, 300), "_adjust_shutdown_time_by", 90
         )
@@ -120,5 +126,6 @@ class TestMinutesReachTheHelperScript:
         config: tuple[int, int, int],
         expected: list[str],
     ) -> None:
+        """The workout reward is clamped to 23:00 and never lowers an earlier shutdown."""
         args = self._run(mock_tk, tmp_path, config, "_adjust_shutdown_time_later")
         assert args == expected

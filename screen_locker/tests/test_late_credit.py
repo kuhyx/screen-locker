@@ -39,10 +39,12 @@ def at(hhmm: str, day: date = _DAY) -> float:
 
 
 def host_workout_minutes() -> int:
+    """The reward in minutes that the workout earner pays on the test day."""
     return first_minutes(earned_time.WORKOUT, _DAY)
 
 
 def m(hhmm: str) -> int:
+    """Convert an HH:MM string into minutes after midnight."""
     hour, minute = (int(p) for p in hhmm.split(":"))
     return hour * 60 + minute
 
@@ -67,6 +69,7 @@ class Host(ShutdownMixin):
 
     @property
     def tonight(self) -> int:
+        """Tonight's shutdown time in minutes (the Thu-Sun band)."""
         return self.config[1]
 
 
@@ -82,12 +85,16 @@ def _on_the_day() -> Iterator[Any]:
 
 
 class TestLateCredit:
+    """Credits timed after tonight's shutdown restart the clock from their own time."""
+
     def test_a_credit_before_the_shutdown_adds_as_before(self) -> None:
+        """A credit before the shutdown simply adds its reward to tonight."""
         host = Host("20:00")
         assert host._adjust_shutdown_time_by(60, at=at("18:30")) is True
         assert host.tonight == m("21:00")
 
     def test_a_credit_after_the_shutdown_counts_from_its_own_time(self) -> None:
+        """A late credit sets tonight to its own time plus the reward, in both bands."""
         host = Host("18:00")
         assert host._adjust_shutdown_time_by(60, at=at("19:00")) is True
         assert host.tonight == m("20:00")
@@ -100,11 +107,13 @@ class TestLateCredit:
         assert host.tonight == m("20:00")
 
     def test_capped_at_the_ceiling(self) -> None:
+        """A late credit never pushes tonight past the 23:00 ceiling."""
         host = Host("22:30")
         host._adjust_shutdown_time_by(120, at=at("22:45"))
         assert host.tonight == m("23:00")
 
     def test_after_the_ceiling_nothing_moves_past_it(self) -> None:
+        """A credit after the ceiling leaves tonight at 23:00."""
         host = Host("23:00")
         host._adjust_shutdown_time_by(60, at=at("23:10"))
         assert host.tonight == m("23:00")
@@ -116,22 +125,26 @@ class TestLateCredit:
         assert host.tonight == m("18:00") + host_workout_minutes()
 
     def test_a_late_workout_counts_from_its_end(self) -> None:
+        """A workout finishing after the shutdown counts from its end time."""
         host = Host("18:00")
         host._adjust_shutdown_time_later(at=at("19:00"))
         assert host.tonight == min(m("23:00"), m("19:00") + host_workout_minutes())
 
     def test_a_credit_timed_on_another_day_is_never_late(self) -> None:
+        """A credit stamped on a different day is treated as not late."""
         host = Host("18:00")
         host._adjust_shutdown_time_by(60, at=at("19:00", date(2026, 10, 16)))
         assert host.tonight == m("19:00")
 
     def test_no_time_means_now(self) -> None:
+        """Without an explicit time the credit is anchored on the current time."""
         host = Host("18:00")
         with patch.object(_late_credit, "_now", return_value=at("19:30")):
             host._adjust_shutdown_time_by(60)
         assert host.tonight == m("20:30")
 
     def test_now_is_the_wall_clock(self) -> None:
+        """The default clock reads the real wall-clock time."""
         with patch.object(_late_credit.time, "time", return_value=123.0):
             assert _real_now() == 123.0
 
@@ -144,19 +157,24 @@ class TestLateCredit:
         assert plan_absorb(60) == (60, 0)
 
     def test_a_failed_write_keeps_the_lift(self) -> None:
+        """If writing the config fails the saved lift is kept."""
         save_lift(30)
         host = Host("18:00", ok=False)
         assert host._adjust_shutdown_time_by(60, at=at("19:00")) is False
         assert plan_absorb(0) == (0, 30)
 
     def test_unreadable_config_fails(self) -> None:
+        """An unreadable shutdown config makes the late adjustment fail."""
         host = Host("18:00")
         with patch.object(Host, "_read_shutdown_config", return_value=None):
             assert host._adjust_shutdown_time_by(60, at=at("19:00")) is False
 
 
 class TestLateOnASickDay:
+    """Late-credit behaviour on a sick day, where the sick target is the floor."""
+
     def test_late_after_the_sick_target(self) -> None:
+        """A credit after the sick target counts from its own time."""
         mark_sick(_DAY)
         host = Host("20:00")
         with patch.object(_sick_floor, "sick_target", return_value=m("20:00")):
@@ -164,6 +182,7 @@ class TestLateOnASickDay:
         assert host.tonight == m("22:00")
 
     def test_not_late_raises_to_the_target_only(self) -> None:
+        """A not-late credit on a sick day only raises tonight to the sick target."""
         mark_sick(_DAY)
         host = Host("21:00")
         with patch.object(_sick_floor, "sick_target", return_value=m("22:00")):

@@ -64,6 +64,8 @@ def with_extra(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 class TestFlatBonuses:
+    """Applying the flat earners' bonuses once each and stamping the state file."""
+
     def test_both_earned_apply_both_and_keep_both_stamps(
         self, tmp_path: Path, answers: dict[str, bool | None]
     ) -> None:
@@ -85,6 +87,7 @@ class TestFlatBonuses:
     def test_only_reading_earned_applies_only_reading(
         self, tmp_path: Path, answers: dict[str, bool | None]
     ) -> None:
+        """When only reading was earned, only its bonus is applied and stamped."""
         answers["reading"] = True
         state = tmp_path / "state.json"
         mixin = _mixin()
@@ -95,9 +98,12 @@ class TestFlatBonuses:
 
 @pytest.mark.usefixtures("with_extra")
 class TestANewlyRegisteredEarner:
+    """A flat earner added to the registry works with no code change here."""
+
     def test_reset_includes_and_stamps_it(
         self, tmp_path: Path, answers: dict[str, bool | None]
     ) -> None:
+        """The daily reset counts the new earner in the base and stamps it."""
         answers["extra"] = True
         state = tmp_path / "state.json"
         mixin = _mixin()
@@ -113,6 +119,7 @@ class TestANewlyRegisteredEarner:
     def test_live_pass_applies_it_once(
         self, tmp_path: Path, answers: dict[str, bool | None]
     ) -> None:
+        """The live pass applies the new earner's bonus a single time."""
         answers["extra"] = True
         state = tmp_path / "state.json"
         mixin = _mixin()
@@ -122,6 +129,7 @@ class TestANewlyRegisteredEarner:
         assert json.loads(state.read_text()) == {"extra_bonus_date": today_str()}
 
     def test_its_ledger_is_read_like_any_other(self, tmp_path: Path) -> None:
+        """The new earner's signed ledger is read like any existing gate's."""
         write_ledger(EXTRA, [credit(EXTRA)])
         mixin = _mixin()
         with signing_key(tmp_path):
@@ -147,6 +155,8 @@ class TestANewlyRegisteredEarner:
 
 @pytest.mark.usefixtures("leetcode_gate_off")
 class TestRealLedgers:
+    """Signed ledgers on disk driving the reset and the live pass without mocks."""
+
     @pytest.mark.usefixtures("pre_ladder")
     def test_signed_credits_on_disk_reach_the_reset(self, tmp_path: Path) -> None:
         """No mock between the ledgers and the written hour."""
@@ -214,6 +224,7 @@ class TestProjectionFollowsTheCut:
             # The registry in force that day (the tutor cutover switches it),
             # and from today on its first credits: a never-paid tutor spares
             # the floor (earned_time 0.6.1).
+            """The registry's base shutdown in minutes for ``day``."""
             earners = _earned.registry(day)
             starts = _earned.first_credits(earners, day)
             return earned_time.base_for(

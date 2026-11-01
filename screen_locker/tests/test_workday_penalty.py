@@ -22,6 +22,7 @@ NOW = datetime(2026, 9, 23, 9, 0).astimezone()
 
 
 def _write(entry: dict[str, object], *, sign: bool = True) -> Path:
+    """Write the penalty file, signed unless told otherwise, and return its path."""
     if sign:
         entry["hmac"] = compute_entry_hmac(entry)
     path = _workday_penalty.WORKDAY_PENALTY_FILE
@@ -31,6 +32,7 @@ def _write(entry: dict[str, object], *, sign: bool = True) -> Path:
 
 @pytest.fixture(autouse=True)
 def _signing_key(tmp_path: Path) -> None:
+    """Point the HMAC key at a throwaway file for every test."""
     key = tmp_path / "hmac.key"
     key.write_bytes(b"1" * 32)
     with patch("gatelock.log_integrity.DEFAULT_HMAC_KEY_FILE", key):
@@ -38,17 +40,22 @@ def _signing_key(tmp_path: Path) -> None:
 
 
 class TestVerdict:
+    """workday_penalty_today reads the stick file and fails closed to no penalty."""
+
     def test_todays_penalty_applies(self) -> None:
+        """A signed penalty dated today applies."""
         _write({"penalty_date": "2026-09-23", "issued_date": "2026-09-22"})
         assert workday_penalty_today(NOW) is True
 
     def test_a_different_dates_penalty_does_not_apply(self) -> None:
+        """A penalty dated for another day does not apply."""
         _write({"penalty_date": "2026-09-24", "issued_date": "2026-09-23"})
         assert workday_penalty_today(NOW) is False
 
     def test_missing_unreadable_tampered_are_all_no_penalty(
         self, tmp_path: Path
     ) -> None:
+        """A missing, unsigned, unparsable or non-object file means no penalty."""
         assert workday_penalty_today(NOW) is False
         path = _write({"penalty_date": "2026-09-23"}, sign=False)
         assert workday_penalty_today(NOW) is False
@@ -61,6 +68,7 @@ class TestVerdict:
 
     def test_default_now_is_used_when_unset(self) -> None:
         # Not asserting a value -- just that omitting `now` does not raise.
+        """Omitting now falls back to the current time without raising."""
         assert workday_penalty_today() is False
 
 
@@ -68,6 +76,7 @@ class TestSickDayVoidsThePenalty:
     """Void when EITHER the missed ring's day OR the penalised day is sick."""
 
     def test_a_sick_penalty_date_voids_it(self) -> None:
+        """A penalty falling on a sick day is void."""
         mark_sick("2026-09-23")
         _write({"penalty_date": "2026-09-23", "issued_date": "2026-09-22"})
         assert workday_penalty_today(NOW) is False
@@ -79,12 +88,14 @@ class TestSickDayVoidsThePenalty:
         assert workday_penalty_today(NOW) is False
 
     def test_an_older_file_without_issued_date_still_applies(self) -> None:
+        """A file lacking issued_date still applies on its penalty date."""
         _write({"penalty_date": "2026-09-23"})
         assert workday_penalty_today(NOW) is True
 
     def test_a_malformed_issued_date_is_logged_not_sick(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """A non-date issued_date is logged and does not void the penalty."""
         _write({"penalty_date": "2026-09-23", "issued_date": "yesterday"})
         assert workday_penalty_today(NOW) is True
         assert "not a date" in caplog.text
@@ -94,21 +105,25 @@ class TestKeptLockersDecideThePenalty:
     """Ring date -> the alarm switch; penalty date -> the workout lock."""
 
     def test_a_kept_alarm_on_the_ring_day_keeps_the_penalty(self) -> None:
+        """Keeping the alarm locker on the ring day keeps the penalty in force."""
         mark_sick("2026-09-22", keep=[sickdays.LOCKER_ALARM])
         _write({"penalty_date": "2026-09-23", "issued_date": "2026-09-22"})
         assert workday_penalty_today(NOW) is True
 
     def test_a_kept_workout_on_the_ring_day_still_voids_it(self) -> None:
+        """Keeping only the workout on the ring day still voids the penalty."""
         mark_sick("2026-09-22", keep=[sickdays.LOCKER_WORKOUT])
         _write({"penalty_date": "2026-09-23", "issued_date": "2026-09-22"})
         assert workday_penalty_today(NOW) is False
 
     def test_a_kept_workout_on_the_penalty_day_keeps_it(self) -> None:
+        """Keeping the workout locker on the penalty day keeps the penalty in force."""
         mark_sick("2026-09-23", keep=[sickdays.LOCKER_WORKOUT])
         _write({"penalty_date": "2026-09-23", "issued_date": "2026-09-22"})
         assert workday_penalty_today(NOW) is True
 
     def test_a_kept_alarm_on_the_penalty_day_still_voids_it(self) -> None:
+        """Keeping only the alarm on the penalty day still voids the penalty."""
         mark_sick("2026-09-23", keep=[sickdays.LOCKER_ALARM])
         _write({"penalty_date": "2026-09-23", "issued_date": "2026-09-22"})
         assert workday_penalty_today(NOW) is False

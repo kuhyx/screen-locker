@@ -39,12 +39,14 @@ class TestPushPublishesThePendingLedger:
     def test_a_pending_entry_is_published_even_with_an_empty_log(
         self, tmp_path: Path
     ) -> None:
+        """A pending ledger entry is published even when the workout log is empty."""
         add_pending(_RID, dict(_PAYLOAD), "pc-1")
         records = records_from_workout_log(tmp_path / "log.json")
         assert list(records) == [_RID]
         assert records[_RID].fields["payload"][0] == _PAYLOAD
 
     def test_the_logs_own_copy_wins_once_ingested(self, tmp_path: Path) -> None:
+        """Once a workout is in the log, its payload replaces the pending ledger copy."""
         log_file = tmp_path / "log.json"
         _write_manual(log_file, _RID, "2026-10-17")
         add_pending(_RID, {**_PAYLOAD, "marker": "ledger"}, "pc-1")
@@ -52,11 +54,13 @@ class TestPushPublishesThePendingLedger:
         assert "marker" not in payload
 
     def test_a_tombstone_beats_the_pending_entry(self, tmp_path: Path) -> None:
+        """A tombstone marks a pending entry deleted instead of publishing it."""
         add_pending(_RID, dict(_PAYLOAD), "pc-1")
         add_tombstone(_RID, "pc-1", "deleted")
         assert records_from_workout_log(tmp_path / "log.json")[_RID].deleted
 
     def test_a_push_drops_entries_the_merge_shows_deleted(self, tmp_path: Path) -> None:
+        """A pending entry the merge reports deleted is dropped from the ledger after a push."""
         add_pending(_RID, dict(_PAYLOAD), "pc-1")
         merged = {_RID: Record(id=_RID, fields={}, deleted=True)}
         with (
@@ -70,6 +74,7 @@ class TestPushPublishesThePendingLedger:
         assert local_pending_records() == []
 
     def test_a_push_keeps_a_live_pending_entry(self, tmp_path: Path) -> None:
+        """A pending entry that is still live survives a push."""
         add_pending(_RID, dict(_PAYLOAD), "pc-1")
         merged = {_RID: records_from_workout_log(tmp_path / "log.json")[_RID]}
         with (
@@ -88,6 +93,7 @@ class TestSyncPassReadsTheLedger:
     def test_ledger_entries_join_the_pull_without_duplicating_it(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Ledger entries are added to the pulled records without repeating one already pulled."""
         locker = create_locker(mock_tk, tmp_path)
         add_pending(_RID, dict(_PAYLOAD), "pc-1")
         add_pending(
@@ -111,6 +117,7 @@ class TestSyncPassReadsTheLedger:
     def test_due_local_entries_are_ingested_with_the_credit_callback(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Due local entries are ingested with the credit callback and state is cleared."""
         locker = create_locker(mock_tk, tmp_path)
         locker.workout_data = {"stale": "state"}
         add_pending(_RID, dict(_PAYLOAD), "pc-1")
@@ -131,6 +138,7 @@ class TestPokeStartTheDay:
     def test_the_reset_is_followed_by_the_local_ingest(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """Starting the day runs the base reset first and then the due-entry ingest."""
         calls: list[str] = []
 
         def headless(locker_cls: type[PokeLocker]) -> PokeLocker:
@@ -161,6 +169,7 @@ class TestManualCreditDates:
     def test_unparsable_day_keys_are_skipped(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """A log key that is not a date is skipped with a warning."""
         log_file = tmp_path / "log.json"
         _write_manual(log_file, "manual:2026-10-10T18:00", "2026-10-10")
         raw = json.loads(log_file.read_text())

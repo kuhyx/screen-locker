@@ -55,6 +55,7 @@ def _real_2026_09_13() -> list[dict[str, Any]]:
 
 
 def _write_log(log_file: Path, day: str, entries: list[dict[str, Any]]) -> Path:
+    """Write a log.json holding the given entries under one day and return its path."""
     log_file.write_text(json.dumps({day: entries}))
     return log_file
 
@@ -64,15 +65,19 @@ class TestEarnedShutdownBonusMinutes:
     """First credit is worth 2h, every further one 1h."""
 
     def test_no_credits_earn_nothing(self) -> None:
+        """Zero credits earn zero minutes."""
         assert not earned_shutdown_bonus_minutes(0)
 
     def test_negative_is_treated_as_nothing(self) -> None:
+        """A negative credit count earns zero minutes instead of a negative bonus."""
         assert not earned_shutdown_bonus_minutes(-1)
 
     def test_first_credit_is_two_hours(self) -> None:
+        """The first credit is worth 120 minutes."""
         assert earned_shutdown_bonus_minutes(1) == 120
 
     def test_further_credits_add_one_hour_each(self) -> None:
+        """Each credit after the first adds 60 minutes, so three earn 240."""
         assert earned_shutdown_bonus_minutes(3) == 240
 
 
@@ -80,9 +85,11 @@ class TestSyncedCopySharesCredit:
     """A sync re-ingesting an entry already on the day is the same workout."""
 
     def test_real_day_counts_one_credit(self) -> None:
+        """The real 2026-09-13 log, a workout plus its synced copy, counts as one credit."""
         assert count_day_credits(_DAY, _real_2026_09_13()) == 1
 
     def test_copy_and_original_share_a_key(self) -> None:
+        """A synced copy and its original produce the same credit key."""
         entries = _real_2026_09_13()
         index = day_workout_index(entries)
         assert credit_key(_DAY, 0, entries[0], index) == credit_key(
@@ -100,6 +107,7 @@ class TestSyncedCopySharesCredit:
         assert count_day_credits(_DAY, entries) == 2
 
     def test_two_genuine_manual_workouts_still_both_count(self) -> None:
+        """Two distinct manual workouts on one day each count as a credit."""
         entries = [
             _manual("manual:2026-09-13T08:00"),
             _manual("manual:2026-09-13T18:00"),
@@ -107,14 +115,17 @@ class TestSyncedCopySharesCredit:
         assert count_day_credits(_DAY, entries) == 2
 
     def test_without_sibling_index_keys_by_position(self) -> None:
+        """Without a sibling index the credit key falls back to the entry's position."""
         copy = _real_2026_09_13()[1]
         assert credit_key(_DAY, 3, copy) == ("manual_workout", f"{_DAY}#3")
 
     def test_day_workout_index_skips_entries_without_an_id(self) -> None:
+        """Entries lacking a workout id are left out of the day index."""
         entries = [{"workout_data": {"type": "x"}}, _manual("manual:2026-09-13T08:00")]
         assert day_workout_index(entries) == {"manual:2026-09-13T08:00": 1}
 
     def test_day_workout_index_keeps_the_first_position_of_a_repeated_id(self) -> None:
+        """A repeated workout id maps to the position of its first occurrence."""
         entries = [
             _manual("manual:2026-09-13T08:00"),
             _manual("manual:2026-09-13T08:00"),
@@ -122,6 +133,7 @@ class TestSyncedCopySharesCredit:
         assert day_workout_index(entries) == {"manual:2026-09-13T08:00": 0}
 
     def test_non_string_sync_id_is_ignored(self) -> None:
+        """A non-string sync_record_id is ignored, so the entry keeps its positional key."""
         entry = _manual("manual:2026-09-13T08:00")
         entry["workout_data"]["sync_record_id"] = 42
         assert credit_key(_DAY, 0, entry, {"42": 5}) == ("manual_workout", f"{_DAY}#0")
@@ -132,15 +144,18 @@ class TestTodayCreditCount:
     """The log -> credit count the reset hands to the registry."""
 
     def test_real_day_counts_one_workout_worth_two_hours(self, tmp_path: Path) -> None:
+        """The real 2026-09-13 log yields one credit worth 120 minutes."""
         log = _write_log(tmp_path / "log.json", _DAY, _real_2026_09_13())
         assert today_credit_count(log, _DAY) == 1
         assert earned_shutdown_bonus_minutes(today_credit_count(log, _DAY)) == 120
 
     def test_day_absent_from_log_counts_nothing(self, tmp_path: Path) -> None:
+        """A log with no entry for today yields zero credits."""
         log = _write_log(tmp_path / "log.json", "2026-09-12", _real_2026_09_13())
         assert not today_credit_count(log, _DAY)
 
     def test_non_dict_entries_are_ignored(self, tmp_path: Path) -> None:
+        """Garbage non-dict entries are skipped while valid ones still count."""
         log = tmp_path / "log.json"
         log.write_text(
             json.dumps({_DAY: ["garbage", _manual("manual:2026-09-13T08:00")]})
@@ -175,6 +190,7 @@ class TestResetReplaysTodaysCredit:
         )
 
     def test_without_log_file_writes_plain_base(self, tmp_path: Path) -> None:
+        """With no log file the reset writes the bare base hour."""
         mixin = self._mixin()
         assert reset_to_base_if_new_day(self._state(tmp_path), mixin) is True
         base = base_minutes()
@@ -183,6 +199,7 @@ class TestResetReplaysTodaysCredit:
         )
 
     def test_empty_day_writes_plain_base(self, tmp_path: Path) -> None:
+        """A log with nothing for today makes the reset write the bare base hour."""
         log = _write_log(tmp_path / "log.json", "2000-01-01", _real_2026_09_13())
         mixin = self._mixin()
         assert (

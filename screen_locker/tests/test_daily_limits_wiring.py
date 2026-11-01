@@ -56,6 +56,7 @@ class Host(WorkoutCreditMixin, ShutdownMixin):
 
 @pytest.fixture
 def monday() -> Iterator[None]:
+    """Pin the credit, shutdown and grace-floor modules to a fixed Monday."""
     with (
         patch("screen_locker._workout_credit.today_str", return_value=_ISO),
         patch("screen_locker._shutdown.today_str", return_value=_ISO),
@@ -69,9 +70,12 @@ _COUNTED: list[dict[str, Any]] = [{"workout_data": {"type": "runnerup_verified"}
 
 @pytest.mark.usefixtures("monday")
 class TestRestDayCredit:
+    """Live workout credit on a rest day."""
+
     def test_the_first_real_workout_earns_nothing_more(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """On a rest day the first real workout adds no time, as it is already in tonight's."""
         host = Host(tmp_path, 20 * 60)
         with (
             patch.object(_workout_credit, "is_rest_day", return_value=True),
@@ -83,6 +87,7 @@ class TestRestDayCredit:
         assert "already in tonight's time" in caplog.text
 
     def test_a_second_one_earns_a_further_unit(self, tmp_path: Path) -> None:
+        """A second counted workout on a rest day earns one extra unit."""
         host = Host(tmp_path, 20 * 60)
         extra = _earned.extra_minutes(earned_time.WORKOUT, _grace_date())
         with patch.object(_workout_credit, "is_rest_day", return_value=True):
@@ -97,7 +102,10 @@ def _grace_date() -> date:
 
 @pytest.mark.usefixtures("monday")
 class TestLiftAbsorption:
+    """Shutdown adds are paid out of the grace lift first."""
+
     def test_adds_pay_from_the_lift_first(self, tmp_path: Path) -> None:
+        """Adds are absorbed by the lift before the shutdown hour moves."""
         _grace_floor.save_lift(30)
         host = Host(tmp_path, 19 * 60 + 55)
         assert host._adjust_shutdown_time_by(25)
@@ -106,6 +114,7 @@ class TestLiftAbsorption:
         assert host.config[0] == 20 * 60 + 15
 
     def test_a_failed_write_keeps_the_lift(self, tmp_path: Path) -> None:
+        """A failed config write leaves the saved lift unspent."""
         _grace_floor.save_lift(30)
         host = Host(tmp_path, 1195, ok=False)
         assert not host._adjust_shutdown_time_by(25)
@@ -113,6 +122,7 @@ class TestLiftAbsorption:
         assert _grace_floor.plan_absorb(0) == (0, 30)
 
     def test_the_first_workout_is_day_aware(self, tmp_path: Path) -> None:
+        """The first-workout add uses the day-aware amount for that date."""
         host = Host(tmp_path, 1140)
         assert host._adjust_shutdown_time_later()
         first = _earned.first_minutes(earned_time.WORKOUT, _grace_date())
@@ -125,6 +135,7 @@ class TestPreLadderEarnedTime:
     def test_raw_fields_without_the_ladder_api(
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """Without the ladder API the accessors use the raw earner fields and warn once."""
         for name in (
             "shutdown_minutes_for",
             "extra_shutdown_minutes_for",
@@ -144,12 +155,14 @@ class TestPreLadderEarnedTime:
         assert caplog.text.count("has no first_credit_at") == 1
 
     def test_the_ladder_api_reads_the_ledger(self, tmp_path: Path) -> None:
+        """With the ladder API a never-credited earner has no first-credit time."""
         if not hasattr(earned_time, "first_credit_at"):
             pytest.skip("installed earned_time predates first_credit_at")
         assert _earned.first_credit_time(earned_time.ANKI, _grace_date()) is None
 
 
 def test_a_failed_tcx_parse_is_not_marked() -> None:
+    """A failed TCX parse is passed through as None instead of being marked."""
     assert _runnerup_tcx._mark_walk(None, "x_Walking.tcx") is None
 
 
@@ -161,7 +174,10 @@ class _Bare:
 
 
 class TestCliFlags:
+    """The new CLI flags dispatch to their runners."""
+
     def test_declare_rest_day_dispatches_the_rest_of_argv(self) -> None:
+        """--declare-rest-day hands the remaining argv to its runner and exits with its code."""
         with (
             patch.object(_cli.logging, "basicConfig"),
             patch.object(_cli, "run_declare_rest_day", return_value=0) as run,
@@ -173,6 +189,7 @@ class TestCliFlags:
         sys_exit.assert_called_once_with(0)
 
     def test_backfill_dispatches_with_the_log(self) -> None:
+        """--backfill-workout-ledger passes the log file and remaining args to its runner."""
         with (
             patch.object(_cli.logging, "basicConfig"),
             patch.object(_cli, "run_backfill", return_value=0) as run,

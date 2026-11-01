@@ -32,18 +32,23 @@ _FLAT = {"leetcode": False, "reading": False, "anki": False, "tutor": False}
 
 
 def at(hhmm: str) -> float:
+    """Return the epoch seconds of a local HH:MM on the test day."""
     hours, minutes = map(int, hhmm.split(":"))
     return datetime.combine(_DAY, time(hours, minutes)).astimezone().timestamp()
 
 
 def log_with(tmp_path: Path, entries: list[dict[str, object]]) -> Path:
+    """Write a log file holding the given entries under the test day."""
     log = tmp_path / "log.json"
     log.write_text(json.dumps({_ISO: entries}))
     return log
 
 
 class TestTarget:
+    """The shutdown target derived from the day's inputs, sick or not."""
+
     def test_a_rest_day_stands_in_for_the_first_workout_only(self) -> None:
+        """A rest day fills in only the first workout unit and nothing beyond it."""
         assert workout_units(0, rest_day=True) == 1
         assert workout_units(2, rest_day=True) == 2
         assert not workout_units(0, rest_day=False)
@@ -57,6 +62,7 @@ class TestTarget:
         assert not target.lift
 
     def test_a_sick_day_has_the_20_00_floor(self) -> None:
+        """A sick day sits at the 20:00 floor plus the gaming pay of its terms, with no lift."""
         target = derive(DayInputs(_DAY, _FLAT, first_done=at("18:55"), sick_day=True))
         assert target.resolution.sick is True
         assert target.minutes == SICK_FLOOR + sum(
@@ -66,6 +72,7 @@ class TestTarget:
         assert not target.lift
 
     def test_a_sick_day_stacks_gaming_pay_on_20_00(self) -> None:
+        """On a sick day credits stack on 20:00 and the result is capped at 23:00."""
         busy = dict.fromkeys(_FLAT, True)
         target = derive(DayInputs(_DAY, busy, workout_credits=1, sick_day=True))
         assert target.minutes >= target.earned
@@ -82,20 +89,24 @@ class TestTarget:
     def test_base_minutes_keeps_the_sick_floor_when_the_workout_lock_is_kept(
         self,
     ) -> None:
+        """Keeping the workout lock on a sick day does not lower the base below the sick floor."""
         plain = base_minutes(_DAY)
         assert plain < SICK_FLOOR  # reading's cut is in force on this date
         mark_sick(_DAY, keep=[sickdays.LOCKER_WORKOUT])
         assert base_minutes(_DAY) == SICK_FLOOR
 
     def test_not_sick_is_the_plain_sum(self) -> None:
+        """A normal day's target is exactly the sum of its earned terms."""
         target = derive(DayInputs(_DAY, _FLAT))
         assert target.resolution.sick is False
         assert target.minutes == target.earned == target.resolution.shutdown_minutes
 
     def test_no_log_counts_no_workouts(self) -> None:
+        """A missing log file counts as zero workout credits."""
         assert not day_credit_count(None, _DAY)
 
     def test_gather_reads_every_real_source(self, tmp_path: Path) -> None:
+        """Gathering reads the log, gate answers and credit time into one target."""
         log = log_with(
             tmp_path,
             [

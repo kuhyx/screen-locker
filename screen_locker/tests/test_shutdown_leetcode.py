@@ -49,15 +49,19 @@ def solved_fixture() -> Iterator[MagicMock]:
 
 @pytest.fixture(name="unsolved")
 def unsolved_fixture() -> Iterator[MagicMock]:
+    """LeetCode and reading both unanswered, so no flat bonus applies."""
     with answering({"leetcode": False, "reading": False}) as m:
         yield m
 
 
 @pytest.mark.usefixtures("pre_ladder")
 class TestResetIncludesTheHour:
+    """The daily reset folds a LeetCode solve into its target and stamps it once."""
+
     def test_reset_writes_base_plus_leetcode(
         self, tmp_path: Path, solved: MagicMock
     ) -> None:
+        """A reset after a solve writes base plus one hour and stamps the date."""
         state = tmp_path / "state.json"
         mixin = _mixin()
         assert reset_to_base_if_new_day(state, mixin) is True
@@ -72,6 +76,7 @@ class TestResetIncludesTheHour:
     def test_reset_without_solve_leaves_no_stamp(
         self, tmp_path: Path, unsolved: MagicMock
     ) -> None:
+        """A reset without a solve adds nothing and writes no LeetCode stamp."""
         state = tmp_path / "state.json"
         assert reset_to_base_if_new_day(state, _mixin()) is True
         assert json.loads(state.read_text()) == {"last_reset_date": today_str()}
@@ -89,7 +94,10 @@ class TestResetIncludesTheHour:
 
 @pytest.mark.usefixtures("pre_ladder")
 class TestLivePass:
+    """The live pass adds the LeetCode hour once and never on a failed write."""
+
     def test_applies_once_and_stamps(self, tmp_path: Path, solved: MagicMock) -> None:
+        """The first live pass adds the hour and stamps it; a second adds nothing."""
         state = tmp_path / "state.json"
         state.write_text(json.dumps({"last_reset_date": today_str()}))
         mixin = _mixin()
@@ -104,11 +112,13 @@ class TestLivePass:
     def test_yesterdays_stamp_does_not_block_today(
         self, tmp_path: Path, solved: MagicMock
     ) -> None:
+        """A stamp from an earlier day does not stop today's bonus."""
         state = tmp_path / "state.json"
         state.write_text(json.dumps({"leetcode_bonus_date": "2000-01-01"}))
         assert apply_leetcode_bonus_if_new(state, _mixin()) is True
 
     def test_no_solve_no_write(self, tmp_path: Path, unsolved: MagicMock) -> None:
+        """Without a solve the live pass changes nothing."""
         mixin = _mixin()
         assert apply_leetcode_bonus_if_new(tmp_path / "state.json", mixin) is False
         mixin._adjust_shutdown_time_by.assert_not_called()
@@ -138,6 +148,7 @@ class TestLivePass:
     def test_state_write_failure_is_logged_not_raised(
         self, tmp_path: Path, solved: MagicMock
     ) -> None:
+        """A state file write error does not raise and the bonus still counts as applied."""
         state = MagicMock()
         state.exists.return_value = False
         state.open.side_effect = OSError("disk full")

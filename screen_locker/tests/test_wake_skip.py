@@ -31,9 +31,12 @@ def _locker(
 
 
 class TestWakeSkipIntegration:
+    """How the startup ladder reacts to the wake-alarm carrot."""
+
     def test_exits_and_banks_the_marker_while_the_carrot_is_in_force(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """While the carrot is in force the lock exits, banks the pending marker and records why."""
         with (
             patch.object(ScreenLocker, "_save_early_bird_pending") as save,
             patch("screen_locker._auto_upgrade.record_decision") as record,
@@ -49,12 +52,14 @@ class TestWakeSkipIntegration:
     def test_does_not_exit_without_a_carrot(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Without a carrot the startup ladder does not exit."""
         _locker(tmp_path, carrot=None)
         mock_sys_exit.assert_not_called()
 
     def test_logged_today_takes_precedence(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """A workout already logged today wins over the carrot as the exit reason."""
         with patch("screen_locker._auto_upgrade.record_decision") as record:
             _locker(tmp_path, carrot=_SKIP, has_logged=True)
         mock_sys_exit.assert_called_once_with(0)

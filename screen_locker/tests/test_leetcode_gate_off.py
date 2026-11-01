@@ -42,16 +42,19 @@ def pools_fixture(monkeypatch: pytest.MonkeyPatch) -> dict[str, bool]:
 def test_gate_off_follows_the_pools(
     pools: dict[str, bool], *, free: bool, sick_off: bool, expected: bool
 ) -> None:
+    """The LeetCode gate is off on a free day or a sick day that drops it."""
     pools.update(free=free, sick_off=sick_off)
     assert _gate_off.gate_off(earned_time.LEETCODE, SAT) is expected
 
 
 def test_only_leetcode_has_a_gate_to_switch_off(pools: dict[str, bool]) -> None:
+    """Earners other than LeetCode never report their gate as off."""
     pools.update(free=True, sick_off=True)
     assert _gate_off.gate_off(earned_time.READING, SAT) is False
 
 
 def test_every_ledger_read_passes_it(pools: dict[str, bool]) -> None:
+    """Every earned_time ledger read receives the live gate_off flag."""
     pools.update(free=True)
     leet = earned_time.LEETCODE
     with (

@@ -30,6 +30,7 @@ class _FakeStdout:
         self._it = iter(lines)
 
     def readline(self) -> str:
+        """Return the next fixed line, then empty string at EOF."""
         return next(self._it, "")
 
 
@@ -43,9 +44,11 @@ class _FakeChild:
         self.waited = False
 
     def terminate(self) -> None:
+        """Record that the child was asked to terminate."""
         self.terminated = True
 
     def wait(self) -> int:
+        """Record that the child was waited on and return its exit code."""
         self.waited = True
         return self.returncode
 
@@ -57,9 +60,11 @@ class _Recorder:
         self.calls: list[str] = []
 
     def release(self) -> None:
+        """Record a grab release."""
         self.calls.append("release")
 
     def reacquire(self) -> None:
+        """Record a grab reacquire."""
         self.calls.append("reacquire")
 
 
@@ -90,6 +95,7 @@ class TestLaunchWorkoutApp:
     """The handoff, and every way it can fail safely."""
 
     def test_releases_the_grab_once_the_app_is_ready(self) -> None:
+        """The grab is released once the ready line arrives and reacquired afterwards."""
         recorder = _Recorder()
         result = _run([f"{READY_MARKER}\n"], recorder)
         assert result.launched
@@ -111,6 +117,7 @@ class TestLaunchWorkoutApp:
         assert "exited before signalling ready" in result.reason
 
     def test_terminates_an_app_that_never_signals_ready(self) -> None:
+        """A child that never signals ready is terminated."""
         recorder = _Recorder()
         child = _FakeChild([])
         _run([], recorder, child=child)
@@ -160,6 +167,7 @@ class TestLaunchWorkoutApp:
         assert "-15" in result.reason
 
     def test_waits_for_the_app_to_exit(self) -> None:
+        """The launcher waits for the app process to exit."""
         recorder = _Recorder()
         child = _FakeChild([f"{READY_MARKER}\n"])
         _run([], recorder, child=child)
@@ -176,6 +184,7 @@ class TestLaunchWorkoutApp:
         assert child.terminated
 
     def test_says_so_when_the_app_is_not_built(self) -> None:
+        """A missing built binary is reported as not built and the grab is untouched."""
         recorder = _Recorder()
         result = launch_workout_app(
             GrabHandoff(release=recorder.release, reacquire=recorder.reacquire),
@@ -193,6 +202,7 @@ class TestWorkoutAppBinary:
     """Locating the built bundle."""
 
     def test_returns_none_when_nothing_is_built(self, tmp_path: Path) -> None:
+        """No built bundle yields None."""
         assert workout_app_binary(tmp_path) is None
 
     def test_defaults_to_the_real_repo_root(self) -> None:
@@ -201,6 +211,7 @@ class TestWorkoutAppBinary:
         assert found is None or found.name == "workout_app"
 
     def test_prefers_release_over_debug(self, tmp_path: Path) -> None:
+        """A release bundle wins over a debug one."""
         base = tmp_path / "stronglift_replacement/workout_app/build/linux/x64"
         for flavour in ("debug", "release"):
             binary = base / flavour / "bundle" / "workout_app"
@@ -209,6 +220,7 @@ class TestWorkoutAppBinary:
         assert workout_app_binary(tmp_path).parent.parent.name == "release"
 
     def test_falls_back_to_debug(self, tmp_path: Path) -> None:
+        """With only a debug bundle built, that one is used."""
         binary = (
             tmp_path
             / "stronglift_replacement/workout_app/build/linux/x64/debug/bundle"

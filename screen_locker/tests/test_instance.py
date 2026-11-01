@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 
 def test_the_first_run_takes_the_lock(tmp_path: Path) -> None:
+    """The first process to ask gets the instance lock."""
     lock = _instance.acquire(tmp_path / "instance.lock")
 
     assert lock is not None
@@ -38,6 +39,7 @@ def test_a_second_run_stands_down(
 
 
 def test_the_lock_is_retakeable_after_release(tmp_path: Path) -> None:
+    """A released lock can be acquired again."""
     path = tmp_path / "instance.lock"
     first = _instance.acquire(path)
     assert first is not None
@@ -52,6 +54,7 @@ def test_the_lock_is_retakeable_after_release(tmp_path: Path) -> None:
 def test_an_unopenable_path_reports_failure_rather_than_raising(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
+    """A lock path that cannot be opened returns None instead of raising."""
     blocker = tmp_path / "blocker"
     blocker.write_text("file", encoding="utf-8")
 
@@ -60,6 +63,7 @@ def test_an_unopenable_path_reports_failure_rather_than_raising(
 
 
 def test_releasing_twice_is_safe(tmp_path: Path) -> None:
+    """Calling release a second time does not raise."""
     lock = _instance.acquire(tmp_path / "instance.lock")
     assert lock is not None
 
@@ -68,6 +72,7 @@ def test_releasing_twice_is_safe(tmp_path: Path) -> None:
 
 
 def test_the_lock_file_records_the_pid(tmp_path: Path) -> None:
+    """The lock file contains the holder's PID."""
     path = tmp_path / "instance.lock"
     lock = _instance.acquire(path)
     assert lock is not None
@@ -79,11 +84,15 @@ def test_the_lock_file_records_the_pid(tmp_path: Path) -> None:
 def test_a_close_failure_is_reported_not_raised(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
+    """A failing close during release is logged as a warning, not raised."""
     lock = _instance.acquire(tmp_path / "instance.lock")
     assert lock is not None
 
     class Broken:
+        """A file handle stand-in whose close always fails."""
+
         def close(self) -> None:
+            """Raise OSError to simulate a handle that cannot be closed."""
             message = "cannot close"
             raise OSError(message)
 

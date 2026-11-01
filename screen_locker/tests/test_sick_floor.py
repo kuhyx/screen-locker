@@ -65,7 +65,10 @@ def _target(minutes: int) -> Any:
 
 
 class TestApplySickFloor:
+    """Groups the live pass that raises tonight to the sick-day target."""
+
     def test_not_sick_does_nothing(self) -> None:
+        """On a normal day the sick floor pass leaves the config untouched."""
         host = Host((18 * 60, 18 * 60, 300))
         assert host._apply_sick_floor() is False
         assert host.config == (18 * 60, 18 * 60, 300)
@@ -79,6 +82,7 @@ class TestApplySickFloor:
         assert host.config == (_FLOOR, _FLOOR, 300)
 
     def test_raises_to_the_derived_target_and_records_no_lift(self) -> None:
+        """The pass raises both days to the derived target and leaves no lift to absorb."""
         mark_sick(_DAY)
         host = Host((18 * 60, 20 * 60 + 10, 300))
         with _target(22 * 60):
@@ -87,6 +91,7 @@ class TestApplySickFloor:
         assert plan_absorb(60) == (60, 0)
 
     def test_already_at_or_above_the_target_is_left_alone(self) -> None:
+        """A config already at the target is not rewritten."""
         mark_sick(_DAY)
         host = Host((21 * 60, 21 * 60, 300))
         with _target(21 * 60):
@@ -96,18 +101,21 @@ class TestApplySickFloor:
     def test_unreadable_config_is_logged(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """An unreadable shutdown config makes the pass return False and warn."""
         mark_sick(_DAY)
         with caplog.at_level(logging.WARNING), _target(_FLOOR):
             assert Host(None)._apply_sick_floor() is False
         assert "config unreadable" in caplog.text
 
     def test_failed_write_is_logged(self, caplog: pytest.LogCaptureFixture) -> None:
+        """A failed config write makes the pass return False and warn."""
         mark_sick(_DAY)
         with caplog.at_level(logging.WARNING), _target(_FLOOR):
             assert Host((18 * 60, 18 * 60, 300), ok=False)._apply_sick_floor() is False
         assert "failed to write" in caplog.text
 
     def test_the_target_is_the_derived_sick_resolution(self) -> None:
+        """sick_target returns the minutes that earned_time's gather resolves for the day."""
         mark_sick(_DAY)
         with patch.object(_sick_floor, "gather") as gather:
             gather.return_value.minutes = 22 * 60
@@ -116,7 +124,10 @@ class TestApplySickFloor:
 
 
 class TestStackingAtGamingPay:
+    """Groups credits on a sick day, which land on the derived target rather than stacking."""
+
     def test_a_workout_on_a_sick_day_lands_on_the_target(self) -> None:
+        """A workout credit on a sick day sets tonight to the derived target."""
         host = Host((_FLOOR, _FLOOR, 300))
         mark_sick(_DAY)
         with _target(22 * 60):
@@ -132,6 +143,7 @@ class TestStackingAtGamingPay:
         assert host.config == (22 * 60, 22 * 60, 300)
 
     def test_not_sick_still_adds(self) -> None:
+        """On a normal day a credit still adds its hour to the config."""
         host = Host((19 * 60, 19 * 60, 300))
         assert host._adjust_shutdown_time_by(60) is True
         assert host.config == (20 * 60, 20 * 60, 300)

@@ -56,6 +56,7 @@ def pc_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Mag
 def test_sandbox_replies_ok_with_the_snapshot_and_nothing_credited(
     pc: dict[str, MagicMock],
 ) -> None:
+    """A sandbox poke is answered ok with the PC snapshot and reports nothing credited."""
     reply = _poke_server._process(_request(sandbox=True))
     assert reply["ok"] is True
     assert reply["sandbox"] is True
@@ -69,6 +70,7 @@ def test_sandbox_replies_ok_with_the_snapshot_and_nothing_credited(
 def test_sandbox_never_logs_credits_or_touches_the_shutdown_config(
     pc: dict[str, MagicMock], tmp_path: Path
 ) -> None:
+    """A sandbox poke leaves every state-changing step uncalled and no files behind."""
     before = sorted(p.name for p in tmp_path.iterdir())
     _poke_server._process(_request(sandbox=True))
     for name, spy in pc.items():

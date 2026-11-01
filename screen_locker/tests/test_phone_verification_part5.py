@@ -35,6 +35,7 @@ class TestTryFillStronglifitsForWeek:
     def test_returns_zero_when_no_phone(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Without an adb-connected phone the week scan fills nothing."""
         locker = create_locker(mock_tk, tmp_path)
         log_file = tmp_path / "log.json"
         log_file.write_text("{}")
@@ -44,6 +45,7 @@ class TestTryFillStronglifitsForWeek:
     def test_returns_zero_when_no_json_pulled(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """If no workout JSON can be pulled from the phone, nothing is filled."""
         locker = create_locker(mock_tk, tmp_path)
         log_file = tmp_path / "log.json"
         log_file.write_text("{}")
@@ -56,6 +58,7 @@ class TestTryFillStronglifitsForWeek:
     def test_returns_zero_when_date_unparsable(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """A pulled JSON whose date does not parse is not backfilled."""
         locker = create_locker(mock_tk, tmp_path)
         log_file = tmp_path / "log.json"
         log_file.write_text("{}")
@@ -143,6 +146,7 @@ class TestTryFillStronglifitsForWeek:
     def test_rescanning_an_already_filled_day_is_a_no_op(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Scanning the same day twice fills it once, then reports nothing new."""
         locker = create_locker(mock_tk, tmp_path)
         log_file = tmp_path / "log.json"
         log_file.write_text("{}")

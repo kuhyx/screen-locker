@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 from screen_locker._day import today_str
 from screen_locker._manual_schedule import ScheduleResult
-from screen_locker.tests import test_manual_workout_dialog as dialog_tests
+from screen_locker.tests import test_manual_workout_dialog_part2 as dialog_tests
 from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
@@ -38,6 +38,7 @@ class TestBudgetClosed:
     def test_open_with_an_empty_log(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """With an empty log the budget is not closed."""
         locker = create_locker(mock_tk, tmp_path)
         assert locker._mw_budget_closed() is False
 
@@ -48,6 +49,7 @@ class TestDateInRow:
     def test_prefills_today_and_registers_the_var(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """The date entry is prefilled with today and registered in the form vars."""
         locker = create_locker(mock_tk, tmp_path)
         locker._mw_vars = {}
         locker._mw_date_in_row(MagicMock())
@@ -61,6 +63,7 @@ class TestHandledByDate:
     def test_a_garbled_date_shows_the_error(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """An unparsable date shows an error and schedules nothing."""
         locker = _locker(mock_tk, tmp_path, "soon")
         assert locker._mw_handled_by_date(MagicMock()) is True
         locker._mw_error_label.config.assert_called_once()
@@ -69,6 +72,7 @@ class TestHandledByDate:
     def test_a_past_date_shows_the_error(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """A date before today is rejected with a message mentioning the past."""
         locker = _locker(mock_tk, tmp_path, _plus(-1))
         assert locker._mw_handled_by_date(MagicMock()) is True
         assert "past" in locker._mw_error_label.config.call_args.kwargs["text"]
@@ -76,6 +80,7 @@ class TestHandledByDate:
     def test_today_over_budget_shows_the_error(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Today's date with no budget left shows the budget error and is handled."""
         locker = _locker(mock_tk, tmp_path, today_str())
         with patch(f"{_MOD}.budget_error", return_value="budget full"):
             assert locker._mw_handled_by_date(MagicMock()) is True
@@ -84,6 +89,7 @@ class TestHandledByDate:
     def test_today_within_budget_is_left_to_the_host(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """Today's date within budget is not handled and shows no error."""
         locker = _locker(mock_tk, tmp_path, today_str())
         with patch(f"{_MOD}.budget_error", return_value=None):
             assert locker._mw_handled_by_date(MagicMock()) is False
@@ -92,6 +98,7 @@ class TestHandledByDate:
     def test_a_refused_future_entry_shows_why(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """A future entry the scheduler refuses shows its reason and no confirmation."""
         locker = _locker(mock_tk, tmp_path, _plus(2))
         refused = ScheduleResult(scheduled=False, record_id="r", reason="no room")
         with patch(f"{_MOD}.schedule_future_workout", return_value=refused):
@@ -102,6 +109,7 @@ class TestHandledByDate:
     def test_a_scheduled_future_entry_shows_the_confirmation(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """A scheduled future entry is saved via the scheduler and confirmed without error."""
         locker = _locker(mock_tk, tmp_path, _plus(2))
         draft = MagicMock()
         done = ScheduleResult(scheduled=True, record_id="r", reason="scheduled")
@@ -118,6 +126,7 @@ class TestScheduledConfirmation:
     def test_ok_returns_via_the_cancelled_hook_and_never_unlocks(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """The OK button goes back through the cancelled hook and never the saved one."""
         locker = create_locker(mock_tk, tmp_path)
         saved = MagicMock()
         cancelled = MagicMock()
@@ -145,6 +154,7 @@ class TestSubmitRoutesThroughTheDateRules:
     def test_a_handled_entry_never_reaches_the_host_save_hook(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
+        """When the date rules handle the entry the host save hook is not called."""
         locker = dialog_tests.TestSubmitManualWorkoutForm()._setup_locker(
             mock_tk, tmp_path
         )

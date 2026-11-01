@@ -69,6 +69,7 @@ def _block(hhmm: str) -> dict[str, Any]:
 
 
 def test_the_simulated_cutover_registers_the_tutor(tutor: Any) -> None:
+    """After the simulated cutover the tutor is a gate earner and not a flat one."""
     assert tutor in registry(_CUTOVER)
     assert tutor in _earned.gate_earners(_CUTOVER)
     assert tutor not in _earned.flat_earners(_CUTOVER)
@@ -79,11 +80,13 @@ class TestConfirmedButNeverCredited:
     """earned_time 0.7.0: a confirmed tutor is penalised from its first day."""
 
     def test_the_map_says_never(self) -> None:
+        """The first-credit map says the tutor has never been credited."""
         starts = first_credits(registry(_CUTOVER), _CUTOVER)
         assert starts is not None
         assert starts["tutor"] is None
 
     def test_the_tutor_penalty_is_on_the_gaming_base_unpaid(self) -> None:
+        """The never-paid tutor leaves the gaming base the same whether or not credits are wired."""
         answers = {e.name: 0 for e in registry(_CUTOVER)}
         starts = first_credits(registry(_CUTOVER), _CUTOVER)
         wired = derive(DayInputs(_CUTOVER, answers, first_credits=starts))
@@ -115,10 +118,12 @@ class TestTheGraceFloor:
     """A tutor block is a first task like any other."""
 
     def test_a_tutor_block_starts_the_floor(self, tutor: Any) -> None:
+        """The first tutor block of the day sets the first-task time."""
         write_ledger(tutor, [_block("18:55"), _block("19:10")])
         expected = datetime.combine(_CUTOVER, time(18, 55)).astimezone()
         assert first_done_at(_CUTOVER, None) == expected.timestamp()
 
     def test_no_block_no_floor(self, tutor: Any) -> None:
+        """Without a tutor block there is no first-task time."""
         write_ledger(tutor, [])
         assert first_done_at(_CUTOVER, None) is None

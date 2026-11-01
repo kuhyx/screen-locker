@@ -9,7 +9,10 @@ from screen_locker.tests._status_view_helpers import _make_window, _snapshot
 
 
 class TestPollRoutesPhoneCheckOutcome:
+    """Polling the phone check hands a finished outcome to the result handler."""
+
     def test_poll_routes_to_result_when_future_done(self, mock_tk: MagicMock) -> None:
+        """Once the future is done its outcome is passed to the result handler."""
         window = _make_window(mock_tk, _snapshot())
         mock_future = MagicMock()
         mock_future.done.return_value = True
@@ -23,6 +26,8 @@ class TestPollRoutesPhoneCheckOutcome:
 
 
 class TestWeekScanBackfillResult:
+    """The status window's reporting of a week-scan backfill from Check Phone."""
+
     def test_week_scan_backfill_shows_fill_message_and_applies_no_credit(
         self, mock_tk: MagicMock
     ) -> None:

@@ -31,11 +31,13 @@ def _fixture() -> tuple[bytes, bytes, str]:
 
 
 def test_fixture_signature_verifies_over_raw_bytes() -> None:
+    """The contract's signature verifies against the key and the exact raw body bytes."""
     key, body, signature = _fixture()
     assert verify_signature(key, body, signature)
 
 
 def test_one_altered_byte_is_rejected() -> None:
+    """Changing a single body byte, while still valid JSON, fails the signature check."""
     key, body, signature = _fixture()
     altered = bytearray(body)
     # The '1' in "v":1 -> '2': still valid JSON, so only the MAC can catch it.
@@ -44,6 +46,7 @@ def test_one_altered_byte_is_rejected() -> None:
 
 
 def test_fixture_passes_every_contract_check() -> None:
+    """The contract request passes every check and decodes to the expected record and payload."""
     key, body, signature = _fixture()
     sent_at = json.loads(body)["sent_at_ms"]
     result = check_request(key, body, signature, NonceCache(), now_ms=sent_at)
@@ -54,6 +57,7 @@ def test_fixture_passes_every_contract_check() -> None:
 
 
 def test_altered_body_is_a_401_through_check_request() -> None:
+    """A tampered body is rejected by check_request with HTTP 401."""
     key, body, signature = _fixture()
     altered = body.replace(b'"sandbox":false', b'"sandbox":true ')
     result = check_request(key, altered, signature, NonceCache(), now_ms=0)

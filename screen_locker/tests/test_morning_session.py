@@ -50,6 +50,7 @@ def _write(date: str, exempt_until: str) -> None:
 
 
 def test_reads_the_redirected_file() -> None:
+    """The module reads the conftest-redirected file and reports the signed skip."""
     _write("2026-09-19", "11:00")
     skip = morning_skip_today(NOW, wait=False)
     assert skip == MorningSkip("completed", NOW.replace(hour=11))
@@ -57,10 +58,12 @@ def test_reads_the_redirected_file() -> None:
 
 
 def test_missing_file_is_no_skip() -> None:
+    """A missing session file means no skip."""
     assert morning_skip_today(NOW, wait=False) is None
 
 
 def test_has_workout_skip_today_uses_the_wall_clock() -> None:
+    """has_workout_skip_today judges the entry against the real wall clock."""
     _write(datetime.now(tz=UTC).astimezone().strftime("%Y-%m-%d"), "23:59")
     assert has_workout_skip_today() is True
 

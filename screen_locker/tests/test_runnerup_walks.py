@@ -52,16 +52,21 @@ class Verifier(RunnerUpVerificationMixin):
 
 
 def drop(folder: Path, name: str, body: str) -> None:
+    """Write a RunnerUp-named TCX export for the test day into the drop folder."""
     (folder / f"RunnerUp_Pixel_6a_{_DAY}-{name}.tcx").write_text(body)
 
 
 @pytest.fixture(name="verifier")
 def verifier_fixture(tmp_path: Path) -> Verifier:
+    """A Verifier reading a temporary drop directory."""
     return Verifier(tmp_path)
 
 
 class TestParse:
+    """Groups parsing a pulled TCX export into its walking flag and moving time."""
+
     def test_a_walk_is_flagged_by_its_file_name(self, verifier: Verifier) -> None:
+        """A file named *_Walking is flagged as a walk even when the TCX sport says Other."""
         drop(verifier.folder, "08-00-00_Walking", tcx("Other", 10, "08:00"))
         (path,) = verifier._find_runnerup_exports_for_date(_DAY)
         data = verifier._pull_and_parse_tcx(path)
@@ -74,7 +79,7 @@ class TestParse:
         body = tcx("Other", 10, "08:00")
 
         def pull(args: list[str]) -> tuple[bool, str]:
-
+            """Fake adb pull that writes the TCX body to the local destination."""
             Path(args[2]).write_text(body)
             return True, ""
 
@@ -84,15 +89,19 @@ class TestParse:
         assert data["walking"] is True
 
     def test_a_failed_pull_is_none(self, verifier: Verifier) -> None:
+        """When the adb pull fails the parse returns None."""
         assert verifier._pull_and_parse_tcx("/sdcard/RunnerUp_x_Walking.tcx") is None
 
 
 class TestVerifyToday:
+    """Groups the verdict over all of the day's RunnerUp exports."""
+
     def _verify(self, verifier: Verifier) -> tuple[str, str] | None:
         with patch("screen_locker._runnerup_verification.today_str", return_value=_DAY):
             return verifier._verify_runnerup_via_files()
 
     def test_walks_summing_to_the_bar_verify(self, verifier: Verifier) -> None:
+        """Several short walks whose moving time sums past the bar verify together."""
         drop(verifier.folder, "08-00-00_Walking", tcx("Other", 15, "08:00"))
         drop(verifier.folder, "17-00-00_Walking", tcx("Other", 12, "17:00"))
         result = self._verify(verifier)
@@ -111,6 +120,7 @@ class TestVerifyToday:
         )
 
     def test_a_run_still_verifies_beside_short_walks(self, verifier: Verifier) -> None:
+        """A long enough run verifies even when the day also has short walks."""
         drop(verifier.folder, "07-00-00_Walking", tcx("Other", 10, "07:00"))
         drop(verifier.folder, "18-00-00_Running", tcx("Running", 45, "18:00", 2.5))
         result = self._verify(verifier)
@@ -119,6 +129,7 @@ class TestVerifyToday:
         assert result[1].startswith("Running")
 
     def test_a_short_run_outranks_the_walk_shortfall(self, verifier: Verifier) -> None:
+        """A too-short run is the reported shortfall rather than the walks'."""
         drop(verifier.folder, "07-00-00_Walking", tcx("Other", 10, "07:00"))
         drop(verifier.folder, "18-00-00_Running", tcx("Running", 5, "18:00", 2.5))
         result = self._verify(verifier)
@@ -128,9 +139,12 @@ class TestVerifyToday:
 
 
 class TestBackfill:
+    """Groups backfilling the day's RunnerUp activity into log.json."""
+
     def test_walks_are_logged_as_one_workout(
         self, verifier: Verifier, tmp_path: Path
     ) -> None:
+        """A day's walks are logged as a single workout ending at the last walk, and not again."""
         drop(verifier.folder, "08-00-00_Walking", tcx("Other", 15, "08:00"))
         drop(verifier.folder, "17-00-00_Walking", tcx("Other", 12, "17:00"))
         log = tmp_path / "log.json"
@@ -155,6 +169,7 @@ class TestBackfill:
         tmp_path: Path,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
+        """Walks short of the bar log nothing and warn that they do not count yet."""
         drop(verifier.folder, "08-00-00_Walking", tcx("Other", 20, "08:00"))
         log = tmp_path / "log.json"
         with caplog.at_level(logging.WARNING):
@@ -165,6 +180,7 @@ class TestBackfill:
     def test_a_run_records_its_end_time(
         self, verifier: Verifier, tmp_path: Path
     ) -> None:
+        """A logged run records its end time as completed_at."""
         drop(verifier.folder, "18-00-00_Running", tcx("Running", 45, "18:00", 2.5))
         log = tmp_path / "log.json"
         assert verifier._try_fill_runnerup_for_date(_DAY, log) is True

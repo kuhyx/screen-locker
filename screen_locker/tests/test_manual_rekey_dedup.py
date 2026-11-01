@@ -81,6 +81,7 @@ class TestSyncedTwinIsNotReIngested:
     def test_rekeyed_entry_is_recognised_by_its_workout_id(
         self, tmp_path: Path
     ) -> None:
+        """The PC's own published twin is matched by workout id and not ingested again."""
         log_file = tmp_path / "log.json"
         _log_after_rekey(log_file)
 

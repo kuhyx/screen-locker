@@ -91,6 +91,7 @@ class TestPushState:
     def test_a_non_object_state_file_reads_as_nothing_known(
         self, tmp_path: Path
     ) -> None:
+        """A state file holding a JSON list instead of an object reads as never pushed."""
         (tmp_path / "sync_state.json").write_text("[]")
 
         assert _gather(tmp_path).pushed is False
