@@ -97,7 +97,7 @@ class _WarmupCircle extends StatelessWidget {
         label: semanticLabel,
         excludeSemantics: true,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: motionDuration(context, AppDuration.base),
           width: 52,
           height: 52,
           decoration: BoxDecoration(

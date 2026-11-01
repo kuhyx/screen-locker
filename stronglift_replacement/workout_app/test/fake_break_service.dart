@@ -18,6 +18,9 @@ class FakeBreakServicePort implements BreakServicePort {
   /// How many times the break-end alert fired.
   var alerts = 0;
 
+  /// Whether each alert was allowed to make a sound, in order.
+  final alertSounds = <bool>[];
+
   /// How many times the UI was nudged to drain.
   var nudges = 0;
 
@@ -35,7 +38,10 @@ class FakeBreakServicePort implements BreakServicePort {
       drawn.add(copy);
 
   @override
-  Future<void> fireBreakEndAlert() async => alerts++;
+  Future<void> fireBreakEndAlert({required bool sound}) async {
+    alerts++;
+    alertSounds.add(sound);
+  }
 
   @override
   void nudgeMainToDrain() => nudges++;

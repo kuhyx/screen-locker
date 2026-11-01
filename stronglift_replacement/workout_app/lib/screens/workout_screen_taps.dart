@@ -8,12 +8,18 @@ part of 'workout_screen.dart';
 
 /// The three ways a user records work: tap a set, tap a warmup, undo a set.
 extension _WorkoutScreenTaps on _WorkoutScreenState {
+  /// The on-screen tap on a set circle: the same as [_tapCircle], plus the
+  /// click. The click lives here, not in [_tapCircle], because notification
+  /// presses reach [_tapCircle] too and must not buzz a pocket.
+  void _tapCircleByHand(int exIdx, int setIdx) =>
+      _tapCircle(exIdx, setIdx, byHand: true);
+
   /// Records set [setIdx] of exercise [exIdx], or decrements its reps.
   ///
   /// First tap marks the set done at the exercise's full target reps and earns
   /// the rest period. Every later tap decrements the reps by one, which can
   /// flip the running break between its 3-minute and 5-minute durations.
-  void _tapCircle(int exIdx, int setIdx) {
+  void _tapCircle(int exIdx, int setIdx, {bool byHand = false}) {
     if (_finished) return;
 
     final wasNotTapped = !_tapped[exIdx][setIdx];
@@ -24,6 +30,9 @@ extension _WorkoutScreenTaps on _WorkoutScreenState {
       'ignored': wasNotTapped && _inBreak,
     });
     if (wasNotTapped && _inBreak) return;
+    // Fired on the tap itself, before any write, and only for a newly recorded
+    // set: a rep decrement is an edit, not a completion.
+    if (wasNotTapped && byHand) _cues.setRecorded();
 
     _applyBreakState(() {
       if (wasNotTapped) {
@@ -50,6 +59,7 @@ extension _WorkoutScreenTaps on _WorkoutScreenState {
   void _tapWarmup(int exIdx) {
     SandboxLog.event('tap warmup', {'exercise': exIdx});
     if (_finished || _warmupTapped[exIdx]) return;
+    _cues.setRecorded();
     _applyBreakState(() => _warmupTapped[exIdx] = true);
     if (!_inBreak) {
       _startBreak(_stateOf(exIdx).restWarmupSecs, 'Warmup rest', exIdx, -1);

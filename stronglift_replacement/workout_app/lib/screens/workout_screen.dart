@@ -19,6 +19,7 @@ import 'package:workout_app/services/break_clock.dart';
 import 'package:workout_app/services/break_intent_queue.dart';
 import 'package:workout_app/services/break_intent_store.dart';
 import 'package:workout_app/services/break_service_controller.dart';
+import 'package:workout_app/services/feedback_cues.dart';
 import 'package:workout_app/services/foreground_break_client.dart';
 import 'package:workout_app/services/foreground_break_client_flutter.dart';
 import 'package:workout_app/services/lock_mode.dart';
@@ -108,6 +109,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   /// The one in-flight start of [_breaks]; see `_ensureBreakService`.
   Future<void>? _breakServiceStart;
   final _audio = AudioPlayer();
+  late final _cues = FeedbackCues(_audio);
   final _sync = SyncService();
   bool _finished = false;
 
@@ -151,6 +153,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   Future<void> _loadExerciseStates() async {
     final states = await StorageService.instance.getAllExerciseStates();
+    // After, not beside, the read above: the push below carries both.
+    await _cues.load();
     if (mounted) {
       setState(() {
         _exerciseStates = {for (final s in states) s.name: s};
@@ -166,12 +170,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   void dispose() {
     _breakTimer?.cancel();
     _lifecycle.dispose();
-    // Deliberately NOT stopping the break service here. The back button pops
-    // this screen while the workout carries on in the database, and stopping
-    // the service on dispose killed the countdown and the notification with
-    // it -- silently putting the user back on the bug this feature fixes.
-    // The service is stopped only by Finish, by Reset, and by the stale-service
-    // reaper in main() for the case where neither ever happens.
+    // Deliberately NOT stopping the break service: the back button pops this
+    // screen while the workout carries on in the database, and stopping it
+    // here killed the countdown and notification. Only Finish, Reset and the
+    // stale-service reaper in main() stop it.
     unawaited(_audio.dispose());
     super.dispose();
   }
@@ -217,10 +219,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       // finish, so the route is pinned until the workout is finished or reset.
       // Outside lock mode the back button behaves exactly as it always has.
       canPop: !lockModeEnabled,
-      // No app bar (2026-09-27): the workout type and clock were not worth
-      // their height, and Reset/Finish now live in the rest strip. SafeArea
-      // keeps that strip out from under the status bar the app bar used to
-      // pad away.
+      // No app bar (2026-09-27): Reset/Finish live in the rest strip, and
+      // SafeArea keeps it clear of the status bar the app bar used to pad.
       child: Scaffold(
         body: SafeArea(
           child: _WorkoutBody(
@@ -237,7 +237,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             onSkipBreak: _skipBreak,
             onReset: () => unawaited(_confirmReset()),
             onFinish: () => unawaited(_confirmFinish()),
-            onTapCircle: _tapCircle,
+            onTapCircle: _tapCircleByHand,
             onLongPressCircle: _resetCircle,
             onTapWarmup: _tapWarmup,
             onSettingsChanged: (s) => unawaited(_onSettingsChanged(s)),

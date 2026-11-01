@@ -35,6 +35,7 @@ Map<String, Object?> snapMap({
   int breakForExIdx = 0,
   int breakForSetIdx = 0,
   int setsRemaining = 4,
+  bool soundOn = true,
 }) => BreakSnapshot(
   workoutType: 'A',
   breakEndMs: breakEndMs,
@@ -53,4 +54,5 @@ Map<String, Object?> snapMap({
   lastExIdx: lastExIdx,
   lastSetIdx: lastSetIdx,
   setsRemaining: setsRemaining,
+  soundOn: soundOn,
 ).toMap();

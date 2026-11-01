@@ -142,10 +142,19 @@ extension _WorkoutScreenFinish on _WorkoutScreenState {
         'ms_since_tap': sinceTap.elapsedMilliseconds,
       }),
     );
+    // Finishing is the moment worth marking: the same cue for a deload and a
+    // PB (it rewards the recording, not the number), then the summary arrives
+    // on the dialog motion token instead of appearing. Both start together.
+    unawaited(_cues.workoutFinished());
     unawaited(
       showDialog<void>(
         context: context,
         barrierDismissible: false,
+        animationStyle: AnimationStyle(
+          duration: motionDuration(context, AppDuration.slow),
+          curve: AppCurve.decelerate,
+          reverseCurve: AppCurve.accelerate,
+        ),
         builder: (_) => WorkoutSummaryDialog(
           session: session,
           syncResult: syncResult,

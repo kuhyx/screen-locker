@@ -45,7 +45,10 @@ abstract class BreakServicePort {
   Future<void> updateNotification(BreakNotificationCopy copy);
 
   /// Fires the break-end alert: the sound, the haptic, and the heads-up.
-  Future<void> fireBreakEndAlert();
+  ///
+  /// With [sound] false the user has switched sound off: the buzz and the
+  /// heads-up stay, every sound route (the mp3 and the channel's tone) goes.
+  Future<void> fireBreakEndAlert({required bool sound});
 
   /// Nudges the UI isolate to drain the intent queue.
   ///

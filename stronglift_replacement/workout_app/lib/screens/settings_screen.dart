@@ -35,6 +35,7 @@ part 'settings_screen_pc_link.dart';
 part 'settings_screen_rows.dart';
 part 'settings_screen_sandbox.dart';
 part 'settings_screen_sections.dart';
+part 'settings_screen_sound.dart';
 part 'settings_screen_widget.dart';
 
 class _SettingsScreenState extends State<SettingsScreen> {
@@ -44,17 +45,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final Map<String, double> _weights = {};
   final Map<String, int> _reps = {};
 
-  // Debounce weight saves to avoid resetting streaks on every tap.
+  // Debounced saves, so a tap does not reset streaks on every step.
   final Map<String, Timer> _weightTimers = {};
-
-  // Same debounce for reps, for the same reason.
   final Map<String, Timer> _repsTimers = {};
 
   bool _storageGranted = false;
+  bool _soundEnabled = true;
 
-  // Set after a Sync settings visit restores progression, so the banner
-  // persists until the user looks back at the screen -- mirrors the pattern
-  // every app-local sync status field in this migration already used.
+  // Set after a Sync settings visit restores progression; the banner stays.
   String? _progressionStatus;
 
   @override
@@ -72,11 +70,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _storageGranted = granted);
   }
 
-  /// Opens the system page for MANAGE_EXTERNAL_STORAGE.
-  ///
-  /// The ONLY caller of [BackupService.requestStoragePermission]: startup used
-  /// to call it and dumped the user in system Settings on every launch, for a
-  /// permission that is now genuinely optional.
+  /// Opens the system page for MANAGE_EXTERNAL_STORAGE. The ONLY caller of
+  /// [BackupService.requestStoragePermission]: startup used to, and dumped
+  /// the user in system Settings on every launch.
   Future<void> _grantStorage() async {
     final granted =
         await (widget.storageRequester ??
@@ -87,19 +83,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
-    for (final t in _weightTimers.values) {
-      t.cancel();
-    }
-    for (final t in _repsTimers.values) {
+    for (final t in [..._weightTimers.values, ..._repsTimers.values]) {
       t.cancel();
     }
     super.dispose();
   }
 
   Future<void> _load() async {
-    final states = await StorageService.instance.getAllExerciseStates();
+    final storage = StorageService.instance;
+    final states = await storage.getAllExerciseStates();
+    final sound = await storage.getSoundEnabled();
     if (!mounted) return;
     setState(() {
+      _soundEnabled = sound;
       for (final s in states) {
         _states[s.name] = s;
         _weights[s.name] = s.weight;
@@ -112,18 +108,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// Pushes the shared Sync settings screen, then pulls progression once it
   /// pops -- covering both "connected just now" and "disconnected/no-op".
   ///
-  /// Not hooked into the connect flow itself: `SyncSettingsScreen` has no
+  /// Not hooked into the connect flow: `SyncSettingsScreen` has no
   /// post-connect callback, and [ProgressionSyncService.pullProgression]
-  /// already self-gates (returns immediately with no account, and refuses to
-  /// overwrite local state once [StorageService.hasSyncedProgression] is
-  /// true), so calling it unconditionally on pop is safe and simpler than
-  /// threading a callback through the shared screen's Firebase closures.
-  /// [ProgressionSyncService.pushProgression]'s own guard (never overwrite
-  /// remote progression from an install that hasn't pulled yet) is the actual
-  /// safety net against the reinstall-then-finish-a-workout race this
-  /// mirrors; this call is a convenience that restores progression
-  /// immediately instead of waiting for the next app launch, which also
-  /// pulls unconditionally at startup.
+  /// already self-gates (no account => immediate return; never overwrites
+  /// local state once [StorageService.hasSyncedProgression] is true), so an
+  /// unconditional call on pop is safe. The push-side guard (never overwrite
+  /// remote progression from an install that has not pulled yet) is the real
+  /// safety net against the reinstall-then-finish-a-workout race; this call
+  /// only restores progression now instead of at the next launch, which also
+  /// pulls unconditionally.
   Future<void> _openSyncSettings() async {
     await _pushSyncSettingsScreen();
     if (!mounted) return;
@@ -138,6 +131,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
       await _load();
     }
+  }
+
+  void _setSound(bool enabled) {
+    setState(() => _soundEnabled = enabled);
+    unawaited(StorageService.instance.setSoundEnabled(enabled: enabled));
   }
 
   void _onWeightChanged(String name, double value) {
@@ -226,6 +224,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   states: _states,
                   onOpen: (s) => unawaited(_openExercise(s)),
                 ),
+                const SizedBox(height: 20),
+                _SoundSection(enabled: _soundEnabled, onChanged: _setSound),
                 const SizedBox(height: 20),
                 _SyncSection(
                   progressionStatus: _progressionStatus,

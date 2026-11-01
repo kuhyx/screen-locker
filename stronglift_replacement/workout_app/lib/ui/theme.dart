@@ -162,3 +162,39 @@ abstract final class AppTextSize {
   /// 32px.
   static const double display = 32;
 }
+
+/// Shared motion durations, transcribed from `unified-design-system`
+/// (`DOCS-motion.md`). Four steps on purpose: a longer scale gets picked from
+/// at random. Needing one that is not here means the interaction is wrong.
+abstract final class AppDuration {
+  /// No animation; what every step collapses to under reduced motion.
+  static const Duration instant = Duration.zero;
+
+  /// 120ms: state on an element already under the finger (press, tick).
+  static const Duration fast = Duration(milliseconds: 120);
+
+  /// 200ms: the default; anything entering, leaving or moving in view.
+  static const Duration base = Duration(milliseconds: 200);
+
+  /// 320ms: a full-surface change (dialog, sheet). The ceiling, not a midpoint.
+  static const Duration slow = Duration(milliseconds: 320);
+}
+
+/// Shared easing curves, named for what the motion does at its end.
+abstract final class AppCurve {
+  /// The default for anything that starts and ends on screen.
+  static const Curve standard = Cubic(0.2, 0, 0, 1);
+
+  /// Entering the screen: full speed at first, easing to rest.
+  static const Curve decelerate = Cubic(0, 0, 0, 1);
+
+  /// Leaving the screen: eases in, exits at speed.
+  static const Curve accelerate = Cubic(0.3, 0, 1, 1);
+}
+
+/// [wanted], or [Duration.zero] when the OS asks for no animation.
+///
+/// Haptics and sound are not motion and ignore this on purpose: someone who
+/// removed animations has not asked to stop hearing that a tap landed.
+Duration motionDuration(BuildContext context, Duration wanted) =>
+    MediaQuery.disableAnimationsOf(context) ? Duration.zero : wanted;

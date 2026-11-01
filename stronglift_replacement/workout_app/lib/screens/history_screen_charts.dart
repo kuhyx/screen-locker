@@ -75,9 +75,6 @@ class _ProgressStatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final successLeft = state.successThreshold - state.successStreak;
-    final failLeft = state.failThreshold - state.failStreak;
-
     final colorScheme = Theme.of(context).colorScheme;
     final status = Theme.of(context).extension<AppStatusColors>()!;
     return Container(
@@ -103,7 +100,6 @@ class _ProgressStatsCard extends StatelessWidget {
             color: status.success,
             current: state.successStreak,
             threshold: state.successThreshold,
-            leftLabel: '$successLeft more',
             // The same rule applyProgression runs, in every mode.
             actionLabel: describeTargetChange(state, targetAfterSuccess(state)),
             direction: '↑',
@@ -114,7 +110,6 @@ class _ProgressStatsCard extends StatelessWidget {
             color: colorScheme.error,
             current: state.failStreak,
             threshold: state.failThreshold,
-            leftLabel: '$failLeft more',
             actionLabel: describeTargetChange(state, targetAfterFailure(state)),
             direction: '↓',
           ),
@@ -130,7 +125,6 @@ class _StreakRow extends StatelessWidget {
     required this.color,
     required this.current,
     required this.threshold,
-    required this.leftLabel,
     required this.actionLabel,
     required this.direction,
   });
@@ -139,40 +133,44 @@ class _StreakRow extends StatelessWidget {
   final Color color;
   final int current;
   final int threshold;
-  final String leftLabel;
   final String actionLabel;
   final String direction;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        Icon(icon, color: color, size: 14),
-        const SizedBox(width: 6),
-        ...List.generate(
-          threshold,
-          (i) => Container(
-            width: 8,
-            height: 8,
-            margin: const EdgeInsets.only(right: 3),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: i < current ? color : colorScheme.surfaceContainerHighest,
+    // The streak is shown counting up to its real value; the dots fill and the
+    // "more" number falls in step. At rest it is exactly the stored streak.
+    return AnimatedCounter(
+      value: current,
+      builder: (shown) => Row(
+        children: [
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 6),
+          ...List.generate(
+            threshold,
+            (i) => Container(
+              width: 8,
+              height: 8,
+              margin: const EdgeInsets.only(right: 3),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: i < shown ? color : colorScheme.surfaceContainerHighest,
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            '$leftLabel to $direction $actionLabel',
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: AppTextSize.caption,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '${threshold - shown} more to $direction $actionLabel',
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: AppTextSize.caption,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

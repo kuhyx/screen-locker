@@ -60,7 +60,7 @@ class BreakTaskHandler {
         // Stamped before the alert, not after: if the alert throws, the user
         // gets one failed attempt rather than the same sound every second.
         _alertedEndMs = snapshot.breakEndMs;
-        await _port.fireBreakEndAlert();
+        await _port.fireBreakEndAlert(sound: snapshot.soundOn);
       }
     }
     await _redraw(now);

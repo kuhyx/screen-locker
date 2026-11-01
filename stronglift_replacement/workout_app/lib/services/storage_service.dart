@@ -135,6 +135,19 @@ class StorageService {
     unawaited(_backupNow());
   }
 
+  /// Whether the app may make sound (finish chime and break-end cue).
+  ///
+  /// Ships on: with nothing stored, a cue nobody ever hears is no cue. The
+  /// haptic that pairs with every sound is NOT governed by this.
+  Future<bool> getSoundEnabled() async =>
+      await _getSetting('sound_enabled') != 'false';
+
+  /// Stores the sound choice as `'true'` / `'false'` and backs it up.
+  Future<void> setSoundEnabled({required bool enabled}) async {
+    await _setSetting('sound_enabled', '$enabled');
+    unawaited(_backupNow());
+  }
+
   // ── Active session (crash / exit recovery) ─────────────────────────────────
 
   /// Persists [data] as the currently active (in-progress) session.

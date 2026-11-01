@@ -1,0 +1,23 @@
+{
+  "workout_done.wav": {
+    "file": "workout_done.wav",
+    "frames": 24255,
+    "music_theory_version": "0.1.0",
+    "recipe": {
+      "harmonic_gain": 0.2,
+      "note_step_beats": 0.2,
+      "notes": [
+        72,
+        76,
+        79,
+        84
+      ],
+      "ring_beats": 1.6,
+      "sample_rate": 44100,
+      "tempo_bpm": 240.0
+    },
+    "sample_rate": 44100,
+    "seconds": 0.55,
+    "sha256": "7644e2748f939de1481768999da64df360949d1e5f089fe6eb4a95a2b7c42713"
+  }
+}

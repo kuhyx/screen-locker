@@ -61,6 +61,9 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
     final clock = _expiredBreak;
     _expiredBreak = null;
     if (clock == null) return;
+    // Runs on the first frame, usually before the initState read of the sound
+    // choice has landed; ring only after it has, or "off" would still ring.
+    await _cues.load();
     final overdue = clock.secondsOverdueAt(DateTime.now());
     if (overdue > _expiredBreakGraceSecs) {
       log(
@@ -169,15 +172,21 @@ extension _WorkoutScreenSession on _WorkoutScreenState {
   }
 
   /// Plays the sound and haptic that tell the user the rest period is over.
+  ///
+  /// The sound switch silences the mp3 only; the buzz is the haptic sibling
+  /// and stays.
   Future<void> _playBreakEndCue() async {
-    await _audio.play(AssetSource('sounds/break_end.mp3')).catchError((
-      Object error,
-    ) {
-      // Never fatal: a missing audio route must not interrupt the workout.
-      // But it is the break-end cue, so a silent failure looks like the
-      // timer itself is broken.
-      debugPrint('WorkoutApp: break-end sound failed to play ($error).');
-    });
+    SandboxLog.event('cue break end', {'sound': _cues.soundOn});
+    if (_cues.soundOn) {
+      await _audio.play(AssetSource('sounds/break_end.mp3')).catchError((
+        Object error,
+      ) {
+        // Never fatal: a missing audio route must not interrupt the workout.
+        // But it is the break-end cue, so a silent failure looks like the
+        // timer itself is broken.
+        debugPrint('WorkoutApp: break-end sound failed to play ($error).');
+      });
+    }
     if (await Vibration.hasVibrator()) {
       // Android/iOS-only: hasVibrator() returns false on the Linux test host
       // (no Platform.isAndroid/isIOS), so this body never runs there.

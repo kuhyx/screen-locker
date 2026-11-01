@@ -1,8 +1,7 @@
 /// Progress screen: total-load view plus per-exercise drill-down.
 ///
 /// "Total" (default): total-volume chart, full calendar, all sessions.
-/// Specific exercise: streak card, weight chart, exercise-only calendar,
-/// exercise-only session list.
+/// Specific exercise: streak card, weight chart, calendar and session list.
 library;
 
 import 'dart:async';
@@ -17,6 +16,7 @@ import 'package:workout_app/services/done_today.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/workout_sync_service.dart';
 import 'package:workout_app/ui/theme.dart';
+import 'package:workout_app/widgets/animated_counter.dart';
 import 'package:workout_app/widgets/calendar_widget.dart';
 
 part 'history_screen_charts.dart';

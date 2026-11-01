@@ -24,6 +24,9 @@ const kBreakEndChannelId = 'break_end_v1';
 /// Notification id of the break-end alert.
 const kBreakEndNotificationId = 8801;
 
+/// Same alert, no tone (sound off); a channel's sound is frozen at creation.
+const kBreakEndSilentChannelId = 'break_end_silent_v1';
+
 /// Notification id of the terminal "workout complete" message.
 const kWorkoutDoneNotificationId = 8802;
 
@@ -67,6 +70,18 @@ class FlutterBreakServicePort implements BreakServicePort {
             sound: RawResourceAndroidNotificationSound('break_end'),
           ),
         );
+    await _notifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            kBreakEndSilentChannelId,
+            'Break finished, no tone',
+            importance: Importance.max,
+            playSound: false,
+          ),
+        );
   }
 
   @override
@@ -77,12 +92,12 @@ class FlutterBreakServicePort implements BreakServicePort {
       );
 
   @override
-  Future<void> fireBreakEndAlert() async {
+  Future<void> fireBreakEndAlert({required bool sound}) async {
     // Two routes on purpose. The mp3 goes out on the MEDIA stream, so it is
     // heard even with the phone on vibrate; the notification goes out on its
     // own max-importance channel, so it still fires if this isolate is busy.
     try {
-      await _player?.play(AssetSource('sounds/break_end.mp3'));
+      if (sound) await _player?.play(AssetSource('sounds/break_end.mp3'));
     } on Exception catch (error) {
       log(
         'BreakService: the break-end sound failed to play ($error). The '
@@ -97,10 +112,11 @@ class FlutterBreakServicePort implements BreakServicePort {
       id: kBreakEndNotificationId,
       title: 'Break over',
       body: 'Back to the bar.',
-      notificationDetails: const NotificationDetails(
+      notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
-          kBreakEndChannelId,
-          'Break finished',
+          sound ? kBreakEndChannelId : kBreakEndSilentChannelId,
+          sound ? 'Break finished' : 'Break finished, no tone',
+          playSound: sound,
           importance: Importance.max,
           priority: Priority.max,
           category: AndroidNotificationCategory.alarm,

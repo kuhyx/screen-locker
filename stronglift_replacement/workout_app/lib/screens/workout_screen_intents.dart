@@ -36,6 +36,7 @@ extension _WorkoutScreenIntents on _WorkoutScreenState {
       lastSetIdx: last?.$2 ?? -1,
       setsRemaining: _setsRemaining(),
       finished: _finished,
+      soundOn: _cues.soundOn,
     );
   }
 

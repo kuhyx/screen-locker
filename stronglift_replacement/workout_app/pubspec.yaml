@@ -74,6 +74,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/sounds/break_end.mp3
+    - assets/sounds/workout_done.wav
 
 # Launcher icon generation. Source art is produced by the shared generator:
 #   PYTHONPATH=~/src/testsAndMisc python3 -m python_pkg.app_icons generate --app <key>

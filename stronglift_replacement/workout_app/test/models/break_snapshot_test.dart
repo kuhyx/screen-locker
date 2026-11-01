@@ -44,7 +44,8 @@ void main() {
   test('returns null rather than throwing on a malformed payload', () {
     expect(BreakSnapshot.tryFromMap(const {}), isNull);
     for (final key in _full.toMap().keys) {
-      if (key == 'finished') continue; // absent means false, by design
+      // Absent means false (finished) / true (soundOn), by design.
+      if (key == 'finished' || key == 'soundOn') continue;
       final map = _full.toMap()..remove(key);
       expect(BreakSnapshot.tryFromMap(map), isNull, reason: 'missing $key');
     }

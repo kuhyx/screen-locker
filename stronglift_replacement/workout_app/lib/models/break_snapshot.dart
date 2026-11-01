@@ -30,6 +30,7 @@ class BreakSnapshot {
     required this.lastSetIdx,
     required this.setsRemaining,
     this.finished = false,
+    this.soundOn = true,
   });
 
   /// Rebuilds a snapshot from the map sent across the isolate boundary.
@@ -84,6 +85,8 @@ class BreakSnapshot {
       lastSetIdx: i('lastSetIdx')!,
       setsRemaining: i('setsRemaining')!,
       finished: map['finished'] == true,
+      // Absent means an older UI: stay audible rather than go silent.
+      soundOn: map['soundOn'] != false,
     );
   }
 
@@ -142,6 +145,10 @@ class BreakSnapshot {
   /// True once the workout has been finished and saved.
   final bool finished;
 
+  /// Whether the break-end alert may make a sound. The service isolate cannot
+  /// read the settings table (it must never touch sqflite), so the UI says.
+  final bool soundOn;
+
   /// True while a rest period is recorded as running.
   bool get hasBreak => breakEndMs > 0;
 
@@ -168,6 +175,7 @@ class BreakSnapshot {
     'lastSetIdx': lastSetIdx,
     'setsRemaining': setsRemaining,
     'finished': finished,
+    'soundOn': soundOn,
   };
 
   /// Returns a copy with the listed fields replaced.
@@ -196,5 +204,6 @@ class BreakSnapshot {
     lastSetIdx: lastSetIdx,
     setsRemaining: setsRemaining ?? this.setsRemaining,
     finished: finished ?? this.finished,
+    soundOn: soundOn,
   );
 }
