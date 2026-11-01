@@ -10,7 +10,8 @@
 # Requires: python3 (with venv), network access to github.com.
 set -euo pipefail
 
-readonly TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly TOOLS_DIR
 readonly TOOLKIT_SPEC="music_theory @ git+https://github.com/kuhyx/utils@music-theory-v0.1.0#subdirectory=music_theory"
 readonly OUT_DIR="${1:-${TOOLS_DIR}/../assets/sounds}"
 WORK_DIR=""
