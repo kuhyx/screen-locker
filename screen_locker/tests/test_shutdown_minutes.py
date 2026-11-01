@@ -102,14 +102,14 @@ class TestMinutesReachTheHelperScript:
         )
         assert args == ["--restore", "18:30", "18:30", "05:00"]
 
-    def test_the_bonus_is_capped_at_24_00(
+    def test_the_bonus_is_capped_at_the_day_ceiling(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
     ) -> None:
-        """A bonus that overshoots is capped at 24:00 in the helper script's arguments."""
+        """A bonus that overshoots is capped at the day's 23:00 ceiling, not 24:00."""
         args = self._run(
             mock_tk, tmp_path, (1380, 1380, 300), "_adjust_shutdown_time_by", 90
         )
-        assert args == ["--restore", "24:00", "24:00", "05:00"]
+        assert args == ["--restore", "23:00", "23:00", "05:00"]
 
     @pytest.mark.parametrize(
         ("config", "expected"),
