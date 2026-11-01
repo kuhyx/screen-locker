@@ -324,14 +324,14 @@ repos:
         name: eslint (status web UI)
         entry: pnpm --dir web run lint
         language: system
-        files: '^web/(src/.*\.(ts|tsx)|eslint\.config\.js|package\.json)$'
+        files: '^web/(src/.*\.(ts|astro)|eslint\.config\.js|package\.json)$'
         pass_filenames: false
         require_serial: true
       - id: web-typecheck
-        name: tsc --build (status web UI)
+        name: astro check + build (status web UI)
         entry: pnpm --dir web run build
         language: system
-        files: '^web/(src/.*\.(ts|tsx)|tsconfig.*\.json|vite\.config\.ts)$'
+        files: '^web/(src/.*\.(ts|astro)|tsconfig\.json|astro\.config\.mjs|vitest\.config\.ts)$'
         pass_filenames: false
         require_serial: true
       - id: web-coverage

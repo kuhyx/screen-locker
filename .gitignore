@@ -38,6 +38,7 @@ screen_locker/early_bird_pending.json
 # Web status UI (web/) build and tooling output.
 web/node_modules/
 web/dist/
+web/.astro/
 web/coverage/
 web/node_modules
 web/dist

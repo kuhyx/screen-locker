@@ -1,0 +1,22 @@
+---
+import HealthCard from '../components/HealthCard.astro'
+import NowCard from '../components/NowCard.astro'
+import WhyTable from '../components/WhyTable.astro'
+import Base from '../layouts/Base.astro'
+---
+
+<Base title="Screen Locker — status">
+  <main>
+    <h1>Screen locker</h1>
+    <div class="error" role="alert" data-errors hidden></div>
+    <p class="muted" data-loading>Reading status…</p>
+    <NowCard />
+    <HealthCard />
+    <WhyTable />
+  </main>
+  <script>
+    import { startPage } from '../main'
+
+    startPage()
+  </script>
+</Base>
