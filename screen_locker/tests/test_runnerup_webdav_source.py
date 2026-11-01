@@ -121,7 +121,7 @@ class TestLocalExportDiscovery:
         ):
             assert locker._has_runnerup_source() is False
             status, _ = locker._verify_runnerup_workout()
-            assert locker._scan_and_fill_week_runnerup(tmp_path / "log.json") == 0
+            assert not locker._scan_and_fill_week_runnerup(tmp_path / "log.json")
 
         assert status == "no_phone"
 

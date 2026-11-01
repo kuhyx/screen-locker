@@ -45,8 +45,8 @@ _LEDGERED = pytest.mark.parametrize(
 )
 
 
-@pytest.fixture
-def key(tmp_path: Path) -> Iterator[Path]:
+@pytest.fixture(name="key")
+def key_fixture(tmp_path: Path) -> Iterator[Path]:
     with signing_key(tmp_path) as path:
         yield path
 

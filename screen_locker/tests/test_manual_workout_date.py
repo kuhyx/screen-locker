@@ -1,5 +1,4 @@
 """Tests for the workout-date field and the future-dated submit path."""
-# pylint: disable=protected-access
 
 from __future__ import annotations
 

@@ -7,7 +7,8 @@ four blocks included) must shut down exactly at ``shutdown_ceiling_for(day)``
 -- never short of it, and never past it. Checked through screen-locker's own
 paths, not a re-implementation: the daily reset's :func:`derive`, and the live
 pass (first workout, further workouts, flat gates, counted gate blocks, each
-timed at ``first`` so a 22:30 one is a late credit) over :class:`ShutdownMixin` with an in-memory config.
+timed at ``first`` so a 22:30 one is a late credit) over :class:`ShutdownMixin`
+with an in-memory config.
 
 Every gate maturity state is covered: ``first_credits`` omitted (0.5.0
 ``penalty_from``), empty (every earner on its ``confirmed_on``), never paid
@@ -182,8 +183,8 @@ def _live_pass(day: date, case: tuple[str, bool, int, str]) -> int:
     return host.config[1]
 
 
-@pytest.fixture
-def frozen_day() -> Iterator[Callable[[date], Any]]:
+@pytest.fixture(name="frozen_day")
+def frozen_day_fixture() -> Iterator[Callable[[date], Any]]:
     """Point every live path's ``today`` at the simulated day."""
 
     def at_day(day: date) -> Any:
@@ -215,4 +216,4 @@ def test_the_live_pass_lands_every_all_done_day_on_the_ceiling(
         _grace_floor.GRACE_STATE_FILE.unlink(missing_ok=True)
         if got != ceiling(day):
             misses.append((day.isoformat(), got, ceiling(day)))
-    assert misses == []
+    assert not misses

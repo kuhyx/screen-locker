@@ -1,5 +1,4 @@
 """Tests for the pending ledger of future-dated manual workouts held on this PC."""
-# pylint: disable=protected-access
 
 from __future__ import annotations
 
@@ -132,7 +131,7 @@ class TestPendingLedgerRecords:
         path = _ledger(tmp_path)
         path.write_text(json.dumps({_RID: {"payload": _PAYLOAD, "hlc": "garbage"}}))
         with caplog.at_level(logging.WARNING):
-            assert pending_ledger_records(path) == {}
+            assert not pending_ledger_records(path)
         assert "NOT published" in caplog.text
 
     def test_non_dict_payload_is_skipped(self, tmp_path: Path) -> None:
@@ -141,7 +140,7 @@ class TestPendingLedgerRecords:
         raw = json.loads(path.read_text())
         raw[_RID]["payload"] = "nope"
         path.write_text(json.dumps(raw))
-        assert pending_ledger_records(path) == {}
+        assert not pending_ledger_records(path)
 
 
 class TestSettlePending:
@@ -203,7 +202,7 @@ class TestPendingFutureDates:
     def test_an_already_logged_id_is_not_pending(self, tmp_path: Path) -> None:
         log_file = _log_with(tmp_path, _RID, "2026-10-17")
         found = pending_future_dates(log_file, [(_RID, _PAYLOAD)], today="2026-10-16")
-        assert found == {}
+        assert not found
 
     def test_defaults_to_the_real_local_day(self, tmp_path: Path) -> None:
         payload = {**_PAYLOAD, "date": "2999-01-01"}

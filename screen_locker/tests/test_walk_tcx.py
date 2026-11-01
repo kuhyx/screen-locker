@@ -66,13 +66,13 @@ class TestTrackSummary:
         assert summary["ended_at"] == (_START + timedelta(seconds=600)).timestamp()
 
     def test_standing_and_vehicles_are_not_moving(self) -> None:
-        assert track_summary(walk(600, speed=0.1))["moving_seconds"] == 0
-        assert track_summary(walk(600, speed=8.0))["moving_seconds"] == 0
+        assert not track_summary(walk(600, speed=0.1))["moving_seconds"]
+        assert not track_summary(walk(600, speed=8.0))["moving_seconds"]
 
     def test_a_gps_dropout_earns_nothing(self) -> None:
         """Two points 100 s apart at walking pace: motion unseen, not counted."""
         summary = track_summary(activity([(0, "0.1", None), (100, "130", None)]))
-        assert summary["moving_seconds"] == 0
+        assert not summary["moving_seconds"]
 
     def test_unusable_points_are_skipped(
         self, caplog: pytest.LogCaptureFixture

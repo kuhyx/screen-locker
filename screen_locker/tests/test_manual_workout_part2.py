@@ -1,5 +1,4 @@
 """Tests for the manual-workout pure-logic module."""
-# pylint: disable=protected-access
 
 from __future__ import annotations
 
@@ -140,7 +139,7 @@ class TestBuildEntry:
     def test_duration_minutes_empty_when_unparsable(self) -> None:
         """Duration minutes empty when unparsable."""
         entry = build_entry(_tt_draft(start_time="bogus"))
-        assert entry["duration_minutes"] == ""
+        assert not entry["duration_minutes"]
 
     def test_strips_whitespace_fields(self) -> None:
         """Strips whitespace fields."""

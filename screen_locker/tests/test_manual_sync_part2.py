@@ -1,5 +1,4 @@
 """Tests for ingesting synced manual workouts into log.json."""
-# pylint: disable=protected-access
 
 from __future__ import annotations
 

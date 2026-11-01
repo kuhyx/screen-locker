@@ -77,7 +77,7 @@ class TestExplainFindings:
 
     def test_no_findings_render_nothing(self) -> None:
         """A healthy machine must not show a diagnostics block."""
-        assert explain_findings([]) == ""
+        assert not explain_findings([])
 
     def test_findings_name_the_backend_and_the_consequence(self) -> None:
         """The panel must say it is a sync fault, not a missed workout."""

@@ -112,4 +112,4 @@ class TestDedupDoesNotOverCollapse:
             },
             tmp_path / "log.json",
         )
-        assert count_weekly_workouts(log, today=_SATURDAY_2026_08_29) == 0
+        assert not count_weekly_workouts(log, today=_SATURDAY_2026_08_29)

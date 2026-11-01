@@ -3,7 +3,6 @@
 Split out of test_manual_push.py for the 250-line cap; the shared _entry /
 _write_log helpers stay in that module and are imported here.
 """
-# pylint: disable=protected-access
 
 from __future__ import annotations
 
@@ -67,7 +66,7 @@ class TestPushPcWorkouts:
             result = push_pc_workouts(log_file)
         build.assert_not_called()
         assert result.pushed is False
-        assert result.record_count == 0
+        assert not result.record_count
         assert "no counted workouts" in result.reason
 
     def test_sync_error_reports_why(self, tmp_path: Path) -> None:

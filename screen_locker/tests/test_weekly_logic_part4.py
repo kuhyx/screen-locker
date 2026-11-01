@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+from screen_locker._compliance_predicates import is_relaxed_day_skipped_today
 from screen_locker.tests.conftest import (
     create_locker,
 )
@@ -72,7 +73,7 @@ class TestStartRelaxedDayFlow:
             for c in mock_button.call_args_list
             if "Skip" in str(c.args)
         ]
-        assert any(cmd == locker._skip_relaxed_day for cmd in skip_cmds)
+        assert locker._skip_relaxed_day in skip_cmds
 
     def test_skip_relaxed_day_persists_then_closes(
         self,
@@ -92,8 +93,6 @@ class TestStartRelaxedDayFlow:
 
         assert locker.workout_data["type"] == "relaxed_day_skip"
         mock_close.assert_called_once()
-
-        from screen_locker._compliance_predicates import is_relaxed_day_skipped_today
 
         assert is_relaxed_day_skipped_today(locker.log_file) is True
 
@@ -123,7 +122,7 @@ class TestStartRelaxedDayFlow:
             for c in mock_button.call_args_list
             if "Log" in str(c.args)
         ]
-        assert any(cmd == locker._start_relaxed_phone_check for cmd in log_cmds)
+        assert locker._start_relaxed_phone_check in log_cmds
 
 
 class TestStartRelaxedPhoneCheck:

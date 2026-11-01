@@ -131,7 +131,7 @@ class TestNoDisplayStandsDown:
             pytest.raises(SystemExit) as raised,
         ):
             create_locker(MagicMock(), tmp_path, demo_mode=False)
-        assert raised.value.code == 0
+        assert not raised.value.code
         return aborted, exit_mock
 
     def test_it_exits_zero_instead_of_failing(self, tmp_path: Path) -> None:

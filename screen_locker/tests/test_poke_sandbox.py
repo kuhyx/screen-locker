@@ -33,8 +33,8 @@ def _request(*, sandbox: bool) -> PokeRequest:
     )
 
 
-@pytest.fixture
-def pc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, MagicMock]:
+@pytest.fixture(name="pc")
+def pc_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, MagicMock]:
     """A real PokeLocker on a tmp log with every state-changing step spied."""
 
     def headless(locker_cls: type[PokeLocker]) -> PokeLocker:

@@ -31,7 +31,7 @@ EVENING = datetime(2026, 10, 17, 21, 5).astimezone()
 def _stamp(when: str) -> None:
     """Write the redirected stamp for a LOCAL wall-clock time."""
     epoch = int(datetime.fromisoformat(when).astimezone().timestamp())
-    _night_lockdown.NIGHT_LOCKDOWN_STAMP.write_text(f"{epoch}\n")
+    _night_lockdown.NIGHT_LOCKDOWN_STAMP.write_text(f"{epoch}\n", encoding="utf-8")
 
 
 class TestTonightsLockdown:
@@ -53,7 +53,9 @@ class TestTonightsLockdown:
         assert tonights_lockdown(NOW) is None
 
     def test_garbage_is_not(self) -> None:
-        _night_lockdown.NIGHT_LOCKDOWN_STAMP.write_text("not an epoch")
+        _night_lockdown.NIGHT_LOCKDOWN_STAMP.write_text(
+            "not an epoch", encoding="utf-8"
+        )
         assert tonights_lockdown(NOW) is None
 
 

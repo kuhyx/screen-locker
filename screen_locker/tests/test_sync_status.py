@@ -64,7 +64,7 @@ class TestPushState:
         status = _gather(tmp_path)
 
         assert status.pushed is False
-        assert status.peer_count == 0
+        assert not status.peer_count
         assert status.last_push is None
 
     def test_a_pushed_rev_counts_as_pushed(self, tmp_path: Path) -> None:
@@ -86,7 +86,7 @@ class TestPushState:
         status = _gather(tmp_path)
 
         assert status.pushed is False
-        assert status.peer_count == 0
+        assert not status.peer_count
 
     def test_a_non_object_state_file_reads_as_nothing_known(
         self, tmp_path: Path
@@ -101,7 +101,7 @@ class TestPushState:
             json.dumps({"pushed_rev": "abc", "peer_revs": "not-a-map"})
         )
 
-        assert _gather(tmp_path).peer_count == 0
+        assert not _gather(tmp_path).peer_count
 
     def test_an_unstattable_state_file_has_no_timestamp(self, tmp_path: Path) -> None:
         """A path whose parent is a file cannot be stat'd; that is not fatal."""

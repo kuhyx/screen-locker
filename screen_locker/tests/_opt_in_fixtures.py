@@ -45,8 +45,8 @@ def mock_tk() -> Generator[MagicMock]:
         yield mock
 
 
-@pytest.fixture
-def mock_sys_exit() -> Generator[MagicMock]:
+@pytest.fixture(name="mock_sys_exit")
+def mock_sys_exit_fixture() -> Generator[MagicMock]:
     """Mock sys.exit to prevent test termination."""
     with patch("screen_locker.screen_lock.sys.exit") as mock:
         yield mock

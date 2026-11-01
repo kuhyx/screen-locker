@@ -16,8 +16,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-@pytest.fixture
-def log_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+@pytest.fixture(name="log_file")
+def log_file_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A fresh PokeLocker on a tmp log; the day reset stubbed."""
     log = tmp_path / "poke_log.json"
 
@@ -33,8 +33,8 @@ def log_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return log
 
 
-@pytest.fixture
-def credit(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+@pytest.fixture(name="credit")
+def credit_fixture(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     """Replace the shared credit step."""
     stub = MagicMock(
         return_value=WorkoutCreditResult(

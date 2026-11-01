@@ -24,7 +24,12 @@ import sys
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
+import freedays._api
 import pytest
+import sickdays
+import sickdays.gui
+
+import screen_locker._night_lockdown
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -44,7 +49,6 @@ def _no_free_days_by_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     chain in every test here -- it is the very first check in the chain --
     and the failures would name early-bird and sick-day logic instead.
     """
-    import freedays._api
 
     monkeypatch.setattr(
         freedays._api,
@@ -64,8 +68,6 @@ def _no_sick_days_by_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     developer's real today sick. ``sync_quietly`` is stubbed so the button's
     background push never reaches Firebase.
     """
-    import sickdays
-    import sickdays.gui  # so its modules are in sys.modules below
 
     pool = sickdays.Paths.under(tmp_path / "sickdays")
     # Every sickdays module that bound ``resolve_paths`` by name: the readers
@@ -193,7 +195,6 @@ def _no_real_night_lockdown(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     this every enforce-path test would skip the lock on any evening after the
     real lockdown fired -- and pass in the morning.
     """
-    import screen_locker._night_lockdown
 
     monkeypatch.setattr(
         screen_locker._night_lockdown,

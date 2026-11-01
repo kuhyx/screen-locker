@@ -11,6 +11,7 @@ import freedays
 import sickdays
 
 from screen_locker._compliance_state import explain_lock_decision
+from screen_locker._log_mixin import write_signed_entry
 from screen_locker.tests._sick_helpers import mark_sick
 
 if TYPE_CHECKING:
@@ -176,7 +177,6 @@ class TestExplainLockDecision:
         even after the user already dismissed today's prompt, which is
         misleading — the popup is not about to be shown again.
         """
-        from screen_locker._log_mixin import write_signed_entry
 
         files = self._files(tmp_path)
         write_signed_entry(files["log_file"], _today(), {"type": "relaxed_day_skip"})

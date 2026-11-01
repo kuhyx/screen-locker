@@ -1,5 +1,4 @@
 """Tests for the manual-workout pure-logic module."""
-# pylint: disable=protected-access
 
 from __future__ import annotations
 
@@ -71,13 +70,13 @@ class TestCountInWindow:
     def test_missing_file_returns_zero(self, tmp_path: Path) -> None:
         """Missing file returns zero."""
         log_file = tmp_path / "does_not_exist.json"
-        assert count_in_window(log_file, 7, today=_TODAY) == 0
+        assert not count_in_window(log_file, 7, today=_TODAY)
 
     def test_corrupt_json_returns_zero(self, tmp_path: Path) -> None:
         """Corrupt JSON returns zero."""
         log_file = tmp_path / "log.json"
         log_file.write_text("not json")
-        assert count_in_window(log_file, 7, today=_TODAY) == 0
+        assert not count_in_window(log_file, 7, today=_TODAY)
 
     def test_skips_invalid_date_keys(self, tmp_path: Path) -> None:
         """Skips invalid date keys."""
@@ -96,12 +95,12 @@ class TestCountInWindow:
         """Returns zero when today invalid."""
         log_file = tmp_path / "log.json"
         _write_logs(log_file, {"2026-07-04": "manual_workout"})
-        assert count_in_window(log_file, 7, today="bogus") == 0
+        assert not count_in_window(log_file, 7, today="bogus")
 
     def test_uses_today_default_when_none(self, tmp_path: Path) -> None:
         """Uses today default when none."""
         log_file = tmp_path / "log.json"
-        assert count_in_window(log_file, 7) == 0
+        assert not count_in_window(log_file, 7)
 
     def test_multiple_same_day_entries_each_count(self, tmp_path: Path) -> None:
         """Per-entry counting: same-day manual workouts no longer collapse to
@@ -152,7 +151,7 @@ class TestIsBudgetExhausted:
         ]
         entries = dict.fromkeys(dates, "manual_workout")
         _write_logs(log_file, entries)
-        assert count_in_window(log_file, 7, today=_TODAY) == 0
+        assert not count_in_window(log_file, 7, today=_TODAY)
         assert is_budget_exhausted(log_file, today=_TODAY) is True
 
 

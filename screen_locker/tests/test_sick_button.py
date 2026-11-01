@@ -195,7 +195,7 @@ class TestTap:
         back = next(
             c for c in mock_tk.Button.call_args_list if c.kwargs.get("text") == "Back"
         )
-        assert back.kwargs["command"] == locker._start_phone_check
+        assert [back.kwargs["command"]] == [locker._start_phone_check]
 
     def test_refusal_on_the_relaxed_prompt_goes_back_to_it(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -205,4 +205,4 @@ class TestTap:
         back = next(
             c for c in mock_tk.Button.call_args_list if c.kwargs.get("text") == "Back"
         )
-        assert back.kwargs["command"] == locker._start_relaxed_day_flow
+        assert [back.kwargs["command"]] == [locker._start_relaxed_day_flow]

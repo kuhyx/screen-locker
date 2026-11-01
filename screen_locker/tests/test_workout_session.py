@@ -7,12 +7,14 @@ which is what once forced a hard reboot out of a "safe" demo.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
+import unittest.mock
 
 from screen_locker._workout_app import GrabHandoff, ProcessHooks
 from screen_locker._workout_ready import READY_MARKER
-from screen_locker._workout_session import WorkoutSession
+from screen_locker._workout_session import WorkoutSession, _read_available
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -147,7 +149,6 @@ class TestWorkoutSession:
         # Force the unbuilt case regardless of what this machine has built.
         session._binary = None
         monkey = "screen_locker._workout_session.workout_app_binary"
-        import unittest.mock
 
         with unittest.mock.patch(monkey, return_value=None):
             session.start()
@@ -198,9 +199,6 @@ class TestSessionEdges:
 
     def test_reads_a_real_pipe_without_waiting_for_a_newline(self) -> None:
         """The production path: a text stream wrapping a binary buffer."""
-        import os
-
-        from screen_locker._workout_session import _read_available
 
         read_fd, write_fd = os.pipe()
         with os.fdopen(read_fd, "r") as reader, os.fdopen(write_fd, "w") as writer:

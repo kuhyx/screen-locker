@@ -4,7 +4,6 @@ Before this, both fell through to building the demo lock screen. Split from
 ``test_cli.py`` for the 250-line cap. ``sys.exit`` is a no-op suite-wide (see
 conftest), so each test installs one that really raises ``SystemExit``.
 """
-# pylint: disable=protected-access
 
 from __future__ import annotations
 
@@ -47,7 +46,7 @@ def test_help_prints_usage_and_exits_zero(
     """Help goes to stdout and the process exits 0 before any UI."""
     with pytest.raises(SystemExit) as exited:
         _main(["--production", flag])
-    assert exited.value.code == 0
+    assert not exited.value.code
     out = capsys.readouterr().out
     assert out.startswith("usage: python3 -m screen_locker.screen_lock")
 

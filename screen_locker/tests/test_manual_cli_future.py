@@ -33,8 +33,8 @@ class Held:
     push: MagicMock
 
 
-@pytest.fixture
-def held(tmp_path: Path) -> Iterator[Held]:
+@pytest.fixture(name="held")
+def held_fixture(tmp_path: Path) -> Iterator[Held]:
     """Redirect the pending ledger and stub the publisher: nothing leaves the box."""
     ledger = tmp_path / "manual_pending.json"
     with (
@@ -60,7 +60,7 @@ def test_a_future_date_is_held_not_logged(
     log_file = tmp_path / "log.json"
     day = _days_from_today(ahead)
 
-    assert run_manual_log(log_file, _args(date=day)) == 0
+    assert not run_manual_log(log_file, _args(date=day))
 
     assert _entries(log_file) == []
     assert list(json.loads(held.ledger.read_text())) == [f"manual:{day}T17:30"]
@@ -93,8 +93,8 @@ def test_a_future_entry_that_breaks_the_budget_is_refused(
     """Scheduling counts the logged credits: a full week cannot take a 3rd."""
     log_file = tmp_path / "log.json"
     day = _days_from_today(1)
-    assert run_manual_log(log_file, _args(start="07:00", end="08:30")) == 0
-    assert run_manual_log(log_file, _args(start="10:00", end="11:30")) == 0
+    assert not run_manual_log(log_file, _args(start="07:00", end="08:30"))
+    assert not run_manual_log(log_file, _args(start="10:00", end="11:30"))
 
     # Today holds 2; tomorrow's 7-day window contains today, so it is full too.
     assert run_manual_log(log_file, _args(date=day)) == 1
@@ -106,7 +106,7 @@ def test_scheduling_the_same_entry_twice_is_refused(tmp_path: Path, held: Held) 
     day = _days_from_today(2)
     log_file = tmp_path / "log.json"
 
-    assert run_manual_log(log_file, _args(date=day)) == 0
+    assert not run_manual_log(log_file, _args(date=day))
     assert run_manual_log(log_file, _args(date=day)) == 1
     assert len(json.loads(held.ledger.read_text())) == 1
 
@@ -116,8 +116,8 @@ def test_a_pending_future_entry_counts_against_today(
 ) -> None:
     """Today's entry sees pending future ones: they share a 7-day window."""
     log_file = tmp_path / "log.json"
-    assert run_manual_log(log_file, _args(date=_days_from_today(1))) == 0
-    assert run_manual_log(log_file, _args(date=_days_from_today(2), start="08:00")) == 0
+    assert not run_manual_log(log_file, _args(date=_days_from_today(1)))
+    assert not run_manual_log(log_file, _args(date=_days_from_today(2), start="08:00"))
 
     assert run_manual_log(log_file, _args()) == 1
     assert _entries(log_file) == []

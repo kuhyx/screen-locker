@@ -1,5 +1,4 @@
 """Tests for ingesting synced manual workouts into log.json."""
-# pylint: disable=protected-access
 
 from __future__ import annotations
 
@@ -98,7 +97,7 @@ class TestIngestManualRecordsCallback:
                 today=_DATE,
                 on_ingested=lambda entry, prior: calls.append((entry, prior)),
             )
-        assert calls == []
+        assert not calls
 
     def test_write_chokepoint_collision_is_not_credited_or_returned(
         self, tmp_path: Path
@@ -120,8 +119,8 @@ class TestIngestManualRecordsCallback:
                 today=_DATE,
                 on_ingested=lambda entry, prior: calls.append((entry, prior)),
             )
-        assert ingested == []
-        assert calls == []
+        assert not ingested
+        assert not calls
 
 
 class TestEmptyStubRecords:
@@ -165,7 +164,7 @@ class TestEmptyStubRecords:
                     )
                 ],
             )
-        assert ingested == []
+        assert not ingested
         stub_records = [r for r in caplog.records if "empty stub" in r.message]
         assert stub_records, "the stub must still be reported"
         assert all(r.levelname == "INFO" for r in stub_records)

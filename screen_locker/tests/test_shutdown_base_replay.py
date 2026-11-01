@@ -64,10 +64,10 @@ class TestEarnedShutdownBonusMinutes:
     """First credit is worth 2h, every further one 1h."""
 
     def test_no_credits_earn_nothing(self) -> None:
-        assert earned_shutdown_bonus_minutes(0) == 0
+        assert not earned_shutdown_bonus_minutes(0)
 
     def test_negative_is_treated_as_nothing(self) -> None:
-        assert earned_shutdown_bonus_minutes(-1) == 0
+        assert not earned_shutdown_bonus_minutes(-1)
 
     def test_first_credit_is_two_hours(self) -> None:
         assert earned_shutdown_bonus_minutes(1) == 120
@@ -138,7 +138,7 @@ class TestTodayCreditCount:
 
     def test_day_absent_from_log_counts_nothing(self, tmp_path: Path) -> None:
         log = _write_log(tmp_path / "log.json", "2026-09-12", _real_2026_09_13())
-        assert today_credit_count(log, _DAY) == 0
+        assert not today_credit_count(log, _DAY)
 
     def test_non_dict_entries_are_ignored(self, tmp_path: Path) -> None:
         log = tmp_path / "log.json"

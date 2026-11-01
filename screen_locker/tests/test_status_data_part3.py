@@ -129,8 +129,8 @@ class TestGatherStatusLockSuppression:
             snap = gather_status(**files, now=_FRIDAY_NOON_UTC)
 
         assert snap.week.counted_count == 5
-        assert snap.week.remaining == 0
-        assert snap.week.extra == 0
+        assert not snap.week.remaining
+        assert not snap.week.extra
         assert snap.lock_explanation.stage == "weekly_minimum_met"
 
     def test_extra_workouts_beyond_minimum(self, tmp_path: Path) -> None:
@@ -162,4 +162,4 @@ class TestGatherStatusLockSuppression:
             snap = gather_status(**files, now=_FRIDAY_NOON_UTC)
 
         assert snap.week.extra == 1
-        assert snap.week.remaining == 0
+        assert not snap.week.remaining

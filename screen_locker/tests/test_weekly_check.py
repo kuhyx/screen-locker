@@ -3,7 +3,7 @@ has_weekly_minimum."""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import json
 from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
@@ -26,7 +26,6 @@ def _dt(weekday: int, hour: int = 10) -> datetime:
     """Return a UTC-aware datetime for the given ISO weekday (0=Mon, 6=Sun)."""
     # 2025-05-19 is a Monday (weekday 0)
     base = datetime(2025, 5, 19, hour, 0, 0, tzinfo=UTC)
-    from datetime import timedelta
 
     return base + timedelta(days=weekday)
 
@@ -115,20 +114,20 @@ class TestCountWeeklyWorkouts:
     def test_no_log_file_returns_zero(self, tmp_path: Path) -> None:
         """A missing log counts as zero rather than raising."""
         log = tmp_path / "log.json"
-        assert count_weekly_workouts(log, today=_dt(4)) == 0
+        assert not count_weekly_workouts(log, today=_dt(4))
 
     def test_corrupt_json_returns_zero(self, tmp_path: Path) -> None:
         """Unparsable JSON counts as zero rather than raising."""
         log = tmp_path / "log.json"
         log.write_text("{not valid json}")
-        assert count_weekly_workouts(log, today=_dt(4)) == 0
+        assert not count_weekly_workouts(log, today=_dt(4))
 
     def test_oserror_returns_zero(self, tmp_path: Path) -> None:
         """An unreadable log counts as zero rather than raising."""
         log = tmp_path / "log.json"
         log.write_text("{}")
         with patch("builtins.open", side_effect=OSError("no permission")):
-            assert count_weekly_workouts(log, today=_dt(4)) == 0
+            assert not count_weekly_workouts(log, today=_dt(4))
 
     def test_counts_phone_verified_in_current_week(self, tmp_path: Path) -> None:
         """Two phone-verified days in the same week count as two."""
@@ -141,27 +140,27 @@ class TestCountWeeklyWorkouts:
         """A sick day is not a workout."""
         log = tmp_path / "log.json"
         _make_log({"2025-05-19": "sick_day"}, log)
-        assert count_weekly_workouts(log, today=_dt(4)) == 0
+        assert not count_weekly_workouts(log, today=_dt(4))
 
     def test_early_bird_not_counted(self, tmp_path: Path) -> None:
         """An early-bird entry is not a workout."""
         log = tmp_path / "log.json"
         _make_log({"2025-05-19": "early_bird"}, log)
-        assert count_weekly_workouts(log, today=_dt(4)) == 0
+        assert not count_weekly_workouts(log, today=_dt(4))
 
     def test_previous_week_not_counted(self, tmp_path: Path) -> None:
         """Last week's workouts do not count toward this week."""
         log = tmp_path / "log.json"
         # 2025-05-12 is the Monday of the previous week
         _make_log({"2025-05-12": "phone_verified"}, log)
-        assert count_weekly_workouts(log, today=_dt(4)) == 0
+        assert not count_weekly_workouts(log, today=_dt(4))
 
     def test_future_date_not_counted(self, tmp_path: Path) -> None:
         """A date after today does not count, even in the same week."""
         log = tmp_path / "log.json"
         # 2025-05-24 is Saturday, checking on Friday 2025-05-23
         _make_log({"2025-05-24": "phone_verified"}, log)
-        assert count_weekly_workouts(log, today=_dt(4)) == 0
+        assert not count_weekly_workouts(log, today=_dt(4))
 
     def test_invalid_date_key_skipped(self, tmp_path: Path) -> None:
         """An unparsable date key is skipped, and valid siblings still count."""
@@ -184,7 +183,7 @@ class TestCountWeeklyWorkouts:
         log = tmp_path / "log.json"
         data: dict[str, Any] = {"2025-05-19": "not-a-dict"}
         log.write_text(json.dumps(data))
-        assert count_weekly_workouts(log, today=_dt(4)) == 0
+        assert not count_weekly_workouts(log, today=_dt(4))
 
     def test_counts_up_to_four(self, tmp_path: Path) -> None:
         """Four workouts in one week count as four (no cap below the minimum)."""

@@ -85,7 +85,7 @@ def test_logs_a_valid_workout(tmp_path: Path) -> None:
     with patch(
         "screen_locker._log_mixin.compute_entry_hmac", return_value="test-signature"
     ):
-        assert run_manual_log(log_file, _args()) == 0
+        assert not run_manual_log(log_file, _args())
 
     (entry,) = _entries(log_file)
     data = entry["workout_data"]
@@ -142,7 +142,7 @@ def test_rerunning_the_same_workout_logs_it_once(tmp_path: Path) -> None:
     """The record id is derived from (date, start), so a repeat is a no-op."""
     log_file = tmp_path / "log.json"
 
-    assert run_manual_log(log_file, _args()) == 0
+    assert not run_manual_log(log_file, _args())
     assert run_manual_log(log_file, _args()) == 1
     assert len(_entries(log_file)) == 1
 
@@ -151,8 +151,8 @@ def test_the_rolling_budget_still_caps_headless_entries(tmp_path: Path) -> None:
     """The third workout in a week is refused, exactly as on the phone."""
     log_file = tmp_path / "log.json"
 
-    assert run_manual_log(log_file, _args(start="07:00", end="08:30")) == 0
-    assert run_manual_log(log_file, _args(start="10:00", end="11:30")) == 0
+    assert not run_manual_log(log_file, _args(start="07:00", end="08:30"))
+    assert not run_manual_log(log_file, _args(start="10:00", end="11:30"))
     assert run_manual_log(log_file, _args(start="17:30", end="19:00")) == 1
     assert len(_entries(log_file)) == 2
 
@@ -162,7 +162,7 @@ def test_date_defaults_to_today(tmp_path: Path) -> None:
     log_file = tmp_path / "log.json"
     args = [a for a in _args() if a not in {"--date", _TODAY}]
 
-    assert run_manual_log(log_file, args) == 0
+    assert not run_manual_log(log_file, args)
     assert _entries(log_file)
 
 
@@ -190,5 +190,5 @@ def test_table_tennis_needs_no_activity_name(tmp_path: Path) -> None:
         "Nittaku",
     ]
 
-    assert run_manual_log(log_file, args) == 0
+    assert not run_manual_log(log_file, args)
     assert _entries(log_file)[0]["workout_data"]["activity_type"] == "table tennis"

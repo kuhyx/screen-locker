@@ -56,8 +56,8 @@ def _daemon_stubs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(poke_server, "PokeServer", FakeServer)
 
 
-@pytest.fixture(autouse=True)
-def stream(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+@pytest.fixture(name="stream", autouse=True)
+def stream_fixture(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     """The Firebase stream class; never a real connection."""
     stub = MagicMock()
     monkeypatch.setattr(poke_server, "SessionStream", stub)
@@ -127,8 +127,9 @@ class TestMain:
         argv = ["--key-file", str(_key_file(tmp_path)), "--port", "1234"]
         with caplog.at_level(logging.INFO):
             code = poke_server.main([*argv, "--bind", "127.0.0.1"])
-        (server,) = FakeServer.instances
-        assert code == 0
+        assert len(FakeServer.instances) == 1
+        server = FakeServer.instances[0]
+        assert not code
         assert server.address == ("127.0.0.1", 1234)
         assert server.key == bytes.fromhex(_KEY_HEX)
         assert server.closed
@@ -156,7 +157,7 @@ class TestMain:
             code = poke_server.main(
                 ["--key-file", str(_key_file(tmp_path)), "--no-stream"]
             )
-        assert code == 0
+        assert not code
         stream.assert_not_called()
         assert "disabled by --no-stream" in caplog.text
         assert FakeServer.instances[0].closed
@@ -170,7 +171,7 @@ class TestMain:
         stream.return_value.start.side_effect = RuntimeError("no network")
         with caplog.at_level(logging.ERROR):
             code = poke_server.main(["--key-file", str(_key_file(tmp_path))])
-        assert code == 0
+        assert not code
         assert "Could not start the Firebase session stream" in caplog.text
         assert FakeServer.instances[0].closed
 

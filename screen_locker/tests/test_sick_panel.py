@@ -63,16 +63,16 @@ def _frame(*args: object, **_kwargs: object) -> MagicMock:
     return frame
 
 
-@pytest.fixture
-def panels() -> Iterator[list[FakePanel]]:
+@pytest.fixture(name="panels")
+def panels_fixture() -> Iterator[list[FakePanel]]:
     """Every KeepPanel the lock builds, in order."""
     _MADE.clear()
     with patch.object(_ui_flows_sick_panel, "KeepPanel", FakePanel):
         yield _MADE
 
 
-@pytest.fixture
-def locker(
+@pytest.fixture(name="locker")
+def locker_fixture(
     mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
 ) -> ScreenLocker:
     """A retry-screen lock whose floor and close are observable."""

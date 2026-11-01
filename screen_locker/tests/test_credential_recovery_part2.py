@@ -11,6 +11,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
+from screen_locker import _sync_client
 from screen_locker._credential_recovery import recover_session
 from screen_locker.tests._credential_fixtures import write_cache as _write_cache
 
@@ -94,7 +95,6 @@ class TestTryRecoverFirebaseSession:
         instead of clobbering the machine's live credential -- the exact
         accident this suite caused on 2026-08-27.
         """
-        from screen_locker import _sync_client
 
         _write_cache(
             tmp_path / ".config" / "diet_guard" / "firebase_auth.json",

@@ -186,7 +186,7 @@ class TestLaunchWorkoutApp:
         )
         assert not result.launched
         assert "not built" in result.reason
-        assert recorder.calls == []
+        assert not recorder.calls
 
 
 class TestWorkoutAppBinary:

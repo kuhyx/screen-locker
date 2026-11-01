@@ -1,5 +1,4 @@
 """Tests for manual-workout integration in _ui_flows.py and screen_lock.py."""
-# pylint: disable=protected-access
 
 from __future__ import annotations
 

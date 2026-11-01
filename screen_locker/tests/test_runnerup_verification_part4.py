@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 import shutil
-from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 from screen_locker.tests.conftest import create_locker
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 # Minimal valid TCX XML for a 40-minute, 6-km run.
 _TCX_RUNNING = """\
@@ -207,7 +204,7 @@ class TestPullRunnerupDb:
         def _fake_run_adb(args: list[str]) -> tuple[bool, str]:
             if args[0] == "pull" and args[2].endswith(".db"):
                 # Create the local file so the caller finds it.
-                open(args[2], "w").close()
+                Path(args[2]).touch()
             return True, ""
 
         object.__setattr__(

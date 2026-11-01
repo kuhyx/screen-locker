@@ -1,5 +1,4 @@
 """Wiring of future-dated manual workouts: push, sync pass, poke reset, budget helper."""
-# pylint: disable=protected-access
 
 from __future__ import annotations
 
@@ -120,7 +119,9 @@ class TestSyncPassReadsTheLedger:
         ) as ingest:
             locker._ingest_due_local_manual_workouts()
         assert ingest.call_args.args[1] == [(_RID, _PAYLOAD)]
-        assert ingest.call_args.kwargs["on_ingested"] == locker._credit_ingested_workout
+        assert [ingest.call_args.kwargs["on_ingested"]] == [
+            locker._credit_ingested_workout
+        ]
         assert locker.workout_data == {}
 
 

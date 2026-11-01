@@ -1,5 +1,4 @@
 """Tests for manual-workout integration in status_view.py."""
-# pylint: disable=protected-access
 
 from __future__ import annotations
 

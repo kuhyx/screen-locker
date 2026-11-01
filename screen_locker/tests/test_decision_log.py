@@ -163,7 +163,7 @@ class TestReadDecisions:
     ) -> None:
         """No history yet is normal, but is still stated out loud."""
         with caplog.at_level("WARNING"):
-            assert read_decisions(log_file=tmp_path / "nope.jsonl") == []
+            assert not read_decisions(log_file=tmp_path / "nope.jsonl")
         assert any("No decision log" in r.message for r in caplog.records)
 
     def test_unreadable_file_is_reported(
@@ -176,7 +176,7 @@ class TestReadDecisions:
             patch.object(Path, "read_text", side_effect=OSError("locked")),
             caplog.at_level("WARNING"),
         ):
-            assert read_decisions(log_file=target) == []
+            assert not read_decisions(log_file=target)
         assert any("Could not read" in r.message for r in caplog.records)
 
     def test_corrupt_lines_are_skipped_not_fatal(

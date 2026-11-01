@@ -1,5 +1,4 @@
 """Tests for _start_phone_check, polling, and startup result routing."""
-# pylint: disable=protected-access,unused-argument
 
 from __future__ import annotations
 

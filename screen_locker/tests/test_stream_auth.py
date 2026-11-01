@@ -46,8 +46,8 @@ class _Fakes:
         self.recover = MagicMock(side_effect=lambda: self.recovery)
 
 
-@pytest.fixture
-def fakes(monkeypatch: pytest.MonkeyPatch) -> _Fakes:
+@pytest.fixture(name="fakes")
+def fakes_fixture(monkeypatch: pytest.MonkeyPatch) -> _Fakes:
     """Patch config loading, the credential store, providers and recovery."""
     fake = _Fakes()
     monkeypatch.setattr(

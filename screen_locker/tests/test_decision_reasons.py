@@ -75,4 +75,4 @@ class TestReasonsExtra:
                 "workout_logged_today": lambda: False,
             },
         )
-        assert extra == {}
+        assert not extra

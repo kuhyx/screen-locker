@@ -1,9 +1,8 @@
 """Tests for ingesting synced manual workouts into log.json."""
-# pylint: disable=protected-access
 
 from __future__ import annotations
 
-from datetime import UTC
+from datetime import UTC, datetime
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import patch
@@ -121,14 +120,13 @@ class TestIngestManualRecords:
         record = _manual_record(_TT_DRAFT)
         ingest_manual_records(log_file, [record], today=_DATE)
         again = ingest_manual_records(log_file, [record], today=_DATE)
-        assert again == []
+        assert not again
 
     def test_skips_a_non_manual_payload(self, tmp_path: Path) -> None:
         """Skips a non manual payload."""
         log_file = tmp_path / "log.json"
-        assert (
+        assert not (
             ingest_manual_records(log_file, [("s", {"succeeded": True})], today=_DATE)
-            == []
         )
 
     def test_skips_a_record_without_a_date(self, tmp_path: Path) -> None:
@@ -136,7 +134,7 @@ class TestIngestManualRecords:
         log_file = tmp_path / "log.json"
         _, payload = _manual_record(_TT_DRAFT)
         del payload["date"]
-        assert ingest_manual_records(log_file, [("m", payload)], today=_DATE) == []
+        assert not ingest_manual_records(log_file, [("m", payload)], today=_DATE)
 
     def test_appends_alongside_an_existing_counted_day(self, tmp_path: Path) -> None:
         """A day may hold several workouts: a synced manual is appended next to
@@ -161,21 +159,21 @@ class TestIngestManualRecords:
         log_file = tmp_path / "log.json"
         _, payload = _manual_record(_TT_DRAFT)
         payload["rpe"] = None  # reconstruct_draft -> None
-        assert ingest_manual_records(log_file, [("m", payload)], today=_DATE) == []
+        assert not ingest_manual_records(log_file, [("m", payload)], today=_DATE)
 
     def test_skips_an_invalid_draft(self, tmp_path: Path) -> None:
         """Skips an invalid draft."""
         log_file = tmp_path / "log.json"
         _, payload = _manual_record(_TT_DRAFT)
         payload["location_name"] = "   "  # fails validate_manual_workout
-        assert ingest_manual_records(log_file, [("m", payload)], today=_DATE) == []
+        assert not ingest_manual_records(log_file, [("m", payload)], today=_DATE)
 
     def test_skips_when_budget_exhausted(self, tmp_path: Path) -> None:
         """Skips when budget exhausted."""
         log_file = tmp_path / "log.json"
         record = _manual_record(_TT_DRAFT)
         with patch.object(_manual_sync, "budget_error_for_date", return_value="full"):
-            assert ingest_manual_records(log_file, [record], today=_DATE) == []
+            assert not ingest_manual_records(log_file, [record], today=_DATE)
 
     def test_writes_unsigned_entry_when_hmac_key_unavailable(
         self, tmp_path: Path
@@ -190,6 +188,5 @@ class TestIngestManualRecords:
 
 
 def _dt(date: str) -> object:
-    from datetime import datetime
 
     return datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=UTC)

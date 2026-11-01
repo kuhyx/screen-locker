@@ -69,7 +69,7 @@ def test_the_retry_budget_is_screen_lockers_own() -> None:
     """The conftest zeroes it; raising it here makes the shared reader wait."""
     naps: list[float] = []
     assert morning_skip_today(NOW, wait=True, sleep=naps.append) is None
-    assert naps == []
+    assert not naps
     with patch.object(_morning_session, "MORNING_RETRY_SECONDS", 10.0):
         assert morning_skip_today(NOW, wait=True, sleep=naps.append) is None
     assert naps

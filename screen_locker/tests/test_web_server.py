@@ -32,17 +32,17 @@ _PKG = "screen_locker._web_server"
 # a server we started ourselves. Captured at import time, before any fixture
 # runs, which is the only moment the real function is still reachable. The
 # fixture's own docstring says tests needing a real probe patch it locally.
-_REAL_CREATE_CONNECTION = socket.create_connection
+_real_create_connection = socket.create_connection
 
 
-@pytest.fixture
-def real_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.fixture(name="real_loopback")
+def real_loopback_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
     """Restore real socket connections for tests that drive the server.
 
     Args:
         monkeypatch: pytest's attribute patcher, which undoes this on teardown.
     """
-    monkeypatch.setattr(socket, "create_connection", _REAL_CREATE_CONNECTION)
+    monkeypatch.setattr(socket, "create_connection", _real_create_connection)
 
 
 @contextmanager
@@ -206,5 +206,5 @@ class TestServeEntryPoints:
     def test_main_returns_zero(self) -> None:
         """The console-script entry point reports success on a clean exit."""
         with patch(f"{_PKG}.serve") as served:
-            assert main() == 0
+            assert not main()
         served.assert_called_once()

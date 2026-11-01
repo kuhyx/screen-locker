@@ -65,14 +65,14 @@ class TestBonusDroppedAtW42:
         # The message the transition produced is kept for the status window,
         # for the week it was earned in only.
         assert week_rewards(f, today=w42) == tuple(rewards)
-        assert week_rewards(f, today=datetime(2026, 10, 19, 12, 0, tzinfo=UTC)) == ()
+        assert not week_rewards(f, today=datetime(2026, 10, 19, 12, 0, tzinfo=UTC))
 
     def test_no_stored_rewards_reads_as_empty(self, tmp_path: Path) -> None:
         """Missing file, or a state without the key, has nothing to show."""
-        assert week_rewards(tmp_path / "absent.json") == ()
+        assert not week_rewards(tmp_path / "absent.json")
         f = tmp_path / "state.json"
         f.write_text(json.dumps({"consecutive_5plus_weeks": 2}))
-        assert week_rewards(f) == ()
+        assert not week_rewards(f)
 
 
 class TestHasExtendedEarlyBird:

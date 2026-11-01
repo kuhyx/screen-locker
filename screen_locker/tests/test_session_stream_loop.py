@@ -17,8 +17,8 @@ if TYPE_CHECKING:
 _LONG = 400.0  # longer than the 300 s minimum lifetime
 
 
-@pytest.fixture
-def stream(monkeypatch: pytest.MonkeyPatch) -> SessionStream:
+@pytest.fixture(name="stream")
+def stream_fixture(monkeypatch: pytest.MonkeyPatch) -> SessionStream:
     """A ``SessionStream`` that never reads or writes the real device id."""
     return make_stream(monkeypatch)
 
@@ -117,7 +117,7 @@ class TestRunForever:
     ) -> None:
         """Token renewal after a healthy hour is not a failure: no pause."""
         script: list[tuple[bool, float, bool]] = [(True, 3600.0, True)] * 2
-        assert self._run(_Loop(stream, monkeypatch, script)) == []
+        assert not self._run(_Loop(stream, monkeypatch, script))
 
     def test_planned_end_after_a_short_life_still_backs_off(
         self, stream: SessionStream, monkeypatch: pytest.MonkeyPatch
@@ -146,7 +146,7 @@ class TestRunForever:
         """A set stop flag exits without connecting."""
         loop = _Loop(stream, monkeypatch, [])
         stream.run_forever()
-        assert loop.index == 0
+        assert not loop.index
 
 
 class TestThread:

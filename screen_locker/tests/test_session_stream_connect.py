@@ -19,8 +19,8 @@ _RENEW = datetime(2999, 1, 1, tzinfo=UTC)
 _LONG = 400.0  # longer than the 300 s minimum lifetime
 
 
-@pytest.fixture
-def stream(monkeypatch: pytest.MonkeyPatch) -> SessionStream:
+@pytest.fixture(name="stream")
+def stream_fixture(monkeypatch: pytest.MonkeyPatch) -> SessionStream:
     """A ``SessionStream`` that never reads or writes the real device id."""
     return make_stream(monkeypatch)
 

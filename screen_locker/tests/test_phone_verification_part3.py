@@ -40,7 +40,7 @@ def _adb_pull_from(path_contents: dict[str, str]) -> MagicMock:
         content = path_contents.get(remote)
         if content is None:
             return False, ""
-        Path(dest).write_text(content)
+        Path(dest).write_text(content, encoding="utf-8")
         return True, ""
 
     return MagicMock(side_effect=fake_run_adb)

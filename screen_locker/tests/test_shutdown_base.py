@@ -129,7 +129,7 @@ class TestResetToBaseIfNewDay:
         assert reset_to_base_if_new_day(f, mixin) is True
 
     def test_handles_oserror_on_state_write(self, tmp_path: Path) -> None:
-        """OSError writing the new state file is caught; function still returns True (lines 96-97)."""
+        """An OSError writing the new state file is caught; the reset still returns True."""
         # Use a mock path that fails only on "w" opens.
         state_mock = MagicMock()
         state_mock.exists.return_value = False  # triggers fresh-reset path

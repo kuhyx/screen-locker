@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 import sqlite3
-from typing import TYPE_CHECKING
+import time
+import tkinter as tk
 from unittest.mock import MagicMock, patch
 
 from screen_locker.tests.conftest import create_locker
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 # Minimal valid TCX XML for a 40-minute, 6-km run.
 _TCX_RUNNING = """\
@@ -69,7 +68,6 @@ class TestQueryTodaysRun:
 
     def _make_db(self, tmp_path: Path) -> str:
         """Create a minimal RunnerUp DB with one activity for today."""
-        import time
 
         db_path = str(tmp_path / "runnerup.db")
         with sqlite3.connect(db_path) as conn:
@@ -94,8 +92,6 @@ class TestQueryTodaysRun:
                 "(start_time REAL, distance REAL, time REAL, type INTEGER, deleted INTEGER)"
             )
         # Need a locker instance to call the method.
-        import tkinter as tk
-        from unittest.mock import MagicMock
 
         mock_tk = MagicMock()
         mock_tk.Tk.return_value = MagicMock()
@@ -128,7 +124,7 @@ class TestQueryTodaysRun:
         result = locker._query_todays_run(db_path)
         assert result is not None
         assert "sport" in result
-        assert result["sport"] == 0
+        assert not result["sport"]
         assert result["distance_m"] == 6000.0
 
     def test_returns_none_on_sqlite_error(
@@ -140,8 +136,7 @@ class TestQueryTodaysRun:
         """Corrupt DB → sqlite3.Error caught; returns None."""
         locker = create_locker(mock_tk, tmp_path)
         corrupt_db = str(tmp_path / "corrupt.db")
-        with open(corrupt_db, "w") as f:
-            f.write("this is not a sqlite database")
+        Path(corrupt_db).write_text("this is not a sqlite database", encoding="utf-8")
         result = locker._query_todays_run(corrupt_db)
         assert result is None
 

@@ -5,7 +5,7 @@ Split from test_status.py to stay under the repo's 400-line file limit.
 
 from __future__ import annotations
 
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
@@ -133,7 +133,6 @@ class TestRunStatusMinimumStatus:
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
         """Pin today to Monday so the loop hits d > today on day 2, covering line 64."""
-        from datetime import datetime
 
         fake_now = datetime(2026, 6, 22, 12, 0, tzinfo=UTC)
 

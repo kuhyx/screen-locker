@@ -70,16 +70,16 @@ class Credit:
         return BatchOutcome(ingested=tuple(ids), credited=len(ids))
 
 
-@pytest.fixture
-def credit(monkeypatch: pytest.MonkeyPatch) -> Credit:
+@pytest.fixture(name="credit")
+def credit_fixture(monkeypatch: pytest.MonkeyPatch) -> Credit:
     """Replace the real (locker-building) credit step with a recorder."""
     fake = Credit()
     monkeypatch.setattr(_stream_cache._poke_credit, "credit_sessions", fake)
     return fake
 
 
-@pytest.fixture
-def cache(credit: Credit) -> DeviceLogCache:
+@pytest.fixture(name="cache")
+def cache_fixture(credit: Credit) -> DeviceLogCache:
     """A cache whose own device dir is ``pc-own``."""
     gate = threading.Lock()
     credit.gate = gate

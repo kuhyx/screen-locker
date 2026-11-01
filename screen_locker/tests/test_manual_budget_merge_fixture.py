@@ -95,8 +95,8 @@ def test_an_evidence_less_stub_never_consumes_budget(tmp_path: Path) -> None:
     )
     log_file = _log_from([stub], tmp_path / "log.json")
 
-    assert count_in_window(log_file, 7, today=today) == 0
-    assert count_in_window(log_file, 30, today=today) == 0
+    assert not count_in_window(log_file, 7, today=today)
+    assert not count_in_window(log_file, 30, today=today)
 
 
 def _planned_cases() -> list[tuple[str, dict[str, Any]]]:

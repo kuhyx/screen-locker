@@ -50,7 +50,7 @@ class TestLoadWorkoutLog:
 
     def test_missing_file_returns_empty(self, tmp_path: Path) -> None:
         """Non-existent file → {}."""
-        assert load_workout_log(tmp_path / "nope.json") == {}
+        assert not load_workout_log(tmp_path / "nope.json")
 
     def test_legacy_dict_value_is_wrapped_in_a_list(self, tmp_path: Path) -> None:
         """The old one-entry-per-day shape reads as a one-element list."""

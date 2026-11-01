@@ -149,7 +149,7 @@ class TestApplyCountedBonus:
         [{"date": "2000-01-01", "units": 9}, {"date": None}, "junk", {"units": "x"}],
     )
     def test_a_stale_or_broken_stamp_is_zero(self, stamp: object) -> None:
-        assert applied_units({"blocks_bonus_units": stamp}, BLOCKS, today_str()) == 0
+        assert not applied_units({"blocks_bonus_units": stamp}, BLOCKS, today_str())
 
     def test_failed_write_keeps_the_stamp(
         self, caplog: pytest.LogCaptureFixture
@@ -158,7 +158,7 @@ class TestApplyCountedBonus:
         write_ledger(BLOCKS, [_block(1)])
         adjust = MagicMock(return_value=False)
         assert not apply_counted_bonus(state, adjust, BLOCKS, today_str())
-        assert state == {}
+        assert not state
         assert "Blocks bonus: failed to write" in caplog.text
 
     def test_unknown_earns_nothing_and_says_so(

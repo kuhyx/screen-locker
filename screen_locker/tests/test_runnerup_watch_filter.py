@@ -19,7 +19,7 @@ _SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "runnerup_watch.sh"
 _UNIT = "workout-sync.service"
 # conftest replaces subprocess.run process-wide for every test; this module
 # needs the real one, captured at import time before any fixture runs.
-_REAL_RUN = subprocess.run
+_real_run = subprocess.run
 
 
 def _shim(path: Path, body: str) -> None:
@@ -51,7 +51,7 @@ def _run(
         "RUNNERUP_WATCH_DIR": str(watch),
         "RUNNERUP_SYNC_UNIT": _UNIT,
     }
-    done = _REAL_RUN(
+    done = _real_run(
         ["bash", str(_SCRIPT)],
         env=env,
         capture_output=True,

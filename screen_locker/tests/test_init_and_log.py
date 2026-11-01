@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from screen_locker import _constants, _instance
 from screen_locker.screen_lock import _assert_not_under_pytest
 from screen_locker.tests.conftest import create_locker
 
@@ -75,11 +76,8 @@ class TestScreenLockerInit:
         This is the actual fix for "unlocked, then locked again seconds
         later" -- see the 2026-08-21 incident notes in screen_lock.py.
         """
-        from screen_locker import _instance
-        from screen_locker._constants import INSTANCE_LOCK_FILE
-
         mock_sys_exit.side_effect = SystemExit(0)
-        held = _instance.acquire(INSTANCE_LOCK_FILE)
+        held = _instance.acquire(_constants.INSTANCE_LOCK_FILE)
         assert held is not None
         try:
             with pytest.raises(SystemExit):

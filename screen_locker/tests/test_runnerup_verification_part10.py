@@ -86,7 +86,7 @@ class TestScanAndFillWeekRunnerupSkips:
             "_find_runnerup_exports_for_date",
             MagicMock(return_value=[]),
         )
-        assert locker._scan_and_fill_week_runnerup(log_file) == 0
+        assert not locker._scan_and_fill_week_runnerup(log_file)
 
     def test_skips_unreadable_tcx(
         self,
@@ -105,7 +105,7 @@ class TestScanAndFillWeekRunnerupSkips:
             MagicMock(return_value=["/sdcard/run.tcx"]),
         )
         object.__setattr__(locker, "_pull_and_parse_tcx", MagicMock(return_value=None))
-        assert locker._scan_and_fill_week_runnerup(log_file) == 0
+        assert not locker._scan_and_fill_week_runnerup(log_file)
 
     def test_skips_not_verified_export(
         self,
@@ -136,7 +136,7 @@ class TestScanAndFillWeekRunnerupSkips:
                 return_value={"sport": 0, "duration_seconds": 60, "distance_m": 1000}
             ),
         )
-        assert locker._scan_and_fill_week_runnerup(log_file) == 0
+        assert not locker._scan_and_fill_week_runnerup(log_file)
 
     def test_rescanning_an_already_filled_day_is_a_no_op(
         self,

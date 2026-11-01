@@ -38,8 +38,8 @@ LOCAL_DAY = "2026-09-13"
 UTC_DAY = "2026-09-12"
 
 
-@pytest.fixture
-def warsaw_after_midnight(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+@pytest.fixture(name="warsaw_after_midnight")
+def warsaw_after_midnight_fixture(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Pin TZ to Europe/Warsaw and the clock to 00:02:35 local on the 13th."""
     monkeypatch.setenv("TZ", "Europe/Warsaw")
     time.tzset()

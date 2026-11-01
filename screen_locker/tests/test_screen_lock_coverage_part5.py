@@ -72,9 +72,9 @@ class TestIngestSyncedManualWorkouts:
             ) as ingest,
         ):
             locker._ingest_synced_manual_workouts()
-        assert ingest.call_args.kwargs["on_ingested"] == (
+        assert [ingest.call_args.kwargs["on_ingested"]] == [
             locker._credit_ingested_workout
-        )
+        ]
         assert locker.workout_data == {}
 
     def test_credit_ingested_workout_applies_reward(
@@ -191,5 +191,7 @@ class TestIngestSyncedSessions:
             ) as ingest,
         ):
             locker._ingest_synced_sessions()
-        assert ingest.call_args.kwargs["on_ingested"] == locker._credit_ingested_workout
+        assert [ingest.call_args.kwargs["on_ingested"]] == [
+            locker._credit_ingested_workout
+        ]
         assert locker.workout_data == {}

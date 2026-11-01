@@ -116,25 +116,24 @@ class TestIngestSessionRecords:
         log = tmp_path / "log.json"
         records = [("r1", _session())]
         assert ingest_session_records(log, records) == ["r1"]
-        assert ingest_session_records(log, records) == []
+        assert not ingest_session_records(log, records)
         assert count_weekly_workouts(log, today=_TODAY) == 1
 
     def test_skips_a_session_with_no_date(self, tmp_path: Path) -> None:
         payload = _session()
         del payload["date"]
-        assert ingest_session_records(tmp_path / "log.json", [("r1", payload)]) == []
+        assert not ingest_session_records(tmp_path / "log.json", [("r1", payload)])
 
     def test_skips_a_session_whose_date_is_not_a_string(self, tmp_path: Path) -> None:
-        assert (
+        assert not (
             ingest_session_records(tmp_path / "log.json", [("r1", _session(date=7))])
-            == []
         )
 
     def test_skips_a_session_that_fails_validation(self, tmp_path: Path) -> None:
         log = tmp_path / "log.json"
         short = _session(duration_seconds=60)
-        assert ingest_session_records(log, [("r1", short)]) == []
-        assert count_weekly_workouts(log, today=_TODAY) == 0
+        assert not ingest_session_records(log, [("r1", short)])
+        assert not count_weekly_workouts(log, today=_TODAY)
 
     def test_calls_back_for_each_newly_ingested_session(self, tmp_path: Path) -> None:
         seen: list[tuple[dict, list]] = []
@@ -155,7 +154,7 @@ class TestIngestSessionRecords:
         ingest_session_records(
             log, records, on_ingested=lambda entry, _prior: seen.append(entry)
         )
-        assert seen == []
+        assert not seen
 
 
 class TestPullAllSessionRecords:

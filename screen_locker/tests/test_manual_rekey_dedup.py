@@ -86,7 +86,7 @@ class TestSyncedTwinIsNotReIngested:
 
         ingested = ingest_manual_records(log_file, [_published_twin()], today=LOCAL_DAY)
 
-        assert ingested == []
+        assert not ingested
         assert len(json.loads(log_file.read_text())[LOCAL_DAY]) == 1
 
     def test_ingested_entry_keeps_the_wire_id(self, tmp_path: Path) -> None:

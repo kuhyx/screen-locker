@@ -45,7 +45,7 @@ class TestParseSse:
 
     def test_stray_blank_lines_and_comments_yield_nothing(self) -> None:
         """Blank separators and ``:`` comments / unknown fields are ignored."""
-        assert list(parse_sse(["", "", ": comment", "id: 7", "retry: 5", ""])) == []
+        assert not list(parse_sse(["", "", ": comment", "id: 7", "retry: 5", ""]))
 
     def test_back_to_back_events_do_not_leak_state(self) -> None:
         """Each event starts with a clean name and data."""
@@ -57,7 +57,7 @@ class TestParseSse:
 
     def test_unterminated_event_is_not_emitted(self) -> None:
         """Without the closing blank line the event is incomplete: dropped."""
-        assert list(parse_sse(["event: put", "data: 1"])) == []
+        assert not list(parse_sse(["event: put", "data: 1"]))
 
 
 class TestDeviceUpdatesPut:

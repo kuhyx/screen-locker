@@ -12,6 +12,7 @@ from unittest.mock import MagicMock
 
 from gatelock import LockWindow
 
+from screen_locker import _workout_handoff
 from screen_locker._workout_handoff import lock_grab_handoff, start_workout
 
 
@@ -95,7 +96,6 @@ class TestStartWorkout:
     """The button handler never raises onto a screen with no way out."""
 
     def test_reports_a_failed_launch_as_a_message(self, monkeypatch: object) -> None:
-        from screen_locker import _workout_handoff
 
         class _Result:
             launched = False
@@ -109,7 +109,6 @@ class TestStartWorkout:
         assert "not built" in message
 
     def test_reports_a_finished_run(self, monkeypatch: object) -> None:
-        from screen_locker import _workout_handoff
 
         class _Result:
             launched = True

@@ -75,8 +75,8 @@ def make_stream(monkeypatch: pytest.MonkeyPatch) -> SessionStream:
     return SessionStream(threading.Lock())
 
 
-@pytest.fixture
-def stream(monkeypatch: pytest.MonkeyPatch) -> SessionStream:
+@pytest.fixture(name="stream")
+def stream_fixture(monkeypatch: pytest.MonkeyPatch) -> SessionStream:
     """A ``SessionStream`` that never reads or writes the real device id."""
     return make_stream(monkeypatch)
 
@@ -165,7 +165,7 @@ class TestConsume:
         with caplog.at_level(logging.INFO):
             stream._consume(response, _PAST)
         assert any("renewing its ID token" in r.getMessage() for r in caplog.records)
-        assert response.raw.chunks == []
+        assert not response.raw.chunks
         keepalives = [r for r in caplog.records if "keep-alive #" in r.getMessage()]
         assert len(keepalives) == 1  # stopped after the first event
 

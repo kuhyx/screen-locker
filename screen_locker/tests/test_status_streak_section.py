@@ -1,5 +1,4 @@
 """The status window shows the workout streak and early-bird state it tracks."""
-# pylint: disable=protected-access
 
 from __future__ import annotations
 

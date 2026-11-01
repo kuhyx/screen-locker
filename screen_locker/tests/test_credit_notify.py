@@ -4,7 +4,6 @@ The autouse ``_no_desktop_notifications`` fixture stubs
 ``notify_workout_credit`` for the whole suite; the real one is captured here
 at import time, before any fixture runs.
 """
-# pylint: disable=protected-access
 
 from __future__ import annotations
 
@@ -23,7 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
 
-_REAL_NOTIFY = _credit_notify.notify_workout_credit
+_real_notify = _credit_notify.notify_workout_credit
 _FRIDAY = "2026-10-09"  # Thu-Sun: tonight is the second config field
 _MOD = "screen_locker._credit_notify"
 
@@ -150,7 +149,7 @@ def test_notify_workout_credit_sends_the_composed_body() -> None:
         patch(f"{_MOD}.gaming_minutes_today", return_value=60),
         patch(f"{_MOD}.send_notification", return_value=True) as send,
     ):
-        assert _REAL_NOTIFY((0, 1200, 0), (0, 1260, 0), None)
+        assert _real_notify((0, 1200, 0), (0, 1260, 0), None)
     send.assert_called_once_with(
         _credit_notify.TITLE, "Shutdown 21:00 (+1h) \N{MIDDLE DOT} gaming 1.0h"
     )

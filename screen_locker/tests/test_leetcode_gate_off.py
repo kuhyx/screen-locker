@@ -22,8 +22,8 @@ from screen_locker import _earned, _gate_off
 SAT = date(2026, 10, 24)
 
 
-@pytest.fixture
-def pools(monkeypatch: pytest.MonkeyPatch) -> dict[str, bool]:
+@pytest.fixture(name="pools")
+def pools_fixture(monkeypatch: pytest.MonkeyPatch) -> dict[str, bool]:
     """Fake the free-day and sick-day pools; flip the returned flags."""
     flags = {"free": False, "sick_off": False}
     monkeypatch.setattr(freedays, "is_free_day", lambda _day=None: flags["free"])

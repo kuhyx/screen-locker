@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 # conftest stubs socket.create_connection process-wide (see test_web_server).
-_REAL_CREATE_CONNECTION = socket.create_connection
+_real_create_connection = socket.create_connection
 _KEY = bytes(range(32))
 
 
@@ -47,10 +47,10 @@ def _sign(body: bytes) -> str:
     return hmac.new(_KEY, body, hashlib.sha256).hexdigest()
 
 
-@pytest.fixture
-def port(monkeypatch: pytest.MonkeyPatch) -> Iterator[int]:
+@pytest.fixture(name="port")
+def port_fixture(monkeypatch: pytest.MonkeyPatch) -> Iterator[int]:
     """A running PokeServer on 127.0.0.1:0; shut down afterwards."""
-    monkeypatch.setattr(socket, "create_connection", _REAL_CREATE_CONNECTION)
+    monkeypatch.setattr(socket, "create_connection", _real_create_connection)
     server = PokeServer(("127.0.0.1", 0), _KEY)
     # poll_interval: shutdown() waits out one poll, 0.5 s per test by default.
     thread = threading.Thread(target=server.serve_forever, args=(0.01,), daemon=True)
@@ -63,8 +63,8 @@ def port(monkeypatch: pytest.MonkeyPatch) -> Iterator[int]:
         thread.join(timeout=5)
 
 
-@pytest.fixture
-def credit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> MagicMock:
+@pytest.fixture(name="credit")
+def credit_fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> MagicMock:
     """Stub the PC side: tmp locker, fixed snapshot, a spy for the credit."""
     locker = MagicMock()
     locker.log_file = tmp_path / "log.json"

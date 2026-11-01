@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
 import json
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
@@ -78,7 +79,7 @@ class TestScanAndFillWeekRunnerup:
         log_file = tmp_path / "log.json"
         log_file.write_text("{}")
         object.__setattr__(locker, "_has_adb_device", MagicMock(return_value=False))
-        assert locker._scan_and_fill_week_runnerup(log_file) == 0
+        assert not locker._scan_and_fill_week_runnerup(log_file)
 
     def test_returns_zero_when_all_days_already_logged(
         self,
@@ -87,7 +88,6 @@ class TestScanAndFillWeekRunnerup:
         tmp_path: Path,
     ) -> None:
         """All days this week already have counted workouts → 0 new fills."""
-        from datetime import date, timedelta
 
         locker = create_locker(mock_tk, tmp_path)
         log_file = tmp_path / "log.json"
@@ -108,7 +108,7 @@ class TestScanAndFillWeekRunnerup:
         object.__setattr__(
             locker, "_find_runnerup_exports_for_date", MagicMock(return_value=[])
         )
-        assert locker._scan_and_fill_week_runnerup(log_file) == 0
+        assert not locker._scan_and_fill_week_runnerup(log_file)
 
     def test_fills_gap_for_unlogged_day(
         self,

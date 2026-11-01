@@ -50,7 +50,7 @@ class TestFindSiblingRefreshToken:
             expires_at="2026-08-24T12:00:00+00:00",
         )
 
-        assert find_sibling_refresh_tokens(tmp_path, skip="screen_locker") == []
+        assert not find_sibling_refresh_tokens(tmp_path, skip="screen_locker")
 
     def test_skips_unreadable_and_malformed_caches(self, tmp_path: Path) -> None:
         """A corrupt sibling must not abort the search over the healthy ones."""
@@ -69,7 +69,7 @@ class TestFindSiblingRefreshToken:
 
     def test_reports_nothing_when_no_sibling_has_one(self, tmp_path: Path) -> None:
         """No source is a real outcome; the caller must hear it, not guess."""
-        assert find_sibling_refresh_tokens(tmp_path, skip="screen_locker") == []
+        assert not find_sibling_refresh_tokens(tmp_path, skip="screen_locker")
 
     def test_missing_config_root_is_not_an_error(self, tmp_path: Path) -> None:
         """A machine with no ~/.config yet has no donor -- and must not crash.
@@ -78,9 +78,7 @@ class TestFindSiblingRefreshToken:
         would take the screen for a reason that has nothing to do with
         working out.
         """
-        assert (
-            find_sibling_refresh_tokens(tmp_path / "nope", skip="screen_locker") == []
-        )
+        assert not find_sibling_refresh_tokens(tmp_path / "nope", skip="screen_locker")
 
     def test_cache_without_a_usable_token_is_skipped(self, tmp_path: Path) -> None:
         """Readable JSON is not the same as a usable credential.

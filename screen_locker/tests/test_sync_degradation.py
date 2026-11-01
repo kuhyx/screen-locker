@@ -120,7 +120,7 @@ class TestFirebaseDegradationIsVisible:
 
         _workout_sync.sync_client()
 
-        assert _sync_client.degraded_sources() == []
+        assert not _sync_client.degraded_sources()
 
     def test_successful_recovery_returns_a_working_client(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -152,7 +152,7 @@ class TestFirebaseDegradationIsVisible:
 
         recovered = _workout_sync.sync_client()
         assert isinstance(recovered, ReachableClient)
-        assert _sync_client.degraded_sources() == [], (
+        assert not _sync_client.degraded_sources(), (
             "a source that recovered is not degraded"
         )
 
@@ -226,4 +226,4 @@ class TestFirebaseDegradationIsVisible:
 
         _workout_sync.sync_client()
 
-        assert _sync_client.degraded_sources() == []
+        assert not _sync_client.degraded_sources()

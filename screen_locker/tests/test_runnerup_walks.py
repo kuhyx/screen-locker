@@ -5,15 +5,12 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 import json
 import logging
-from typing import TYPE_CHECKING
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from screen_locker._runnerup_verification import RunnerUpVerificationMixin
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 _NS = "http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"
 _DAY = "2026-10-10"
@@ -58,8 +55,8 @@ def drop(folder: Path, name: str, body: str) -> None:
     (folder / f"RunnerUp_Pixel_6a_{_DAY}-{name}.tcx").write_text(body)
 
 
-@pytest.fixture
-def verifier(tmp_path: Path) -> Verifier:
+@pytest.fixture(name="verifier")
+def verifier_fixture(tmp_path: Path) -> Verifier:
     return Verifier(tmp_path)
 
 
@@ -77,7 +74,6 @@ class TestParse:
         body = tcx("Other", 10, "08:00")
 
         def pull(args: list[str]) -> tuple[bool, str]:
-            from pathlib import Path
 
             Path(args[2]).write_text(body)
             return True, ""

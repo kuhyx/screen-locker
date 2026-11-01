@@ -61,7 +61,7 @@ class TestWorkoutCreditsToday:
     def test_no_entries_is_zero(self, tmp_path: Path) -> None:
         """An untouched day earns nothing."""
         with _with_log({}, tmp_path):
-            assert workout_credits_today(now=_SATURDAY) == 0
+            assert not workout_credits_today(now=_SATURDAY)
 
     def test_a_workout_counts(self, tmp_path: Path) -> None:
         """A verified workout today earns a credit."""
@@ -79,19 +79,19 @@ class TestWorkoutCreditsToday:
     def test_a_relaxed_day_skip_earns_nothing(self, tmp_path: Path) -> None:
         """Dismissing the popup is not a workout — so it is a 6h gaming day."""
         with _with_log({"2026-08-29": [_entry("relaxed_day_skip")]}, tmp_path):
-            assert workout_credits_today(now=_SATURDAY) == 0
+            assert not workout_credits_today(now=_SATURDAY)
 
     def test_yesterdays_workout_does_not_count_today(self, tmp_path: Path) -> None:
         """The budget is per gaming day, so only today's entries count."""
         with _with_log({"2026-08-28": [_entry("phone_verified")]}, tmp_path):
-            assert workout_credits_today(now=_SATURDAY) == 0
+            assert not workout_credits_today(now=_SATURDAY)
 
     def test_non_dict_entries_are_ignored(self, tmp_path: Path) -> None:
         """A malformed entry must not crash the endpoint."""
         log = tmp_path / "log.json"
         log.write_text(json.dumps({"2026-08-29": ["junk"]}), encoding="utf-8")
         with patch(f"{_PKG}.LOG_FILE", log):
-            assert workout_credits_today(now=_SATURDAY) == 0
+            assert not workout_credits_today(now=_SATURDAY)
 
 
 class TestStatusPayload:

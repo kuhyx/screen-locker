@@ -4,7 +4,6 @@ The two StrongLifts ingestion paths of ONE session used to earn +2h and then
 +1h (2026-10-09). These tests drive the real shutdown arithmetic over a fake
 config so the minute figures, not just the branch taken, are pinned.
 """
-# pylint: disable=protected-access
 
 from __future__ import annotations
 
@@ -154,7 +153,7 @@ class TestSlotCreditMinutes:
         with caplog.at_level(logging.WARNING, logger="screen_locker._workout_credit"):
             result, notify = _credit(locker, [_entry("pc_workout_verified")])
         assert result.already_counted_today is True
-        assert result.extra_bonus_delta == 0
+        assert not result.extra_bonus_delta
         assert locker._read_shutdown_config() == _START  # untouched
         notify.assert_not_called()
         assert any(

@@ -64,7 +64,7 @@ class TestRejectedCredentialTriggersRecovery:
             "a rejected credential must trigger the same self-heal as a "
             "failed construction"
         )
-        assert _sync_client.degraded_sources() == []
+        assert not _sync_client.degraded_sources()
 
     def test_a_still_rejected_credential_is_degraded_loudly(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

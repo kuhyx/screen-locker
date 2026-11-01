@@ -55,7 +55,7 @@ class TestTombstoneRecords:
     """Ledger → crdt_sync Records, loud about anything it cannot push."""
 
     def test_missing_ledger_is_empty(self, tmp_path: Path) -> None:
-        assert tombstone_records(tmp_path / "absent.json") == {}
+        assert not tombstone_records(tmp_path / "absent.json")
 
     def test_ledgered_id_becomes_a_deleted_record(self, tmp_path: Path) -> None:
         path = tmp_path / "sync_tombstones.json"
@@ -79,7 +79,7 @@ class TestTombstoneRecords:
     ) -> None:
         path = tmp_path / "sync_tombstones.json"
         path.write_text("{not json")
-        assert tombstone_records(path) == {}
+        assert not tombstone_records(path)
         assert "unreadable" in caplog.text
 
     def test_non_object_ledger_is_ignored_and_warns(
@@ -87,20 +87,20 @@ class TestTombstoneRecords:
     ) -> None:
         path = tmp_path / "sync_tombstones.json"
         path.write_text("[]")
-        assert tombstone_records(path) == {}
+        assert not tombstone_records(path)
         assert "not a JSON object" in caplog.text
 
     def test_non_dict_entries_are_dropped(self, tmp_path: Path) -> None:
         path = tmp_path / "sync_tombstones.json"
         path.write_text(json.dumps({_RID: "garbage"}))
-        assert tombstone_records(path) == {}
+        assert not tombstone_records(path)
 
     def test_entry_without_usable_hlc_is_skipped_and_warns(
         self, tmp_path: Path, caplog
     ) -> None:
         path = tmp_path / "sync_tombstones.json"
         path.write_text(json.dumps({_RID: {"reason": "x"}}))
-        assert tombstone_records(path) == {}
+        assert not tombstone_records(path)
         assert "no usable deleted_hlc" in caplog.text
 
 

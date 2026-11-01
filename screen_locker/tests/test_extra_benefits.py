@@ -77,7 +77,7 @@ class TestProcessWeekTransition:
         year, week, _ = now.isocalendar()
         f = tmp_path / "state.json"
         f.write_text(json.dumps({"last_processed_iso_week": f"{year}-W{week:02d}"}))
-        assert process_week_transition(tmp_path / "log.json", f) == []
+        assert not process_week_transition(tmp_path / "log.json", f)
 
     @staticmethod
     def _current_week_str() -> str:
@@ -175,7 +175,7 @@ class TestProcessWeekTransition:
             rewards = process_week_transition(tmp_path / "log.json", f)
 
         assert any("Streak reset" in r for r in rewards)
-        assert json.loads(f.read_text())["consecutive_5plus_weeks"] == 0
+        assert not json.loads(f.read_text())["consecutive_5plus_weeks"]
 
     def test_no_reset_message_when_streak_was_zero(self, tmp_path: Path) -> None:
         """Zero streak + < 5 workouts: no reset message (line 101 branch False)."""
@@ -233,7 +233,7 @@ class TestCurrentStreak:
 
     def test_returns_zero_when_file_missing(self, tmp_path: Path) -> None:
         """Missing file falls through _load_state → default 0."""
-        assert current_streak(tmp_path / "nonexistent.json") == 0
+        assert not current_streak(tmp_path / "nonexistent.json")
 
     def test_returns_stored_streak(self, tmp_path: Path) -> None:
         """Stored streak value is returned correctly."""

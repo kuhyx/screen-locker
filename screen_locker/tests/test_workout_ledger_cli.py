@@ -71,7 +71,7 @@ class TestBackfill:
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         argv = ["--dry-run", "--from", _ISO, "--to", "2026-10-05"]
-        assert run_backfill(self._log(tmp_path), argv) == 0
+        assert not run_backfill(self._log(tmp_path), argv)
         out = capsys.readouterr().out
         assert "(missing)" in out
         assert "per source: {'runnerup_tcx': 1, 'stronglifts': 1}" in out
@@ -81,15 +81,15 @@ class TestBackfill:
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         log = self._log(tmp_path)
-        assert run_backfill(log, ["--from", _ISO, "--to", "2026-10-05"]) == 0
-        assert run_backfill(log, ["--from", _ISO, "--to", "2026-10-05"]) == 0
+        assert not run_backfill(log, ["--from", _ISO, "--to", "2026-10-05"])
+        assert not run_backfill(log, ["--from", _ISO, "--to", "2026-10-05"])
         out = capsys.readouterr().out.splitlines()
         assert out[0].startswith("2 new row(s)")
         assert out[1].startswith("0 new row(s)")
-        assert run_backfill(log, ["--dry-run"]) == 0
+        assert not run_backfill(log, ["--dry-run"])
         assert "(present)" in capsys.readouterr().out
 
     def test_default_is_today(self, tmp_path: Path) -> None:
         with patch("screen_locker._workout_ledger_cli.today_str", return_value=_ISO):
-            assert run_backfill(self._log(tmp_path), []) == 0
+            assert not run_backfill(self._log(tmp_path), [])
         assert len(ledger()) == 1

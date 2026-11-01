@@ -97,10 +97,10 @@ class TestReading:
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
         with caplog.at_level(logging.WARNING):
-            assert rest_day_declarations() == {}
+            assert not rest_day_declarations()
         assert "signing key" in caplog.text
         with signing_key(tmp_path, b"  "):
-            assert rest_day_declarations() == {}
+            assert not rest_day_declarations()
 
     @pytest.mark.usefixtures("key")
     def test_a_hand_edited_row_is_ignored(
@@ -111,7 +111,7 @@ class TestReading:
         edited[0]["day"] = "2026-10-14"
         write(edited)
         with caplog.at_level(logging.WARNING):
-            assert rest_day_declarations() == {}
+            assert not rest_day_declarations()
         assert "fails its signature" in caplog.text
 
     @pytest.mark.usefixtures("key")
@@ -124,7 +124,7 @@ class TestReading:
             "declared_at": 1.0,
         }
         write([{**body, "hmac": earned_time.entry_signature(body, KEY)}])
-        assert rest_day_declarations() == {}
+        assert not rest_day_declarations()
 
     @pytest.mark.usefixtures("key")
     def test_malformed_and_foreign_rows_are_ignored(
@@ -144,7 +144,7 @@ class TestReading:
             ]
         )
         with caplog.at_level(logging.WARNING):
-            assert rest_day_declarations() == {}
+            assert not rest_day_declarations()
         assert "malformed" in caplog.text
 
     @pytest.mark.usefixtures("key")
@@ -153,7 +153,7 @@ class TestReading:
     ) -> None:
         _rest_day.REST_DAY_FILE.write_text("[]")
         with caplog.at_level(logging.WARNING):
-            assert rest_day_declarations() == {}
+            assert not rest_day_declarations()
         assert "no entries array" in caplog.text
 
     @pytest.mark.usefixtures("key")
@@ -185,16 +185,16 @@ class TestCli:
             return run_declare_rest_day(list(argv))
 
     def test_declare_tomorrow(self, capsys: pytest.CaptureFixture[str]) -> None:
-        assert self._run("tomorrow") == 0
+        assert not self._run("tomorrow")
         assert "2026-10-10 is a rest day" in capsys.readouterr().out
 
     def test_a_date_and_then_the_list(self, capsys: pytest.CaptureFixture[str]) -> None:
-        assert self._run("2026-10-11") == 0
-        assert self._run("--list") == 0
+        assert not self._run("2026-10-11")
+        assert not self._run("--list")
         assert capsys.readouterr().out.splitlines()[-1] == "2026-10-11"
 
     def test_an_empty_list(self, capsys: pytest.CaptureFixture[str]) -> None:
-        assert self._run() == 0
+        assert not self._run()
         assert capsys.readouterr().out.strip() == "no rest days declared"
 
     def test_a_bad_date(self, capsys: pytest.CaptureFixture[str]) -> None:

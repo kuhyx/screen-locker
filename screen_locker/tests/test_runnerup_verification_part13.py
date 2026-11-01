@@ -122,8 +122,8 @@ class TestBranchCoverageGaps:
         result = locker._parse_tcx(path)
         # Should still return a dict (0 seconds, 0 m) not None
         assert result is not None
-        assert result["duration_seconds"] == 0
-        assert result["distance_m"] == 0.0
+        assert not result["duration_seconds"]
+        assert not result["distance_m"]
 
     # ---- 161->154: _verify_runnerup_via_files iterates over multiple exports
 
@@ -184,4 +184,4 @@ class TestBranchCoverageGaps:
             MagicMock(return_value=[]),
         )
         # Should not raise; no exports → 0 filled
-        assert locker._scan_and_fill_week_runnerup(log_file) == 0
+        assert not locker._scan_and_fill_week_runnerup(log_file)

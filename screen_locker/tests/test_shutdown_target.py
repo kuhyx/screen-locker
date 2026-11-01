@@ -46,7 +46,7 @@ class TestTarget:
     def test_a_rest_day_stands_in_for_the_first_workout_only(self) -> None:
         assert workout_units(0, rest_day=True) == 1
         assert workout_units(2, rest_day=True) == 2
-        assert workout_units(0, rest_day=False) == 0
+        assert not workout_units(0, rest_day=False)
 
     def test_an_early_first_task_no_longer_lifts_the_sum(self) -> None:
         """The grace floor is gone (2026-10-17): late credits replace it."""
@@ -54,7 +54,7 @@ class TestTarget:
             DayInputs(_DAY, {**_FLAT, "anki": True}, first_done=at("18:55"))
         )
         assert target.minutes == target.earned
-        assert target.lift == 0
+        assert not target.lift
 
     def test_a_sick_day_has_the_20_00_floor(self) -> None:
         target = derive(DayInputs(_DAY, _FLAT, first_done=at("18:55"), sick_day=True))
@@ -63,7 +63,7 @@ class TestTarget:
             t.gaming_minutes for t in target.resolution.terms
         )
         # earned_time 0.13.0: credits stack on 20:00, so there is no lift.
-        assert target.lift == 0
+        assert not target.lift
 
     def test_a_sick_day_stacks_gaming_pay_on_20_00(self) -> None:
         busy = dict.fromkeys(_FLAT, True)
@@ -72,7 +72,7 @@ class TestTarget:
         assert target.minutes == min(
             23 * 60, SICK_FLOOR + sum(t.gaming_minutes for t in target.resolution.terms)
         )
-        assert target.lift == 0
+        assert not target.lift
 
     def test_gather_keeps_the_sick_floor_when_the_workout_lock_is_kept(self) -> None:
         """Rule 2: the 20:00 floor is the day's, whatever the keep set says."""
@@ -93,7 +93,7 @@ class TestTarget:
         assert target.minutes == target.earned == target.resolution.shutdown_minutes
 
     def test_no_log_counts_no_workouts(self) -> None:
-        assert day_credit_count(None, _DAY) == 0
+        assert not day_credit_count(None, _DAY)
 
     def test_gather_reads_every_real_source(self, tmp_path: Path) -> None:
         log = log_with(

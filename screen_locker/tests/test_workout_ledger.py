@@ -36,8 +36,8 @@ def local(hhmm: str, day: date = _DAY) -> float:
     return datetime.combine(day, time(hours, minutes)).astimezone().timestamp()
 
 
-@pytest.fixture
-def key(tmp_path: Path) -> Iterator[Path]:
+@pytest.fixture(name="key")
+def key_fixture(tmp_path: Path) -> Iterator[Path]:
     with signing_key(tmp_path) as path:
         yield path
 
@@ -153,13 +153,13 @@ class TestAppend:
         row = credit_row(_ISO, [entry({"type": "phone_verified"})], 0)
         assert row is not None
         assert append_rows([row, dict(row)]) == 1
-        assert append_rows([dict(row)]) == 0
+        assert not append_rows([dict(row)])
         (stored,) = ledger()
         assert earned_time.verified(stored, KEY)
 
     def test_no_key_writes_nothing(self, caplog: pytest.LogCaptureFixture) -> None:
         with caplog.at_level(logging.WARNING):
-            assert append_rows([rest_row(_DAY, 1.0)]) == 0
+            assert not append_rows([rest_row(_DAY, 1.0)])
         assert "NOT updated" in caplog.text
         assert not ledger_path().exists()
 
@@ -170,7 +170,7 @@ class TestAppend:
         ledger_path().parent.mkdir(parents=True)
         ledger_path().write_text("[]")
         with caplog.at_level(logging.WARNING):
-            assert append_rows([rest_row(_DAY, 1.0)]) == 0
+            assert not append_rows([rest_row(_DAY, 1.0)])
         assert existing_rows(ledger_path()) is None
         assert ledger_path().read_text() == "[]"
 

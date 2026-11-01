@@ -1,5 +1,4 @@
 """Tests for ADB commands, phone connection, and database operations."""
-# pylint: disable=protected-access,unused-argument
 
 from __future__ import annotations
 

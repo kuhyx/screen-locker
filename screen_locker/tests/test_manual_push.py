@@ -1,5 +1,4 @@
 """Tests for pushing the PC's workouts (from log.json) to the sync repo."""
-# pylint: disable=protected-access
 
 from __future__ import annotations
 
@@ -132,7 +131,7 @@ class TestRecordsFromWorkoutLog:
             log_file,
             {"2026-07-13": [_entry({"type": "sick_day"}, "2026-07-13T07:00:00+00:00")]},
         )
-        assert records_from_workout_log(log_file) == {}
+        assert not records_from_workout_log(log_file)
 
     def test_non_dict_workout_data_is_skipped(self, tmp_path: Path) -> None:
         """Non dict workout data is skipped."""
@@ -145,7 +144,7 @@ class TestRecordsFromWorkoutLog:
                 ]
             },
         )
-        assert records_from_workout_log(log_file) == {}
+        assert not records_from_workout_log(log_file)
 
     def test_entry_without_derivable_id_is_skipped(self, tmp_path: Path) -> None:
         """A counted type with no id can't be deduped, so it isn't synced."""
@@ -154,7 +153,7 @@ class TestRecordsFromWorkoutLog:
             log_file, {"2026-07-13": [_entry(_MANUAL, "2026-07-13T07:00:00+00:00")]}
         )
         with patch("screen_locker._manual_push._derive_workout_id", return_value=None):
-            assert records_from_workout_log(log_file) == {}
+            assert not records_from_workout_log(log_file)
 
     def test_is_deterministic_across_calls(self, tmp_path: Path) -> None:
         """Same log → identical records+HLCs, so a re-push is a no-op."""

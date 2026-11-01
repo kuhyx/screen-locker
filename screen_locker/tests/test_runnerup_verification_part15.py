@@ -87,7 +87,7 @@ class TestScanAndFillWeekRunnerupSkips:
             MagicMock(return_value=[]),
         )
         # Should not raise; returns 0 (no exports found).
-        assert locker._scan_and_fill_week_runnerup(log_file) == 0
+        assert not locker._scan_and_fill_week_runnerup(log_file)
 
     def test_hmac_none_still_fills_entry(
         self,

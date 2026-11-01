@@ -1,5 +1,4 @@
 """Tests for manual-workout integration in _ui_flows.py and screen_lock.py."""
-# pylint: disable=protected-access
 
 from __future__ import annotations
 
@@ -64,7 +63,7 @@ class TestApplyWorkoutCredit:
 
         assert result.already_counted_today is True
         assert result.shutdown_adjusted is False
-        assert result.extra_bonus_delta == 0
+        assert not result.extra_bonus_delta
         locker._try_adjust_shutdown_for_workout.assert_not_called()
         locker.save_workout_log.assert_called_once()  # log entry write attempted
 
@@ -87,7 +86,7 @@ class TestApplyWorkoutCredit:
 
         assert result.already_counted_today is False
         assert result.shutdown_adjusted is True
-        assert result.extra_bonus_delta == 0
+        assert not result.extra_bonus_delta
         locker._try_adjust_shutdown_for_workout.assert_called_once()
 
     def test_additional_manual_workout_earns_plus_one_hour(

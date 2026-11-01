@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import UTC
+from datetime import UTC, datetime
 import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 from screen_locker._status import _load_extra_benefits, run_status
+from screen_locker.tests._sick_helpers import mark_sick
 from screen_locker.tests.conftest import _make_locker
 
 if TYPE_CHECKING:
@@ -83,7 +84,6 @@ class TestRunStatusNormal:
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
         """Today == the week's Sunday: the per-day loop runs all 7 days, never breaking early."""
-        from datetime import datetime
 
         fixed_now = datetime(2026, 7, 5, 12, 0, tzinfo=UTC)  # a real Sunday
         eb_file = tmp_path / "eb.json"
@@ -107,7 +107,6 @@ class TestRunStatusNormal:
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
         """A date with no workout_log entry but in the sickdays pool → sick_day."""
-        from screen_locker.tests._sick_helpers import mark_sick
 
         mark_sick()
         eb_file = tmp_path / "eb.json"
@@ -186,7 +185,6 @@ class TestRunStatusWorkoutLog:
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
         """Log entry with counted type → ✓ mark printed."""
-        from datetime import datetime
 
         today = datetime.now(tz=UTC).astimezone().date().isoformat()
         log_file = tmp_path / "log.json"
@@ -221,7 +219,6 @@ class TestRunStatusWorkoutLog:
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
         """Log entry with uncounted type → ✗ mark printed."""
-        from datetime import datetime
 
         today = datetime.now(tz=UTC).astimezone().date().isoformat()
         log_file = tmp_path / "log.json"

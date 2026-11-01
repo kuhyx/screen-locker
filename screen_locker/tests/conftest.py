@@ -19,6 +19,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from screen_locker import _sync_client
 from screen_locker._degraded_sources import clear_degraded_sources
 from screen_locker._earned import flat_earners
 from screen_locker.tests._gatelock_fixtures import (
@@ -37,7 +38,7 @@ from screen_locker.tests._locker_factories import (
 )
 from screen_locker.tests._opt_in_fixtures import (
     _mock_sys_exit,
-    mock_sys_exit,
+    mock_sys_exit_fixture,
     mock_tk,
     temp_log_file,
 )
@@ -61,7 +62,7 @@ __all__ = [
     "create_locker_early_bird",
     "create_locker_relaxed_day",
     "dual_output",
-    "mock_sys_exit",
+    "mock_sys_exit_fixture",
     "mock_tk",
     "temp_log_file",
 ]
@@ -153,7 +154,7 @@ def _block_real_network() -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
-def _clear_degraded_sources() -> Iterator[None]:
+def _clear_degraded_sources() -> None:
     """Reset the process-scoped degraded-backend registry around every test.
 
     ``_degraded_sources._degraded`` is a module-level list, so a test that
@@ -162,7 +163,6 @@ def _clear_degraded_sources() -> Iterator[None]:
     the local venvs do not) exposes it -- it failed on push and nowhere else.
     """
     clear_degraded_sources()
-    return
 
 
 @pytest.fixture(autouse=True)
@@ -245,6 +245,5 @@ def _no_real_firebase_config(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     # Patch _sync_client's binding: crdt_sync's own CONFIG_FILE is bound to
     # the real home at import, which _isolate_home cannot redirect.
-    from screen_locker import _sync_client
 
     monkeypatch.setattr(_sync_client, "CONFIG_FILE", Path("/nonexistent/firebase.json"))

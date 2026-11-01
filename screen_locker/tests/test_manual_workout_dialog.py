@@ -1,5 +1,4 @@
 """Tests for the manual-workout evidence-form dialog mixin."""
-# pylint: disable=protected-access
 
 from __future__ import annotations
 
@@ -88,7 +87,7 @@ class TestGridCursor:
         locker._mw_grid_counters = {}
         parent = object()
         # Fresh (even) cursor: reserves row 0, then row 1 on the next call.
-        assert locker._mw_next_full_row(parent) == 0
+        assert not locker._mw_next_full_row(parent)
         assert locker._mw_next_full_row(parent) == 1
 
     def test_full_row_from_odd_cursor_bumps_to_next_row(

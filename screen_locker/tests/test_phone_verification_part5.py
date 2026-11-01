@@ -39,7 +39,7 @@ class TestTryFillStronglifitsForWeek:
         log_file = tmp_path / "log.json"
         log_file.write_text("{}")
         object.__setattr__(locker, "_has_adb_device", MagicMock(return_value=False))
-        assert locker._try_fill_stronglifts_for_week(log_file) == 0
+        assert not locker._try_fill_stronglifts_for_week(log_file)
 
     def test_returns_zero_when_no_json_pulled(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -51,7 +51,7 @@ class TestTryFillStronglifitsForWeek:
         object.__setattr__(
             locker, "_pull_workout_app_json", MagicMock(return_value=None)
         )
-        assert locker._try_fill_stronglifts_for_week(log_file) == 0
+        assert not locker._try_fill_stronglifts_for_week(log_file)
 
     def test_returns_zero_when_date_unparsable(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -65,7 +65,7 @@ class TestTryFillStronglifitsForWeek:
             "_pull_workout_app_json",
             MagicMock(return_value={"date": "not-a-date", "exercises": ["x"]}),
         )
-        assert locker._try_fill_stronglifts_for_week(log_file) == 0
+        assert not locker._try_fill_stronglifts_for_week(log_file)
 
     def test_returns_zero_when_date_outside_current_week(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -88,7 +88,7 @@ class TestTryFillStronglifitsForWeek:
                 }
             ),
         )
-        assert locker._try_fill_stronglifts_for_week(log_file) == 0
+        assert not locker._try_fill_stronglifts_for_week(log_file)
 
     def test_returns_zero_when_content_invalid(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -104,7 +104,7 @@ class TestTryFillStronglifitsForWeek:
             "_pull_workout_app_json",
             MagicMock(return_value={"date": yesterday, "exercises": []}),
         )
-        assert locker._try_fill_stronglifts_for_week(log_file) == 0
+        assert not locker._try_fill_stronglifts_for_week(log_file)
 
     def test_fills_gap_for_past_week_day(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -191,5 +191,5 @@ class TestTryFillStronglifitsForWeek:
         )
 
         with patch("screen_locker._phone_verification.datetime", _FakeDatetime):
-            assert locker._try_fill_stronglifts_for_week(log_file) == 0
+            assert not locker._try_fill_stronglifts_for_week(log_file)
         assert json.loads(log_file.read_text()) == {}

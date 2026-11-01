@@ -40,15 +40,15 @@ def apply_leetcode_bonus_if_new(state: Path, mixin: MagicMock) -> bool:
     return _apply_flat_bonus(state, mixin, earned_time.LEETCODE)
 
 
-@pytest.fixture
-def solved() -> Iterator[MagicMock]:
+@pytest.fixture(name="solved")
+def solved_fixture() -> Iterator[MagicMock]:
     """LeetCode solved today; reading not, so the stamps here are LeetCode's."""
     with answering({"leetcode": True, "reading": False}) as m:
         yield m
 
 
-@pytest.fixture
-def unsolved() -> Iterator[MagicMock]:
+@pytest.fixture(name="unsolved")
+def unsolved_fixture() -> Iterator[MagicMock]:
     with answering({"leetcode": False, "reading": False}) as m:
         yield m
 

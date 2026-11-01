@@ -49,8 +49,8 @@ def _mixin() -> MagicMock:
     return mixin
 
 
-@pytest.fixture
-def answers() -> Iterator[dict[str, bool | None]]:
+@pytest.fixture(name="answers")
+def answers_fixture() -> Iterator[dict[str, bool | None]]:
     """Every flat earner says no until a test sets it."""
     given: dict[str, bool | None] = {"leetcode": False, "reading": False}
     with answering(given):

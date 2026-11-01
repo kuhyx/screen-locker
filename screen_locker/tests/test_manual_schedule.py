@@ -48,8 +48,8 @@ def _draft(start: str = "18:00") -> ManualWorkoutDraft:
     )
 
 
-@pytest.fixture
-def stubs(tmp_path: Path) -> Iterator[SimpleNamespace]:
+@pytest.fixture(name="stubs")
+def stubs_fixture(tmp_path: Path) -> Iterator[SimpleNamespace]:
     """Redirect the ledger; stub Firebase pull, the publisher and the identity."""
     ledger = tmp_path / "pending.json"
     pulled: list[tuple[str, dict]] = []

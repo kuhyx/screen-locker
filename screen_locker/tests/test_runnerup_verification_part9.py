@@ -110,7 +110,7 @@ class TestPullAndParseTcx:
         object.__setattr__(locker, "_run_adb", MagicMock(side_effect=_fake_pull))
         result = locker._pull_and_parse_tcx("/sdcard/activity.tcx")
         assert result is not None
-        assert result["sport"] == 0
+        assert not result["sport"]
         assert result["duration_seconds"] == 2400
 
 

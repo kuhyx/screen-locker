@@ -32,17 +32,17 @@ class TestGatherStatus:
             snap = gather_status(**_files(tmp_path), now=_FRIDAY_NOON_UTC)
 
         assert snap.today.date == "2024-01-05"
-        assert snap.today.entry_types == ()
-        assert snap.today.day_count == 0
+        assert not snap.today.entry_types
+        assert not snap.today.day_count
         assert snap.today.counted is False
         assert snap.today.is_sick_day is False
-        assert snap.week.counted_count == 0
+        assert not snap.week.counted_count
         assert snap.week.remaining == 5
-        assert snap.week.extra == 0
+        assert not snap.week.extra
         assert snap.shutdown.tonight is None
         assert snap.shutdown.rest_of_week[0].minutes == 20 * 60
         assert snap.shutdown.rest_of_week[0].speculative is False
-        assert snap.streak == 0
+        assert not snap.streak
         assert snap.early_bird_extended is False
         assert snap.lock_explanation.fired is True
         assert snap.lock_explanation.stage == "would_lock"
@@ -121,7 +121,7 @@ class TestGatherStatus:
 
         assert snap.streak == 2
         assert snap.early_bird_extended is True
-        assert snap.week_rewards == ()
+        assert not snap.week_rewards
 
     def test_this_weeks_transition_message_is_surfaced(self, tmp_path: Path) -> None:
         """The reward text a week transition produced reaches the snapshot."""
@@ -166,8 +166,8 @@ class TestGatherStatus:
         ):
             snap = gather_status(**files, now=_FRIDAY_NOON_UTC)
 
-        assert snap.week.counted_count == 0
-        assert snap.today.entry_types == ()
+        assert not snap.week.counted_count
+        assert not snap.today.entry_types
 
     def test_now_defaults_to_current_time_when_omitted(self, tmp_path: Path) -> None:
         """Covers the ``now is None`` branch — just needs to not raise."""
@@ -187,9 +187,9 @@ class TestDayStatus:
     def test_no_entries_not_sick(self) -> None:
         """No entries not sick."""
         day = _day_status(date(2024, 1, 5), [], frozenset())
-        assert day.entry_types == ()
+        assert not day.entry_types
         assert day.counted is False
-        assert day.day_count == 0
+        assert not day.day_count
         assert day.is_sick_day is False
 
     def test_no_entries_but_sick(self) -> None:
@@ -200,10 +200,10 @@ class TestDayStatus:
     def test_non_dict_entries_dropped(self) -> None:
         """Corrupt log data (non-dict entries in the list) are skipped."""
         day = _day_status(date(2024, 1, 5), ["corrupt-string-entry"], frozenset())
-        assert day.entry_types == ()
+        assert not day.entry_types
         assert day.counted is False
-        assert day.day_count == 0
-        assert day.source == ""
+        assert not day.day_count
+        assert not day.source
 
     def test_multiple_entries_each_count_individually(self) -> None:
         """Two verified + two manual on one day → day_count 4, all types listed."""

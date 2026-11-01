@@ -78,7 +78,7 @@ class TestParseTcx:
         path = _write_tcx(tmp_path, _TCX_RUNNING)
         result = locker._parse_tcx(path)
         assert result is not None
-        assert result["sport"] == 0  # Running
+        assert not result["sport"]  # Running
         assert result["duration_seconds"] == 2400
         assert result["distance_m"] == 6000.0
 

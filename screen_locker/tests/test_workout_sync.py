@@ -89,7 +89,7 @@ class TestSessionRecords:
             fields={"other": (1, Hlc(wall_time_ms=1, counter=0, node_id="phone"))},
         )
         log = {"a": no_payload.to_dict()}
-        assert _workout_sync._session_records(json.dumps(log)) == {}
+        assert not _workout_sync._session_records(json.dumps(log))
 
     def test_raises_type_error_when_top_level_is_not_an_object(self) -> None:
         """Raises type error when top level is not an object."""
@@ -127,7 +127,7 @@ class TestManualRecords:
             fields={"other": (1, Hlc(wall_time_ms=1, counter=0, node_id="phone"))},
         )
         log = {"a": no_payload.to_dict()}
-        assert _workout_sync._manual_records(json.dumps(log)) == {}
+        assert not _workout_sync._manual_records(json.dumps(log))
 
     def test_raises_type_error_when_top_level_is_not_an_object(self) -> None:
         """Raises type error when top level is not an object."""

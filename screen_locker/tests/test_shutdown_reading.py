@@ -47,8 +47,8 @@ def apply_reading_bonus_if_new(state: Path, mixin: MagicMock) -> bool:
     return _apply_flat_bonus(state, mixin, earned_time.READING)
 
 
-@pytest.fixture
-def answers() -> Iterator[tuple[dict[str, bool | None], MagicMock]]:
+@pytest.fixture(name="answers")
+def answers_fixture() -> Iterator[tuple[dict[str, bool | None], MagicMock]]:
     """(answers, earned_today mock): every flat earner says no until set."""
     given: dict[str, bool | None] = {"leetcode": False, "reading": False}
     with answering(given) as mock:

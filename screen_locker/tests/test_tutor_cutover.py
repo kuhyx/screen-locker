@@ -30,8 +30,8 @@ if TYPE_CHECKING:
 _CUTOVER = date(2026, 10, 10)
 
 
-@pytest.fixture
-def tutor(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[Any]:
+@pytest.fixture(name="tutor")
+def tutor_fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[Any]:
     """The tutor registry from ``_CUTOVER``, its ledger signed, today pinned.
 
     Args:

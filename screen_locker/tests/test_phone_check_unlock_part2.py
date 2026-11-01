@@ -1,5 +1,4 @@
 """Tests for phone workout verification, phone check, and unlock operations."""
-# pylint: disable=protected-access,unused-argument
 
 from __future__ import annotations
 

@@ -16,13 +16,13 @@ from screen_locker.tests.test_web_server import (
     _get,
     _make_dist,
     _running,
-    real_loopback,
+    real_loopback_fixture,
 )
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-__all__ = ["real_loopback"]
+__all__ = ["real_loopback_fixture"]
 
 
 class TestStaticServing:

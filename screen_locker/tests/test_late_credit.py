@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 # Captured before conftest pins it to noon for every test.
-_REAL_NOW = _late_credit._now
+_real_now = _late_credit._now
 
 _DAY = date(2026, 10, 17)  # a Saturday: the Thu-Sun band is tonight's
 _ISO = _DAY.isoformat()
@@ -133,7 +133,7 @@ class TestLateCredit:
 
     def test_now_is_the_wall_clock(self) -> None:
         with patch.object(_late_credit.time, "time", return_value=123.0):
-            assert _REAL_NOW() == 123.0
+            assert _real_now() == 123.0
 
     def test_a_late_credit_clears_the_lift(self) -> None:
         """Past the shutdown the floor is spent: nothing is left to absorb."""

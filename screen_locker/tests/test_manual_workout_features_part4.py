@@ -2,7 +2,6 @@
 
 Split out of test_manual_workout_features_part2.py for the 250-line cap.
 """
-# pylint: disable=protected-access
 
 from __future__ import annotations
 
@@ -58,7 +57,7 @@ class TestApplyWorkoutCredit:
         result = locker._apply_workout_credit()
 
         assert result.shutdown_adjusted is False
-        assert result.extra_bonus_delta == 0
+        assert not result.extra_bonus_delta
         locker._try_adjust_shutdown_for_workout.assert_not_called()
         locker._adjust_shutdown_time_by.assert_not_called()
 
@@ -88,7 +87,7 @@ class TestApplyWorkoutCredit:
             result = locker._apply_credit_for_written_entry(prior)
 
         assert result.shutdown_adjusted is False
-        assert result.extra_bonus_delta == 0
+        assert not result.extra_bonus_delta
         locker._try_adjust_shutdown_for_workout.assert_not_called()
         locker._adjust_shutdown_time_by.assert_not_called()
         notify.assert_not_called()

@@ -138,7 +138,7 @@ class TestMergeDeviceRecords:
         merged = _workout_sync._merge_device_records(
             client, _workout_sync._session_records, "sessions"
         )
-        assert merged == {}
+        assert not merged
 
     def test_reraises_on_a_listing_failure_when_strict(self) -> None:
         """Callers separating "nothing to sync" from "sync broke" need the raise."""
