@@ -141,19 +141,19 @@ packages:
     dependency: "direct main"
     description:
       path: crdt_sync_dart
-      ref: "crdt_sync_dart-v0.11.1"
-      resolved-ref: "978d32af3af66f0d6500c4c6c0c6df5370ebe9a2"
+      ref: "crdt_sync_dart-v0.11.3"
+      resolved-ref: a2e7334dfec5131170a084510d70361d53dc40bc
       url: "https://github.com/kuhyx/utils"
     source: git
-    version: "0.11.1"
+    version: "0.11.3"
   crypto:
     dependency: "direct main"
     description:
       name: crypto
-      sha256: c8ea0233063ba03258fbcf2ca4d6dadfefe14f02fab57702265467a19f27fadf
+      sha256: e3626ae6270383c9e3a549f34c9e4cd26c09ae6a9adaab2bf4737a00340efdc4
       url: "https://pub.dev"
     source: hosted
-    version: "3.0.7"
+    version: "3.0.8"
   dbus:
     dependency: transitive
     description:
@@ -251,10 +251,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_local_notifications
-      sha256: "9ee28742343dd13df758bb4185e8ded37ac2d1aeca6648c3ba7862c99797517e"
+      sha256: fd5fc8966a8b34337ac182dc394f3506139b69d8138d4e9e174a13d6468adcd4
       url: "https://pub.dev"
     source: hosted
-    version: "22.3.2"
+    version: "22.3.3"
   flutter_local_notifications_linux:
     dependency: transitive
     description:
@@ -858,11 +858,11 @@ packages:
     dependency: "direct main"
     description:
       path: sync_settings_ui
-      ref: "sync_settings_ui-v0.4.1"
-      resolved-ref: "51700aa89eaf1789ae98491aaa854c54d35b4170"
+      ref: "sync_settings_ui-v0.4.3"
+      resolved-ref: def48e346bac0afee242fc99e45e5242361f7f61
       url: "https://github.com/kuhyx/utils"
     source: git
-    version: "0.4.1"
+    version: "0.4.3"
   synchronized:
     dependency: transitive
     description:
