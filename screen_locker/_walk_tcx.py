@@ -1,8 +1,8 @@
 """Walking in RunnerUp TCX exports: which files are walks, and their moving time.
 
 A day's walking counts as the workout once its walks -- usually separate
-commute legs, one file each -- add up to ``WALK_MIN_MOVING_MINUTES`` of
-*moving* time.
+commute legs, one file each -- add up to the shared workout duration bar
+(``WORKOUT_DURATION_ACCEPT_MINUTES``) of *moving* time.
 
 **Which files are walks.** RunnerUp's WebDAV and File synchronisers both
 export with ``ExportOptions.getDefault()``, whose TCX writer knows only
@@ -29,9 +29,10 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from screen_locker._constants import (
+    MIN_WORKOUT_DURATION_MINUTES,
     WALK_MAX_GAP_SECONDS,
-    WALK_MIN_MOVING_MINUTES,
     WALK_SPEED_MPS,
+    WORKOUT_DURATION_ACCEPT_MINUTES,
 )
 
 if TYPE_CHECKING:
@@ -109,7 +110,7 @@ class WalkDay:
     @property
     def qualifies(self) -> bool:
         """Whether the day's walking counts as its workout."""
-        return self.moving_minutes >= WALK_MIN_MOVING_MINUTES
+        return self.moving_minutes >= WORKOUT_DURATION_ACCEPT_MINUTES
 
     def message(self) -> str:
         """The verification line, in the RunnerUp verifier's own style."""
@@ -121,7 +122,7 @@ class WalkDay:
 
 def walk_shortfall(day: WalkDay) -> str:
     """Why a day's walking did not count yet."""
-    return f"{day.message()} -- need {WALK_MIN_MOVING_MINUTES}+ min moving"
+    return f"{day.message()} -- need {MIN_WORKOUT_DURATION_MINUTES}+ min moving"
 
 
 def walk_day(walks: Iterable[dict[str, Any]]) -> WalkDay:
@@ -134,7 +135,7 @@ def walk_day(walks: Iterable[dict[str, Any]]) -> WalkDay:
     completed_at: float | None = None
     for walk in ordered:
         moving += float(walk.get("moving_seconds", 0.0))
-        if completed_at is None and moving / 60 >= WALK_MIN_MOVING_MINUTES:
+        if completed_at is None and moving / 60 >= WORKOUT_DURATION_ACCEPT_MINUTES:
             completed_at = walk.get("ended_at")
     return WalkDay(
         legs=len(ordered),

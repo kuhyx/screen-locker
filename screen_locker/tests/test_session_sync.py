@@ -65,16 +65,16 @@ class TestValidateSession:
         assert "not a number" in detail
 
     def test_accepts_exactly_the_hidden_accept_threshold(self) -> None:
-        """35 min passes; the message still advertises the round 40."""
-        ok, _ = validate_session(_session(duration_seconds=35 * 60))
+        """25 min passes; the message still advertises the round 30."""
+        ok, _ = validate_session(_session(duration_seconds=25 * 60))
         assert ok
 
     def test_rejects_just_below_the_accept_threshold(self) -> None:
-        ok, detail = validate_session(_session(duration_seconds=34 * 60 + 59))
+        ok, detail = validate_session(_session(duration_seconds=24 * 60 + 59))
         assert not ok
-        # The real bar (35) must never leak into a user-visible string.
-        assert "35" not in detail
-        assert "40 min" in detail
+        # The real bar (25) must never leak into a user-visible string.
+        assert "25" not in detail
+        assert "30 min" in detail
 
 
 class TestBuildSessionEntry:

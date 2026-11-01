@@ -106,14 +106,14 @@ class TestValidateRunnerupDataOrCriteria:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """3.0 km in 25 min misses both branches; message names both."""
+        """3.0 km in 20 min misses both branches; message names both."""
         locker = create_locker(mock_tk, tmp_path)
         status, msg = locker._validate_runnerup_data(
-            {"sport": 0, "duration_seconds": 1500, "distance_m": 3000}
+            {"sport": 0, "duration_seconds": 1200, "distance_m": 3000}
         )
         assert status == "too_short"
         # Pinned literally: a ':.0f' format spec would render 3.5 as "4".
-        assert "need 3.5+ km or 40+ min" in msg
+        assert "need 3.5+ km or 30+ min" in msg
 
     def test_distance_boundary_is_inclusive(
         self,
@@ -134,22 +134,22 @@ class TestValidateRunnerupDataOrCriteria:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Runs answer to the shared accept bar (35), not the advertised 40.
+        """Runs answer to the shared accept bar (25), not the advertised 30.
 
         The distance stays at 1 km throughout so the OR distance arm cannot
         rescue the run — this pins the duration arm alone.
         """
         locker = create_locker(mock_tk, tmp_path)
         just_under, _ = locker._validate_runnerup_data(
-            {"sport": 0, "duration_seconds": 2094, "distance_m": 1000}
+            {"sport": 0, "duration_seconds": 1494, "distance_m": 1000}
         )
         assert just_under == "too_short"
         at_accept_bar, _ = locker._validate_runnerup_data(
-            {"sport": 0, "duration_seconds": 2100, "distance_m": 1000}
+            {"sport": 0, "duration_seconds": 1500, "distance_m": 1000}
         )
         assert at_accept_bar == "verified"
 
-    def test_too_short_message_advertises_40_not_the_real_cutoff(
+    def test_too_short_message_advertises_30_not_the_real_cutoff(
         self,
         mock_tk: MagicMock,
         mock_sys_exit: MagicMock,

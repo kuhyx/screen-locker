@@ -53,13 +53,13 @@ WORKOUT_APP_JSON_REMOTES = (
 )
 # Port the workout app's HTTP server listens on (no ADB/developer-options needed).
 WORKOUT_HTTP_PORT = 8765
-# The ONE duration bar every workout type answers to — weightlifting, manual
-# entries and runs alike. This is the ADVERTISED number: it is the only one
-# that may ever appear in a message the user reads.
-MIN_WORKOUT_DURATION_MINUTES = 40
+# The ONE duration bar every activity answers to — weightlifting, manual
+# entries, runs and walks (summed moving time) alike. This is the ADVERTISED
+# number: it is the only one that may ever appear in a message the user reads.
+MIN_WORKOUT_DURATION_MINUTES = 30
 # ...and this is the leeway that is deliberately INVISIBLE. A session is
-# actually accepted at MIN_WORKOUT_DURATION_MINUTES - this, so 35 minutes
-# passes while every string still says 40. That gap is intentional (the user
+# actually accepted at MIN_WORKOUT_DURATION_MINUTES - this, so 25 minutes
+# passes while every string still says 30. That gap is intentional (the user
 # asked for it explicitly): do NOT "fix" the inconsistency by advertising the
 # real cutoff, and never interpolate WORKOUT_DURATION_ACCEPT_MINUTES into an
 # f-string.
@@ -67,7 +67,7 @@ WORKOUT_DURATION_LEEWAY_MINUTES = 5
 # Derived so the advertised bar and the accept bar cannot drift apart.
 # Comparisons use this; messages use MIN_WORKOUT_DURATION_MINUTES. Every
 # caller compares with `>=` — one operator across all workout types, so a
-# 35.0-minute session cannot pass one gate and fail another.
+# 25.0-minute session cannot pass one gate and fail another.
 WORKOUT_DURATION_ACCEPT_MINUTES = (
     MIN_WORKOUT_DURATION_MINUTES - WORKOUT_DURATION_LEEWAY_MINUTES
 )
@@ -106,8 +106,8 @@ REST_DAY_FILE = Path(__file__).resolve().parent / "rest_days.json"
 REST_DAYS_PER_ISO_WEEK = 2
 GRACE_STATE_FILE = Path(__file__).resolve().parent / "grace_floor.json"
 # A day's RunnerUp walks (commute legs) count as the workout once their
-# MOVING time sums to this; moving = trackpoint pairs at walking speed.
-WALK_MIN_MOVING_MINUTES = 40
+# MOVING time reaches WORKOUT_DURATION_ACCEPT_MINUTES (the shared bar above);
+# moving = trackpoint pairs at walking speed.
 WALK_SPEED_MPS = (0.5, 3.0)
 WALK_MAX_GAP_SECONDS = 30
 # Workout records this PC must keep deleted in the sync store, pushed as

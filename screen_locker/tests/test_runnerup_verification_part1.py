@@ -156,16 +156,16 @@ class TestValidateRunnerupData:
     ) -> None:
         """Both criteria missed → too_short naming both.
 
-        0.1 km is far under the distance line and 30 min is under the duration
+        0.1 km is far under the distance line and 20 min is under the duration
         line, so neither branch of the OR qualifies.
         """
         locker = create_locker(mock_tk, tmp_path)
         status, msg = locker._validate_runnerup_data(
-            {"sport": 0, "duration_seconds": 1800, "distance_m": 100}
+            {"sport": 0, "duration_seconds": 1200, "distance_m": 100}
         )
         assert status == "too_short"
         assert "3.5+ km" in msg
-        assert "40+ min" in msg
+        assert "30+ min" in msg
 
     def test_valid_run_returns_verified(
         self,

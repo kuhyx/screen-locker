@@ -97,8 +97,8 @@ class TestVerifyToday:
             return verifier._verify_runnerup_via_files()
 
     def test_walks_summing_to_the_bar_verify(self, verifier: Verifier) -> None:
-        drop(verifier.folder, "08-00-00_Walking", tcx("Other", 25, "08:00"))
-        drop(verifier.folder, "17-00-00_Walking", tcx("Other", 20, "17:00"))
+        drop(verifier.folder, "08-00-00_Walking", tcx("Other", 15, "08:00"))
+        drop(verifier.folder, "17-00-00_Walking", tcx("Other", 12, "17:00"))
         result = self._verify(verifier)
         assert result is not None
         assert result[0] == "verified"
@@ -111,7 +111,7 @@ class TestVerifyToday:
         drop(verifier.folder, "08-00-00_Walking", tcx("Other", 60, "08:00", 0.1))
         assert self._verify(verifier) == (
             "too_short",
-            "Walking: 1 walk(s), 0.4 km, 0 min moving -- need 40+ min moving",
+            "Walking: 1 walk(s), 0.4 km, 0 min moving -- need 30+ min moving",
         )
 
     def test_a_run_still_verifies_beside_short_walks(self, verifier: Verifier) -> None:
@@ -135,8 +135,8 @@ class TestBackfill:
     def test_walks_are_logged_as_one_workout(
         self, verifier: Verifier, tmp_path: Path
     ) -> None:
-        drop(verifier.folder, "08-00-00_Walking", tcx("Other", 25, "08:00"))
-        drop(verifier.folder, "17-00-00_Walking", tcx("Other", 20, "17:00"))
+        drop(verifier.folder, "08-00-00_Walking", tcx("Other", 15, "08:00"))
+        drop(verifier.folder, "17-00-00_Walking", tcx("Other", 12, "17:00"))
         log = tmp_path / "log.json"
         ingested = MagicMock()
         assert verifier._try_fill_runnerup_for_date(_DAY, log, ingested) is True
@@ -144,10 +144,10 @@ class TestBackfill:
         data = entry["workout_data"]
         assert data["type"] == "runnerup_verified"
         assert data["activity"] == "walking"
-        assert data["duration_minutes"] == pytest.approx(45)
+        assert data["duration_minutes"] == pytest.approx(27)
         assert (
             data["completed_at"]
-            == datetime(2026, 10, 10, 17, 20, tzinfo=UTC).timestamp()
+            == datetime(2026, 10, 10, 17, 12, tzinfo=UTC).timestamp()
         )
         ingested.assert_called_once()
         # The same day again is the same slot: nothing new.
@@ -159,7 +159,7 @@ class TestBackfill:
         tmp_path: Path,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        drop(verifier.folder, "08-00-00_Walking", tcx("Other", 30, "08:00"))
+        drop(verifier.folder, "08-00-00_Walking", tcx("Other", 20, "08:00"))
         log = tmp_path / "log.json"
         with caplog.at_level(logging.WARNING):
             assert verifier._try_fill_runnerup_for_date(_DAY, log) is False

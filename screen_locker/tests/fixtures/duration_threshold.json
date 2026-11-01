@@ -8,16 +8,16 @@
     "threshold, change it here and watch both suites fail together.",
     "",
     "advertised_minutes is the ONLY number that may appear in a user-facing",
-    "message. accept_minutes is deliberately invisible: a 35-minute session",
-    "passes while every string still says 40. Do not advertise accept_minutes."
+    "message. accept_minutes is deliberately invisible: a 25-minute session",
+    "passes while every string still says 30. Do not advertise accept_minutes."
   ],
-  "advertised_minutes": 40,
+  "advertised_minutes": 30,
   "leeway_minutes": 5,
-  "accept_minutes": 35,
+  "accept_minutes": 25,
   "cases": [
-    { "duration_minutes": 34, "accepted": false },
-    { "duration_minutes": 35, "accepted": true },
-    { "duration_minutes": 40, "accepted": true },
+    { "duration_minutes": 24, "accepted": false },
+    { "duration_minutes": 25, "accepted": true },
+    { "duration_minutes": 30, "accepted": true },
     { "duration_minutes": 60, "accepted": true }
   ]
 }

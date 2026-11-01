@@ -91,12 +91,12 @@ class TestValidateRunnerupDataDistanceTolerance:
     ) -> None:
         """3.45 km * 1.05 = 3.62 >= 3.5 km minimum → verified.
 
-        Duration is held under 40 min so the distance branch is what is
+        Duration is held under the 25-min accept bar so the distance branch is what is
         actually under test, not the duration branch of the OR.
         """
         locker = create_locker(mock_tk, tmp_path)
         status, msg = locker._validate_runnerup_data(
-            {"sport": 0, "duration_seconds": 1500, "distance_m": 3450.0}
+            {"sport": 0, "duration_seconds": 1200, "distance_m": 3450.0}
         )
         assert status == "verified"
         assert "3.5 km" in msg
@@ -109,11 +109,12 @@ class TestValidateRunnerupDataDistanceTolerance:
     ) -> None:
         """3.0 km * 1.05 = 3.15 km, still short of the 3.5 km minimum → too_short.
 
-        Duration is under 40 min so the duration branch cannot rescue it.
+        Duration is under the 25-min accept bar so the duration branch cannot
+        rescue it.
         """
         locker = create_locker(mock_tk, tmp_path)
         status, msg = locker._validate_runnerup_data(
-            {"sport": 0, "duration_seconds": 1500, "distance_m": 3000}
+            {"sport": 0, "duration_seconds": 1200, "distance_m": 3000}
         )
         assert status == "too_short"
         assert "3.5+ km" in msg
@@ -128,6 +129,6 @@ class TestValidateRunnerupDataDistanceTolerance:
         additive leeway, not a stricter requirement)."""
         locker = create_locker(mock_tk, tmp_path)
         status, _ = locker._validate_runnerup_data(
-            {"sport": 0, "duration_seconds": 1947, "distance_m": 5000}
+            {"sport": 0, "duration_seconds": 1200, "distance_m": 5000}
         )
         assert status == "verified"

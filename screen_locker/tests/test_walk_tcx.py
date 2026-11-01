@@ -111,12 +111,12 @@ class TestWalkDay:
         assert day.legs == 3
         assert day.moving_minutes == pytest.approx(50)
         assert day.distance_km == pytest.approx(6)
-        assert day.completed_at == 200.0  # a (25) + b (20) crosses 40 at b's end
+        assert day.completed_at == 100.0  # a (25) alone crosses the bar at its end
         assert day.qualifies
         assert day.message() == "Walking: 3 walk(s), 6.0 km, 50 min moving"
 
     def test_the_same_walk_from_two_sources_counts_once(self) -> None:
-        copy = leg("same", 30, 100.0)
+        copy = leg("same", 20, 100.0)
         day = walk_day([copy, dict(copy)])
         assert day.legs == 1
         assert not day.qualifies
@@ -130,5 +130,12 @@ class TestWalkDay:
         assert day.completed_at is None
 
     def test_shortfall_says_what_is_missing(self) -> None:
-        text = walk_shortfall(walk_day([leg("a", 30, 1.0)]))
-        assert text.endswith("need 40+ min moving")
+        text = walk_shortfall(walk_day([leg("a", 20, 1.0)]))
+        assert text.endswith("need 30+ min moving")
+
+    def test_walks_share_the_one_workout_accept_bar(self) -> None:
+        # Same advertised-30 / accept-25 bar as every other workout type.
+        assert not walk_day([leg("a", 24.9, 1.0)]).qualifies
+        day = walk_day([leg("a", 25, 1.0)])
+        assert day.qualifies
+        assert day.completed_at == 1.0
