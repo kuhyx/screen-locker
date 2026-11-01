@@ -15,21 +15,42 @@
 #                                                   union N shards' lcov files
 #                                                   into coverage/lcov.info,
 #                                                   then both checks
+#   scripts/check_flutter_coverage.sh --gate-shard I
+#                                                   local-gate form of --shard:
+#                                                   bucket I of GATE_SHARDS on
+#                                                   a CLEAN tree, lcov kept for
+#                                                   that tree hash
+#   scripts/check_flutter_coverage.sh --gate-merge  the checks on the union of
+#                                                   ALL GATE_SHARDS kept lcovs
+#                                                   of the current tree
 #
 # Why shards: the suite took ~150 s on one 4-core runner, almost all of it
 # compiling 77 test files. `flutter test --total-shards` cannot help -- it
 # splits the test CASES inside every file, so each shard still compiles all
 # 77 -- hence buckets of whole files, one per CI runner, and a fan-in job that
 # runs the same two checks on their union.
+#
+# The --gate-* forms exist because one whole-suite run (~96 s under the 4 GiB
+# cap) outlives the 60 s per-command limit. They are the manual-stage hooks
+# flutter-test-coverage-shard-0..N-1 and flutter-test-coverage-merge, and stay
+# fail-closed: a shard refuses a tree that is not exactly HEAD, files its lcov
+# under that tree's hash, and the merge refuses unless every shard of the SAME
+# tree is present -- so the gate stamp needs all shards green on one tree.
 set -euo pipefail
 
 APP_DIR="stronglift_replacement/workout_app"
 LCOV_INFO="$APP_DIR/coverage/lcov.info"
+# Number of local-gate buckets; must equal the flutter-test-coverage-shard-*
+# hooks in .pre-commit-config.yaml (the merge counts them, see below).
+GATE_SHARDS=4
 
 die() {
   echo "ERROR: $*" >&2
   exit 1
 }
+
+# shellcheck source=flutter_coverage_lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/flutter_coverage_lib.sh"
 
 # Runs `flutter test --coverage` in the app, on the given test files (none =
 # the whole suite).
@@ -50,72 +71,6 @@ run_flutter_tests() {
     flutter test --coverage "${concurrency[@]}" "$@")
 }
 
-# Prints bucket INDEX of TOTAL: every TOTAL-th test file, in a fixed sort
-# order, so the N buckets partition the suite exactly.
-shard_files() {
-  local index=$1 total=$2 i=0 file
-  while IFS= read -r file; do
-    if (( i % total == index )); then
-      printf '%s\n' "$file"
-    fi
-    i=$(( i + 1 ))
-  done < <(cd "$APP_DIR" && find test -name '*_test.dart' | LC_ALL=C sort)
-}
-
-# Writes to OUT the union of the given lcov files: per source file, every
-# line any shard instrumented, hit if any shard hit it -- which is what one
-# unsharded run reports, since flutter merges its test isolates the same way.
-# LF/LH are recomputed from that union rather than summed, because a lib file
-# loaded by two shards would otherwise count its lines twice.
-merge_lcov() {
-  local out=$1 file line sf="" rest ln hits key lf lh
-  shift
-  local -A hit=() lines_of=() seen=()
-  local -a order=()
-  for file in "$@"; do
-    while IFS= read -r line; do
-      case $line in
-        SF:*)
-          sf=${line#SF:}
-          if [[ -z ${seen[$sf]:-} ]]; then
-            seen[$sf]=1
-            order+=("$sf")
-          fi
-          ;;
-        DA:*)
-          rest=${line#DA:}
-          ln=${rest%%,*}
-          rest=${rest#*,}
-          hits=${rest%%,*}
-          key="$sf|$ln"
-          if [[ -z ${hit[$key]:-} ]]; then
-            hit[$key]=$hits
-            lines_of[$sf]+="$ln "
-          else
-            hit[$key]=$(( hit[$key] + hits ))
-          fi
-          ;;
-      esac
-    done < "$file"
-  done
-  mkdir -p "$(dirname "$out")"
-  for sf in "${order[@]}"; do
-    echo "SF:$sf"
-    lf=0
-    lh=0
-    for ln in ${lines_of[$sf]:-}; do
-      echo "DA:$ln,${hit[$sf|$ln]}"
-      lf=$(( lf + 1 ))
-      if (( hit[$sf|$ln] > 0 )); then
-        lh=$(( lh + 1 ))
-      fi
-    done
-    echo "LF:$lf"
-    echo "LH:$lh"
-    echo "end_of_record"
-  done > "$out"
-}
-
 case "${1:-}" in
   "")
     run_flutter_tests
@@ -130,6 +85,45 @@ case "${1:-}" in
     echo "Shard $index/$total: ${#files[@]} test files"
     run_flutter_tests "${files[@]}"
     exit 0
+    ;;
+  --gate-shard)
+    [[ ${2:-} =~ ^[0-9]+$ ]] || die "--gate-shard wants a shard index"
+    index=$2
+    (( index < GATE_SHARDS )) || die "shard index $index is not below $GATE_SHARDS"
+    require_hooks_match
+    require_clean_tree
+    tree=$(git rev-parse 'HEAD^{tree}')
+    dir=$(gate_dir)
+    # Older trees can never be stamped again; this bounds the cache.
+    find "$dir" -mindepth 1 -maxdepth 1 -type d ! -name "$tree" -exec rm -rf {} + 2>/dev/null || true
+    mkdir -p "$dir/$tree"
+    rm -f "$dir/$tree/shard-$index.lcov"
+    mapfile -t files < <(shard_files "$index" "$GATE_SHARDS")
+    (( ${#files[@]} > 0 )) || die "shard $index/$GATE_SHARDS has no test files"
+    echo "Gate shard $index/$GATE_SHARDS: ${#files[@]} test files, tree ${tree:0:12}"
+    rm -f "$LCOV_INFO"
+    run_flutter_tests "${files[@]}"
+    [[ -s "$LCOV_INFO" ]] || die "flutter produced no $LCOV_INFO"
+    # The tests must have left the tree untouched, or the lcov is not "of" it.
+    require_clean_tree
+    [[ $(git rev-parse 'HEAD^{tree}') == "$tree" ]] || die "HEAD moved while the shard ran"
+    cp "$LCOV_INFO" "$dir/$tree/shard-$index.lcov.tmp"
+    mv -f "$dir/$tree/shard-$index.lcov.tmp" "$dir/$tree/shard-$index.lcov"
+    echo "Recorded shard $index for tree ${tree:0:12}."
+    exit 0
+    ;;
+  --gate-merge)
+    require_hooks_match
+    require_clean_tree
+    tree=$(git rev-parse 'HEAD^{tree}')
+    dir=$(gate_dir)/$tree
+    shard_lcovs=()
+    for (( i = 0; i < GATE_SHARDS; i++ )); do
+      [[ -s "$dir/shard-$i.lcov" ]] \
+        || die "no lcov for shard $i of tree ${tree:0:12} -- run hook flutter-test-coverage-shard-$i first."
+      shard_lcovs+=("$dir/shard-$i.lcov")
+    done
+    merge_lcov "$LCOV_INFO" "${shard_lcovs[@]}"
     ;;
   --merged)
     [[ ${2:-} =~ ^[1-9][0-9]*$ ]] || die "--merged wants a shard count first"

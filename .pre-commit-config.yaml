@@ -272,12 +272,46 @@ repos:
         language: system
         files: '^stronglift_replacement/workout_app/.*\.(dart|yaml)$'
         pass_filenames: false
-      - id: flutter-test-coverage
-        name: flutter test --coverage 100% (workout app)
-        entry: bash scripts/check_flutter_coverage.sh
+      - id: flutter-test-coverage-shard-0
+        name: flutter test bucket 0/4 (workout app, local gate)
+        entry: bash scripts/check_flutter_coverage.sh --gate-shard 0
         language: system
-        files: '^stronglift_replacement/workout_app/.*\.dart$'
         pass_filenames: false
+        always_run: true
+        require_serial: true
+        stages: [manual]
+      - id: flutter-test-coverage-shard-1
+        name: flutter test bucket 1/4 (workout app, local gate)
+        entry: bash scripts/check_flutter_coverage.sh --gate-shard 1
+        language: system
+        pass_filenames: false
+        always_run: true
+        require_serial: true
+        stages: [manual]
+      - id: flutter-test-coverage-shard-2
+        name: flutter test bucket 2/4 (workout app, local gate)
+        entry: bash scripts/check_flutter_coverage.sh --gate-shard 2
+        language: system
+        pass_filenames: false
+        always_run: true
+        require_serial: true
+        stages: [manual]
+      - id: flutter-test-coverage-shard-3
+        name: flutter test bucket 3/4 (workout app, local gate)
+        entry: bash scripts/check_flutter_coverage.sh --gate-shard 3
+        language: system
+        pass_filenames: false
+        always_run: true
+        require_serial: true
+        stages: [manual]
+      # Fails unless every shard above passed on THIS tree, then applies the
+      # unchanged 100% bar and every-lib-file guard to their union.
+      - id: flutter-test-coverage-merge
+        name: flutter coverage 100% (union of the 4 buckets)
+        entry: bash scripts/check_flutter_coverage.sh --gate-merge
+        language: system
+        pass_filenames: false
+        always_run: true
         require_serial: true
         stages: [manual]
 
