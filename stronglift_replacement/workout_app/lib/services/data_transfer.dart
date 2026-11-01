@@ -3,9 +3,6 @@ import 'dart:convert';
 import 'package:data_transfer_flutter/data_transfer_flutter.dart';
 import 'package:workout_app/services/storage_service.dart';
 
-String _exportFileName(DateTime now) =>
-    'workout_app-export-${now.toIso8601String().substring(0, 10)}.json';
-
 /// Parses [source] and merges it; throws [FormatException] on a bad file.
 Future<ImportReport> importExportText(String source) async {
   final decoded = jsonDecode(source);
@@ -16,6 +13,9 @@ Future<ImportReport> importExportText(String source) async {
 }
 
 // coverage:ignore-start
+
+String _exportFileName(DateTime now) =>
+    'workout_app-export-${now.toIso8601String().substring(0, 10)}.json';
 
 /// Saves an export via the system Save-as picker; false when cancelled.
 Future<bool> exportUserData() async {

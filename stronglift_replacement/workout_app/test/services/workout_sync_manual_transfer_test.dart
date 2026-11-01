@@ -91,4 +91,29 @@ void main() {
     expect(await port.push({manual.id: manual}), false);
     expect(putCalls, isEmpty);
   });
+
+  test('read mirrors through Firebase and returns an empty log', () async {
+    installFakeSecureStorage(initial: {'sync.token': 'tok'});
+    final (:httpClient, putCalls: _) = mockGitHub(
+      contentResponses: {'screen-locker-sync/devices': syncResponse(200, [])},
+    );
+    final firebase = fakeFirebase().client;
+    final port = SyncManualWorkoutPort(
+      syncService(
+        httpClient: httpClient,
+        firebaseFactory: () async => firebase,
+      ),
+    );
+    expect(await port.read(), isEmpty);
+  });
+
+  test('the default port builds its own sync service', () {
+    expect(SyncManualWorkoutPort(), isA<ManualWorkoutPort>());
+  });
+
+  test('the offline port reads null and refuses pushes', () async {
+    const port = OfflineManualWorkoutPort();
+    expect(await port.read(), isNull);
+    expect(await port.push({manual.id: manual}), false);
+  });
 }
