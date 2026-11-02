@@ -8,7 +8,8 @@ tombstones ``_manual_push`` re-publishes every tick, and dropping it would
 let a retracted session be credited again -- but an event that touched only
 this PC's log never triggers a pass.
 
-Crediting is :func:`screen_locker._poke_credit.credit_sessions` under the
+Crediting is :func:`screen_locker._poke_credit.credit_sessions` (and
+``credit_manual_workouts`` for phone-logged manual workouts) under the
 same in-process lock as the LAN poke handler. ``write_signed_entry`` already
 dedups by workout id; the ``seen`` set here only spares the file I/O for
 records this daemon has already handed to the ingest.
@@ -23,11 +24,19 @@ from typing import TYPE_CHECKING, Final
 
 from screen_locker import _poke_credit
 from screen_locker._rtdb_stream import LOG_LEAF, device_updates
-from screen_locker._sync_records import _session_records, merge_device_texts
+from screen_locker._sync_records import (
+    _manual_records,
+    _session_records,
+    merge_device_texts,
+)
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     import threading
 
+    from crdt_sync import Hlc
+
+    from screen_locker._poke_credit import BatchOutcome
     from screen_locker._rtdb_stream import SseEvent
 
 __all__ = ["DeviceLogCache", "EventResult"]
@@ -78,15 +87,17 @@ class DeviceLogCache:
                 self._texts[dev] = text
         return changed
 
-    def _pending(self) -> list[tuple[str, dict[str, object], str]]:
-        """Union records this daemon has not yet handed to the ingest."""
+    def _pending(
+        self, extract: Callable[[str], dict[str, tuple[dict, Hlc]]], what: str
+    ) -> list[tuple[str, dict[str, object], str]]:
+        """Union ``extract`` records this daemon has not yet handed to the ingest."""
         union = merge_device_texts(
             (
                 (f"{self._prefix}/{dev}/{LOG_LEAF}", text)
                 for dev, text in sorted(self._texts.items())
             ),
-            _session_records,
-            "sessions",
+            extract,
+            what,
         )
         return [
             (rid, payload, str(hlc))
@@ -115,37 +126,60 @@ class DeviceLogCache:
                 snapshot=False,
                 summary=f"only this PC's own log changed ({devices}); no credit",
             )
-        pending = self._pending()
-        if not pending:
+        sessions = self._pending(_session_records, "sessions")
+        manuals = self._pending(_manual_records, "manual workouts")
+        if not sessions and not manuals:
             return EventResult(
                 snapshot=full,
                 summary=f"{len(self._texts)} device log(s) cached, changed: {devices}; "
-                f"every session already handed to the ingest -- no-op, no file I/O "
-                f"({_ms(started)} ms)",
+                f"every session and manual workout already handed to the ingest "
+                f"-- no-op, no file I/O ({_ms(started)} ms)",
             )
         try:
             with self._gate:
-                outcome = _poke_credit.credit_sessions(
-                    [(rid, payload) for rid, payload, _hlc in pending]
-                )
+                done = [
+                    _credit(pending, credit, what)
+                    for pending, credit, what in (
+                        (sessions, _poke_credit.credit_sessions, "session"),
+                        (
+                            manuals,
+                            _poke_credit.credit_manual_workouts,
+                            "manual workout",
+                        ),
+                    )
+                    if pending
+                ]
         except Exception:  # pylint: disable=broad-exception-caught  # one bad event must not drop the stream
             # Not a stream problem: keep the connection (a reconnect would
             # re-download the snapshot and fail the same way). Nothing is
             # marked seen, so the next event retries.
             _logger.exception(
-                "Crediting %d streamed session(s) failed; the next stream event "
-                "retries, and the 15-min workout-sync still covers them",
-                len(pending),
+                "Crediting %d streamed session(s) and %d manual workout(s) failed; "
+                "the next stream event retries, and the 15-min workout-sync still "
+                "covers them",
+                len(sessions),
+                len(manuals),
             )
             return EventResult(snapshot=full, summary="crediting failed (see above)")
-        self._seen.update((rid, hlc) for rid, _payload, hlc in pending)
+        self._seen.update((rid, hlc) for rid, _payload, hlc in [*sessions, *manuals])
         return EventResult(
             snapshot=full,
             summary=f"{len(self._texts)} device log(s) cached, changed: {devices}; "
-            f"{len(pending)} session(s) checked, {len(outcome.ingested)} newly "
-            f"logged {list(outcome.ingested)}, {outcome.credited} credited "
-            f"({_ms(started)} ms)",
+            f"{'; '.join(done)} ({_ms(started)} ms)",
         )
+
+
+def _credit(
+    pending: list[tuple[str, dict[str, object], str]],
+    credit: Callable[[list[tuple[str, dict[str, object]]]], BatchOutcome],
+    what: str,
+) -> str:
+    """Run one batch credit step; describe what it did."""
+    outcome = credit([(rid, payload) for rid, payload, _hlc in pending])
+    return (
+        f"{len(pending)} {what}(s) checked, {len(outcome.ingested)} newly "
+        f"logged {list(outcome.ingested)}, {outcome.credited} credited"
+    )
 
 
 def _ms(started: float) -> int:

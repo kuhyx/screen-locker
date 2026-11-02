@@ -154,7 +154,9 @@ class TestFailures:
         failures = [r for r in caplog.records if r.levelno >= logging.ERROR]
         assert failures
         assert failures[0].exc_info is not None
-        assert "Crediting 1 streamed session(s) failed" in failures[0].getMessage()
+        assert (
+            "Crediting 1 streamed session(s) and 0 manual" in failures[0].getMessage()
+        )
         credit.error = None
         cache.handle(snapshot({"phone": log_blob("s1")}))
         assert credit.batches == [["s1"]]

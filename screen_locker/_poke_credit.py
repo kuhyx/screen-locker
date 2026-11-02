@@ -30,6 +30,7 @@ from screen_locker._day import today_str
 from screen_locker._earned import hhmm
 from screen_locker._extra_benefits import process_week_transition
 from screen_locker._grace_floor import tonight_minutes
+from screen_locker._manual_sync import ingest_manual_records
 from screen_locker._session_sync import ingest_session_records, validate_session
 from screen_locker._shutdown import read_shutdown_config
 from screen_locker._shutdown_base import reset_to_base_if_new_day
@@ -45,6 +46,7 @@ if TYPE_CHECKING:
 __all__ = [
     "BatchOutcome",
     "PokeOutcome",
+    "credit_manual_workouts",
     "credit_session",
     "credit_sessions",
     "current_gaming_minutes",
@@ -201,11 +203,40 @@ def credit_sessions(
         results.append(locker.credit_written(entry, prior_entries))
 
     ingested = ingest_session_records(locker.log_file, records, on_ingested=on_ingested)
+    return _outcome(ingested, results, "session")
+
+
+def credit_manual_workouts(
+    records: Iterable[tuple[str, Mapping[str, object]]],
+    *,
+    today: str | None = None,
+) -> BatchOutcome:
+    """``credit_sessions`` for manual workouts, via ``ingest_manual_records``."""
+    locker = fresh_locker()
+    locker.start_the_day()
+    results: list[WorkoutCreditResult] = []
+
+    def on_ingested(
+        entry: dict[str, str], prior_entries: list[dict[str, object]]
+    ) -> None:
+        results.append(locker.credit_written(entry, prior_entries))
+
+    ingested = ingest_manual_records(
+        locker.log_file, records, today=today, on_ingested=on_ingested
+    )
+    return _outcome(ingested, results, "manual workout")
+
+
+def _outcome(
+    ingested: list[str], results: list[WorkoutCreditResult], what: str
+) -> BatchOutcome:
+    """Count what earned time; warn about logged copies that earned none."""
     credited = sum(not result.already_counted_today for result in results)
     if len(results) > credited:
         _logger.warning(
-            "%d streamed session(s) were logged but earned no time: today's slot "
+            "%d streamed %s(s) were logged but earned no time: today's slot "
             "was already paid by another copy of the same workout",
             len(results) - credited,
+            what,
         )
     return BatchOutcome(ingested=tuple(ingested), credited=credited)
