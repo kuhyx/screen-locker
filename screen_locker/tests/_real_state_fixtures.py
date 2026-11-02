@@ -215,3 +215,9 @@ def _no_real_ntp() -> Iterator[None]:
     """
     with patch("screen_locker._time_check._query_ntp_offset", return_value=None):
         yield
+
+
+@pytest.fixture(autouse=True)
+def _no_live_focus_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """No live focus project reshapes the registry (earned_time >= 0.19)."""
+    monkeypatch.setenv("FOCUS_PROJECT_DATA", str(tmp_path / "focus_project"))

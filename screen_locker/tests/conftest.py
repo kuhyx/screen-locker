@@ -21,7 +21,7 @@ import pytest
 
 from screen_locker import _sync_client
 from screen_locker._degraded_sources import clear_degraded_sources
-from screen_locker._earned import flat_earners
+from screen_locker._earned import watched_earners
 from screen_locker.tests._gatelock_fixtures import (
     FAKE_OUTPUTS,
     TWO_OUTPUTS,
@@ -183,8 +183,8 @@ def _isolate_state_files(tmp_path: Path) -> Iterator[None]:
         yield
 
 
-# Every registered flat earner's live-pass stamp, so a future one is seeded too.
-_SEEDED_STAMPS = ("last_reset_date", *(f"{e.name}_bonus_date" for e in flat_earners()))
+# Every registry's flat earners (a live focus project hides some today).
+_BONUS = [f"{e.name}_bonus_date" for e in watched_earners() if e.kind == "flat"]
 
 
 @pytest.fixture(autouse=True)
@@ -200,7 +200,7 @@ def _isolate_shutdown_base(tmp_path: Path) -> Iterator[None]:
     """
     target = tmp_path / "shutdown_base.json"
     today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
-    target.write_text(json.dumps(dict.fromkeys(_SEEDED_STAMPS, today)))
+    target.write_text(json.dumps(dict.fromkeys(["last_reset_date", *_BONUS], today)))
     with (
         patch("screen_locker._constants.SHUTDOWN_BASE_FILE", target),
         patch("screen_locker._startup_checks.SHUTDOWN_BASE_FILE", target),
