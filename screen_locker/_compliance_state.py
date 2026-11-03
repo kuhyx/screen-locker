@@ -38,6 +38,7 @@ from screen_locker._compliance_trace import (
     describe_degraded_sources,
 )
 from screen_locker._day import today_str as local_day
+from screen_locker._hold import workout_hold_active
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -153,7 +154,6 @@ def _chain_flags(
     relaxed_day: bool,
     wake_skip: bool,
     evening_lockdown: bool,
-    hold: bool,
     local_dt: datetime,
     pending: bool,
 ) -> dict[str, bool]:
@@ -167,7 +167,7 @@ def _chain_flags(
         "sick_day": is_sick_day_today(local_dt.date()),
         "already_logged": has_logged_today(log_file, today=today_str),
         "wake_alarm_skip": wake_skip,
-        "test_hold_active": hold,
+        "test_hold_active": workout_hold_active(local_dt),
         "relaxed_day_already_skipped": relaxed_day
         and is_relaxed_day_skipped_today(log_file, today=today_str),
         "relaxed_day": relaxed_day,
@@ -204,7 +204,6 @@ def explain_lock_decision(
     relaxed_day: bool,
     wake_skip: bool = False,
     evening_lockdown: bool = False,
-    hold: bool = False,
     now: datetime | None = None,
     degraded_sources: Sequence[DegradedSource] = (),
 ) -> LockExplanation:
@@ -222,7 +221,6 @@ def explain_lock_decision(
         relaxed_day=relaxed_day,
         wake_skip=wake_skip,
         evening_lockdown=evening_lockdown,
-        hold=hold,
         local_dt=instant.astimezone(),
         pending=pending,
     )
