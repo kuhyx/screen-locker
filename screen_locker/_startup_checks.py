@@ -28,6 +28,7 @@ from screen_locker._decision_log import (
 )
 from screen_locker._degraded_sources import degraded_sources
 from screen_locker._extra_benefits import process_week_transition
+from screen_locker._hold import skip_during_hold
 from screen_locker._lock_invariant import refuse_to_lock_over_logged_workout
 from screen_locker._night_lockdown import skip_after_evening_lockdown
 from screen_locker._shutdown_base import (
@@ -125,7 +126,8 @@ class StartupChecksMixin(SyncMixin):
         # before any early-exit check, so gaps are closed regardless of today's
         # logged state (early_bird, sick_day, etc.).
         self._auto_fill_week_runnerup_bonus()
-        if self._check_today_state_exits():
+        # Test hold: no prompt/lock/heat dialog; bookkeeping above is untouched.
+        if self._check_today_state_exits() or skip_during_hold(self._record_skip):
             return
         # Day-of-week routing: Tue/Wed/Thu relaxed (optional), Fri-Mon enforced.
         if is_relaxed_day():

@@ -221,3 +221,13 @@ def _no_real_ntp() -> Iterator[None]:
 def _no_live_focus_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """No live focus project reshapes the registry (earned_time >= 0.19)."""
     monkeypatch.setenv("FOCUS_PROJECT_DATA", str(tmp_path / "focus_project"))
+
+
+@pytest.fixture(autouse=True)
+def _no_real_holds(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Point ``holds`` at an empty file: a real hold must not mute the ladder.
+
+    Without this the suite would read ``~/.local/share/holds/holds.json`` and
+    every ladder test would start failing inside a declared test hold.
+    """
+    monkeypatch.setenv("HOLDS_DATA", str(tmp_path / "holds-none.json"))
