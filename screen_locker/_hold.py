@@ -21,13 +21,16 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Callable
     from datetime import datetime
+    from tkinter import Misc
 
-__all__ = ["HOLD_REASON", "skip_during_hold", "workout_hold_active"]
+__all__ = ["HOLD_REASON", "skip_during_hold", "watch_for_hold", "workout_hold_active"]
 
 _logger = logging.getLogger(__name__)
 
 HOLD_REASON = "test_hold_active"
 _GATE = "workout"
+# Well inside the 60 s a hold may take to lift an open window.
+POLL_MS = 30_000
 
 
 def workout_hold_active(now: datetime | None = None) -> bool:
@@ -59,3 +62,25 @@ def skip_during_hold(record_skip: Callable[..., None]) -> bool:
         "until it ends (credit and penalty bookkeeping already ran).",
     )
     return True
+
+
+def watch_for_hold(root: Misc, close: Callable[[], None]) -> None:
+    """Close an already-open window within one poll of a hold starting.
+
+    ``close`` is the locker's own ``close`` -- it tears the window down and
+    exits 0 without writing a credit or a penalty, so a hold that interrupts
+    an open prompt/lock changes nothing but the screen. Polls on the Tk loop
+    (no thread) and stops re-arming once it fires.
+    """
+
+    def _tick() -> None:
+        if workout_hold_active():
+            _logger.warning(
+                "A test hold started while the workout window was open — "
+                "closing it without credit or penalty."
+            )
+            close()
+            return
+        root.after(POLL_MS, _tick)
+
+    root.after(POLL_MS, _tick)

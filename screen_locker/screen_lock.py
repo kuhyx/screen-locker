@@ -37,6 +37,7 @@ from screen_locker._constants import (
 from screen_locker._decision_log import record_run_aborted
 from screen_locker._early_bird import EarlyBirdMixin
 from screen_locker._heat_skip import HeatSkipMixin
+from screen_locker._hold import watch_for_hold
 from screen_locker._log_mixin import LogMixin
 from screen_locker._manual_workout_dialog import ManualWorkoutDialogMixin
 from screen_locker._phone_verification import PhoneVerificationMixin
@@ -208,6 +209,7 @@ class ScreenLocker(
             # across two separate if/elif/else statements).
             if self._lock is not None:  # pragma: no branch
                 self._lock.grab_input()
+        watch_for_hold(self.root, self.close)
 
     def close(self) -> None:
         """Close the application and exit."""

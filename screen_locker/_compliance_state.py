@@ -6,7 +6,6 @@ Single source of truth for the leaf checks walked by
 mixins delegate their read-only checks to the functions here; this module
 never touches ADB, sudo, subprocess, or the network, and never writes to
 disk.
-
 ``explain_lock_decision`` re-derives the same ordered chain for the status
 view. One branch is a deliberate simplification: when an early-bird pending
 marker has expired, the real code attempts a live phone/RunnerUp
@@ -115,6 +114,12 @@ _CHAIN: tuple[_Step, ...] = (
         "Morning session earned a skip — lock skipped.",
     ),
     _Step(
+        "test_hold_active",
+        "A declared test hold is active.",
+        "No test hold active.",
+        "Test hold active — no workout window until it ends.",
+    ),
+    _Step(
         "relaxed_day_already_skipped",
         "Relaxed day already dismissed via Skip — No Penalty today.",
         "No same-day relaxed-day dismissal on record.",
@@ -148,6 +153,7 @@ def _chain_flags(
     relaxed_day: bool,
     wake_skip: bool,
     evening_lockdown: bool,
+    hold: bool,
     local_dt: datetime,
     pending: bool,
 ) -> dict[str, bool]:
@@ -161,6 +167,7 @@ def _chain_flags(
         "sick_day": is_sick_day_today(local_dt.date()),
         "already_logged": has_logged_today(log_file, today=today_str),
         "wake_alarm_skip": wake_skip,
+        "test_hold_active": hold,
         "relaxed_day_already_skipped": relaxed_day
         and is_relaxed_day_skipped_today(log_file, today=today_str),
         "relaxed_day": relaxed_day,
@@ -197,6 +204,7 @@ def explain_lock_decision(
     relaxed_day: bool,
     wake_skip: bool = False,
     evening_lockdown: bool = False,
+    hold: bool = False,
     now: datetime | None = None,
     degraded_sources: Sequence[DegradedSource] = (),
 ) -> LockExplanation:
@@ -214,6 +222,7 @@ def explain_lock_decision(
         relaxed_day=relaxed_day,
         wake_skip=wake_skip,
         evening_lockdown=evening_lockdown,
+        hold=hold,
         local_dt=instant.astimezone(),
         pending=pending,
     )

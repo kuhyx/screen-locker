@@ -50,6 +50,7 @@ from screen_locker._extra_benefits import (
     has_extended_early_bird,
     week_rewards,
 )
+from screen_locker._hold import workout_hold_active
 from screen_locker._log_io import load_workout_log
 from screen_locker._morning_session import has_workout_skip_today
 from screen_locker._night_lockdown import tonights_lockdown
@@ -170,6 +171,7 @@ def gather_status(
         relaxed_day=is_relaxed_day(today=today_local),
         wake_skip=has_workout_skip_today(),
         evening_lockdown=tonights_lockdown(instant) is not None,
+        hold=workout_hold_active(instant),
         now=instant,
     )
 
