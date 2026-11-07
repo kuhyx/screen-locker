@@ -25,7 +25,7 @@ import sys
 from screen_locker._decision_log import LockDecision, record_decision
 from screen_locker._decision_reasons import reasons_extra
 from screen_locker._hold import workout_hold_active
-from screen_locker._morning_session import has_workout_skip_today
+from screen_locker._morning_session import MorningSkip, has_workout_skip_today
 from screen_locker._night_lockdown import has_evening_lockdown_today
 from screen_locker._sick import stands_down_workout
 from screen_locker._weekly_check import has_weekly_minimum, is_relaxed_day
@@ -152,6 +152,34 @@ class AutoUpgradeMixin(_ReasonsMixin):
         else:
             return False
         return True
+
+    def _stand_down_for_carrot(self, skip: MorningSkip) -> None:
+        """Take an armed lock down because the carrot landed after it armed.
+
+        Does what the ``wake_alarm_skip`` rung above does -- bank the pending
+        marker so the post-carrot run still tries the phone workout, record the
+        decision -- then leaves through the locker's normal ``close`` (the same
+        one a credited workout and a test hold use): lock window released,
+        instance lock dropped, exit 0. Nothing is credited or penalised.
+        """
+        self._save_early_bird_pending()
+        record_decision(
+            LockDecision(
+                locked=False,
+                reason="wake_alarm_skip_late",
+                detail=f"Morning session carrot landed after the lock armed: {skip}.",
+                extra={
+                    "exempt_until": skip.exempt_until.isoformat(),
+                    "outcome": skip.outcome,
+                },
+            )
+        )
+        _logger.warning(
+            "Morning-session carrot appeared while the lock was up (%s) — "
+            "taking the lock down; the early-bird marker is banked.",
+            skip,
+        )
+        self.close()
 
     def _try_auto_upgrade_early_bird(self) -> bool:
         """Try phone then RunnerUp to upgrade an early_bird log entry."""

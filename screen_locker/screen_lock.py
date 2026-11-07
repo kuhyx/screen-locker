@@ -22,6 +22,7 @@ from gatelock import (
 
 from screen_locker import _instance
 from screen_locker._auto_upgrade import AutoUpgradeMixin
+from screen_locker._carrot_watch import watch_for_carrot
 from screen_locker._constants import (
     EARLY_BIRD_END_HOUR,
     EARLY_BIRD_END_MINUTE,
@@ -210,6 +211,7 @@ class ScreenLocker(
             if self._lock is not None:  # pragma: no branch
                 self._lock.grab_input()
         watch_for_hold(self.root, self.close)
+        watch_for_carrot(self.root, self._stand_down_for_carrot)
 
     def close(self) -> None:
         """Close the application and exit."""
