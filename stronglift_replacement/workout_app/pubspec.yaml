@@ -12,7 +12,7 @@ dependencies:
   crdt_sync:
     git:
       url: https://github.com/kuhyx/utils
-      ref: crdt_sync_dart-v0.11.3
+      ref: crdt_sync_dart-v0.12.0
       path: crdt_sync_dart
   # HMAC-SHA256 for the signed phone->PC workout poke (pc_poke_wire.dart).
   crypto: 3.0.8
@@ -49,7 +49,7 @@ dependencies:
   sync_settings_ui:
     git:
       url: https://github.com/kuhyx/utils
-      ref: sync_settings_ui-v0.5.2
+      ref: sync_settings_ui-v0.6.0
       path: sync_settings_ui
   url_launcher: 6.3.3
   uuid: 4.6.0
