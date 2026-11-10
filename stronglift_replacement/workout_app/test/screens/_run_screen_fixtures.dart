@@ -89,22 +89,31 @@ class RunHarness {
     home: const SizedBox(),
   );
 
-  RunScreen screen({RunMapBuilder? mapBuilder}) => RunScreen(
-    controllerFactory: build,
-    uploader: uploader,
-    paceStore: paceStore,
-    mapBuilder: mapBuilder ?? fakeTileMap,
-    openSettings: () async {
-      settingsOpened.add(1);
-      return true;
-    },
-  );
+  /// The screen over [mapBuilder], fake tiles by default; [realMap] leaves
+  /// the screen's own default map in place.
+  RunScreen screen({RunMapBuilder? mapBuilder, bool realMap = false}) =>
+      RunScreen(
+        controllerFactory: build,
+        uploader: uploader,
+        paceStore: paceStore,
+        mapBuilder: realMap ? null : mapBuilder ?? fakeTileMap,
+        openSettings: () async {
+          settingsOpened.add(1);
+          return true;
+        },
+      );
 
   /// Pumps the app with the run screen pushed on top of an empty route.
-  Future<void> pump(WidgetTester tester, {RunMapBuilder? mapBuilder}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    RunMapBuilder? mapBuilder,
+    bool realMap = false,
+  }) async {
     await tester.pumpWidget(app());
     navigator.currentState!.push(
-      MaterialPageRoute<void>(builder: (_) => screen(mapBuilder: mapBuilder)),
+      MaterialPageRoute<void>(
+        builder: (_) => screen(mapBuilder: mapBuilder, realMap: realMap),
+      ),
     );
     await tester.pumpAndSettle();
   }

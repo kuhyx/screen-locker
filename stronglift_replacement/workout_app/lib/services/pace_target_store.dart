@@ -38,4 +38,14 @@ class PrefsPaceTargetStore implements PaceTargetStore {
 
   @override
   Future<void> save(int seconds) => _resolved.setInt(kPaceTargetKey, seconds);
+
+  /// The target as stored, or null when none was ever chosen (the "off"
+  /// state the /sdcard backup carries).
+  Future<int?> stored() => _resolved.getInt(kPaceTargetKey);
+
+  /// Puts a backed-up target back; null means none chosen, so a leftover
+  /// value is removed rather than kept.
+  Future<void> restore(int? seconds) => seconds == null
+      ? _resolved.remove(kPaceTargetKey)
+      : save(clampPaceTarget(seconds));
 }

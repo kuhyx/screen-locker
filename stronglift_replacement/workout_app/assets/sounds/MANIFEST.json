@@ -1,4 +1,48 @@
 {
+  "pace_fast.wav": {
+    "file": "pace_fast.wav",
+    "frames": 12348,
+    "recipe": {
+      "attack_seconds": 0.01,
+      "notes": [
+        [
+          880.0,
+          0.11
+        ],
+        [
+          1319.0,
+          0.17
+        ]
+      ],
+      "peak": 0.6,
+      "sample_rate": 44100
+    },
+    "sample_rate": 44100,
+    "seconds": 0.28,
+    "sha256": "9d9297b0f681cf00490cbbb0b4316b9607002ca7e0cb2ef3d33622b52091349e"
+  },
+  "pace_slow.wav": {
+    "file": "pace_slow.wav",
+    "frames": 24696,
+    "recipe": {
+      "attack_seconds": 0.01,
+      "notes": [
+        [
+          494.0,
+          0.22
+        ],
+        [
+          370.0,
+          0.34
+        ]
+      ],
+      "peak": 0.6,
+      "sample_rate": 44100
+    },
+    "sample_rate": 44100,
+    "seconds": 0.56,
+    "sha256": "5bea2e6c64b57065fb72436f8246ea6ded4e58f2c8f070a0aef3b135fb871bf6"
+  },
   "workout_done.wav": {
     "file": "workout_done.wav",
     "frames": 24255,

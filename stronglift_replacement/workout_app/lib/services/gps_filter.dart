@@ -66,7 +66,9 @@ enum FixVerdict {
 ///
 /// A step between two accepted points adds distance only when it is a moving
 /// step (see [isMovingStep]): a dropout longer than [kMaxCreditGapSeconds]
-/// and standing-still jitter credit nothing, same as the PC reads an activity.
+/// and standing-still jitter credit nothing. The PC judges windows of 10 s or
+/// more and keeps a dropout moving at 1 m/s or faster, so it can credit more
+/// than this does (see `run_math.dart`).
 class GpsFilter {
   /// Creates a filter; every recording uses the running jump cap.
   GpsFilter();

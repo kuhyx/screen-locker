@@ -19,6 +19,7 @@ import 'package:workout_app/models/run_track.dart';
 import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/services/backup_service.dart';
 import 'package:workout_app/services/manual_workout_port.dart';
+import 'package:workout_app/services/pace_target_store.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
 
 // Re-exported: ExerciseState was defined here until it moved to models/, and

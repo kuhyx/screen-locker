@@ -6,10 +6,11 @@ import 'package:flutter/foundation.dart';
 
 /// The sports the app records.
 enum RunSport {
-  /// A run; credited on distance OR duration by the PC.
+  /// A run. The PC credits every GPS activity alike: a day's distance OR
+  /// moving time, whatever the sport.
   running('Running', 'Running'),
 
-  /// A walk; the PC sums a day's walks and credits their moving time.
+  /// A walk; read from old files only (the app records everything as a run).
   ///
   /// Written as `Sport="Other"` exactly like RunnerUp does (the TCX schema
   /// only knows Running, Biking and Other); the `_Walking.tcx` file-name
@@ -79,7 +80,7 @@ class RunPoint {
 
   /// Cumulative credited distance from the start, in metres.
   ///
-  /// The PC derives walking speed from the difference between two points'
+  /// The PC derives speed from the difference between two points'
   /// values, so this is the field the recorder must keep honest.
   final double distanceM;
 

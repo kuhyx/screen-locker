@@ -6,11 +6,16 @@ nothing clicks. They sit apart in pitch and direction, so they can be told
 apart with the screen off and the phone in a pocket (the vibration pattern is
 the second channel).
 
-Usage: ``render_pace_tones.py OUT_DIR`` writes both files into OUT_DIR.
+Usage: ``render_pace_tones.py OUT_DIR`` writes both files into OUT_DIR and
+adds their entries (recipe, frame count, SHA-256) to OUT_DIR/MANIFEST.json,
+leaving the other entries (the finish chime's) as they are. Standard library
+only, so there is no toolkit to pin and no ``.sh`` wrapper.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 from pathlib import Path
 import struct
@@ -37,14 +42,38 @@ def _note(freq: float, seconds: float) -> list[float]:
     return samples
 
 
-def render(path: Path, notes: tuple[tuple[float, float], ...]) -> None:
-    """Write ``notes`` back to back as a 16-bit mono WAV at ``path``."""
+def render(path: Path, notes: tuple[tuple[float, float], ...]) -> dict[str, object]:
+    """Write ``notes`` back to back as a 16-bit mono WAV; return its manifest entry."""
     samples = [s for freq, seconds in notes for s in _note(freq, seconds)]
-    with wave.open(str(path), "wb") as out:
+    with wave.Wave_write(str(path)) as out:
         out.setnchannels(1)
         out.setsampwidth(2)
         out.setframerate(SAMPLE_RATE)
         out.writeframes(b"".join(struct.pack("<h", int(s * 32767)) for s in samples))
+    return {
+        "file": path.name,
+        "frames": len(samples),
+        "recipe": {
+            "attack_seconds": ATTACK_SECONDS,
+            "notes": [list(note) for note in notes],
+            "peak": PEAK,
+            "sample_rate": SAMPLE_RATE,
+        },
+        "sample_rate": SAMPLE_RATE,
+        "seconds": round(len(samples) / SAMPLE_RATE, 2),
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+    }
+
+
+def update_manifest(path: Path, entries: dict[str, dict[str, object]]) -> None:
+    """Merge ``entries`` into the JSON manifest at ``path``, keeping the rest."""
+    manifest: dict[str, object] = (
+        json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    )
+    manifest.update(entries)
+    path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
 
 def main(argv: list[str]) -> int:
@@ -54,8 +83,11 @@ def main(argv: list[str]) -> int:
         return 2
     out = Path(argv[1])
     out.mkdir(parents=True, exist_ok=True)
-    render(out / "pace_slow.wav", SLOW_NOTES)
-    render(out / "pace_fast.wav", FAST_NOTES)
+    entries = {
+        "pace_slow.wav": render(out / "pace_slow.wav", SLOW_NOTES),
+        "pace_fast.wav": render(out / "pace_fast.wav", FAST_NOTES),
+    }
+    update_manifest(out / "MANIFEST.json", entries)
     return 0
 
 

@@ -51,7 +51,43 @@ extension StorageServiceBackup on StorageService {
       'settings': settingsRows,
       'progression_events': eventRows,
       'runs': runRows,
+      ...await _paceTargetForBackup(),
     });
+  }
+
+  /// The pace target for the backup: `pace_target` is seconds per kilometre,
+  /// or null when none was ever chosen (off). Lives in shared_preferences, not
+  /// the DB, so it is added by hand. An unreadable store leaves the field out
+  /// (a restore then reads "off") and says so.
+  Future<Map<String, Object?>> _paceTargetForBackup() async {
+    try {
+      return {'pace_target': await PrefsPaceTargetStore().stored()};
+    } on Object catch (error) {
+      debugPrint(
+        'WorkoutApp: pace target NOT in this backup -- could not read it '
+        '($error). A restore will bring the pace target back as off.',
+      );
+      return const {};
+    }
+  }
+
+  /// Puts the backup's `pace_target` back. Absent (an older backup), null or
+  /// unusable all mean off, so a restore never keeps a stale target.
+  Future<void> _restorePaceTarget(Object? raw) async {
+    if (raw != null && raw is! int) {
+      debugPrint(
+        'WorkoutApp: backup pace_target is not a number ($raw) -- restoring '
+        'the pace target as off.',
+      );
+    }
+    try {
+      await PrefsPaceTargetStore().restore(raw is int ? raw : null);
+    } on Object catch (error) {
+      debugPrint(
+        'WorkoutApp: pace target NOT restored -- could not write it ($error). '
+        'It stays as it was; pick the target again on the run screen.',
+      );
+    }
   }
 
   /// Whether this database has never recorded a workout on this install.
@@ -184,5 +220,6 @@ extension StorageServiceBackup on StorageService {
       // Absent from older backups; null merges as nothing.
       await _mergeRuns(txn, backup['runs']);
     });
+    await _restorePaceTarget(backup['pace_target']);
   }
 }

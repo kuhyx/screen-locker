@@ -23,8 +23,8 @@ export 'package:workout_app/services/run_phase.dart';
 ///
 /// A pause ignores fixes and breaks the filter's segment, so the stretch
 /// walked while paused and the first fix after it credit nothing. Moving time
-/// is the PC's rule ([movingSeconds]) applied as fixes arrive, so the number
-/// on screen is the number the PC will credit.
+/// is [movingSeconds] applied as fixes arrive: an estimate that mirrors the
+/// PC's bounds per pair of fixes, not its 10 s windows (see `run_math.dart`).
 class RunRecorder extends ChangeNotifier {
   /// Creates a recorder; [sourceFor] builds the fix stream on [start].
   RunRecorder({
