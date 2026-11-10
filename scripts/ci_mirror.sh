@@ -105,7 +105,9 @@ run_precommit_group() {
 
 run_pytest_clean_venv() {
     log "pytest in the clean venv (mirrors the Tests workflow)"
-    "$VENV_DIR/bin/python" -m pytest -n auto --dist worksteal "$@" \
+    # CI_MIRROR_WORKERS: xdist worker count (default auto = one per core; on a
+    # busy 24-core box that is ~3 GiB and trips the capped.sh memory ceiling).
+    "$VENV_DIR/bin/python" -m pytest -n "${CI_MIRROR_WORKERS:-auto}" --dist worksteal "$@" \
         || fail "pytest (clean requirements.txt venv)"
 }
 
