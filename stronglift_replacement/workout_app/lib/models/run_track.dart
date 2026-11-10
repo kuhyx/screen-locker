@@ -4,21 +4,29 @@ library;
 
 import 'package:flutter/foundation.dart';
 
-/// The sports the app records. The name doubles as the TCX `Sport` attribute
-/// and the file-name suffix the PC keys on (`..._Walking.tcx`).
+/// The sports the app records.
 enum RunSport {
   /// A run; credited on distance OR duration by the PC.
-  running('Running'),
+  running('Running', 'Running'),
 
   /// A walk; the PC sums a day's walks and credits their moving time.
-  walking('Walking');
+  ///
+  /// Written as `Sport="Other"` exactly like RunnerUp does (the TCX schema
+  /// only knows Running, Biking and Other); the `_Walking.tcx` file-name
+  /// suffix is what marks it a walk.
+  walking('Walking', 'Other');
 
-  const RunSport(this.tcxName);
+  const RunSport(this.tcxName, this.tcxSport);
 
-  /// `Sport="..."` on the TCX `Activity` and `_<name>.tcx` in the file name.
+  /// The sport's name: the `_<name>.tcx` file-name suffix the PC keys on, and
+  /// the `runs.sport` column.
   final String tcxName;
 
-  /// The sport named [tcxName], or null for anything the app does not record.
+  /// The schema-valid `Sport="..."` attribute the encoder writes.
+  final String tcxSport;
+
+  /// The sport named [tcxName] (also accepts the Strava-style
+  /// `Sport="Walking"`), or null for anything the app does not record.
   static RunSport? fromTcxName(String? tcxName) {
     for (final sport in values) {
       if (sport.tcxName == tcxName) return sport;

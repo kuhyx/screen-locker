@@ -5,7 +5,8 @@
 ///
 /// * File name `RunnerUp_YYYY-MM-DD-HH-MM-SS_<Sport>.tcx`, stamp in LOCAL
 ///   time (the PC globs today's local date in the name), suffix `Running` or
-///   `Walking` (a walk is recognised by that suffix or `Sport="Walking"`).
+///   `Walking` (a walk is recognised by that suffix or `Sport="Walking"`; the
+///   encoder writes `Sport="Other"` for it, as RunnerUp does).
 /// * `<Id>` and every `<Time>` are UTC with a `Z`; one Lap whose
 ///   `TotalTimeSeconds` is moving time and `DistanceMeters` the credited
 ///   distance; every Trackpoint carries `Time` and a cumulative
@@ -62,7 +63,7 @@ String encodeTcx(RunTrack track) {
 
 void _activity(XmlBuilder b, RunTrack track) => b.element(
   'Activity',
-  attributes: {'Sport': track.sport.tcxName},
+  attributes: {'Sport': track.sport.tcxSport},
   nest: () {
     b.element('Id', nest: track.id);
     _lap(b, track);
@@ -96,6 +97,8 @@ void _lap(XmlBuilder b, RunTrack track) => b.element(
     b
       ..element('TotalTimeSeconds', nest: '${track.totalSeconds}')
       ..element('DistanceMeters', nest: _num(track.distanceM, 3))
+      // Required by the TCX schema, as in RunnerUp's own files.
+      ..element('Calories', nest: '0')
       ..element('Intensity', nest: 'Active')
       ..element('TriggerMethod', nest: 'Manual')
       ..element('Track', nest: () => track.points.forEach(_point(b)));

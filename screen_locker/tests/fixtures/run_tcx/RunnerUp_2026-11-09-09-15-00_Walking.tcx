@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2 http://www.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd">
   <Activities>
-    <Activity Sport="Walking">
+    <Activity Sport="Other">
       <Id>2026-11-09T08:15:00Z</Id>
       <Lap StartTime="2026-11-09T08:15:00Z">
         <TotalTimeSeconds>1665</TotalTimeSeconds>
         <DistanceMeters>2331.004</DistanceMeters>
+        <Calories>0</Calories>
         <Intensity>Active</Intensity>
         <TriggerMethod>Manual</TriggerMethod>
         <Track>

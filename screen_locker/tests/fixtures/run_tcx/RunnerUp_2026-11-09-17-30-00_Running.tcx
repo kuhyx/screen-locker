@@ -6,6 +6,7 @@
       <Lap StartTime="2026-11-09T16:30:00Z">
         <TotalTimeSeconds>1560</TotalTimeSeconds>
         <DistanceMeters>4212.014</DistanceMeters>
+        <Calories>0</Calories>
         <Intensity>Active</Intensity>
         <TriggerMethod>Manual</TriggerMethod>
         <Track>

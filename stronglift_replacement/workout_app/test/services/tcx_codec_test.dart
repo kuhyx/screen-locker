@@ -39,6 +39,7 @@ void main() {
       expect(xml, contains('<Lap StartTime="2026-11-09T16:30:00Z">'));
       expect(xml, contains('<TotalTimeSeconds>20</TotalTimeSeconds>'));
       expect(xml, contains('<DistanceMeters>27.500</DistanceMeters>'));
+      expect(xml, contains('<Calories>0</Calories>'));
       expect(xml, contains('<Time>2026-11-09T16:30:10Z</Time>'));
       expect(xml, contains('<Name>$kRunSourceName</Name>'));
       expect(
@@ -46,6 +47,21 @@ void main() {
         contains(
           'xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"',
         ),
+      );
+    });
+
+    test('a walk is Sport="Other" like RunnerUp writes it, named by file', () {
+      final walk = _track(sport: RunSport.walking);
+      final xml = encodeTcx(walk);
+      expect(xml, contains('<Activity Sport="Other">'));
+      expect(
+        () => decodeTcx(xml),
+        throwsA(isA<FormatException>()),
+        reason: 'only the _Walking suffix says it is a walk',
+      );
+      expect(
+        decodeTcx(xml, fileName: tcxFilename(walk)).sport,
+        RunSport.walking,
       );
     });
 

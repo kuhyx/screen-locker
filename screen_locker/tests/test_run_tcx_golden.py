@@ -135,20 +135,18 @@ class TestGoldenWalk:
         )
         assert data["activity_id"] == str(spec["started_at"])
 
-    def test_walk_is_flagged_by_name_even_if_sport_is_not_walking(
-        self, inbox: Path
-    ) -> None:
-        """The app also writes ``Sport="Walking"``; either signal alone suffices."""
+    def test_walk_is_marked_by_file_name_as_with_runnerup(self, inbox: Path) -> None:
+        """Like RunnerUp, the app writes ``Sport="Other"``; the name says walk."""
         spec = _golden()["walking"]
         name = str(spec["file"])
         body = (FIXTURES / name).read_text(encoding="utf-8")
-        assert 'Sport="Walking"' in body
+        assert 'Sport="Other"' in body
         renamed = inbox / "activity.tcx"
-        renamed.write_text(body.replace('Sport="Walking"', 'Sport="Other"'))
+        renamed.write_text(body)
         data = Verifier()._pull_and_parse_tcx(str(renamed))
         assert data is not None
         assert data["walking"] is False
-        (inbox / name).write_text(body.replace('Sport="Walking"', 'Sport="Other"'))
+        (inbox / name).write_text(body)
         by_name = Verifier()._pull_and_parse_tcx(str(inbox / name))
         assert by_name is not None
         assert by_name["walking"] is True
