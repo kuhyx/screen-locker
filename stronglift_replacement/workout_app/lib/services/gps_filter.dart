@@ -76,12 +76,21 @@ class GpsFilter {
 
   final List<RunPoint> _points = [];
   int _jumps = 0;
+  bool _segmentBreak = false;
 
   /// Accepted points so far, in time order.
   List<RunPoint> get points => List.unmodifiable(_points);
 
   /// Cumulative credited distance in metres.
   double get distanceM => _points.isEmpty ? 0 : _points.last.distanceM;
+
+  /// Marks a pause: the next accepted fix starts a new segment, credited with
+  /// nothing, whatever distance separates it from the last point.
+  ///
+  /// Without this, a short pause (under [kMaxCreditGapSeconds]) would credit
+  /// the walk across the paused stretch, and a long one could trip the jump
+  /// cap on the first fix after resuming.
+  void breakSegment() => _segmentBreak = true;
 
   /// Judges [fix]; an accepted fix is appended to [points].
   FixVerdict add(GpsFix fix) {
@@ -101,6 +110,11 @@ class GpsFilter {
     final last = _points.last;
     final gap = time.difference(last.time).inSeconds;
     if (gap <= 0) return FixVerdict.outOfOrder;
+    if (_segmentBreak) {
+      _segmentBreak = false;
+      _accept(fix, time, 0);
+      return FixVerdict.accepted;
+    }
     final step = haversineM(
       last.latitude,
       last.longitude,

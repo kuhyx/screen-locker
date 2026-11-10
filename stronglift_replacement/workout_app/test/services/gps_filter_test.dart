@@ -128,4 +128,26 @@ void main() {
       expect(movingSeconds(f.points, RunSport.walking), 260);
     });
   });
+
+  group('breakSegment', () {
+    test('the fix after a pause earns nothing, then crediting resumes', () {
+      final f = GpsFilter(sport: RunSport.walking)
+        ..add(_fix(0, 0))
+        ..add(_fix(10, 14))
+        ..breakSegment();
+      // 20 s later and 28 m further: a moving step if not for the pause.
+      expect(f.add(_fix(30, 42)), FixVerdict.accepted);
+      expect(f.distanceM, closeTo(14, 0.5));
+      expect(f.add(_fix(40, 56)), FixVerdict.accepted);
+      expect(f.distanceM, closeTo(28, 0.5));
+    });
+
+    test('a pause jump is re-anchored, not rejected as a GPS jump', () {
+      final f = GpsFilter(sport: RunSport.walking)
+        ..add(_fix(0, 0))
+        ..breakSegment();
+      expect(f.add(_fix(5, 5000)), FixVerdict.accepted);
+      expect(f.distanceM, 0);
+    });
+  });
 }
