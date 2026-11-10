@@ -105,4 +105,20 @@ ISOLATED_STATE: tuple[tuple[str, tuple[str, ...]], ...] = (
         "workday_penalty.json",
         ("_constants.WORKDAY_PENALTY_FILE", "_workday_penalty.WORKDAY_PENALTY_FILE"),
     ),
+    # RunnerUp retirement: the anchor/done stamp, the dufs drop directory it
+    # reads the marker and TCX files from (and writes the phone backup into),
+    # and the credit log the anchor is derived from. A test must never see, or
+    # create files under, the user's real RunnerUp folder.
+    (
+        "runnerup_retire.json",
+        ("_runnerup_retire.STATE_FILE",),
+    ),
+    (
+        "RunnerUp",
+        ("_runnerup_retire.WATCH_DIR",),
+    ),
+    (
+        "retire_log.json",
+        ("_runnerup_retire.LOG_FILE",),
+    ),
 )
