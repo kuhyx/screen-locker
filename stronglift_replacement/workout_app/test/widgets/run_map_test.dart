@@ -5,7 +5,6 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:workout_app/models/run_track.dart';
-import 'package:workout_app/services/map_tile_cache.dart';
 import 'package:workout_app/widgets/run_map.dart';
 
 import '_run_map_fixtures.dart';
@@ -161,17 +160,17 @@ void main() {
     testWidgets('follows the last point and draws as the track grows', (
       tester,
     ) async {
-      final track = ValueNotifier<RunTrack?>(null);
+      final track = ValueNotifier<List<RunPoint>>(const []);
       addTearDown(track.dispose);
       await _pump(
         tester,
-        RunMap.live(trackListenable: track, tileProviderOpener: fakeTiles()),
+        RunMap.live(pointsListenable: track, tileProviderOpener: fakeTiles()),
       );
       expect(find.byType(PolylineLayer), findsNothing);
       expect(find.byType(MarkerLayer), findsNothing);
 
       final full = buildTrack(count: 4);
-      track.value = full;
+      track.value = full.points;
       await tester.pump();
       expect(find.byType(PolylineLayer), findsOneWidget);
       expect(
@@ -189,11 +188,11 @@ void main() {
       tester,
     ) async {
       final full = buildTrack(count: 4);
-      final track = ValueNotifier<RunTrack?>(full);
+      final track = ValueNotifier<List<RunPoint>>(full.points);
       addTearDown(track.dispose);
       await _pump(
         tester,
-        RunMap.live(trackListenable: track, tileProviderOpener: fakeTiles()),
+        RunMap.live(pointsListenable: track, tileProviderOpener: fakeTiles()),
       );
       await tester.drag(find.byType(FlutterMap), const Offset(120, 0));
       await tester.pump();
@@ -202,26 +201,26 @@ void main() {
       expect(dragged, isNot(closeTo(full.points.last.longitude, 1e-6)));
 
       // New fixes no longer pull the camera while follow is off.
-      track.value = buildTrack(count: 6);
+      track.value = buildTrack(count: 6).points;
       await tester.pump();
       expect(_camera(tester).center.longitude, closeTo(dragged, 1e-9));
 
       await tester.tap(find.byIcon(Icons.my_location));
       await tester.pump();
       expect(find.byIcon(Icons.my_location), findsNothing);
-      final last = track.value!.points.last;
+      final last = track.value.last;
       expect(_camera(tester).center.longitude, closeTo(last.longitude, 1e-6));
     });
 
     testWidgets('stops listening when disposed', (tester) async {
-      final track = ValueNotifier<RunTrack?>(buildTrack());
+      final track = ValueNotifier<List<RunPoint>>(buildTrack().points);
       addTearDown(track.dispose);
       await _pump(
         tester,
-        RunMap.live(trackListenable: track, tileProviderOpener: fakeTiles()),
+        RunMap.live(pointsListenable: track, tileProviderOpener: fakeTiles()),
       );
       await tester.pumpWidget(const SizedBox());
-      track.value = buildTrack(count: 7);
+      track.value = buildTrack(count: 7).points;
       await tester.pump();
       expect(tester.takeException(), isNull);
     });

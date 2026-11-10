@@ -4,9 +4,9 @@
 ///
 /// * `RunMap.route(points: track.points)` -- a finished run. The camera
 ///   fits the whole route ([fitPadding] keeps it clear of overlays).
-/// * `RunMap.live(trackListenable: notifier)` -- the live screen. Pass a
-///   `ValueListenable<RunTrack?>` (a `ValueNotifier<RunTrack?>`, or the
-///   recorder's own, anything that holds the current track); the route
+/// * `RunMap.live(pointsListenable: recorder.livePoints)` -- the live
+///   screen. Pass a `ValueListenable<List<RunPoint>>` (the recorder's
+///   accepted points, oldest first); the route
 ///   redraws on every change and, in follow mode (the default), the camera
 ///   keeps the last point centred. Dragging the map ends follow mode; the
 ///   recentre button (icon only) turns it back on. The listenable must stay
@@ -48,11 +48,11 @@ class RunMap extends StatefulWidget {
     super.key,
     this.fitPadding = const EdgeInsets.all(40),
     this.tileProviderOpener = openOsmTileProvider,
-  }) : trackListenable = null;
+  }) : pointsListenable = null;
 
-  /// A live run: follows the last point of the track in [trackListenable].
+  /// A live run: follows the last point in [pointsListenable].
   const RunMap.live({
-    required ValueListenable<RunTrack?> this.trackListenable,
+    required ValueListenable<List<RunPoint>> this.pointsListenable,
     super.key,
     this.tileProviderOpener = openOsmTileProvider,
   }) : points = null,
@@ -61,8 +61,8 @@ class RunMap extends StatefulWidget {
   /// The route in detail mode; null in live mode.
   final List<RunPoint>? points;
 
-  /// The current track in live mode; null in detail mode.
-  final ValueListenable<RunTrack?>? trackListenable;
+  /// The accepted points in live mode; null in detail mode.
+  final ValueListenable<List<RunPoint>>? pointsListenable;
 
   /// Space kept free around the fitted route (detail mode).
   final EdgeInsets fitPadding;
@@ -81,16 +81,16 @@ class _RunMapState extends State<RunMap> {
   bool _follow = true;
   bool _warned = false;
 
-  bool get _live => widget.trackListenable != null;
+  bool get _live => widget.pointsListenable != null;
 
   List<RunPoint> get _points => _live
-      ? widget.trackListenable!.value?.points ?? const []
+      ? widget.pointsListenable!.value
       : widget.points!;
 
   @override
   void initState() {
     super.initState();
-    widget.trackListenable?.addListener(_followLast);
+    widget.pointsListenable?.addListener(_followLast);
     unawaited(
       widget.tileProviderOpener().then((p) {
         if (mounted) setState(() => _tiles = p);
@@ -100,7 +100,7 @@ class _RunMapState extends State<RunMap> {
 
   @override
   void dispose() {
-    widget.trackListenable?.removeListener(_followLast);
+    widget.pointsListenable?.removeListener(_followLast);
     _controller.dispose();
     super.dispose();
   }
@@ -173,15 +173,14 @@ class _RunMapState extends State<RunMap> {
 
   @override
   Widget build(BuildContext context) {
-    final listenable = widget.trackListenable;
+    final listenable = widget.pointsListenable;
     if (listenable == null) return _map(context, widget.points!);
     return Stack(
       fit: StackFit.expand,
       children: [
-        ValueListenableBuilder<RunTrack?>(
+        ValueListenableBuilder<List<RunPoint>>(
           valueListenable: listenable,
-          builder: (context, track, _) =>
-              _map(context, track?.points ?? const []),
+          builder: (context, points, _) => _map(context, points),
         ),
         if (!_follow)
           Positioned(
