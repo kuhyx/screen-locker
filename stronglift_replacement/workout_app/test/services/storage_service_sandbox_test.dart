@@ -57,4 +57,11 @@ void main() {
     await storage.setSandboxRestSecs(42);
     expect(await storage.getSandboxRestSecs(5), 42);
   });
+
+  test('replay factor round-trips and falls back when unset', () async {
+    final svc = StorageService.instance;
+    expect(await svc.getSandboxReplayFactor(60), 60);
+    await svc.setSandboxReplayFactor(10);
+    expect(await svc.getSandboxReplayFactor(60), 10);
+  });
 }

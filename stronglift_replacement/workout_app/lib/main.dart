@@ -14,6 +14,8 @@ import 'package:workout_app/services/http_server_service.dart';
 import 'package:workout_app/services/lock_mode.dart';
 import 'package:workout_app/services/pc_pairing.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
+import 'package:workout_app/services/run_upload_credentials.dart';
+import 'package:workout_app/services/run_uploader.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_device_id.dart';
 import 'package:workout_app/services/sync_service.dart';
@@ -80,7 +82,14 @@ void main(List<String> args) async {
       Sandbox.defaultRestSecs,
     );
     SandboxLog.event('rest override loaded', {'secs': Sandbox.restSecs});
+    Sandbox.runReplayFactor = await StorageService.instance
+        .getSandboxReplayFactor(Sandbox.defaultReplayFactor);
   }
+  // Run uploads: absorb a login pushed by scripts/provision_run_upload.sh
+  // (the sandbox never uploads, so it never imports one), then retry any run
+  // still pending from an earlier launch.
+  if (!Sandbox.enabled) await RunCredentialStore().importProvisionFile();
+  unawaited(RunUploader.instance.uploadPending());
   // Before the UI exists: a service left over from a crashed or force-stopped
   // workout must not sit in the status bar counting down nothing.
   await stopStaleBreakService(
@@ -167,6 +176,8 @@ class _WorkoutAppState extends State<WorkoutApp> with WidgetsBindingObserver {
         unawaited(HttpServerService.instance.stop());
       case AppLifecycleState.resumed:
         unawaited(HttpServerService.instance.start());
+        // The nearest thing to "connectivity came back" without a plugin.
+        unawaited(RunUploader.instance.uploadPending());
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
         break;

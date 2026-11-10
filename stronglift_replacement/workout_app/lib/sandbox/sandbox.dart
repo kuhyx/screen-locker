@@ -37,6 +37,16 @@ abstract final class Sandbox {
   /// the Settings screen, loaded by `main`.
   static int restSecs = defaultRestSecs;
 
+  /// Replay speed-ups the Settings control offers.
+  static const List<int> replayFactors = [1, 10, 60];
+
+  /// Replay speed-up used when no override has been saved yet.
+  static const int defaultReplayFactor = 60;
+
+  /// How many times faster than real time the sandbox replays a GPS run;
+  /// persisted by the Settings screen, loaded by `main`.
+  static int runReplayFactor = defaultReplayFactor;
+
   /// Environment variable that turns the sandbox on where there is no
   /// flavor to ask — the Linux desktop build, run under Xvfb to check a
   /// change on the PC before it goes anywhere near the phone.

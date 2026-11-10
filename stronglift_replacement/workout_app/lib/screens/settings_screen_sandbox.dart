@@ -34,6 +34,7 @@ class _SandboxSectionState extends State<_SandboxSection> {
   Future<void> _wipe() async {
     await StorageService.instance.wipeAll();
     Sandbox.restSecs = Sandbox.defaultRestSecs;
+    Sandbox.runReplayFactor = Sandbox.defaultReplayFactor;
     _rest.text = '${Sandbox.restSecs}';
     _report('Wiped — the sandbox is back to a fresh install.');
   }
@@ -58,6 +59,12 @@ class _SandboxSectionState extends State<_SandboxSection> {
     await StorageService.instance.setSandboxRestSecs(secs);
     Sandbox.restSecs = secs;
     _report('Every rest now lasts $secs s.');
+  }
+
+  Future<void> _saveReplay(int factor) async {
+    await StorageService.instance.setSandboxReplayFactor(factor);
+    setState(() => Sandbox.runReplayFactor = factor);
+    _report('GPS runs replay at $factor×.');
   }
 
   @override
@@ -115,6 +122,27 @@ class _SandboxSectionState extends State<_SandboxSection> {
             TextButton(
               onPressed: () => unawaited(_saveRest()),
               child: const Text('Save'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(right: 12),
+              child: Icon(Icons.directions_run, semanticLabel: 'GPS replay'),
+            ),
+            Expanded(
+              child: SegmentedButton<int>(
+                key: const Key('sandbox-replay-factor'),
+                showSelectedIcon: false,
+                segments: [
+                  for (final f in Sandbox.replayFactors)
+                    ButtonSegment(value: f, label: Text('$f×')),
+                ],
+                selected: {Sandbox.runReplayFactor},
+                onSelectionChanged: (s) => unawaited(_saveReplay(s.single)),
+              ),
             ),
           ],
         ),

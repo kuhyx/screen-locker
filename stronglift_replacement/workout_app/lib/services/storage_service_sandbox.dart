@@ -8,6 +8,9 @@ part of 'storage_service.dart';
 /// Settings key the sandbox's rest length is stored under.
 const String kSandboxRestSecsKey = 'sandbox_rest_secs';
 
+/// Settings key the sandbox's GPS replay speed-up is stored under.
+const String kSandboxReplayFactorKey = 'sandbox_run_replay_x';
+
 /// Sandbox-only maintenance on the (sandbox's own) database.
 ///
 /// Nothing here checks `Sandbox.enabled`: the Settings screen only offers
@@ -54,4 +57,14 @@ extension StorageServiceSandbox on StorageService {
   /// Persists the rest override used by every sandbox break.
   Future<void> setSandboxRestSecs(int secs) =>
       _setSetting(kSandboxRestSecsKey, '$secs');
+
+  /// The saved GPS replay speed-up, or [fallback] when none has been saved.
+  Future<int> getSandboxReplayFactor(int fallback) async {
+    final raw = await _getSetting(kSandboxReplayFactorKey);
+    return raw == null ? fallback : int.parse(raw);
+  }
+
+  /// Persists the speed-up the sandbox replays its GPS run at.
+  Future<void> setSandboxReplayFactor(int factor) =>
+      _setSetting(kSandboxReplayFactorKey, '$factor');
 }

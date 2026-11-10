@@ -24,10 +24,12 @@ void main() {
     installFakeSecureStorage();
     Sandbox.enabled = true;
     Sandbox.restSecs = Sandbox.defaultRestSecs;
+    Sandbox.runReplayFactor = Sandbox.defaultReplayFactor;
   });
   tearDown(() {
     Sandbox.enabled = false;
     Sandbox.restSecs = Sandbox.defaultRestSecs;
+    Sandbox.runReplayFactor = Sandbox.defaultReplayFactor;
   });
 
   Widget wrap() => MaterialApp(
@@ -143,5 +145,25 @@ void main() {
       () => StorageService.instance.getSandboxRestSecs(5),
     );
     expect(saved, 45);
+  });
+
+  testWidgets('the GPS replay speed is chosen, saved and wiped', (
+    tester,
+  ) async {
+    await pump(tester);
+    final tenX = find.descendant(
+      of: find.byKey(const Key('sandbox-replay-factor')),
+      matching: find.text('10×'),
+    );
+    await tapReal(tester, tenX);
+    expect(find.text('GPS runs replay at 10×.'), findsOneWidget);
+    expect(Sandbox.runReplayFactor, 10);
+    final saved = await tester.runAsync(
+      () => StorageService.instance.getSandboxReplayFactor(60),
+    );
+    expect(saved, 10);
+
+    await tapReal(tester, find.text('Wipe sandbox data'));
+    expect(Sandbox.runReplayFactor, Sandbox.defaultReplayFactor);
   });
 }
