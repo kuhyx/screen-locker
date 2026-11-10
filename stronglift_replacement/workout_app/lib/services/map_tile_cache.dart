@@ -62,7 +62,9 @@ Future<String?> _resolveCacheDir() async {
     final dir = await getApplicationCacheDirectory();
     return '${dir.path}/osm_tiles';
   } on Object catch (error) {
-    logMapWarning('map tile cache unavailable, tiles will not persist: $error');
+    final message = 'map tile cache unavailable, tiles not persisted: $error';
+    developer.log(message, name: 'RunMap', level: 900);
+    debugPrint('RunMap WARNING: $message');
     return null;
   }
 }

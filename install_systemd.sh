@@ -167,28 +167,17 @@ systemctl --user daemon-reload
 # Enable the service to start on login (one-shot, no periodic timer)
 systemctl --user enable "$SERVICE_NAME"
 
-# Enable the early bird re-check timer
-systemctl --user enable --now "$EARLY_BIRD_TIMER_NAME"
+# Timers: early bird re-check, periodic re-check, workout sync, the instant
+# bonus pass on ledger writes, and the daily RunnerUp retirement retry
+systemctl --user enable --now "$EARLY_BIRD_TIMER_NAME" "$LOCKER_TIMER_NAME" \
+	"$SYNC_TIMER_NAME" "$BONUS_PATH_NAME" "$RETIRE_TIMER_NAME"
 
-# Enable the periodic re-check timer
-systemctl --user enable --now "$LOCKER_TIMER_NAME"
-
-# Enable the periodic workout sync
-systemctl --user enable --now "$SYNC_TIMER_NAME"
-
-# Enable the instant bonus pass on ledger writes
-systemctl --user enable --now "$BONUS_PATH_NAME"
-
-# Enable the instant RunnerUp credit on upload (restart picks up a new script)
-systemctl --user enable "$RUNNERUP_WATCH_NAME"
-systemctl --user restart "$RUNNERUP_WATCH_NAME"
-
-# Enable the LAN workout poke listener (restart picks up new code)
-systemctl --user enable "$WORKOUT_POKE_NAME"
-systemctl --user restart "$WORKOUT_POKE_NAME"
-
-# Enable the daily RunnerUp retirement retry
-systemctl --user enable --now "$RETIRE_TIMER_NAME"
+# Instant RunnerUp credit on upload, and the LAN workout poke listener
+# (restart picks up new code)
+for unit in "$RUNNERUP_WATCH_NAME" "$WORKOUT_POKE_NAME"; do
+	systemctl --user enable "$unit"
+	systemctl --user restart "$unit"
+done
 
 # Verify enforcement is actually armed. enable can silently no-op when systemd
 # breaks an ordering cycle by deleting the timer's job -- exactly what happened

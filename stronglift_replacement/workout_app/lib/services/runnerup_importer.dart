@@ -94,12 +94,7 @@ class RunnerUpImporter {
     } on Object catch (error) {
       debugPrint('WorkoutApp: RunnerUp import WARNING: aborted: $error');
       runnerUpImportStatus.value = RunnerUpImportStatus.failed;
-      return (
-        imported: 0,
-        duplicates: 0,
-        skipped: 0,
-        failures: ['aborted: $error'],
-      );
+      return failedReport('aborted: $error');
     }
   }
 

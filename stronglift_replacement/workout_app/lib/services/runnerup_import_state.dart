@@ -49,6 +49,10 @@ const RunnerUpImportReport kNothingImported = (
   failures: [],
 );
 
+/// The report of a pass that did nothing but fail for [reason].
+RunnerUpImportReport failedReport(String reason) =>
+    (imported: 0, duplicates: 0, skipped: 0, failures: [reason]);
+
 /// Counts one import pass and logs each failure as it happens.
 class ImportTally {
   /// Runs stored this pass.
