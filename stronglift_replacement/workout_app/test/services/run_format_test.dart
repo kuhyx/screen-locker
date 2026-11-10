@@ -28,4 +28,10 @@ void main() {
     expect(formatRunDay(when.toUtc()), '03.11');
     expect(formatFullDate(when.toUtc()), '2026-11-03 07:05');
   });
+
+  test('formatPaceSeconds is m:ss', () {
+    expect(formatPaceSeconds(335), '5:35');
+    expect(formatPaceSeconds(720), '12:00');
+    expect(formatPaceSeconds(65), '1:05');
+  });
 }

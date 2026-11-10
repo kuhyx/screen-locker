@@ -16,12 +16,17 @@ Implementing design_v2.md improvements.
   sync layer owns that database's ordering)
 
 ## GPS runs (foundation, 2026-11-10)
-- The app records runs/walks itself and uploads a TCX the PC credits unchanged.
+- The app records one mode: every GPS activity is a run (25 km/h jump cap,
+  `Sport="Running"`, `_Running.tcx`); the PC credits all with one rule. No
+  run/walk toggle. `decodeTcx` still reads old `_Walking.tcx` imports. Optional
+  pace target (`pace_band.dart`, picker `run_pace_picker.dart`); idle map follows
+  the user's fix (`idle_location.dart`, display-only); location refused = no
+  map and no start, only the red icon. The app uploads a TCX the PC credits unchanged.
   Contract = the PC parser, pinned by `screen_locker/tests/fixtures/run_tcx/`
   (Dart `test/services/tcx_golden_fixture_test.dart` <-> pytest
   `screen_locker/tests/test_run_tcx_golden.py`). Regenerate after a deliberate
   codec change: `UPDATE_GOLDEN=1 flutter test test/services/tcx_golden_fixture_test.dart`.
-- File name `RunnerUp_YYYY-MM-DD-HH-MM-SS_<Running|Walking>.tcx`, stamp in
+- File name `RunnerUp_YYYY-MM-DD-HH-MM-SS_<Running>.tcx` (historic: `Walking`), stamp in
   LOCAL time; `<Id>`/`<Time>` UTC `Z`; source tag `kuhy workout_app` in
   `Author/Name` + `Creator/Name`.
 - Trackpoints must be <= 30 s apart with cumulative `DistanceMeters`, or the PC

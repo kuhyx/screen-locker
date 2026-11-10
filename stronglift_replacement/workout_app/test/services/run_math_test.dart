@@ -30,10 +30,9 @@ void main() {
     });
   });
 
-  group('maxSpeedMps', () {
-    test('caps are 25 km/h for a run and 8 km/h for a walk', () {
-      expect(maxSpeedMps(RunSport.running), closeTo(25 / 3.6, 1e-9));
-      expect(maxSpeedMps(RunSport.walking), closeTo(8 / 3.6, 1e-9));
+  group('kRunningMaxSpeedMps', () {
+    test('the one jump cap is 25 km/h', () {
+      expect(kRunningMaxSpeedMps, closeTo(25 / 3.6, 1e-9));
     });
   });
 
@@ -64,8 +63,8 @@ void main() {
         _p(55, 60), // 35 s gap, not credited
         _p(65, 73), // moving, 10 s
       ];
-      expect(movingSeconds(points, RunSport.walking), 20);
-      expect(movingSeconds(const [], RunSport.running), 0);
+      expect(movingSeconds(points), 20);
+      expect(movingSeconds(const []), 0);
     });
   });
 }

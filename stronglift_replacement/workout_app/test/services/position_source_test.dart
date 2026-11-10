@@ -108,6 +108,18 @@ void main() {
       );
     });
 
+    test('checkAccess reads the state and never prompts', () async {
+      final source = GeolocatorPositionSource();
+      expect(await source.checkAccess(), LocationAccess.denied);
+      platform.current = LocationPermission.whileInUse;
+      expect(await source.checkAccess(), LocationAccess.granted);
+      platform.current = LocationPermission.deniedForever;
+      expect(await source.checkAccess(), LocationAccess.deniedForever);
+      platform.serviceOn = false;
+      expect(await source.checkAccess(), LocationAccess.serviceOff);
+      expect(platform.requests, 0);
+    });
+
     test('fixes maps positions and asks for navigation accuracy', () async {
       platform.positions = [_position(), _position(mocked: true)];
       final fixes = await GeolocatorPositionSource(
@@ -149,6 +161,7 @@ void main() {
         access: LocationAccess.deniedForever,
       );
       expect(await source.requestAccess(), LocationAccess.deniedForever);
+      expect(await source.checkAccess(), LocationAccess.deniedForever);
       expect(await source.fixes().toList(), script);
     });
 

@@ -1,9 +1,11 @@
 /// The phases and problems of a GPS recording.
 library;
 
+import 'package:workout_app/services/position_source.dart';
+
 /// Where a recording stands.
 enum RunPhase {
-  /// Nothing recorded yet; the sport can still be chosen.
+  /// Nothing recorded yet.
   idle,
 
   /// Fixes are being kept and credited.
@@ -40,5 +42,16 @@ enum RunIssue {
   streamError,
 
   /// Finished with too few usable fixes to make a track; nothing was saved.
-  tooShort,
+  tooShort;
+
+  /// The issue a refused [access] raises (never [none]; a grant has none).
+  static RunIssue forAccess(LocationAccess access) => switch (access) {
+    LocationAccess.deniedForever => deniedForever,
+    LocationAccess.serviceOff => serviceOff,
+    _ => denied,
+  };
+
+  /// Whether this is a refused location access (no map, no start).
+  bool get isAccess =>
+      this == denied || this == deniedForever || this == serviceOff;
 }

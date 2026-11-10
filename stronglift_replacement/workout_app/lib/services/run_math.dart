@@ -22,17 +22,11 @@ const int kMaxCreditGapSeconds = 30;
 /// Mirrors the lower bound of `WALK_SPEED_MPS` on the PC.
 const double kMinMovingSpeedMps = 0.5;
 
-/// Speed cap above which a fix is a GPS jump, 25 km/h for a run.
+/// Speed cap above which a fix is a GPS jump, 25 km/h.
+///
+/// One cap for every recording: the PC credits every GPS activity with the
+/// same rule, so the app no longer tells a run from a walk.
 const double kRunningMaxSpeedMps = 25 / 3.6;
-
-/// Speed cap above which a fix is a GPS jump, 8 km/h for a walk.
-const double kWalkingMaxSpeedMps = 8 / 3.6;
-
-/// The jump cap for [sport].
-double maxSpeedMps(RunSport sport) => switch (sport) {
-  RunSport.running => kRunningMaxSpeedMps,
-  RunSport.walking => kWalkingMaxSpeedMps,
-};
 
 double _rad(double degrees) => degrees * math.pi / 180;
 
@@ -62,11 +56,10 @@ bool isMovingStep(RunPoint a, RunPoint b, double maxSpeed) {
 }
 
 /// Moving seconds over [points]: the summed gaps of every moving step.
-int movingSeconds(List<RunPoint> points, RunSport sport) {
-  final cap = maxSpeedMps(sport);
+int movingSeconds(List<RunPoint> points) {
   var total = 0.0;
   for (var i = 1; i < points.length; i++) {
-    if (isMovingStep(points[i - 1], points[i], cap)) {
+    if (isMovingStep(points[i - 1], points[i], kRunningMaxSpeedMps)) {
       total += points[i].time.difference(points[i - 1].time).inSeconds;
     }
   }

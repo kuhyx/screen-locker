@@ -6,7 +6,7 @@ import 'package:workout_app/services/run_recorder.dart';
 import '../run_test_fixtures.dart';
 
 RunRecorder _recorder(ManualPositionSource source, {List<int>? km}) =>
-    RunRecorder(sourceFor: (_) => source, onKilometre: km?.add);
+    RunRecorder(sourceFor: () => source, onKilometre: km?.add);
 
 void main() {
   group('start', () {
@@ -56,20 +56,52 @@ void main() {
       recorder.dispose();
     });
 
-    test('the sport is chosen while idle only, and picks the source', () async {
-      final seen = <RunSport>[];
-      final recorder = RunRecorder(
-        sourceFor: (sport) {
-          seen.add(sport);
-          return ManualPositionSource();
-        },
-      );
-      expect(recorder.selectSport(RunSport.walking), isTrue);
+    test('every recording is a run, whatever the speed', () async {
+      final source = ManualPositionSource();
+      final recorder = _recorder(source);
       await recorder.start();
-      expect(recorder.selectSport(RunSport.running), isFalse);
-      expect(recorder.sport, RunSport.walking);
-      expect(seen, [RunSport.walking]);
+      // 6.5 m/s (23 km/h) is over any walking cap, under the 25 km/h one.
+      for (var i = 0; i < 6; i++) {
+        source.controller.add(fixAt(i * 2, i * 13.0));
+      }
+      await pumpEventQueue();
+      final track = await recorder.finish();
+      expect(track!.sport, RunSport.running);
+      expect(recorder.distanceM, closeTo(65, 1));
       recorder.dispose();
+    });
+  });
+
+  group('noteAccess', () {
+    test('a refusal while idle becomes the issue, a grant clears it', () {
+      final recorder = _recorder(ManualPositionSource());
+      recorder.noteAccess(LocationAccess.deniedForever);
+      expect(recorder.issue, RunIssue.deniedForever);
+      expect(recorder.issue.isAccess, isTrue);
+      recorder.noteAccess(LocationAccess.granted);
+      expect(recorder.issue, RunIssue.none);
+      // A grant with nothing to clear leaves other issues alone.
+      recorder.noteAccess(LocationAccess.granted);
+      expect(recorder.issue, RunIssue.none);
+      recorder.dispose();
+    });
+
+    test('is ignored once a recording has begun', () async {
+      final recorder = _recorder(ManualPositionSource());
+      await recorder.start();
+      recorder.noteAccess(LocationAccess.denied);
+      expect(recorder.issue, RunIssue.none);
+      recorder.dispose();
+    });
+
+    test('every refusal maps to its issue', () {
+      expect(RunIssue.forAccess(LocationAccess.denied), RunIssue.denied);
+      expect(
+        RunIssue.forAccess(LocationAccess.serviceOff),
+        RunIssue.serviceOff,
+      );
+      expect(RunIssue.none.isAccess, isFalse);
+      expect(RunIssue.tooShort.isAccess, isFalse);
     });
   });
 

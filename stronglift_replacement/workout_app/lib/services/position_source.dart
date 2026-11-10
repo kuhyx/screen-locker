@@ -27,8 +27,14 @@ enum LocationAccess {
 
 /// A stream of GPS fixes plus the permission handshake that guards it.
 abstract class PositionSource {
-  /// Asks for (or re-checks) location permission; never throws for a refusal.
+  /// Asks for location permission (this may show the system prompt); never
+  /// throws for a refusal.
   Future<LocationAccess> requestAccess();
+
+  /// Reads the access as it stands, without ever prompting. For re-checks
+  /// when the app comes back to the foreground: the permission dialog itself
+  /// backgrounds the app, so re-asking there would loop.
+  Future<LocationAccess> checkAccess();
 
   /// Fixes roughly every [interval], best accuracy, until cancelled.
   ///

@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/models/run_record.dart';
 import 'package:workout_app/models/run_track.dart';
@@ -26,6 +28,8 @@ void main() {
   });
 
   setUp(() async {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
     StorageService.resetForTesting();
     await StorageService.init();
     installFakeAudioPlatform();
@@ -52,9 +56,13 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildAppTheme(),
-        home: RunScreen(uploader: uploader),
+        home: RunScreen(uploader: uploader, mapBuilder: fakeTileMap),
       ),
     );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
 
     List<RunRecord>? runs;
     await tester.runAsync(() async {

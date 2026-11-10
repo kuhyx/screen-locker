@@ -8,9 +8,13 @@
 ///   screen. Pass a `ValueListenable<List<RunPoint>>` (the recorder's
 ///   accepted points, oldest first); the route
 ///   redraws on every change and, in follow mode (the default), the camera
-///   keeps the last point centred. Dragging the map ends follow mode; the
-///   recentre button (icon only) turns it back on. The listenable must stay
-///   the same object for the widget's lifetime (give it a new `Key` to swap).
+///   keeps the last point centred. With no points yet, an optional
+///   `positionListenable` (where the user is right now) stands in: the map
+///   centres on it, draws a position marker, and the recentre button jumps to
+///   it. Once the run has points they win. Dragging the map ends follow
+///   mode; the recentre button (icon only) turns it back on. The listenables
+///   must stay the same objects for the widget's lifetime (give it a new
+///   `Key` to swap).
 ///
 /// Tiles are OSM raster tiles from tile.openstreetmap.org, cached on disk
 /// (`map_tile_cache.dart`) so revisited areas draw offline. The OSM credit is
@@ -48,11 +52,13 @@ class RunMap extends StatefulWidget {
     super.key,
     this.fitPadding = const EdgeInsets.all(40),
     this.tileProviderOpener = openOsmTileProvider,
-  }) : pointsListenable = null;
+  }) : pointsListenable = null,
+       positionListenable = null;
 
   /// A live run: follows the last point in [pointsListenable].
   const RunMap.live({
     required ValueListenable<List<RunPoint>> this.pointsListenable,
+    this.positionListenable,
     super.key,
     this.tileProviderOpener = openOsmTileProvider,
   }) : points = null,
@@ -63,6 +69,9 @@ class RunMap extends StatefulWidget {
 
   /// The accepted points in live mode; null in detail mode.
   final ValueListenable<List<RunPoint>>? pointsListenable;
+
+  /// Where the user is before the first run point; null in detail mode.
+  final ValueListenable<LatLng?>? positionListenable;
 
   /// Space kept free around the fitted route (detail mode).
   final EdgeInsets fitPadding;
@@ -83,14 +92,21 @@ class _RunMapState extends State<RunMap> {
 
   bool get _live => widget.pointsListenable != null;
 
-  List<RunPoint> get _points => _live
-      ? widget.pointsListenable!.value
-      : widget.points!;
+  List<RunPoint> get _points =>
+      _live ? widget.pointsListenable!.value : widget.points!;
+
+  /// What the camera follows: the last run point, else the current position.
+  LatLng? get _target {
+    final points = _points;
+    if (points.isEmpty) return widget.positionListenable?.value;
+    return LatLng(points.last.latitude, points.last.longitude);
+  }
 
   @override
   void initState() {
     super.initState();
     widget.pointsListenable?.addListener(_followLast);
+    widget.positionListenable?.addListener(_followLast);
     unawaited(
       widget.tileProviderOpener().then((p) {
         if (mounted) setState(() => _tiles = p);
@@ -101,15 +117,16 @@ class _RunMapState extends State<RunMap> {
   @override
   void dispose() {
     widget.pointsListenable?.removeListener(_followLast);
+    widget.positionListenable?.removeListener(_followLast);
     _controller.dispose();
     super.dispose();
   }
 
   void _followLast() {
-    final coords = toLatLngs(_points);
-    if (!_ready || !_follow || coords.isEmpty) return;
+    final target = _target;
+    if (!_ready || !_follow || target == null) return;
     final zoom = _controller.camera.zoom;
-    _controller.move(coords.last, zoom < 12 ? _closeZoom : zoom);
+    _controller.move(target, zoom < 12 ? _closeZoom : zoom);
   }
 
   void _warnOnce(Object error) {
@@ -121,7 +138,7 @@ class _RunMapState extends State<RunMap> {
     );
   }
 
-  MapOptions _options(List<LatLng> coords, ColorScheme scheme) {
+  MapOptions _options(List<LatLng> coords, ColorScheme scheme, LatLng? here) {
     final fit = !_live && coords.length > 1
         ? CameraFit.coordinates(
             coordinates: coords,
@@ -130,8 +147,8 @@ class _RunMapState extends State<RunMap> {
           )
         : null;
     return MapOptions(
-      initialCenter: coords.isEmpty ? _fallbackCenter : coords.last,
-      initialZoom: coords.isEmpty ? _fallbackZoom : _closeZoom,
+      initialCenter: coords.isEmpty ? here ?? _fallbackCenter : coords.last,
+      initialZoom: coords.isEmpty && here == null ? _fallbackZoom : _closeZoom,
       initialCameraFit: fit,
       backgroundColor: scheme.surfaceContainerHigh,
       onMapReady: () {
@@ -147,9 +164,10 @@ class _RunMapState extends State<RunMap> {
   Widget _map(BuildContext context, List<RunPoint> points) {
     final scheme = Theme.of(context).colorScheme;
     final coords = toLatLngs(points);
+    final here = widget.positionListenable?.value;
     return FlutterMap(
       mapController: _controller,
-      options: _options(coords, scheme),
+      options: _options(coords, scheme, here),
       children: [
         if (_tiles != null)
           TileLayer(
@@ -159,6 +177,7 @@ class _RunMapState extends State<RunMap> {
             errorTileCallback: (tile, error, stack) => _warnOnce(error),
           ),
         if (coords.length > 1) routeLayer(coords, scheme),
+        if (coords.isEmpty && here != null) positionLayer(here, scheme),
         if (coords.isNotEmpty)
           endpointLayer(
             coords,
@@ -178,9 +197,9 @@ class _RunMapState extends State<RunMap> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        ValueListenableBuilder<List<RunPoint>>(
-          valueListenable: listenable,
-          builder: (context, points, _) => _map(context, points),
+        ListenableBuilder(
+          listenable: Listenable.merge([listenable, widget.positionListenable]),
+          builder: (context, _) => _map(context, listenable.value),
         ),
         if (!_follow)
           Positioned(

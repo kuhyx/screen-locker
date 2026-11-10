@@ -48,6 +48,12 @@ void main() {
     expect(find.byType(Scrollable), findsNothing);
     _expectFits(tester);
 
+    // With the pace picker open: still nothing scrolls, nothing overflows.
+    await tapKey(tester, 'run_pace_toggle');
+    expect(find.byKey(const Key('run_pace_value')), findsOneWidget);
+    expect(find.byType(Scrollable), findsNothing);
+    _expectFits(tester);
+
     await tapKey(tester, 'run_start');
     await h.run(tester, 400);
     _expectFits(tester);
@@ -67,8 +73,12 @@ void main() {
     addTearDown(tester.platformDispatcher.clearAllTestValues);
     final h = RunHarness();
     await h.pump(tester);
+    await tapKey(tester, 'run_pace_toggle');
+    _expectFits(tester);
     await tapKey(tester, 'run_start');
     await h.run(tester, 3000);
+    // Three numbers in the row (distance, average pace, current pace).
+    expect(find.byKey(const Key('run_pace_now')), findsOneWidget);
     _expectFits(tester);
   });
 }

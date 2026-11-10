@@ -1,11 +1,15 @@
 // The run icon on the home screen opens the run screen.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/screens/run_screen.dart';
 import 'package:workout_app/services/storage_service.dart';
 
 import '../fake_audio_platform.dart';
+import '../fake_geolocator.dart';
 import '../fake_secure_storage.dart';
 import '_home_test_fixtures.dart';
 
@@ -16,10 +20,17 @@ void main() {
   });
 
   setUp(() async {
+    // The run screen reads its last pace target from shared_preferences.
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
     StorageService.resetForTesting();
     await StorageService.init();
     installFakeSecureStorage();
     installFakeAudioPlatform();
+    // The real run controller asks the real source where the user is.
+    final original = GeolocatorPlatform.instance;
+    GeolocatorPlatform.instance = FakeGeolocator();
+    addTearDown(() => GeolocatorPlatform.instance = original);
   });
 
   testWidgets('the run icon opens the run screen and back returns home', (

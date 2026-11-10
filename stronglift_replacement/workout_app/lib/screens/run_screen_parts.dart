@@ -1,10 +1,6 @@
-// The run screen's three bands: status icons, the big numbers, the buttons.
+// The run screen's bands: status icons and the buttons (the numbers have
+// their own part).
 part of 'run_screen.dart';
-
-IconData _sportIcon(RunSport sport) => switch (sport) {
-  RunSport.running => Icons.directions_run,
-  RunSport.walking => Icons.directions_walk,
-};
 
 /// Problems with the recording, as an icon (null when there is none).
 ({IconData icon, bool danger})? _issueFace(RunIssue issue) => switch (issue) {
@@ -17,26 +13,55 @@ IconData _sportIcon(RunSport sport) => switch (sport) {
   RunIssue.tooShort => (icon: Icons.error_outline, danger: true),
 };
 
+/// The red problem icon; [size] 24 in the status row, large when it is the
+/// only thing on the screen (location refused).
+class _IssueButton extends StatelessWidget {
+  const _IssueButton({
+    required this.issue,
+    required this.onTap,
+    required this.size,
+  });
+
+  final RunIssue issue;
+  final VoidCallback? onTap;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final face = _issueFace(issue);
+    if (face == null) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
+    final colors = Theme.of(context).extension<AppStatusColors>()!;
+    return IconButton(
+      key: Key('run_issue_${issue.name}'),
+      onPressed: onTap,
+      iconSize: size,
+      icon: Icon(
+        face.icon,
+        color: face.danger ? scheme.error : colors.warning,
+        semanticLabel: issue.name,
+      ),
+    );
+  }
+}
+
 class _StatusRow extends StatelessWidget {
   const _StatusRow({
     required this.controller,
     required this.uploader,
-    required this.openSettings,
+    required this.issue,
   });
 
   final RunController controller;
   final RunUploader uploader;
-  final Future<bool> Function() openSettings;
+
+  /// The problem icon, or null when it is shown elsewhere (or not at all).
+  final Widget? issue;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final colors = Theme.of(context).extension<AppStatusColors>()!;
-    final recorder = controller.recorder;
-    final issue = _issueFace(recorder.issue);
-    final fixable =
-        recorder.issue == RunIssue.deniedForever ||
-        recorder.issue == RunIssue.serviceOff;
     final serviceIcon = switch (controller.serviceState) {
       RunServiceState.runningHidden => (Icons.notifications_off, false),
       RunServiceState.failed => (Icons.warning_amber, true),
@@ -74,92 +99,9 @@ class _StatusRow extends StatelessWidget {
                 semanticLabel: controller.serviceState.name,
               ),
             ),
-          if (issue != null)
-            IconButton(
-              key: Key('run_issue_${recorder.issue.name}'),
-              onPressed: fixable ? () => unawaited(openSettings()) : null,
-              icon: Icon(
-                issue.icon,
-                color: issue.danger ? scheme.error : colors.warning,
-                semanticLabel: recorder.issue.name,
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.only(left: AppSpacing.sm),
-            child: Icon(
-              _sportIcon(recorder.sport),
-              color: scheme.onSurfaceVariant,
-              semanticLabel: recorder.sport.name,
-            ),
-          ),
+          ?issue,
         ],
       ),
-    );
-  }
-}
-
-class _Numbers extends StatelessWidget {
-  const _Numbers({required this.recorder});
-
-  final RunRecorder recorder;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    const figures = [FontFeature.tabularFigures()];
-    Widget big(Key key, String text, double size, Color color) => FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Text(
-        text,
-        key: key,
-        style: TextStyle(
-          fontSize: size,
-          fontWeight: FontWeight.w600,
-          color: color,
-          fontFeatures: figures,
-        ),
-      ),
-    );
-    Widget small(IconData icon, Key key, String text) => Expanded(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: scheme.onSurfaceVariant),
-          const SizedBox(width: AppSpacing.sm),
-          Flexible(child: big(key, text, 48, scheme.onSurface)),
-        ],
-      ),
-    );
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Flexible(
-          child: big(
-            const Key('run_time'),
-            formatDuration(recorder.seconds),
-            96,
-            scheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Row(
-          children: [
-            small(
-              Icons.straighten,
-              const Key('run_distance'),
-              formatDistanceKm(recorder.distanceM),
-            ),
-            small(
-              Icons.speed,
-              const Key('run_pace'),
-              formatPace(
-                seconds: recorder.seconds,
-                distanceM: recorder.distanceM,
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }
@@ -168,6 +110,10 @@ class _Controls extends StatelessWidget {
   const _Controls({
     required this.controller,
     required this.starting,
+    required this.paceOn,
+    required this.paceTarget,
+    required this.onPaceToggle,
+    required this.onPaceChanged,
     required this.onStart,
     required this.onAgain,
     required this.onClose,
@@ -175,6 +121,10 @@ class _Controls extends StatelessWidget {
 
   final RunController controller;
   final bool starting;
+  final bool paceOn;
+  final int paceTarget;
+  final VoidCallback onPaceToggle;
+  final ValueChanged<int> onPaceChanged;
   final VoidCallback onStart;
   final VoidCallback onAgain;
   final VoidCallback onClose;
@@ -204,20 +154,19 @@ class _Controls extends StatelessWidget {
 
     final buttons = switch (recorder.phase) {
       RunPhase.idle => [
-        SegmentedButton<RunSport>(
-          key: const Key('run_sport'),
-          showSelectedIcon: false,
-          segments: [
-            for (final sport in RunSport.values)
-              ButtonSegment(
-                value: sport,
-                icon: Icon(_sportIcon(sport), semanticLabel: sport.name),
-              ),
-          ],
-          selected: {recorder.sport},
-          onSelectionChanged: (s) => recorder.selectSport(s.single),
+        Flexible(
+          child: RunPacePicker(
+            on: paceOn,
+            seconds: paceTarget,
+            onToggle: onPaceToggle,
+            onChanged: onPaceChanged,
+          ),
         ),
-        button('start', Icons.play_arrow, starting ? null : onStart),
+        button(
+          'start',
+          Icons.play_arrow,
+          starting || !controller.canStart ? null : onStart,
+        ),
       ],
       RunPhase.recording => [
         button('pause', Icons.pause, controller.pause),

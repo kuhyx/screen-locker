@@ -38,6 +38,11 @@ Marker _dot(LatLng at, Color fill, IconData icon, Color ink) => Marker(
   ),
 );
 
+/// The user's own position before any run point exists: the accent dot.
+MarkerLayer positionLayer(LatLng at, ColorScheme scheme) => MarkerLayer(
+  markers: [_dot(at, scheme.primary, Icons.navigation, scheme.surface)],
+);
+
 /// Start marker (green play), and either the live position (accent dot) or
 /// the finish flag (red); no end marker for a one-point track.
 MarkerLayer endpointLayer(
