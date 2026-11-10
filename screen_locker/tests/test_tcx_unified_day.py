@@ -175,3 +175,21 @@ class TestActivityDay:
         """The shortfall names both ways to qualify."""
         day: ActivityDay = activity_day([{"distance_m": 100.0, "moving_seconds": 60.0}])
         assert activity_shortfall(day).endswith("need 3.5+ km or 30+ min moving")
+
+
+class TestLapOnlyExport:
+    """An export with laps but no trackpoints has no moving time to credit."""
+
+    def test_wall_clock_alone_credits_nothing(self, verifier: Verifier) -> None:
+        """40 min on the lap clock, 1 km, no trackpoints: too short."""
+        body = (
+            '<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/'
+            'TrainingCenterDatabase/v2"><Activities><Activity Sport="Running">'
+            "<Id>2026-10-10T08:00</Id><Lap><TotalTimeSeconds>2400</TotalTimeSeconds>"
+            "<DistanceMeters>1000</DistanceMeters></Lap></Activity></Activities>"
+            "</TrainingCenterDatabase>"
+        )
+        drop(verifier.folder, "08-00-00", "_Running", body)
+        result = verify(verifier)
+        assert result is not None
+        assert result[0] == "too_short"

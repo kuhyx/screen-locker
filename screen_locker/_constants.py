@@ -73,11 +73,11 @@ WORKOUT_DURATION_ACCEPT_MINUTES = (
 )
 RUNNERUP_PACKAGES = ("org.runnerup", "org.runnerup.free")
 RUNNERUP_DB_SDCARD_TMP = "/sdcard/.runnerup_tmp_verification.db"
-# A run qualifies on EITHER criterion — they are an OR, not an AND. A short
-# but long-lasting run counts, and so does a fast 5 km that takes under the
-# duration bar. Do not reinstate an AND here: it would reject exactly the
-# slow-run case this pair exists to allow. The duration arm is the shared
-# MIN_WORKOUT_DURATION_MINUTES above; only the distance arm is run-specific.
+# A day's activity (run or walk alike) qualifies on EITHER criterion — they are
+# an OR, not an AND. A short but long-lasting session counts, and so does a
+# fast 5 km that takes under the duration bar. Do not reinstate an AND here:
+# it would reject exactly the slow case this pair exists to allow. The
+# duration arm is the shared MIN_WORKOUT_DURATION_MINUTES above (moving time).
 MIN_RUN_DISTANCE_KM = 3.5  # inclusive: "as low as 3.5 km"
 # GPS distance tracking undershoots on tight turns/tree cover/urban canyons;
 # a run within 5% of the minimum is accepted rather than rejected on

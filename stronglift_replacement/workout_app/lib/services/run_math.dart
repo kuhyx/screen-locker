@@ -28,7 +28,8 @@ const double kRunningMaxSpeedMps = 25 / 3.6;
 /// Speed cap above which a fix is a GPS jump, 8 km/h for a walk.
 const double kWalkingMaxSpeedMps = 8 / 3.6;
 
-/// The jump cap for [sport].
+/// The jump cap for [sport]. Display only: the PC has no upper speed, so the
+/// moving time shown here can be below what the PC credits, never above.
 double maxSpeedMps(RunSport sport) => switch (sport) {
   RunSport.running => kRunningMaxSpeedMps,
   RunSport.walking => kWalkingMaxSpeedMps,
