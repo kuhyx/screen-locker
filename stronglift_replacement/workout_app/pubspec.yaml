@@ -20,7 +20,7 @@ dependencies:
   data_transfer_flutter:
     git:
       url: https://github.com/kuhyx/utils
-      ref: data_transfer_flutter-v0.2.1
+      ref: data_transfer_flutter-v0.2.2
       path: data_transfer_flutter
   # Persistent tile cache for the run map (flutter_map_cache talks to dio).
   dio: 5.11.1
@@ -63,7 +63,7 @@ dependencies:
   sync_settings_ui:
     git:
       url: https://github.com/kuhyx/utils
-      ref: sync_settings_ui-v0.6.2
+      ref: sync_settings_ui-v0.6.3
       path: sync_settings_ui
   url_launcher: 6.3.3
   uuid: 4.6.0
