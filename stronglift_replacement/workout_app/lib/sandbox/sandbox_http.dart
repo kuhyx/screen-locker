@@ -62,7 +62,9 @@ class SandboxHttpOverrides extends HttpOverrides {
         }
         if (proxyHost == null && allowsTile(uri)) {
           debugPrint('WorkoutSandbox: allowing OSM tile ${uri.path}');
-          return Socket.startConnect(uri.host, uri.port);
+          // A connection factory must return the TLS socket itself; a plain
+          // one makes the server answer https with "Invalid request method".
+          return SecureSocket.startConnect(uri.host, uri.port);
         }
         debugPrint(
           'WorkoutSandbox: refused network connection to ${uri.host} — the '
