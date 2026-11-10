@@ -117,7 +117,7 @@ class RunRecorder extends ChangeNotifier {
   /// Ends the recording and returns the track, or null when there were too
   /// few usable fixes (then [issue] is [RunIssue.tooShort]).
   Future<RunTrack?> finish() async {
-    if (_phase != RunPhase.recording && _phase != RunPhase.paused) return null;
+    if (!_phase.isActive) return null;
     await _sub?.cancel();
     _sub = null;
     _phase = RunPhase.finished;
@@ -217,7 +217,7 @@ class RunRecorder extends ChangeNotifier {
   }
 
   void _onDone() {
-    if (_phase != RunPhase.recording && _phase != RunPhase.paused) return;
+    if (!_phase.isActive) return;
     log(
       'RunRecorder: the location stream ended while still recording; '
       'finish the run to save what was captured.',

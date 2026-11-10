@@ -16,7 +16,10 @@ enum RunServiceState {
   failed,
 
   /// This platform has no foreground services (Linux desktop, tests).
-  unsupported,
+  unsupported;
+
+  /// True while a service is up, notification shown or not.
+  bool get isUp => this == running || this == runningHidden;
 }
 
 /// Starting, feeding and stopping the recording's foreground service.

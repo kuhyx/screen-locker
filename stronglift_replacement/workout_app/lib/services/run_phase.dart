@@ -13,7 +13,10 @@ enum RunPhase {
   paused,
 
   /// Over; [RunRecorder.finish] has returned the track.
-  finished,
+  finished;
+
+  /// True from start to finish: recording or paused.
+  bool get isActive => this == recording || this == paused;
 }
 
 /// What is wrong with the recording right now (shown as an icon, logged).

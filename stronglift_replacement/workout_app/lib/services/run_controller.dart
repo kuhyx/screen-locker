@@ -54,8 +54,7 @@ class RunController extends ChangeNotifier {
   bool get saving => _saving;
 
   /// True from start to finish: the screen must not be left meanwhile.
-  bool get active =>
-      recorder.phase == RunPhase.recording || recorder.phase == RunPhase.paused;
+  bool get active => recorder.phase.isActive;
 
   /// Asks for access, starts the service, begins recording.
   Future<void> start() async {
@@ -129,10 +128,7 @@ class RunController extends ChangeNotifier {
   }
 
   Future<void> _stopService() async {
-    if (_serviceState != RunServiceState.running &&
-        _serviceState != RunServiceState.runningHidden) {
-      return;
-    }
+    if (!_serviceState.isUp) return;
     await _service.stop();
     _serviceState = RunServiceState.none;
     notifyListeners();
