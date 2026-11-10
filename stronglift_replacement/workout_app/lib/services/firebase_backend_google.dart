@@ -2,7 +2,7 @@ part of 'firebase_backend.dart';
 
 // The interactive Google sign-in path. Separate from the rest of the backend
 // because it is the only piece that can raise UI, and because it is dead code
-// on Linux desktop -- google_sign_in ships no Linux implementation, so the
+// on Linux desktop -- google_account_token is Android-only, so the
 // desktop build authenticates from the shared refresh token instead.
 // coverage:ignore-start
 

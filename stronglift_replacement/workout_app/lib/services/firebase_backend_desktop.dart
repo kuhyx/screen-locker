@@ -32,8 +32,8 @@ File? _desktopCredentialFile() {
 /// `crdt_sync` Python library) already keeps the sync account there as
 /// `firebase.json` + `password`, both mode 600, so the desktop build reads
 /// that rather than standing up a second credential the user would have to
-/// enter and keep in step. It also sidesteps `google_sign_in`, which has no
-/// Linux implementation at all.
+/// enter and keep in step. It also sidesteps `google_account_token`, which is
+/// Android-only.
 ///
 /// Returns null when the files are absent or malformed; the caller then
 /// reports the device as not connected, exactly as an empty keystore would.
