@@ -176,11 +176,11 @@ class TestLocalVerifyAndParse:
     ) -> None:
         """A path that exists locally is parsed without any adb pull."""
         locker = create_locker(mock_tk, tmp_path)
-        tcx = tmp_path / "run.tcx"
-        tcx.write_text(_TCX)
+        tcx_file = tmp_path / "run.tcx"
+        tcx_file.write_text(_TCX)
         object.__setattr__(locker, "_run_adb", MagicMock())
 
-        data = locker._pull_and_parse_tcx(str(tcx))
+        data = locker._pull_and_parse_tcx(str(tcx_file))
 
         assert data is not None
         assert data["distance_m"] == 5800.0
