@@ -73,11 +73,11 @@ WORKOUT_DURATION_ACCEPT_MINUTES = (
 )
 RUNNERUP_PACKAGES = ("org.runnerup", "org.runnerup.free")
 RUNNERUP_DB_SDCARD_TMP = "/sdcard/.runnerup_tmp_verification.db"
-# A run qualifies on EITHER criterion — they are an OR, not an AND. A short
-# but long-lasting run counts, and so does a fast 5 km that takes under the
-# duration bar. Do not reinstate an AND here: it would reject exactly the
-# slow-run case this pair exists to allow. The duration arm is the shared
-# MIN_WORKOUT_DURATION_MINUTES above; only the distance arm is run-specific.
+# A day's activity (run or walk alike) qualifies on EITHER criterion — they are
+# an OR, not an AND. A short but long-lasting session counts, and so does a
+# fast 5 km that takes under the duration bar. Do not reinstate an AND here:
+# it would reject exactly the slow case this pair exists to allow. The
+# duration arm is the shared MIN_WORKOUT_DURATION_MINUTES above (moving time).
 MIN_RUN_DISTANCE_KM = 3.5  # inclusive: "as low as 3.5 km"
 # GPS distance tracking undershoots on tight turns/tree cover/urban canyons;
 # a run within 5% of the minimum is accepted rather than rejected on
@@ -105,10 +105,16 @@ SHUTDOWN_BASE_FILE = Path(__file__).resolve().parent / "shutdown_base.json"
 REST_DAY_FILE = Path(__file__).resolve().parent / "rest_days.json"
 REST_DAYS_PER_ISO_WEEK = 2
 GRACE_STATE_FILE = Path(__file__).resolve().parent / "grace_floor.json"
-# A day's RunnerUp walks (commute legs) count as the workout once their
-# MOVING time reaches WORKOUT_DURATION_ACCEPT_MINUTES (the shared bar above);
-# moving = trackpoint pairs at walking speed.
-WALK_SPEED_MPS = (0.5, 3.0)
+# Every GPS activity (run or walk, whatever its TCX sport) is judged the same
+# way: a day's activities count as the workout once their summed distance
+# reaches MIN_RUN_DISTANCE_KM OR their summed MOVING time reaches
+# WORKOUT_DURATION_ACCEPT_MINUTES. Moving = trackpoint pairs seen within
+# WALK_MAX_GAP_SECONDS and travelled at least this fast (slower is standing
+# still). A pair faster than MAX_MOVING_SPEED_MPS (25 km/h, the app's running
+# jump filter) is a vehicle or a GPS jump and counts neither moving time NOR
+# distance, for every activity. The Dart app mirrors the bounds.
+MIN_MOVING_SPEED_MPS = 0.5
+MAX_MOVING_SPEED_MPS = 25 / 3.6
 WALK_MAX_GAP_SECONDS = 30
 # Workout records this PC must keep deleted in the sync store, pushed as
 # tombstones on every tick (see _sync_tombstones for why once is not enough).
