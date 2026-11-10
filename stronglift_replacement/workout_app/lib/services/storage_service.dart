@@ -14,6 +14,8 @@ import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/exercise_state.dart';
 import 'package:workout_app/models/manual_deload.dart';
 import 'package:workout_app/models/progression.dart';
+import 'package:workout_app/models/run_record.dart';
+import 'package:workout_app/models/run_track.dart';
 import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/services/backup_service.dart';
 import 'package:workout_app/services/manual_workout_port.dart';
@@ -31,6 +33,7 @@ part 'storage_service_exercises.dart';
 part 'storage_service_export.dart';
 part 'storage_service_import.dart';
 part 'storage_service_pc_link.dart';
+part 'storage_service_runs.dart';
 part 'storage_service_sandbox.dart';
 part 'storage_service_schema.dart';
 part 'storage_service_sessions.dart';
@@ -94,7 +97,7 @@ class StorageService {
     // coverage:ignore-end
     _db = await openDatabase(
       dbPath,
-      version: 8,
+      version: 9,
       onCreate: _createSchema,
       onUpgrade: _migrateSchema,
       // In tests resetForTesting() reopens a ':memory:' DB per test; sqflite's

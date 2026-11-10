@@ -22,6 +22,16 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission
         android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- GPS run/walk tracking. FINE is the GPS fix; COARSE must be declared
+         alongside it or Android 12+ cannot offer the approximate choice. The
+         FOREGROUND_SERVICE_LOCATION permission is what lets the same
+         foreground service keep receiving fixes with the screen off (the
+         service type below must name `location` on Android 14+). The runtime
+         grant is requested when a recording starts, never at launch. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <!-- Required by ForegroundTaskOptions(allowWakeLock: true), which takes a
          PARTIAL_WAKE_LOCK so the deadline fires with the screen off. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -66,10 +76,16 @@
              additionally demands a runtime ACTIVITY_RECOGNITION/BODY_SENSORS
              grant on Android 14+, and specialUse needs a Play-review
              justification property. Neither buys anything for a sideloaded
-             personal app, and dataSync's 6h/24h budget dwarfs a workout. -->
+             personal app, and dataSync's 6h/24h budget dwarfs a workout.
+
+             "location" is added for GPS run tracking: a service whose type
+             list lacks it is not allowed to read the location in the
+             background on Android 14+. The Dart side must pass
+             ForegroundServiceTypes.location (with dataSync) when it starts
+             the service for a recording. -->
         <service
             android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
-            android:foregroundServiceType="dataSync"
+            android:foregroundServiceType="dataSync|location"
             android:exported="false"
             android:stopWithTask="false" />
         <!-- adb-only pairing for the phone->PC workout poke. Exported because

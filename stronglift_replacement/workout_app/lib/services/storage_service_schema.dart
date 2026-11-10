@@ -83,6 +83,9 @@ extension StorageServiceSchema on StorageService {
       )
     ''');
     await db.execute(_progressionEventsTable);
+    for (final ddl in _runsTables) {
+      await db.execute(ddl);
+    }
   }
 
   Future<void> _migrateSchema(
@@ -144,6 +147,12 @@ extension StorageServiceSchema on StorageService {
       // edit time is unknown, so an import with a stamp may overwrite them.
       for (final table in const ['exercise_state', 'settings']) {
         await db.execute('ALTER TABLE $table ADD COLUMN $_updatedAtColumn');
+      }
+    }
+    if (oldVersion < 9) {
+      // New tables, nothing to backfill: runs before v9 were RunnerUp's.
+      for (final ddl in _runsTables) {
+        await db.execute(ddl);
       }
     }
   }
