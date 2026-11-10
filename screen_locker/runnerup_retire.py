@@ -14,6 +14,7 @@ import argparse
 from datetime import UTC, datetime
 import logging
 import sys
+from typing import TYPE_CHECKING
 
 from screen_locker._runnerup_retire import (
     GRACE,
@@ -25,12 +26,15 @@ from screen_locker._runnerup_retire_adb import PHONE_SERIAL, AdbError, Phone
 from screen_locker._runnerup_retire_state import load_state
 from screen_locker._runnerup_retire_tcx import check_marker
 
+if TYPE_CHECKING:
+    from screen_locker._runnerup_retire_adb import PhoneLike
+
 __all__ = ["main", "status_lines"]
 
 _logger = logging.getLogger(__name__)
 
 
-def _installed_line(phone: Phone, *, query: bool) -> str:
+def _installed_line(phone: PhoneLike, *, query: bool) -> str:
     if not query:
         return "installed: not queried (add --query-phone)"
     try:
@@ -44,7 +48,7 @@ def _installed_line(phone: Phone, *, query: bool) -> str:
 
 
 def status_lines(
-    paths: Paths, phone: Phone, now: datetime, *, query_phone: bool = False
+    paths: Paths, phone: PhoneLike, now: datetime, *, query_phone: bool = False
 ) -> list[str]:
     """The ``--status`` report. Read-only: nothing is created or saved."""
     state = load_state(paths.state_file)
@@ -69,7 +73,7 @@ def status_lines(
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry; returns the process exit code."""
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n", maxsplit=1)[0])
     parser.add_argument(
         "--status", action="store_true", help="print state, change nothing"
     )

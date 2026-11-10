@@ -16,17 +16,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
-from enum import StrEnum
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from screen_locker._runnerup_retire_adb import PACKAGE, AdbError
+from screen_locker._runnerup_retire_result import LEVEL, Outcome, RetireResult
 from screen_locker._runnerup_retire_state import load_state, save_state
-from screen_locker._runnerup_retire_tcx import check_marker, find_anchor
+from screen_locker._runnerup_retire_tcx import app_run_ends, check_marker, find_anchor
 
 if TYPE_CHECKING:
-    from screen_locker._runnerup_retire_adb import Phone
+    from screen_locker._runnerup_retire_adb import PhoneLike
     from screen_locker._runnerup_retire_state import RetireState
 
 _logger = logging.getLogger(__name__)
@@ -36,57 +36,6 @@ STATE_FILE = Path.home() / ".local" / "state" / "screen-locker" / "runnerup_reti
 WATCH_DIR = Path.home() / "data" / "cloud" / "RunnerUp"
 LOG_FILE = Path(__file__).resolve().parent / "log.json"
 MARKER_NAME = ".workout_app_import.json"
-
-
-class Outcome(StrEnum):
-    """How a run ended; the value is what the journal shows."""
-
-    UNINSTALLED = "uninstalled"
-    ALREADY_GONE = "already-gone"
-    ALREADY_DONE = "already-done"
-    NO_ANCHOR = "no-anchor"
-    NOT_DUE = "not-due"
-    DRY_RUN = "dry-run"
-    DEVICE_ABSENT = "device-absent"
-    MARKER_INVALID = "marker-invalid"
-    ADB_MISSING = "adb-missing"
-    PHONE_ERROR = "phone-error"
-    BACKUP_FAILED = "backup-failed"
-    UNINSTALL_FAILED = "uninstall-failed"
-
-
-# Level per outcome; the failures also make the unit exit non-zero.
-_LEVEL = {
-    Outcome.DEVICE_ABSENT: logging.WARNING,
-    Outcome.MARKER_INVALID: logging.WARNING,
-    Outcome.ADB_MISSING: logging.ERROR,
-    Outcome.PHONE_ERROR: logging.ERROR,
-    Outcome.BACKUP_FAILED: logging.ERROR,
-    Outcome.UNINSTALL_FAILED: logging.ERROR,
-}
-_NONZERO = frozenset(
-    {
-        Outcome.MARKER_INVALID,
-        Outcome.ADB_MISSING,
-        Outcome.PHONE_ERROR,
-        Outcome.BACKUP_FAILED,
-        Outcome.UNINSTALL_FAILED,
-    }
-)
-
-
-@dataclass(frozen=True)
-class RetireResult:
-    """What happened and why, in a sentence a human can act on."""
-
-    outcome: Outcome
-    reason: str
-    logged: bool = False  # the failure was already logged where it was caught
-
-    @property
-    def ok(self) -> bool:
-        """False for outcomes the unit should surface as failed."""
-        return self.outcome not in _NONZERO
 
 
 @dataclass(frozen=True)
@@ -128,7 +77,7 @@ def _finish(paths: Paths, state: RetireState, now: datetime, why: str) -> None:
     )
 
 
-def _probe(phone: Phone) -> RetireResult | tuple[str, bool]:
+def _probe(phone: PhoneLike) -> RetireResult | tuple[str, bool]:
     """``(serial, installed)`` if the phone answers, else the result explaining why."""
     if not phone.available():
         return RetireResult(
@@ -149,7 +98,7 @@ def _probe(phone: Phone) -> RetireResult | tuple[str, bool]:
 
 
 def _backup(
-    paths: Paths, phone: Phone, state: RetireState, serial: str, now: datetime
+    paths: Paths, phone: PhoneLike, state: RetireState, serial: str, now: datetime
 ) -> RetireState | RetireResult:
     """Back the phone's exports up once; a later retry reuses a finished backup."""
     if state.backup_path and Path(state.backup_path).is_dir():
@@ -167,7 +116,7 @@ def _backup(
 
 
 def _retire(
-    paths: Paths, phone: Phone, state: RetireState, now: datetime, *, dry_run: bool
+    paths: Paths, phone: PhoneLike, state: RetireState, now: datetime, *, dry_run: bool
 ) -> RetireResult:
     """Everything after "it is due and the marker is good": the phone steps."""
     probed = _probe(phone)
@@ -199,6 +148,21 @@ def _retire(
     )
 
 
+def _no_anchor(paths: Paths) -> RetireResult:
+    """Why there is no anchor; a missing source is a warning, not "nothing yet"."""
+    absent = [str(p) for p in (paths.watch_dir, paths.log_file) if not p.exists()]
+    if absent:
+        return RetireResult(
+            Outcome.SOURCES_MISSING,
+            f"cannot look for app runs, missing: {', '.join(absent)}",
+        )
+    seen = len(app_run_ends(paths.anchor_dirs()))
+    return RetireResult(
+        Outcome.NO_ANCHOR,
+        f"no app-recorded run credited yet ({seen} app TCX on disk); nothing to retire",
+    )
+
+
 def _gate(
     paths: Paths, state: RetireState, now: datetime, *, dry_run: bool
 ) -> RetireState | RetireResult:
@@ -209,9 +173,7 @@ def _gate(
         )
     anchor = derive_anchor(paths, state)
     if anchor is None:
-        return RetireResult(
-            Outcome.NO_ANCHOR, "no app-recorded run credited yet; nothing to retire"
-        )
+        return _no_anchor(paths)
     if not state.anchor_at:
         state = replace(state, anchor_at=anchor.isoformat())
         if not dry_run:
@@ -230,7 +192,11 @@ def _gate(
 
 
 def run_retire(
-    paths: Paths, phone: Phone, now: datetime | None = None, *, dry_run: bool = False
+    paths: Paths,
+    phone: PhoneLike,
+    now: datetime | None = None,
+    *,
+    dry_run: bool = False,
 ) -> RetireResult:
     """One pass: uninstall RunnerUp if (and only if) every condition holds."""
     when = now or datetime.now(UTC)
@@ -241,7 +207,7 @@ def run_retire(
         result = _retire(paths, phone, gated, when, dry_run=dry_run)
     if not result.logged:
         _logger.log(
-            _LEVEL.get(result.outcome, logging.INFO),
+            LEVEL.get(result.outcome, logging.INFO),
             "RunnerUp retirement: %s: %s",
             result.outcome.value,
             result.reason,

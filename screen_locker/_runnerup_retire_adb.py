@@ -13,7 +13,7 @@ import logging
 from pathlib import Path
 import shutil
 import subprocess
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn, Protocol
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -24,6 +24,9 @@ PHONE_SERIAL = "23181JEGR08034"
 PACKAGE = "org.runnerup.free"
 REMOTE_DIR = "/sdcard/Documents/RunnerUp"
 _ADB_TIMEOUT_S = 50
+# The whole export history (TCX + GPX) over wifi adb; the oneshot unit has no
+# start timeout, so a slow pull is allowed to finish.
+_PULL_TIMEOUT_S = 900
 
 
 class AdbError(RuntimeError):
@@ -40,6 +43,25 @@ class Device:
 
     serial: str | None
     reason: str
+
+
+class PhoneLike(Protocol):
+    """What the retirement needs from a phone (tests substitute a fake)."""
+
+    def available(self) -> bool:
+        """Whether adb can be run at all."""
+
+    def find_device(self) -> Device:
+        """The attached phone, or why there is none."""
+
+    def installed(self, dev: str, *, hidden: bool = True) -> bool:
+        """Whether RunnerUp is on the phone."""
+
+    def backup(self, dev: str, final: Path) -> tuple[Path, int]:
+        """Pull the exports to ``final``."""
+
+    def uninstall(self, dev: str) -> None:
+        """Uninstall RunnerUp or raise ``AdbError``."""
 
 
 class Phone:
@@ -61,11 +83,11 @@ class Phone:
         """Whether an ``adb`` binary is on PATH."""
         return self._which("adb") is not None
 
-    def _adb(self, *args: str) -> str:
+    def _adb(self, *args: str, timeout: int = _ADB_TIMEOUT_S) -> str:
         cmd = ["adb", *args]
         try:
             done = self._run(
-                cmd, capture_output=True, text=True, timeout=_ADB_TIMEOUT_S, check=False
+                cmd, capture_output=True, text=True, timeout=timeout, check=False
             )
         except (OSError, subprocess.TimeoutExpired) as exc:
             msg = f"{' '.join(cmd)} did not run: {exc}"
@@ -75,13 +97,30 @@ class Phone:
             _fail(f"{' '.join(cmd)} exited {done.returncode}: {detail}")
         return str(done.stdout)
 
+    def _is_phone(self, serial: str) -> bool:
+        """Whether an ``adb devices`` entry is the phone.
+
+        USB and mDNS serials embed the phone's serial; a plain ``ip:port``
+        wifi entry does not, so that one is asked for its ``ro.serialno``.
+        """
+        if self.serial in serial:
+            return True
+        if ":" not in serial:
+            return False
+        try:
+            asked = self._adb("-s", serial, "shell", "getprop", "ro.serialno")
+        except AdbError as exc:
+            _logger.warning("Could not read the serial of %s (%s)", serial, exc)
+            return False
+        return asked.strip() == self.serial
+
     def find_device(self) -> Device:
         """The attached phone, over USB or wifi (a wireless serial embeds it)."""
         listing = self._adb("devices")
         states: list[str] = []
         for line in listing.splitlines()[1:]:
             serial, _, state = line.partition("\t")
-            if self.serial not in serial:
+            if not self._is_phone(serial):
                 continue
             if state.strip() == "device":
                 return Device(serial, "attached")
@@ -90,9 +129,14 @@ class Phone:
             return Device(None, f"phone is {'/'.join(states)}, not ready")
         return Device(None, f"phone {self.serial} is not attached")
 
-    def installed(self, dev: str) -> bool:
-        """Whether the package is on the phone (exact ``package:`` line)."""
-        out = self._adb("-s", dev, "shell", "pm", "list", "packages", PACKAGE)
+    def installed(self, dev: str, *, hidden: bool = True) -> bool:
+        """Whether the package is on the phone (exact ``package:`` line).
+
+        ``hidden`` adds ``-u`` so an app that focus mode hides or disables
+        still counts as present; it must not be mistaken for an uninstall.
+        """
+        flag = ["-u"] if hidden else []
+        out = self._adb("-s", dev, "shell", "pm", "list", "packages", *flag, PACKAGE)
         return f"package:{PACKAGE}" in out.split()
 
     def backup(self, dev: str, final: Path) -> tuple[Path, int]:
@@ -108,7 +152,7 @@ class Phone:
         staging = final.with_name(final.name + ".partial")
         shutil.rmtree(staging, ignore_errors=True)
         staging.mkdir(parents=True)
-        self._adb("-s", dev, "pull", REMOTE_DIR, str(staging))
+        self._adb("-s", dev, "pull", REMOTE_DIR, str(staging), timeout=_PULL_TIMEOUT_S)
         pulled = staging / Path(REMOTE_DIR).name
         got = len(list(pulled.rglob("*.tcx"))) if pulled.is_dir() else -1
         if got < wanted:
@@ -132,6 +176,6 @@ class Phone:
             raise AdbError(msg) from exc
         if "Success" not in out:
             _fail(f"uninstall did not report Success: {out.strip()!r}")
-        if self.installed(dev):
+        if self.installed(dev, hidden=False):
             _fail(f"{PACKAGE} is still listed after uninstall")
         _logger.info("Uninstalled %s from %s", PACKAGE, dev)

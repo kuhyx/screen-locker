@@ -19,12 +19,14 @@ if TYPE_CHECKING:
 
 
 def _tree(root: Path) -> set[str]:
+    """Tree."""
     return {str(p.relative_to(root)) for p in root.rglob("*")}
 
 
 def test_status_without_anchor(tmp_path: Path) -> None:
+    """Test status without anchor."""
     paths = world(tmp_path, anchored=False, marker=False)
-    lines = cli.status_lines(paths, FakePhone(), DUE)  # type: ignore[arg-type]
+    lines = cli.status_lines(paths, FakePhone(), DUE)
     assert lines[0].startswith("anchor: none")
     assert lines[1] == "due: never"
     assert "INVALID" in lines[2]
@@ -35,9 +37,10 @@ def test_status_without_anchor(tmp_path: Path) -> None:
 def test_status_is_strictly_read_only_and_marks_a_derived_anchor(
     tmp_path: Path,
 ) -> None:
+    """Test status is strictly read only and marks a derived anchor."""
     paths = world(tmp_path)
     before = _tree(tmp_path)
-    lines = cli.status_lines(paths, FakePhone(), DUE - timedelta(days=1))  # type: ignore[arg-type]
+    lines = cli.status_lines(paths, FakePhone(), DUE - timedelta(days=1))
     assert _tree(tmp_path) == before
     assert not paths.state_file.parent.exists()
     assert "derived, not yet stored" in lines[0]
@@ -46,12 +49,13 @@ def test_status_is_strictly_read_only_and_marks_a_derived_anchor(
 
 
 def test_status_with_stored_anchor_and_done(tmp_path: Path) -> None:
+    """Test status with stored anchor and done."""
     paths = world(tmp_path, anchored=False)
     save_state(
         paths.state_file,
         RetireState(anchor_at=ANCHOR.isoformat(), done_at="2026-11-09T00:00:00+00:00"),
     )
-    lines = cli.status_lines(paths, FakePhone(), DUE)  # type: ignore[arg-type]
+    lines = cli.status_lines(paths, FakePhone(), DUE)
     assert "(stored)" in lines[0]
     assert lines[3] == "done: 2026-11-09T00:00:00+00:00"
 
@@ -69,15 +73,17 @@ def test_status_with_stored_anchor_and_done(tmp_path: Path) -> None:
     ],
 )
 def test_status_query_phone(tmp_path: Path, phone: FakePhone, expected: str) -> None:
+    """Test status query phone."""
     paths = world(tmp_path)
-    lines = cli.status_lines(paths, phone, DUE, query_phone=True)  # type: ignore[arg-type]
+    lines = cli.status_lines(paths, phone, DUE, query_phone=True)
     assert lines[4] == expected
 
 
 def test_main_status_prints_and_exits_zero(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    assert cli.main(["--status"]) == 0  # the isolated defaults: an empty world
+    """Test main status prints and exits zero."""
+    assert not cli.main(["--status"])  # the isolated defaults: an empty world
     out = capsys.readouterr().out
     assert "anchor: none" in out
     assert "not queried" in out
@@ -86,14 +92,16 @@ def test_main_status_prints_and_exits_zero(
 def test_main_status_query_phone_uses_the_serial(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Test main status query phone uses the serial."""
     seen: list[str] = []
 
     def fake_phone(serial: str) -> FakePhone:
+        """Fake phone."""
         seen.append(serial)
         return FakePhone()
 
     monkeypatch.setattr(cli, "Phone", fake_phone)
-    assert cli.main(["--status", "--query-phone", "--serial", "XYZ"]) == 0
+    assert not cli.main(["--status", "--query-phone", "--serial", "XYZ"])
     assert seen == ["XYZ"]
     assert "installed: yes" in capsys.readouterr().out
 
@@ -105,9 +113,11 @@ def test_main_status_query_phone_uses_the_serial(
 def test_main_exit_code_follows_the_outcome(
     monkeypatch: pytest.MonkeyPatch, outcome: Outcome, code: int
 ) -> None:
+    """Test main exit code follows the outcome."""
     calls: list[bool] = []
 
     def fake_run(paths: Paths, phone: object, *, dry_run: bool) -> RetireResult:
+        """Fake run."""
         calls.append(dry_run)
         return RetireResult(outcome, "why")
 
@@ -117,13 +127,15 @@ def test_main_exit_code_follows_the_outcome(
 
 
 def test_main_with_nothing_to_retire_is_a_clean_noop() -> None:
-    assert cli.main([]) == 0
+    """Test main with nothing to retire is a clean noop."""
+    assert not cli.main([])
 
 
 def test_status_marker_line_for_a_valid_marker_uses_real_files(
     tmp_path: Path,
 ) -> None:
+    """Test status marker line for a valid marker uses real files."""
     paths = world(tmp_path, marker=False)
     put_marker(paths.watch_dir, [RUN])
     now = datetime.now(UTC)
-    assert cli.status_lines(paths, FakePhone(), now)[2].startswith("marker: valid")  # type: ignore[arg-type]
+    assert cli.status_lines(paths, FakePhone(), now)[2].startswith("marker: valid")

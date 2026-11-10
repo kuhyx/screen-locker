@@ -8,7 +8,7 @@ and never moved: a later, earlier-looking credit must not push the deadline.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 from datetime import datetime
 import json
 import logging
@@ -36,10 +36,10 @@ class RetireState:
 
 def load_state(path: Path) -> RetireState:
     """Read the state; a missing file is a fresh start, a bad one is loud."""
+    if not path.exists():
+        return RetireState()
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        return RetireState()
     except (OSError, ValueError) as exc:
         _logger.warning(
             "Retire state %s is unreadable (%s): starting from scratch, so the "
@@ -51,8 +51,8 @@ def load_state(path: Path) -> RetireState:
     if not isinstance(raw, dict):
         _logger.warning("Retire state %s is not a JSON object: ignored", path)
         return RetireState()
-    fields = RetireState.__dataclass_fields__
-    clean = {k: v for k, v in raw.items() if k in fields and isinstance(v, str)}
+    known = {f.name for f in fields(RetireState)}
+    clean = {k: v for k, v in raw.items() if k in known and isinstance(v, str)}
     try:
         state = RetireState(**clean)
         _ = state.anchor

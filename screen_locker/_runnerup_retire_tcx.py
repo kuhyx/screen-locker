@@ -116,16 +116,19 @@ def _credit_ends(log_file: Path) -> list[tuple[float, datetime]]:
     return found
 
 
-def find_anchor(log_file: Path, dirs: Iterable[Path]) -> datetime | None:
-    """When the PC first credited an app-recorded run, or None if it never did."""
-    ends = [
+def app_run_ends(dirs: Iterable[Path]) -> list[float]:
+    """The end time of every app-authored TCX that has a usable one."""
+    return [
         end
         for directory in dirs
         for path in list_tcx(directory)
         if is_app_tcx(path) and (end := _ended_at(path)) is not None
     ]
-    if not ends:
-        return None
+
+
+def find_anchor(log_file: Path, dirs: Iterable[Path]) -> datetime | None:
+    """When the PC first credited an app-recorded run, or None if it never did."""
+    ends = app_run_ends(dirs)
     credited = [
         when
         for run_end, when in _credit_ends(log_file)
@@ -164,12 +167,15 @@ def _marker_names(marker: object) -> tuple[list[str] | None, str]:
 
 def _read_marker(marker_file: Path) -> tuple[object, str]:
     """The parsed marker JSON, or ``(None, why it could not be read)``."""
-    try:
-        return json.loads(marker_file.read_text(encoding="utf-8")), ""
-    except FileNotFoundError:
+    if not marker_file.exists():
         why = f"{marker_file} is missing: the app has not imported yet"
-    except (OSError, ValueError) as exc:
-        why = f"{marker_file} is unreadable ({exc})"
+    else:
+        try:
+            return json.loads(marker_file.read_text(encoding="utf-8")), ""
+        except (OSError, ValueError) as exc:
+            why = f"{marker_file} is unreadable ({exc})"
+            _logger.warning("Import marker problem: %s", why)
+            return None, why
     _logger.warning("Import marker problem: %s", why)
     return None, why
 

@@ -87,23 +87,27 @@ class FakePhone:
     device: Device = field(default_factory=lambda: Device("S", "attached"))
     present: bool = True
     ask_error: AdbError | None = None
-    backup_error: AdbError | OSError | None = None
+    backup_error: Exception | None = None
     uninstall_error: AdbError | None = None
     calls: list[str] = field(default_factory=list)
 
     def available(self) -> bool:
+        """Available."""
         return self.adb
 
     def find_device(self) -> Device:
+        """Find device."""
         if self.ask_error:
             raise self.ask_error
         return self.device
 
-    def installed(self, dev: str) -> bool:
+    def installed(self, dev: str, *, hidden: bool = True) -> bool:
+        """Installed."""
         self.calls.append(f"installed {dev}")
         return self.present
 
     def backup(self, dev: str, final: Path) -> tuple[Path, int]:
+        """Backup."""
         self.calls.append("backup")
         if self.backup_error:
             raise self.backup_error
@@ -111,6 +115,7 @@ class FakePhone:
         return final, 3
 
     def uninstall(self, dev: str) -> None:
+        """Uninstall."""
         self.calls.append("uninstall")
         if self.uninstall_error:
             raise self.uninstall_error
