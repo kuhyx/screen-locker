@@ -34,6 +34,7 @@ part 'storage_service_export.dart';
 part 'storage_service_import.dart';
 part 'storage_service_pc_link.dart';
 part 'storage_service_runs.dart';
+part 'storage_service_runs_transfer.dart';
 part 'storage_service_sandbox.dart';
 part 'storage_service_schema.dart';
 part 'storage_service_sessions.dart';

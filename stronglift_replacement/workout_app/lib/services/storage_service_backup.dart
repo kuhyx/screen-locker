@@ -22,16 +22,19 @@ extension StorageServiceBackup on StorageService {
     final historyRows = await _db.query('workout_history');
     final settingsRows = await _db.query('settings');
     final eventRows = await _db.query('progression_events');
+    final runRows = await _runsForTransfer(appOnly: true);
 
-    if (historyRows.isEmpty) {
+    if (historyRows.isEmpty && runRows.isEmpty) {
       final existing = await BackupService.instance.readBackup();
       final existingHistory =
           (existing?['workout_history'] as List?) ?? const [];
-      if (existingHistory.isNotEmpty) {
+      final existingRuns = (existing?['runs'] as List?) ?? const [];
+      if (existingHistory.isNotEmpty || existingRuns.isNotEmpty) {
         debugPrint(
           'WorkoutApp: REFUSING to overwrite the backup — this DB has no '
-          'workout history but the backup holds ${existingHistory.length} '
-          'session(s). A restore almost certainly failed; keeping the backup '
+          'workout history or runs but the backup holds '
+          '${existingHistory.length} session(s) and ${existingRuns.length} '
+          'run(s). A restore almost certainly failed; keeping the backup '
           'so the data stays recoverable.',
         );
         return;
@@ -43,6 +46,7 @@ extension StorageServiceBackup on StorageService {
       'workout_history': historyRows,
       'settings': settingsRows,
       'progression_events': eventRows,
+      'runs': runRows,
     });
   }
 
@@ -173,6 +177,8 @@ extension StorageServiceBackup on StorageService {
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
+      // Absent from older backups; null merges as nothing.
+      await _mergeRuns(txn, backup['runs']);
     });
   }
 }
