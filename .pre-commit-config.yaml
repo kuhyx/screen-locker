@@ -13,9 +13,13 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
+      # run_tcx holds byte-exact RunnerUp exports; the golden test compares the
+      # encoder's output with them, so the fixers must never rewrite them.
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
+        exclude: ^screen_locker/tests/fixtures/run_tcx/
       - id: end-of-file-fixer
+        exclude: ^screen_locker/tests/fixtures/run_tcx/
       - id: check-yaml
         # pnpm-lock.yaml is a two-document stream by design.
         exclude: ^web/pnpm-lock\.yaml$
