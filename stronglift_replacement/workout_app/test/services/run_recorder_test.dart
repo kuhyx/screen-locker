@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_app/models/run_track.dart';
+import 'package:workout_app/sandbox/sandbox.dart';
 import 'package:workout_app/services/position_source_scripted.dart';
 import 'package:workout_app/services/run_recorder.dart';
 
@@ -50,6 +52,34 @@ void main() {
         recorder.dispose();
       },
     );
+
+    test('the sandbox trace labels distance in metres, not km', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      final printed = <String>[];
+      debugPrint = (message, {wrapWidth}) => printed.add(message ?? '');
+      Sandbox.enabled = true;
+      addTearDown(() {
+        debugPrint = debugPrintThrottled;
+        Sandbox.enabled = false;
+      });
+      final recorder = RunRecorder(
+        sourceFor: (_) => ScriptedPositionSource(straightRun(340)),
+      );
+      await recorder.start();
+      await pumpEventQueue();
+      await recorder.finish();
+      final lines = printed.where(
+        (l) => l.contains('run stream ended') || l.contains('run finished'),
+      );
+      expect(lines, hasLength(2));
+      expect(
+        lines.first,
+        startsWith('WorkoutSandbox: run stream ended {m: 20'),
+      );
+      expect(lines.last, startsWith('WorkoutSandbox: run finished {m: 20'));
+      expect(lines.join(), isNot(contains('km:')));
+      recorder.dispose();
+    });
 
     test('a stream closing after finish is ignored', () async {
       final source = ManualPositionSource();

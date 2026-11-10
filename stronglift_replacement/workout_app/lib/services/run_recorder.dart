@@ -102,7 +102,7 @@ class RunRecorder extends ChangeNotifier {
     if (_phase != RunPhase.recording) return;
     _filter!.breakSegment();
     _phase = RunPhase.paused;
-    SandboxLog.event('run paused', {'km': distanceM});
+    SandboxLog.event('run paused', {'m': distanceM});
     notifyListeners();
   }
 
@@ -110,7 +110,7 @@ class RunRecorder extends ChangeNotifier {
   void resume() {
     if (_phase != RunPhase.paused) return;
     _phase = RunPhase.recording;
-    SandboxLog.event('run resumed', {'km': distanceM});
+    SandboxLog.event('run resumed', {'m': distanceM});
     notifyListeners();
   }
 
@@ -141,7 +141,7 @@ class RunRecorder extends ChangeNotifier {
       );
     }
     SandboxLog.event('run finished', {
-      'km': distanceM,
+      'm': distanceM,
       'secs': _moving,
       'points': points.length,
       'saved': track != null,
@@ -223,7 +223,7 @@ class RunRecorder extends ChangeNotifier {
       'finish the run to save what was captured.',
       level: 900,
     );
-    SandboxLog.event('run stream ended', {'km': distanceM});
+    SandboxLog.event('run stream ended', {'m': distanceM});
   }
 
   @override
