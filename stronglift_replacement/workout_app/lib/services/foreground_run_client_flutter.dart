@@ -4,6 +4,7 @@ library;
 import 'dart:io' show Platform;
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:workout_app/services/break_notification_text.dart';
 import 'package:workout_app/services/foreground_run_client.dart';
 
 /// Channel the ongoing run notification lives on.
@@ -72,7 +73,8 @@ class FlutterForegroundRunClient implements ForegroundRunClient {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: kRunOngoingChannelId,
-        channelName: '\u{1F3C3}',
+        // App name only (textgate settled decision 4); was the runner emoji.
+        channelName: BreakNotificationText.channelName,
         onlyAlertOnce: true,
       ),
       iosNotificationOptions: const IOSNotificationOptions(),

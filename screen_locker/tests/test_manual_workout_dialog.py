@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 from screen_locker import _manual_workout
+from screen_locker._manual_workout_date import BACK_GLYPH
+from screen_locker._manual_workout_dialog import EXHAUSTED_GLYPH, SUBMIT_GLYPH
 from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
@@ -25,8 +27,8 @@ class TestShowManualWorkoutForm:
         with patch(_CLOSED, return_value=False):
             locker._show_manual_workout_form()
         button_texts = {c.kwargs.get("text") for c in mock_tk.Button.call_args_list}
-        assert "SUBMIT" in button_texts
-        assert "BACK" in button_texts
+        assert SUBMIT_GLYPH in button_texts
+        assert BACK_GLYPH in button_texts
 
     def test_shows_exhausted_message_and_hides_submit(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -36,10 +38,10 @@ class TestShowManualWorkoutForm:
         with patch(_CLOSED, return_value=True):
             locker._show_manual_workout_form()
         button_texts = {c.kwargs.get("text") for c in mock_tk.Button.call_args_list}
-        assert "BACK" in button_texts
-        assert "SUBMIT" not in button_texts
+        assert BACK_GLYPH in button_texts
+        assert SUBMIT_GLYPH not in button_texts
         text_calls = [c.kwargs.get("text", "") for c in mock_tk.Label.call_args_list]
-        assert any("exhausted" in t for t in text_calls)
+        assert EXHAUSTED_GLYPH in text_calls
 
 
 class TestSportToggle:

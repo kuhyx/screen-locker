@@ -6,6 +6,7 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:math';
 import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter/material.dart';
@@ -161,7 +162,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: colorScheme.surfaceContainerHigh,
-        title: Text('Progress', style: TextStyle(color: colorScheme.onSurface)),
+        title: const Icon(Icons.timeline, size: 20, semanticLabel: 'Progress'),
         iconTheme: IconThemeData(color: colorScheme.onSurface),
       ),
       body: _loading

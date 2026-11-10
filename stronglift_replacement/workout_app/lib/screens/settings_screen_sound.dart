@@ -25,7 +25,7 @@ class _SoundSection extends StatelessWidget {
       child: SwitchListTile(
         value: enabled,
         onChanged: onChanged,
-        title: Text('Sound', style: TextStyle(color: colorScheme.onSurface)),
+        title: const Icon(Icons.volume_up, size: 20, semanticLabel: 'Sound'),
       ),
     );
   }

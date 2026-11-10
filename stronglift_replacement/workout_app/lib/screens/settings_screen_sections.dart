@@ -129,20 +129,28 @@ class _OfflineBackupSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         if (storageGranted)
-          const Row(
+          // Was "Storage permission granted": storage glyph + green tick.
+          Row(
             children: [
-              Icon(Icons.check_circle, size: 20),
-              SizedBox(width: 8),
-              Expanded(child: Text('Storage permission granted')),
+              const Icon(Icons.sd_storage, size: 20),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.check_circle,
+                size: 20,
+                color: Theme.of(context).extension<AppStatusColors>()!.success,
+                semanticLabel: 'Storage permission granted',
+              ),
             ],
           )
         else
           Align(
             alignment: Alignment.centerLeft,
-            child: ElevatedButton.icon(
+            child: ElevatedButton(
               onPressed: onGrantStorage,
-              icon: const Icon(Icons.sd_storage),
-              label: const Text('Grant storage permission'),
+              child: const Icon(
+                Icons.sd_storage,
+                semanticLabel: 'Grant storage permission',
+              ),
             ),
           ),
         DataTransferButtons(
@@ -176,7 +184,7 @@ class _SettingsAppBar extends StatelessWidget implements PreferredSizeWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return AppBar(
       backgroundColor: colorScheme.surfaceContainerHigh,
-      title: Text('Settings', style: TextStyle(color: colorScheme.onSurface)),
+      title: const Icon(Icons.settings, size: 20, semanticLabel: 'Settings'),
       iconTheme: IconThemeData(color: colorScheme.onSurface),
       actions: [
         const RunnerUpImportBadge(),

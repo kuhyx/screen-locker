@@ -12,6 +12,7 @@ import 'package:workout_app/widgets/exercise_settings_sheet.dart';
 
 import '../fake_pc_pairing.dart';
 import '../fake_secure_storage.dart';
+import '../icon_finders.dart';
 
 const _situp = 'Situp exercise settings';
 const _lunge = 'Dumbbell Lunge exercise settings';
@@ -74,10 +75,10 @@ void main() {
 
   /// Taps "Deload now" and confirms; the storage write is a real future.
   Future<void> deloadNow(WidgetTester tester) async {
-    await tester.tap(find.text('Deload now'));
+    await tester.tap(iconLabeled('Deload now'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
-    await tester.tap(find.widgetWithText(TextButton, 'Deload'));
+    await tester.tap(buttonLabeled<TextButton>('Deload'));
     await tester.pump();
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 300)),
@@ -121,7 +122,7 @@ void main() {
     await openExercise(tester, _lunge);
     await deloadNow(tester);
 
-    expect(find.text('Deload  5 kg × 12 → 2.5 kg'), findsOneWidget);
+    expect(find.text('5 kg × 12 → 2.5 kg'), findsOneWidget);
     expect((await stored(tester, 'Dumbbell Lunge')).weight, 5);
     expect(pushes, 0);
 
@@ -130,7 +131,7 @@ void main() {
     expect(await lungeWeight(tester), '5.0kg');
   });
 
-  testWidgets('a refused deload shows why and pushes nothing', (tester) async {
+  testWidgets('a refused deload is flagged and pushes nothing', (tester) async {
     await pumpSettings(tester);
     await openExercise(tester, _situp);
     // The sheet still offers a step down, but the store is already at 0 kg.
@@ -139,8 +140,8 @@ void main() {
     );
     await deloadNow(tester);
 
-    expect(find.textContaining('Situp is already at 0 kg × 30'), findsOne);
-    expect(find.text('Deload  10 kg × 30 → 7.5 kg'), findsOneWidget);
+    expect(iconLabeled('Deload failed'), findsOne);
+    expect(find.text('10 kg × 30 → 7.5 kg'), findsOneWidget);
     await closeSheet(tester);
     expect(pushes, 0);
   });

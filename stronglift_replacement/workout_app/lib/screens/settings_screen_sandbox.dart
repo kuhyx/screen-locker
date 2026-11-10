@@ -89,22 +89,29 @@ class _SandboxSectionState extends State<_SandboxSection> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            ElevatedButton.icon(
+            ElevatedButton(
               onPressed: () => unawaited(_wipe()),
-              icon: const Icon(Icons.delete_sweep),
-              label: const Text('Wipe sandbox data'),
+              child: Icon(
+                Icons.delete_sweep,
+                color: colorScheme.error,
+                semanticLabel: 'Wipe sandbox data',
+              ),
             ),
-            ElevatedButton.icon(
+            ElevatedButton(
               onPressed: () => unawaited(_markTodayNotDone()),
-              icon: const Icon(Icons.undo),
-              label: const Text('Mark today not done'),
+              child: const Icon(
+                Icons.undo,
+                semanticLabel: 'Mark today not done',
+              ),
             ),
           ],
         ),
         const SizedBox(height: 12),
         Row(
           children: [
-            const Expanded(child: Text('Rest length (seconds)')),
+            // Was "Rest length (seconds)"; the field shows the number.
+            const Icon(Icons.timer, semanticLabel: 'Rest length (seconds)'),
+            const Spacer(),
             SizedBox(
               width: 72,
               child: TextField(
@@ -112,16 +119,14 @@ class _SandboxSectionState extends State<_SandboxSection> {
                 controller: _rest,
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.center,
-                decoration: const InputDecoration(
-                  isDense: true,
-                  hintText: 'seconds',
-                ),
+                decoration: const InputDecoration(isDense: true),
               ),
             ),
             const SizedBox(width: 8),
             TextButton(
               onPressed: () => unawaited(_saveRest()),
-              child: const Text('Save'),
+              // Spoken label distinct from the PC LINK "Save PC address".
+              child: const Icon(Icons.save, semanticLabel: 'Save'),
             ),
           ],
         ),

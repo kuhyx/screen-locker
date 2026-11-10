@@ -89,14 +89,15 @@ class _ExerciseSettingsSheetState extends State<ExerciseSettingsSheet> {
     setState(() => _s = next);
   }
 
+  // Numbers and symbols only. Was "+X kg per step; +1 rep once at the Y kg
+  // cap" / "+1 rep per step; the weight never changes" / "+1 rep per step
+  // up to N, then +X kg and back to M".
   String get _modeHint => switch (_s.mode) {
     ProgressionMode.weight =>
-      '+$kWeightIncrement kg per step; +1 rep once at the '
-          '${_s.maxWeight} kg cap',
-    ProgressionMode.reps => '+1 rep per step; the weight never changes',
+      '+$kWeightIncrement kg  ·  ${_s.maxWeight} kg ⇒ +1',
+    ProgressionMode.reps => '+1',
     ProgressionMode.doubleProgression =>
-      '+1 rep per step up to ${_s.repsHigh}, then +$kWeightIncrement kg '
-          'and back to ${_s.repsLow}',
+      '+1 … ${_s.repsHigh} ⇒ +$kWeightIncrement kg, ${_s.repsLow}',
   };
 
   @override
@@ -130,15 +131,16 @@ class _ExerciseSettingsSheetState extends State<ExerciseSettingsSheet> {
                 segments: const [
                   ButtonSegment(
                     value: ProgressionMode.weight,
-                    label: Text('Weight'),
+                    // Was 'Weight' / 'Reps' / 'Reps→kg'.
+                    label: Icon(Icons.fitness_center, semanticLabel: 'Weight'),
                   ),
                   ButtonSegment(
                     value: ProgressionMode.reps,
-                    label: Text('Reps'),
+                    label: Icon(Icons.repeat, semanticLabel: 'Reps'),
                   ),
                   ButtonSegment(
                     value: ProgressionMode.doubleProgression,
-                    label: Text('Reps→kg'),
+                    label: Icon(Icons.trending_up, semanticLabel: 'Reps→kg'),
                   ),
                 ],
                 selected: {_s.mode},
@@ -160,12 +162,13 @@ class _ExerciseSettingsSheetState extends State<ExerciseSettingsSheet> {
               maintainAnimation: true,
               maintainState: true,
               child: _SettingRow(
-                label: '+kg at',
+                // Was "+kg at [N] reps, restart at [M]".
+                label: '+kg',
                 name: 'Top reps',
                 value: _s.repsHigh,
                 min: _s.repsLow + 1,
                 max: _maxRepsHigh,
-                suffix: 'reps, restart at',
+                suffix: '↺',
                 trailing: _Stepper(
                   name: 'Restart reps',
                   value: _s.repsLow,
@@ -179,17 +182,22 @@ class _ExerciseSettingsSheetState extends State<ExerciseSettingsSheet> {
             const SizedBox(height: 4),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Warmup set'),
+              // Was 'Warmup set'; the sun matches the warmup rest row.
+              title: const Align(
+                alignment: Alignment.centerLeft,
+                child: Icon(Icons.wb_sunny, semanticLabel: 'Warmup set'),
+              ),
               value: _s.hasWarmup,
               onChanged: (v) => _update(_s.copyWith(hasWarmup: v)),
             ),
             _SettingRow(
-              label: '↑ after',
+              // Was "↑ after [N] wins,  ↓ after [M]".
+              label: '↑',
               name: 'Wins needed',
               value: _s.successThreshold,
               min: 1,
               max: 5,
-              suffix: 'wins,  ↓ after',
+              suffix: '↓',
               trailing: _Stepper(
                 name: 'Fails allowed',
                 value: _s.failThreshold,

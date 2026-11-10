@@ -80,17 +80,23 @@ class _SyncTokenField extends StatelessWidget {
             // inputDecorationTheme (theme.dart) — only the field-specific
             // hint/padding need setting here.
             decoration: InputDecoration(
-              hintText: 'GitHub PAT',
               hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 10,
               ),
+              prefixIcon: const Icon(
+                Icons.vpn_key,
+                semanticLabel: 'GitHub PAT',
+              ),
             ),
           ),
         ),
         const SizedBox(width: 8),
-        ElevatedButton(onPressed: onSave, child: const Text('Save')),
+        ElevatedButton(
+          onPressed: onSave,
+          child: const Icon(Icons.save, semanticLabel: 'Save'),
+        ),
       ],
     );
   }
@@ -140,19 +146,17 @@ class _DeviceCodeDialogState extends State<_DeviceCodeDialog> {
     final colorScheme = Theme.of(context).colorScheme;
     return AlertDialog(
       backgroundColor: colorScheme.surfaceContainerHigh,
-      title: Text(
-        'Authorize on GitHub',
-        style: TextStyle(color: colorScheme.onSurface),
+      // Was "Authorize on GitHub" / "Enter this code on GitHub:" /
+      // "Waiting for authorization…": key glyph, the code, a spinner.
+      title: Icon(
+        Icons.vpn_key,
+        color: colorScheme.onSurface,
+        semanticLabel: 'Authorize on GitHub',
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Enter this code on GitHub:',
-            style: TextStyle(color: colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 8),
           SelectableText(
             widget.device.userCode,
             style: TextStyle(
@@ -163,21 +167,13 @@ class _DeviceCodeDialogState extends State<_DeviceCodeDialog> {
           ),
           const SizedBox(height: 16),
           if (_error == null)
-            Row(
-              children: [
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Waiting for authorization…',
-                    style: TextStyle(color: colorScheme.onSurfaceVariant),
-                  ),
-                ),
-              ],
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                semanticsLabel: 'Waiting for authorization…',
+              ),
             )
           else
             Text(_error!, style: TextStyle(color: colorScheme.error)),
@@ -186,15 +182,19 @@ class _DeviceCodeDialogState extends State<_DeviceCodeDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(
-            'Cancel',
-            style: TextStyle(color: colorScheme.onSurfaceVariant),
+          child: Icon(
+            Icons.close,
+            color: colorScheme.onSurfaceVariant,
+            semanticLabel: 'Cancel',
           ),
         ),
-        FilledButton.icon(
+        // Was "Open GitHub & copy code".
+        FilledButton(
           onPressed: _openPage,
-          icon: const Icon(Icons.open_in_new),
-          label: const Text('Open GitHub & copy code'),
+          child: const Icon(
+            Icons.open_in_new,
+            semanticLabel: 'Open GitHub & copy code',
+          ),
         ),
       ],
     );

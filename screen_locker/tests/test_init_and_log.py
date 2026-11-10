@@ -140,7 +140,7 @@ class TestHasLoggedToday:
     ) -> None:
         """Test when today's workout is logged with valid HMAC."""
         log_file = tmp_path / "log.json"
-        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).astimezone().strftime("%Y-%m-%d")
         log_file.write_text(
             json.dumps({today: {"workout": "data", "hmac": "valid"}}),
         )
@@ -161,7 +161,7 @@ class TestHasLoggedToday:
     ) -> None:
         """Test rejects entry when HMAC verification fails."""
         log_file = tmp_path / "log.json"
-        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).astimezone().strftime("%Y-%m-%d")
         log_file.write_text(
             json.dumps({today: {"workout": "data", "hmac": "tampered"}}),
         )
@@ -182,7 +182,7 @@ class TestHasLoggedToday:
     ) -> None:
         """Accept unsigned entry when HMAC key is unavailable."""
         log_file = tmp_path / "log.json"
-        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).astimezone().strftime("%Y-%m-%d")
         log_file.write_text(
             json.dumps({today: {"workout": "data"}}),
         )
@@ -209,7 +209,7 @@ class TestHasLoggedToday:
     ) -> None:
         """Reject unsigned entry when HMAC key IS available."""
         log_file = tmp_path / "log.json"
-        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).astimezone().strftime("%Y-%m-%d")
         log_file.write_text(
             json.dumps({today: {"workout": "data"}}),
         )

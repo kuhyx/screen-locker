@@ -12,6 +12,7 @@ import 'package:workout_app/ui/theme.dart';
 
 import '../fake_pc_pairing.dart';
 import '../fake_secure_storage.dart';
+import '../icon_finders.dart';
 
 void main() {
   setUpAll(() {
@@ -94,9 +95,7 @@ void main() {
     expect(find.text('Advanced sync (GitHub)'), findsOneWidget);
   });
 
-  testWidgets('opening Sync settings pushes the shared screen', (
-    tester,
-  ) async {
+  testWidgets('opening Sync settings pushes the shared screen', (tester) async {
     await _pump(tester, _wrap());
     await tester.scrollUntilVisible(
       find.text('Sync settings'),
@@ -125,7 +124,7 @@ void main() {
     await tester.tap(find.text('Advanced sync (GitHub)'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Connect GitHub'), findsOneWidget);
+    expect(iconLabeled('Connect GitHub'), findsOneWidget);
   });
 
   testWidgets(

@@ -29,6 +29,12 @@ from screen_locker._ui_widgets import disable_paste
 if TYPE_CHECKING:
     from screen_locker._manual_workout import ManualWorkoutDraft
 
+# textgate: plain glyphs (no colour emoji: Tk 8.6 can crash on them).
+SCHEDULED_GLYPH = "✓"
+"""Heading of the scheduled screen (success colour)."""
+BACK_GLYPH = "↩"
+"""The scheduled screen's only button: back to the form's host."""
+
 
 class ManualWorkoutDateMixin:
     """Date row, budget gate and future-dated submission of the manual form."""
@@ -59,9 +65,10 @@ class ManualWorkoutDateMixin:
         )
         entry.pack(side="right", padx=self._colors.space("xs"))
         disable_paste(entry)
+        # Was "Workout date (today to +7 days):" -- a day square + the range.
         tk.Label(
             row,
-            text="Workout date (today to +7 days):",
+            text="□ +0…+7",
             font=self._colors.font("label"),
             fg=self._colors.palette.fg,
             bg=self._colors.palette.bg,
@@ -94,23 +101,21 @@ class ManualWorkoutDateMixin:
     def _show_manual_workout_scheduled(self, reason: str) -> None:
         """Confirm a future entry and go back; it does NOT unlock anything."""
         self.clear_container()
+        # Was "✓ Workout Scheduled" + "Nothing is credited today. It counts by
+        # itself on that date, and can be deleted in the phone app until
+        # then." + an "OK" button: a green tick, the reason, a back arrow.
         self._label(
-            "✓ Workout Scheduled",
+            SCHEDULED_GLYPH,
             role="display",
             scale=1.3,
             color=self._colors.palette.success,
             pad="lg",
         )
         self._text(reason, role="subtitle", color=self._colors.palette.success)
-        self._text(
-            "Nothing is credited today. It counts by itself on that date, and "
-            "can be deleted in the phone app until then.",
-            color=self._colors.palette.muted,
-        )
         row = self._button_row()
         self._button(
             row,
-            "OK",
+            BACK_GLYPH,
             bg=self._colors.palette.accent,
             command=self._on_manual_workout_cancelled,
             width=12,

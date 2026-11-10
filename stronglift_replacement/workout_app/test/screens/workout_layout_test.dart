@@ -127,7 +127,7 @@ void main() {
     expect(tileRects(), idle);
     await _shot(tester, 'break');
 
-    await tapReal(tester, find.text('Skip'));
+    await tapReal(tester, iconLabeled('Skip'));
     expect(restRunning(tester), isFalse);
     expect(tileRects(), idle);
 
@@ -140,9 +140,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(ExerciseSettingsSheet), findsOneWidget);
     final sheetIdle = tester.getRect(find.byType(ExerciseSettingsSheet));
-    await tapReal(tester, find.text('Reps→kg'));
+    await tapReal(tester, iconLabeled('Reps→kg'));
     expect(tester.getRect(find.byType(ExerciseSettingsSheet)), sheetIdle);
-    await tapReal(tester, find.text('Warmup set'));
+    await tapReal(tester, iconLabeled('Warmup set'));
     expect(tester.getRect(find.byType(ExerciseSettingsSheet)), sheetIdle);
     // The sheet scrolls only as a fallback for a short screen; on the phone
     // everything, rest rows included, fits with nothing to scroll.
@@ -167,7 +167,7 @@ void main() {
 
     // Every set recorded: filled cards, Finish enabled, same geometry.
     for (var i = 0; i < find.byType(RepCircle).evaluate().length; i++) {
-      if (restRunning(tester)) await tapReal(tester, find.text('Skip'));
+      if (restRunning(tester)) await tapReal(tester, iconLabeled('Skip'));
       final circle = tester.widget<RepCircle>(find.byType(RepCircle).at(i));
       if (!circle.tapped) await tapReal(tester, find.byType(RepCircle).at(i));
     }

@@ -71,7 +71,7 @@ void main() {
   ) async {
     await pumpPausedSitup(tester);
     for (var s = 0; s < _lunge.sets; s++) {
-      if (restRunning(tester)) await tapReal(tester, find.text('Skip'));
+      if (restRunning(tester)) await tapReal(tester, iconLabeled('Skip'));
       await tapReal(tester, find.byType(RepCircle).at(s));
     }
     expect(
@@ -82,10 +82,10 @@ void main() {
     expect(client.pushed.last.setsRemaining, 0);
 
     await tester.runAsync(() async {
-      await tester.tap(find.widgetWithText(TextButton, 'Finish'));
+      await tester.tap(buttonLabeled<TextButton>('Finish'));
       await Future<void>.delayed(const Duration(milliseconds: 200));
       await tester.pump();
-      await tester.tap(find.widgetWithText(TextButton, 'Finish').last);
+      await tester.tap(buttonLabeled<TextButton>('Finish').last);
       await Future<void>.delayed(const Duration(milliseconds: 800));
       await tester.pump();
     });
@@ -114,13 +114,13 @@ void main() {
       find.bySemanticsLabel('Dumbbell Lunge progression settings'),
     );
     await tester.pumpAndSettle();
-    await tapReal(tester, find.text('Pause'));
+    await tapReal(tester, iconLabeled('Pause'));
     expect(restRunning(tester), isFalse);
-    expect(find.text('Resume'), findsOneWidget);
+    expect(iconLabeled('Resume'), findsOneWidget);
 
     // Resuming brings the sets back; the tap made before the pause stays.
-    await tapReal(tester, find.text('Resume'));
-    Navigator.of(tester.element(find.text('Pause'))).pop();
+    await tapReal(tester, iconLabeled('Resume'));
+    Navigator.of(tester.element(iconLabeled('Pause'))).pop();
     await tester.pumpAndSettle();
     expect(find.byType(RepCircle), findsNWidgets(4));
     expect(tester.widget<RepCircle>(find.byType(RepCircle).first).tapped, true);

@@ -23,11 +23,19 @@ from screen_locker import _manual_workout
 from screen_locker._constants import (
     MANUAL_WORKOUT_REFLECTION_MIN_CHARS,
 )
-from screen_locker._manual_workout_date import ManualWorkoutDateMixin
+from screen_locker._manual_workout_date import BACK_GLYPH, ManualWorkoutDateMixin
 from screen_locker._manual_workout_sport_fields import ManualWorkoutSportFieldsMixin
 from screen_locker._manual_workout_widgets import ManualWorkoutFormWidgetsMixin
 
 _logger = logging.getLogger(__name__)
+
+# textgate glyphs (plain Unicode, no colour emoji: Tk 8.6 can crash on them).
+FORM_GLYPH = "≡"
+"""Form heading (accent); was "Log Manual Workout"."""
+EXHAUSTED_GLYPH = "✕"
+"""Budget used up (danger); was the "budget exhausted" sentence."""
+SUBMIT_GLYPH = "✓"
+"""Submit button (accent fill); was "SUBMIT"."""
 
 _SPORT_LABEL_TO_CODE = {
     label: code for code, label in _manual_workout.SPORT_LABELS.items()
@@ -44,12 +52,11 @@ class ManualWorkoutDialogMixin(
     def _show_manual_workout_form(self) -> None:
         """Render the manual-workout evidence form, or a budget-exhausted note."""
         self.clear_container()
-        self._label("Log Manual Workout", color=self._colors.palette.accent, pad="xs")
+        # textgate: glyphs, colours second. Was "Log Manual Workout" heading /
+        # "Manual-workout budget exhausted for this window." / "BACK".
+        self._label(FORM_GLYPH, color=self._colors.palette.accent, pad="xs")
         if self._mw_budget_closed():
-            self._text(
-                "Manual-workout budget exhausted for this window.",
-                color=self._colors.palette.danger,
-            )
+            self._label(EXHAUSTED_GLYPH, color=self._colors.palette.danger, pad="xs")
             self._text(
                 _manual_workout.budget_summary(self.log_file),
                 color=self._colors.palette.muted,
@@ -57,7 +64,7 @@ class ManualWorkoutDialogMixin(
             row = self._button_row()
             self._button(
                 row,
-                "BACK",
+                BACK_GLYPH,
                 bg=self._colors.palette.field_bg,
                 command=self._on_manual_workout_cancelled,
                 width=12,
@@ -158,14 +165,14 @@ class ManualWorkoutDialogMixin(
         button_row = self._button_row()
         self._button(
             button_row,
-            "SUBMIT",
+            SUBMIT_GLYPH,
             bg=self._colors.palette.accent,
             command=self._submit_manual_workout_form,
             width=12,
         ).pack(side="left", padx=self._colors.space("sm"))
         self._button(
             button_row,
-            "BACK",
+            BACK_GLYPH,
             bg=self._colors.palette.field_bg,
             command=self._on_manual_workout_cancelled,
             width=12,

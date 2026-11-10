@@ -107,9 +107,9 @@ Future<void> _open(
 }
 
 Future<void> _confirmDelete(WidgetTester tester, String button) async {
-  await tester.tap(find.byTooltip('Delete planned workout'));
+  await tester.tap(iconLabeled('Delete planned workout'));
   await tester.pumpAndSettle();
-  await tester.tap(find.text(button));
+  await tester.tap(iconLabeled(button));
   await tester.pump();
 }
 
@@ -142,7 +142,7 @@ void main() {
     expect(find.text('No workouts yet.'), findsNothing);
     expect(find.text('PLANNED (not done yet)'), findsOneWidget);
     expect(find.text('2026-10-17 10:00  ·  Planned'), findsOneWidget);
-    expect(find.byTooltip('Delete planned workout'), findsOneWidget);
+    expect(iconLabeled('Delete planned workout'), findsOneWidget);
     // Today's entry already happened: done, and not deletable.
     expect(find.text('2026-10-16  ·  Manual'), findsOneWidget);
     expect(find.text('2026-10-14  ·  Manual'), findsOneWidget);
@@ -193,7 +193,8 @@ void main() {
     await _confirmDelete(tester, 'DELETE');
     await _settle(tester, 2);
 
-    expect(find.textContaining('Not deleted — push failed'), findsOneWidget);
+    expect(iconLabeled('Not deleted'), findsOneWidget);
+    expect(find.byIcon(Icons.cloud_off), findsOneWidget);
     expect(find.text('2026-10-17 10:00  ·  Planned'), findsOneWidget);
   });
 
@@ -204,14 +205,15 @@ void main() {
     final github = _github(_seed());
     await _open(tester, github.client, clock: () => now);
 
-    await tester.tap(find.byTooltip('Delete planned workout'));
+    await tester.tap(iconLabeled('Delete planned workout'));
     await tester.pumpAndSettle();
     now = DateTime(2026, 10, 17, 0, 1);
-    await tester.tap(find.text('DELETE'));
+    await tester.tap(iconLabeled('DELETE'));
     await tester.pump();
     await _settle(tester, 2);
 
-    expect(find.textContaining('no longer a planned workout'), findsOneWidget);
+    expect(iconLabeled('Not deleted'), findsOneWidget);
+    expect(find.byIcon(Icons.block), findsOneWidget);
     expect(
       github.files.containsKey('screen-locker-sync/devices/phone/log.json'),
       isFalse,

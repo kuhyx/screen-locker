@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import re
 from unittest.mock import MagicMock
 
+from screen_locker._constants import HEAT_SKIP_CITY, HEAT_SKIP_TEMP_THRESHOLD
 from screen_locker._heat_skip import HeatSkipMixin
 
 
@@ -15,11 +17,15 @@ class _HeatSkipHost(HeatSkipMixin):
         self.save_workout_log = MagicMock()
 
 
-def _button_command(mock_tk: MagicMock, text: str):
+def _button_command(mock_tk: MagicMock, name: str):
+    """The command of the button created with Tk widget ``name``.
+
+    By name, not by glyph: the buttons carry symbols only (textgate).
+    """
     for call in mock_tk.Button.call_args_list:
-        if call.kwargs.get("text") == text:
+        if call.kwargs.get("name") == name:
             return call.kwargs["command"]
-    msg = f"No button with text {text!r} was created"
+    msg = f"No button named {name!r} was created"
     raise AssertionError(msg)
 
 
@@ -31,7 +37,7 @@ class TestShowHeatSkipDialog:
         host = _HeatSkipHost()
 
         def _simulate_click() -> None:
-            _button_command(mock_tk, "Skip workout")()
+            _button_command(mock_tk, "skip")()
 
         mock_tk.Tk.return_value.mainloop.side_effect = _simulate_click
         assert host._show_heat_skip_dialog(35.0) is True
@@ -42,19 +48,21 @@ class TestShowHeatSkipDialog:
         host = _HeatSkipHost()
 
         def _simulate_click() -> None:
-            _button_command(mock_tk, "No, I'll workout")()
+            _button_command(mock_tk, "decline")()
 
         mock_tk.Tk.return_value.mainloop.side_effect = _simulate_click
         assert host._show_heat_skip_dialog(35.0) is False
 
     def test_dialog_shows_temperature_and_threshold(self, mock_tk: MagicMock) -> None:
-        """The dialog text shows the rounded temperature and mentions the threshold."""
+        """The dialog shows the rounded temperature against the threshold, no words."""
         host = _HeatSkipHost()
         mock_tk.Tk.return_value.mainloop.side_effect = None
         host._show_heat_skip_dialog(36.4)
         texts = [c.kwargs.get("text", "") for c in mock_tk.Label.call_args_list]
-        assert any("36°C" in t for t in texts)
-        assert any("threshold" in t for t in texts)
+        assert any(f"36°C ≥ {HEAT_SKIP_TEMP_THRESHOLD}°C" in t for t in texts)
+        # Only the city (config data) may carry letters: no chrome sentence.
+        chrome = [t.replace(HEAT_SKIP_CITY, "") for t in texts]
+        assert not any(re.search(r"[A-Za-z]{2,}", t) for t in chrome)
 
 
 class TestSaveHeatSkipLog:

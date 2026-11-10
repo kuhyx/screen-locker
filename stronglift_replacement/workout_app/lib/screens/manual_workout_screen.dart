@@ -179,7 +179,7 @@ class _ManualWorkoutScreenState extends State<ManualWorkoutScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     child: ElevatedButton(
                       onPressed: _submitting ? null : _submit,
-                      child: const Text('SUBMIT'),
+                      child: const Icon(Icons.save, semanticLabel: 'SUBMIT'),
                     ),
                   ),
                 ],

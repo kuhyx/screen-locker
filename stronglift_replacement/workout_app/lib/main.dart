@@ -192,6 +192,7 @@ class _WorkoutAppState extends State<WorkoutApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      // Same proper noun as BreakNotificationText.channelName.
       title: 'Workout Tracker',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
@@ -200,7 +201,8 @@ class _WorkoutAppState extends State<WorkoutApp> with WidgetsBindingObserver {
       // ribbon on every screen, in the error colour, on the sandbox only.
       builder: (context, child) => Sandbox.enabled
           ? Banner(
-              message: 'SANDBOX',
+              // Was 'SANDBOX': the red corner ribbon alone marks it.
+              message: '',
               location: BannerLocation.topEnd,
               color: Theme.of(context).colorScheme.error,
               child: child,

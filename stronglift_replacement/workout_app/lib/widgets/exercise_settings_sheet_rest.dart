@@ -35,7 +35,7 @@ class _RestRows extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text('Rest ✓', style: style),
+            Text('✓', style: style),
             const SizedBox(width: 8),
             _stepper(
               'Success rest',
@@ -60,7 +60,7 @@ class _RestRows extends StatelessWidget {
           maintainState: true,
           child: Row(
             children: [
-              Text('Warmup rest', style: style),
+              Text('☀', style: style),
               const SizedBox(width: 8),
               _stepper(
                 'Warmup rest',

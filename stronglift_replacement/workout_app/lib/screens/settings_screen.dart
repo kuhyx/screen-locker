@@ -7,6 +7,7 @@
 library;
 
 import 'dart:async';
+import 'dart:developer';
 import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -178,11 +179,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         await (widget.progressionPusher ??
             ProgressionSyncService().pushProgression)();
     if (!mounted || pushed.changed) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Saved on this phone, not synced: ${pushed.reason}'),
-      ),
-    );
+    _flagUnsynced(pushed.reason);
   }
 
   /// Shows a deloaded target everywhere this screen holds a copy of it.

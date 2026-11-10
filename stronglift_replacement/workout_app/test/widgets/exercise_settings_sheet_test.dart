@@ -6,6 +6,8 @@ import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/exercise_settings_sheet.dart';
 
+import '../icon_finders.dart';
+
 final _base = ExerciseState.initial(workoutA.first);
 
 Future<List<ExerciseState>> _pump(
@@ -39,17 +41,17 @@ void main() {
   ) async {
     final edits = await _pump(tester);
     final before = tester.getSize(find.byType(ExerciseSettingsSheet));
-    expect(find.textContaining('+2.5 kg per step'), findsOneWidget);
+    expect(find.textContaining('+2.5 kg  ·'), findsOneWidget);
 
-    await tester.tap(find.text('Reps'));
+    await tester.tap(iconLabeled('Reps'));
     await tester.pump();
     expect(edits.last.mode, ProgressionMode.reps);
-    expect(find.textContaining('the weight never changes'), findsOneWidget);
+    expect(find.text('+1'), findsOneWidget);
 
-    await tester.tap(find.text('Reps→kg'));
+    await tester.tap(iconLabeled('Reps→kg'));
     await tester.pump();
     expect(edits.last.mode, ProgressionMode.doubleProgression);
-    expect(find.textContaining('up to 12, then'), findsOneWidget);
+    expect(find.textContaining('+1 … 12 ⇒'), findsOneWidget);
     expect(tester.getSize(find.byType(ExerciseSettingsSheet)), before);
   });
 
@@ -58,7 +60,7 @@ void main() {
   ) async {
     await _pump(tester);
     expect(find.bySemanticsLabel('Top reps up'), findsNothing);
-    await tester.tap(find.text('Reps→kg'));
+    await tester.tap(iconLabeled('Reps→kg'));
     await tester.pump();
     expect(find.bySemanticsLabel('Top reps up'), findsOneWidget);
   });
@@ -89,7 +91,7 @@ void main() {
 
   testWidgets('warmup switch and thresholds are reported', (tester) async {
     final edits = await _pump(tester);
-    await tester.tap(find.text('Warmup set'));
+    await tester.tap(iconLabeled('Warmup set'));
     await tester.pump();
     expect(edits.last.hasWarmup, isFalse);
 
@@ -133,7 +135,7 @@ void main() {
     final before = tester.getSize(find.byType(ExerciseSettingsSheet));
     final warmupRest = find.bySemanticsLabel('Warmup rest up').hitTestable();
     expect(warmupRest, findsOneWidget);
-    await tester.tap(find.text('Warmup set'));
+    await tester.tap(iconLabeled('Warmup set'));
     await tester.pump();
     expect(warmupRest, findsNothing);
     expect(tester.getSize(find.byType(ExerciseSettingsSheet)), before);
@@ -147,7 +149,7 @@ void main() {
     await _tapLabel(tester, 'Pause days up');
     await _tapLabel(tester, 'Pause days up');
     await _tapLabel(tester, 'Pause days down');
-    await tester.tap(find.text('Pause'));
+    await tester.tap(iconLabeled('Pause'));
     await tester.pump();
     expect(
       edits.last.pausedUntil,
@@ -155,10 +157,10 @@ void main() {
     );
     expect(find.textContaining('Paused — back on'), findsOneWidget);
 
-    await tester.tap(find.text('Resume'));
+    await tester.tap(iconLabeled('Resume'));
     await tester.pump();
     expect(edits.last.pausedUntil, isNull);
-    expect(find.text('Pause'), findsOneWidget);
+    expect(iconLabeled('Pause'), findsOneWidget);
   });
 
   testWidgets('showExerciseSettingsSheet opens it as a bottom sheet', (

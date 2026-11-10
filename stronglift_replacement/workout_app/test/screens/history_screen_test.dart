@@ -12,6 +12,7 @@ import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/ui/theme.dart';
 
 import '../fake_secure_storage.dart';
+import '../icon_finders.dart';
 import '_history_test_fixtures.dart';
 
 void main() {
@@ -31,7 +32,7 @@ void main() {
 
   testWidgets('shows Progress app bar', (tester) async {
     await pumpHistory(tester, wrapHistory());
-    expect(find.text('Progress'), findsOneWidget);
+    expect(iconLabeled('Progress'), findsOneWidget);
   });
 
   testWidgets('shows "No workouts yet." when history is empty', (tester) async {

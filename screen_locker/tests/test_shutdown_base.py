@@ -78,7 +78,7 @@ class TestResetToBaseIfNewDay:
 
     def test_returns_false_when_already_reset_today(self, tmp_path: Path) -> None:
         """Same-day last_reset_date → early False return (line 63)."""
-        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).astimezone().strftime("%Y-%m-%d")
         f = tmp_path / "state.json"
         f.write_text(json.dumps({"last_reset_date": today}))
         assert reset_to_base_if_new_day(f, self._make_mixin()) is False

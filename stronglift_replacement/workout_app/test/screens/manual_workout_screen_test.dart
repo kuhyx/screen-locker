@@ -14,7 +14,7 @@ void main() {
       ManualWorkoutScreen(syncService: FakeManualSync(), clock: fixedManualNow),
     );
     expect(find.text('Log Manual Workout'), findsOneWidget);
-    expect(find.text('SUBMIT'), findsOneWidget);
+    expect(iconLabeled('SUBMIT'), findsOneWidget);
     expect(
       find.text('Manual around 2026-07-13: 0/2 per 7 days · 0/10 per 30 days'),
       findsOneWidget,
@@ -48,7 +48,7 @@ void main() {
       ),
     );
     expect(find.textContaining('budget exhausted'), findsOneWidget);
-    expect(find.text('SUBMIT'), findsNothing);
+    expect(iconLabeled('SUBMIT'), findsNothing);
   });
 
   testWidgets('shows a validation error and does not push', (tester) async {
@@ -57,7 +57,7 @@ void main() {
       tester,
       ManualWorkoutScreen(syncService: sync, clock: fixedManualNow),
     );
-    await tester.tap(find.text('SUBMIT'));
+    await tester.tap(iconLabeled('SUBMIT'));
     await tester.pump();
     expect(find.textContaining('is required'), findsOneWidget);
     expect(sync.pushed, isNull);
@@ -70,7 +70,7 @@ void main() {
       ManualWorkoutScreen(syncService: sync, clock: fixedManualNow),
     );
     await fillValidTt(tester);
-    await tester.tap(find.text('SUBMIT'));
+    await tester.tap(iconLabeled('SUBMIT'));
     await tester.pumpAndSettle();
     expect(sync.pushed, isNotNull);
     expect(sync.pushed!.id, 'manual:2026-07-13T18:00');
@@ -119,7 +119,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('mw_location_name')), 'Club');
     await tester.enterText(find.byKey(const Key('mw_transport_method')), 'car');
     await tester.enterText(find.byKey(const Key('mw_cost')), '30');
-    await tester.tap(find.text('SUBMIT'));
+    await tester.tap(iconLabeled('SUBMIT'));
     await tester.pump();
     expect(find.textContaining('Activity type is required'), findsOneWidget);
     expect(sync.pushed, isNull);

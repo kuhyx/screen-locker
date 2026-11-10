@@ -39,37 +39,56 @@ class BreakNotificationCopy {
 /// and testable without a device.
 abstract final class BreakNotificationText {
   /// Renders the notification for [snapshot] as of [now].
+  ///
+  /// Symbols and numbers only (textgate). The same glyphs as the alert
+  /// notifications in break_service_port_flutter.dart: [doneGlyph] for a
+  /// finished workout, [breakOverGlyph] when the rest is up.
   static BreakNotificationCopy render(BreakSnapshot snapshot, DateTime now) {
     if (snapshot.finished) {
-      return const BreakNotificationCopy(
-        'Workout complete',
-        'Open the app to save it.',
-      );
+      // Was "Workout complete" / "Open the app to save it."
+      return const BreakNotificationCopy(doneGlyph, '');
     }
-    return BreakNotificationCopy(
-      _title(snapshot, now),
-      _body(snapshot),
-    );
+    return BreakNotificationCopy(_title(snapshot, now), _body(snapshot));
   }
 
+  /// Finished workout (all sets, or the workout itself).
+  static const doneGlyph = '✅';
+
+  /// The rest period is over.
+  static const breakOverGlyph = '⏰';
+
+  /// A rest period is counting down.
+  static const breakGlyph = '⏱';
+
+  /// Lifting: no rest running.
+  static const liftGlyph = '🏋';
+
+  /// Name of every notification channel: the app's proper noun only
+  /// (textgate settled decision 4), the same as `MaterialApp.title`.
+  static const channelName = 'Workout Tracker';
+
+  // Was "Workout A · lift" / "Workout A · break over" / "Workout A · break
+  // 1:47".
   static String _title(BreakSnapshot s, DateTime now) {
-    final prefix = 'Workout ${s.workoutType}';
+    final prefix = '$liftGlyph ${s.workoutType}';
     if (!s.hasBreak) {
-      return '$prefix · lift';
+      return prefix;
     }
     final clock = BreakClock(
       endTime: DateTime.fromMillisecondsSinceEpoch(s.breakEndMs),
       durationSecs: s.breakDurationSecs,
     );
     final remaining = clock.remainingSecsAt(now);
-    if (remaining <= 0) return '$prefix · break over';
-    return '$prefix · break ${formatMmSs(remaining)}';
+    if (remaining <= 0) return '$prefix · $breakOverGlyph';
+    return '$prefix · $breakGlyph ${formatMmSs(remaining)}';
   }
 
+  // Was "Every set is done — finish the workout." / "Next: Squat — set 3/5
+  // \n5 reps @ 40 kg". The exercise name is user content.
   static String _body(BreakSnapshot s) {
-    if (!s.hasNextSet) return 'Every set is done — finish the workout.';
-    return 'Next: ${s.nextExName} — set ${s.nextSetNumber}/${s.nextTotalSets}\n'
-        '${s.nextReps} reps @ ${formatWeight(s.nextWeight)} kg';
+    if (!s.hasNextSet) return doneGlyph;
+    return '→ ${s.nextExName}  ${s.nextSetNumber}/${s.nextTotalSets}\n'
+        '${s.nextReps} × ${formatWeight(s.nextWeight)} kg';
   }
 
   /// Formats [totalSecs] as `m:ss`, e.g. 107 -> `1:47`.

@@ -201,9 +201,10 @@ class WindowSetupMixin:
 
     def _setup_demo_close_button(self) -> None:
         """Add close button for demo mode."""
+        # Was "✕ Close Demo": the cross on the danger fill says it alone.
         close_btn = tk.Button(
             self.root,
-            text="✕ Close Demo",
+            text="✕",
             font=self._colors.font("caption"),
             bg=self._colors.palette.danger,
             fg=self._colors.palette.on_fill,

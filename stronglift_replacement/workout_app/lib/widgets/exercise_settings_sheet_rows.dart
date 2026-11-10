@@ -174,7 +174,13 @@ class _PauseRow extends StatelessWidget {
       child: Row(
         children: until == null
             ? [
-                Text('Pause for', style: style),
+                // Was "Pause for [N] days": a calendar for the day count,
+                // the pause glyph only on the button.
+                Icon(
+                  Icons.calendar_today,
+                  size: 18,
+                  color: colorScheme.onSurfaceVariant,
+                ),
                 const SizedBox(width: 8),
                 _Stepper(
                   name: 'Pause days',
@@ -184,9 +190,15 @@ class _PauseRow extends StatelessWidget {
                   onChanged: onDaysChanged,
                 ),
                 const SizedBox(width: 8),
-                Text('days', style: style),
                 const Spacer(),
-                TextButton(onPressed: onPause, child: const Text('Pause')),
+                TextButton(
+                  onPressed: onPause,
+                  child: const Icon(
+                    Icons.pause,
+                    size: 20,
+                    semanticLabel: 'Pause',
+                  ),
+                ),
               ]
             : [
                 Icon(
@@ -200,7 +212,14 @@ class _PauseRow extends StatelessWidget {
                   style: style,
                 ),
                 const Spacer(),
-                TextButton(onPressed: onResume, child: const Text('Resume')),
+                TextButton(
+                  onPressed: onResume,
+                  child: const Icon(
+                    Icons.play_arrow,
+                    size: 20,
+                    semanticLabel: 'Resume',
+                  ),
+                ),
               ],
       ),
     );

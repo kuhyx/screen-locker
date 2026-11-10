@@ -12,6 +12,8 @@ import 'package:workout_app/services/foreground_break_client.dart';
 import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/break_banner.dart';
 
+export '../icon_finders.dart';
+
 Map<String, dynamic> completeSaved() => {
   'workoutType': 'A',
   'startTimeMs': DateTime.now().millisecondsSinceEpoch,

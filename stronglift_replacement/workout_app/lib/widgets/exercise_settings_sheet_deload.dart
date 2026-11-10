@@ -23,11 +23,11 @@ class _DeloadRow extends StatelessWidget {
       height: 40,
       child: Row(
         children: [
+          // Was "Deload  <target> → <change>" / "Deload  nothing lower to
+          // go to": the down-trend glyph is the button, the numbers stay.
           Expanded(
             child: Text(
-              canDeload
-                  ? 'Deload  ${_target(state)} → $change'
-                  : 'Deload  nothing lower to go to',
+              canDeload ? '${_target(state)} → $change' : '—',
               style: TextStyle(
                 color: colorScheme.onSurface,
                 fontSize: AppTextSize.label,
@@ -37,7 +37,11 @@ class _DeloadRow extends StatelessWidget {
           ),
           TextButton(
             onPressed: canDeload ? onDeload : null,
-            child: const Text('Deload now'),
+            child: Icon(
+              Icons.trending_down,
+              color: canDeload ? colorScheme.error : null,
+              semanticLabel: 'Deload now',
+            ),
           ),
         ],
       ),
@@ -62,26 +66,33 @@ Future<bool> _confirmDeload(BuildContext context, ExerciseState s) async {
     context: context,
     builder: (dialogContext) => AlertDialog(
       backgroundColor: colorScheme.surfaceContainerHigh,
-      title: Text(
-        'Deload ${s.name}?',
-        style: TextStyle(color: colorScheme.onSurface),
+      // Was "Deload <name>?" / "<target> → <change>\n\nStreaks reset. Only
+      // finished workouts raise it again.": glyph + the numbers.
+      title: Icon(
+        Icons.trending_down,
+        color: colorScheme.error,
+        semanticLabel: 'Deload ${s.name}?',
       ),
       content: Text(
-        '${_target(s)} → $change\n\n'
-        'Streaks reset. Only finished workouts raise it again.',
+        '${_target(s)} → $change',
         style: TextStyle(color: colorScheme.onSurfaceVariant),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialogContext, false),
-          child: Text(
-            'Cancel',
-            style: TextStyle(color: colorScheme.onSurfaceVariant),
+          child: Icon(
+            Icons.close,
+            color: colorScheme.onSurfaceVariant,
+            semanticLabel: 'Cancel',
           ),
         ),
         TextButton(
           onPressed: () => Navigator.pop(dialogContext, true),
-          child: Text('Deload', style: TextStyle(color: colorScheme.error)),
+          child: Icon(
+            Icons.trending_down,
+            color: colorScheme.error,
+            semanticLabel: 'Deload',
+          ),
         ),
       ],
     ),

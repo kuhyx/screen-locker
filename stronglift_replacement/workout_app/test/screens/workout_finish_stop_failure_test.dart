@@ -51,10 +51,10 @@ void main() {
     );
     client.failStop = true;
     await tester.runAsync(() async {
-      await tester.tap(find.widgetWithText(TextButton, 'Finish'));
+      await tester.tap(buttonLabeled<TextButton>('Finish'));
       await Future<void>.delayed(const Duration(milliseconds: 200));
       await tester.pump();
-      await tester.tap(find.widgetWithText(TextButton, 'Finish').last);
+      await tester.tap(buttonLabeled<TextButton>('Finish').last);
       await Future<void>.delayed(const Duration(milliseconds: 800));
       await tester.pump();
     });
@@ -63,9 +63,6 @@ void main() {
     expect(client.failStop, isFalse, reason: 'the failing stop really ran');
     expect(tester.takeException(), isNull);
     // The summary's PC line: this test host is never paired.
-    expect(
-      find.text('PC: will credit within 60 s (via sync)'),
-      findsOneWidget,
-    );
+    expect(find.text('PC: will credit within 60 s (via sync)'), findsOneWidget);
   });
 }

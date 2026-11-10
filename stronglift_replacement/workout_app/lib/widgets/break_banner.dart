@@ -98,28 +98,35 @@ class BreakBanner extends StatelessWidget {
             visible: active,
             child: TextButton(
               onPressed: onSkip,
-              child: Text('Skip', style: TextStyle(color: colorScheme.primary)),
+              child: Icon(
+                Icons.skip_next,
+                color: colorScheme.primary,
+                semanticLabel: 'Skip',
+              ),
             ),
           ),
           _slot(
             visible: !finished,
             child: TextButton(
               onPressed: onReset,
-              child: Text('Reset', style: TextStyle(color: colorScheme.error)),
+              child: Icon(
+                Icons.restart_alt,
+                color: colorScheme.error,
+                semanticLabel: 'Reset',
+              ),
             ),
           ),
           _slot(
             visible: !finished,
             child: TextButton(
               onPressed: canFinish ? onFinish : null,
-              child: Text(
-                'Finish',
-                style: TextStyle(
-                  color: canFinish
-                      ? status.success
-                      : colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.bold,
-                ),
+              // Muted while finishing is not allowed yet, as the old label.
+              child: Icon(
+                Icons.done_all,
+                color: canFinish
+                    ? status.success
+                    : colorScheme.onSurfaceVariant,
+                semanticLabel: 'Finish',
               ),
             ),
           ),

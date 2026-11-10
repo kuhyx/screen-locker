@@ -21,9 +21,17 @@ extension _SettingsScreenDeload on _SettingsScreenState {
     if (!mounted) return null;
     final next = result.state;
     if (next == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(result.reason)));
+      // Was the refusal reason as a sentence; it goes to the log instead.
+      log('Settings: deload of $name refused: ${result.reason}', level: 900);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Icon(
+            Icons.block,
+            color: Theme.of(context).colorScheme.error,
+            semanticLabel: 'Deload failed',
+          ),
+        ),
+      );
       return null;
     }
     SandboxLog.event('manual deload', {

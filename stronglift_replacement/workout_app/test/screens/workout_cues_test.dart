@@ -54,10 +54,10 @@ void main() {
 
   Future<void> finish(WidgetTester tester) async {
     await tester.runAsync(() async {
-      await tester.tap(find.widgetWithText(TextButton, 'Finish'));
+      await tester.tap(buttonLabeled<TextButton>('Finish'));
       await Future<void>.delayed(const Duration(milliseconds: 200));
       await tester.pump();
-      await tester.tap(find.widgetWithText(TextButton, 'Finish').last);
+      await tester.tap(buttonLabeled<TextButton>('Finish').last);
       await Future<void>.delayed(const Duration(milliseconds: 800));
       await tester.pump();
     });

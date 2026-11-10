@@ -11,6 +11,8 @@ import 'package:workout_app/screens/home_screen.dart';
 import 'package:workout_app/services/workout_sync_service.dart';
 import 'package:workout_app/ui/theme.dart';
 
+export '../icon_finders.dart';
+
 // runAsync steps outside FakeAsync so real I/O (NetworkInterface.list) completes.
 Future<void> pumpHome(WidgetTester tester, Widget w) async {
   await tester.runAsync(() async {

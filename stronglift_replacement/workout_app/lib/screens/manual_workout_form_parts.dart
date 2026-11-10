@@ -50,7 +50,11 @@ extension _ManualWorkoutFormParts on _ManualWorkoutScreenState {
         TextButton(
           key: const Key('mw_pick_date'),
           onPressed: _submitting ? null : _pickDate,
-          child: const Text('CHANGE DATE'),
+          child: const Icon(
+            Icons.calendar_today,
+            size: 20,
+            semanticLabel: 'CHANGE DATE',
+          ),
         ),
       ],
     ),

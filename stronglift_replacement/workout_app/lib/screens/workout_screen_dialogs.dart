@@ -13,21 +13,28 @@ extension _WorkoutScreenDialogs on _WorkoutScreenState {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: colorScheme.surfaceContainerHigh,
-        title: Text(
-          'Finish workout?',
-          style: TextStyle(color: colorScheme.onSurface),
+        // Was "Finish workout?" with Cancel / Finish buttons.
+        title: Icon(
+          Icons.done_all,
+          color: status.success,
+          semanticLabel: 'Finish workout?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: colorScheme.onSurfaceVariant),
+            child: Icon(
+              Icons.close,
+              color: colorScheme.onSurfaceVariant,
+              semanticLabel: 'Cancel',
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Finish', style: TextStyle(color: status.success)),
+            child: Icon(
+              Icons.done_all,
+              color: status.success,
+              semanticLabel: 'Finish',
+            ),
           ),
         ],
       ),
@@ -42,25 +49,29 @@ extension _WorkoutScreenDialogs on _WorkoutScreenState {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: colorScheme.surfaceContainerHigh,
-        title: Text(
-          'Reset workout?',
-          style: TextStyle(color: colorScheme.onSurface),
-        ),
-        content: Text(
-          'All progress will be lost.',
-          style: TextStyle(color: colorScheme.onSurfaceVariant),
+        // Was "Reset workout?" / "All progress will be lost." with
+        // Cancel / Reset buttons: the reset glyph in the error colour.
+        title: Icon(
+          Icons.restart_alt,
+          color: colorScheme.error,
+          semanticLabel: 'Reset workout? All progress will be lost.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: colorScheme.onSurfaceVariant),
+            child: Icon(
+              Icons.close,
+              color: colorScheme.onSurfaceVariant,
+              semanticLabel: 'Cancel',
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Reset', style: TextStyle(color: colorScheme.error)),
+            child: Icon(
+              Icons.restart_alt,
+              color: colorScheme.error,
+              semanticLabel: 'Reset',
+            ),
           ),
         ],
       ),

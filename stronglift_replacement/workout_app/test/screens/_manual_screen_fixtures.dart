@@ -7,6 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_app/services/workout_sync_service.dart';
 
+import '../icon_finders.dart';
+
+export '../icon_finders.dart';
+
 class FakeManualSync extends WorkoutSyncService {
   FakeManualSync({
     this.payloads = const [],
@@ -39,7 +43,7 @@ Map<String, dynamic> manualEntry(String date) => {
 
 /// Opens the date picker, taps [day] of the shown month, confirms.
 Future<void> pickDay(WidgetTester tester, String day) async {
-  await tester.tap(find.text('CHANGE DATE'));
+  await tester.tap(iconLabeled('CHANGE DATE'));
   await tester.pumpAndSettle();
   await tester.tap(find.text(day));
   await tester.tap(find.text('OK'));

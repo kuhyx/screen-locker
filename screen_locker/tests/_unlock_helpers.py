@@ -37,7 +37,7 @@ def setup_unlock(
     if seed_today_type is None:
         log_file.write_text("{}")
     else:
-        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).astimezone().strftime("%Y-%m-%d")
         log_file.write_text(
             json.dumps(
                 {

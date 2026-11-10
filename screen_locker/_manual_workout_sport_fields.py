@@ -49,13 +49,7 @@ class ManualWorkoutSportFieldsMixin:
             value=_manual_workout.SPORT_LABELS[_manual_workout.SPORT_TABLE_TENNIS]
         )
         row = tk.Frame(parent, bg=self._colors.palette.bg)
-        tk.Label(
-            row,
-            text="Sport:",
-            font=self._colors.font("body"),
-            fg=self._colors.palette.fg,
-            bg=self._colors.palette.bg,
-        ).pack(side="left", padx=self._colors.space("xs"))
+        # textgate: the "Sport:" caption is gone; the radio row is the cue.
         for label in _manual_workout.SPORT_LABELS.values():
             tk.Radiobutton(
                 row,

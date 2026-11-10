@@ -200,7 +200,16 @@ extension _WorkoutScreenBreaks on _WorkoutScreenState {
   ExerciseState? _deloadRefused(String why) {
     log('WorkoutScreen: deload not applied — $why', level: 900);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(why)));
+      // Was the refusal reason as a sentence; it stays in the log above.
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Icon(
+            Icons.block,
+            color: Theme.of(context).colorScheme.error,
+            semanticLabel: 'Deload refused',
+          ),
+        ),
+      );
     }
     return null;
   }

@@ -7,6 +7,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:workout_app/models/break_snapshot.dart';
 import 'package:workout_app/services/break_intent_queue.dart';
 import 'package:workout_app/services/break_intent_store.dart';
+import 'package:workout_app/services/break_notification_text.dart';
 import 'package:workout_app/services/break_service_port.dart';
 import 'package:workout_app/services/break_service_port_flutter.dart';
 import 'package:workout_app/services/break_task_handler.dart';
@@ -21,7 +22,8 @@ import 'package:workout_app/services/foreground_break_client.dart';
 const kWorkoutOngoingChannelId = 'workout_ongoing_v1';
 
 /// Button labels, parallel to [BreakNotificationAction.inButtonOrder].
-const _buttonLabels = ['✓ Done', '− 1 rep', 'Skip break'];
+/// Symbols only; was ['✓ Done', '− 1 rep', 'Skip break'].
+const _buttonLabels = ['✓', '−1', '⏭'];
 
 /// Entry point the plugin calls in the background isolate.
 // coverage:ignore-start
@@ -57,8 +59,7 @@ class _BreakServiceTaskHandler extends TaskHandler {
   void onRepeatEvent(DateTime timestamp) => _handler.tick(timestamp);
 
   @override
-  void onReceiveData(Object data) =>
-      _handler.receiveData(data, DateTime.now());
+  void onReceiveData(Object data) => _handler.receiveData(data, DateTime.now());
 
   @override
   void onNotificationButtonPressed(String id) =>
@@ -92,7 +93,9 @@ class FlutterForegroundBreakClient implements ForegroundBreakClient {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: kWorkoutOngoingChannelId,
-        channelName: 'Workout in progress',
+        // App name only (textgate settled decision 4); was 'Workout in
+        // progress'.
+        channelName: BreakNotificationText.channelName,
         channelDescription:
             'Shows the rest countdown and the next set while a workout '
             'runs. Kept silent on purpose: the break-end alert has its own '
@@ -130,8 +133,10 @@ class FlutterForegroundBreakClient implements ForegroundBreakClient {
     }
     final result = await FlutterForegroundTask.startService(
       serviceTypes: [ForegroundServiceTypes.dataSync],
-      notificationTitle: 'Workout ${snapshot.workoutType}',
-      notificationText: 'Starting…',
+      // Same prefix as BreakNotificationText; was 'Workout A' / 'Starting…'.
+      notificationTitle:
+          '${BreakNotificationText.liftGlyph} ${snapshot.workoutType}',
+      notificationText: '…',
       notificationButtons: [
         for (final (i, id) in BreakNotificationAction.inButtonOrder.indexed)
           NotificationButton(id: id, text: _buttonLabels[i]),

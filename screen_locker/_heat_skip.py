@@ -42,10 +42,14 @@ def build_heat_skip_content(
     outer = tk.Frame(parent, bg=_COLORS.palette.bg)
     outer.place(relx=0.5, rely=0.5, anchor="center")
 
+    # textgate: glyphs + numbers only, warning colour as the second channel.
+    # Was "\u2600  Too hot to workout?" / "<city>: 31\u00b0C  (threshold: 30\u00b0C)" /
+    # "Skip today's workout due to extreme heat?". Plain geometric glyphs,
+    # not the sun (U+2600 can fall back to a colour-emoji font and crash Tk).
     tk.Label(
         outer,
-        text="\u2600  Too hot to workout?",
-        font=_COLORS.font("body", bold=True, family=_FONT),
+        text="\u25b2",
+        font=_COLORS.font("display", bold=True, family=_FONT),
         bg=_COLORS.palette.bg,
         fg=_COLORS.palette.warning,
     ).pack(pady=(0, _COLORS.space("sm")))
@@ -53,28 +57,22 @@ def build_heat_skip_content(
     tk.Label(
         outer,
         text=(
-            f"{HEAT_SKIP_CITY}: {temp:.0f}\u00b0C"
-            f"  (threshold: {HEAT_SKIP_TEMP_THRESHOLD}\u00b0C)"
+            f"{HEAT_SKIP_CITY}  {temp:.0f}\u00b0C"
+            f" \u2265 {HEAT_SKIP_TEMP_THRESHOLD}\u00b0C"
         ),
         font=_COLORS.font("body", family=_FONT),
         bg=_COLORS.palette.bg,
-        fg=_COLORS.palette.muted,
+        fg=_COLORS.palette.warning,
     ).pack(pady=_COLORS.space("xs"))
-
-    tk.Label(
-        outer,
-        text="Skip today's workout due to extreme heat?",
-        font=_COLORS.font("body", family=_FONT),
-        bg=_COLORS.palette.bg,
-        fg=_COLORS.palette.muted,
-    ).pack(pady=(_COLORS.space("xs"), 0))
 
     btn_frame = tk.Frame(outer, bg=_COLORS.palette.bg)
     btn_frame.pack(pady=_COLORS.space("lg"))
 
+    # Was "Skip workout" (warning fill) / "No, I'll workout" (neutral fill).
     skip_button = tk.Button(
         btn_frame,
-        text="Skip workout",
+        name="skip",
+        text="\u21b7",
         command=on_skip,
         bg=_COLORS.palette.warning,
         fg=_COLORS.palette.on_fill,
@@ -89,7 +87,8 @@ def build_heat_skip_content(
 
     decline_button = tk.Button(
         btn_frame,
-        text="No, I'll workout",
+        name="decline",
+        text="▶",
         command=on_decline,
         bg=_COLORS.palette.field_bg,
         fg=_COLORS.palette.fg,

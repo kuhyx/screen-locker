@@ -48,8 +48,8 @@ void main() {
       ),
       now,
     );
-    expect(copy.title, 'Workout A · break 1:47');
-    expect(copy.body, 'Next: Squat — set 3/5\n5 reps @ 40 kg');
+    expect(copy.title, '🏋 A · ⏱ 1:47');
+    expect(copy.body, '→ Squat  3/5\n5 × 40 kg');
   });
 
   test('says the break is over once the deadline has passed', () {
@@ -62,11 +62,11 @@ void main() {
       ),
       now,
     );
-    expect(copy.title, 'Workout A · break over');
+    expect(copy.title, '🏋 A · ${BreakNotificationText.breakOverGlyph}');
   });
 
-  test('says lift when no rest is running', () {
-    expect(BreakNotificationText.render(snap(), now).title, 'Workout A · lift');
+  test('shows only the lift glyph when no rest is running', () {
+    expect(BreakNotificationText.render(snap(), now).title, '🏋 A');
   });
 
   test('says so when every set is recorded', () {
@@ -74,13 +74,13 @@ void main() {
       snap(nextExIdx: -1, nextSetIdx: -1, setsRemaining: 0),
       now,
     );
-    expect(copy.body, 'Every set is done — finish the workout.');
+    expect(copy.body, BreakNotificationText.doneGlyph);
   });
 
-  test('a finished workout asks to be saved', () {
+  test('a finished workout shows the done glyph and no body', () {
     final copy = BreakNotificationText.render(snap(finished: true), now);
-    expect(copy.title, 'Workout complete');
-    expect(copy.body, 'Open the app to save it.');
+    expect(copy.title, BreakNotificationText.doneGlyph);
+    expect(copy.body, isEmpty);
   });
 
   test('drops a pointless trailing zero from the weight', () {

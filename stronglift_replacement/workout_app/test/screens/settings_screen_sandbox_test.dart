@@ -11,6 +11,7 @@ import 'package:workout_app/ui/theme.dart';
 
 import '../fake_pc_pairing.dart';
 import '../fake_secure_storage.dart';
+import '../icon_finders.dart';
 
 void main() {
   setUpAll(() {
@@ -90,7 +91,7 @@ void main() {
     });
     Sandbox.restSecs = 30;
     await pump(tester);
-    await tapReal(tester, find.text('Wipe sandbox data'));
+    await tapReal(tester, iconLabeled('Wipe sandbox data'));
     expect(find.textContaining('Wiped —'), findsOneWidget);
     expect(Sandbox.restSecs, Sandbox.defaultRestSecs);
     final active = await tester.runAsync(
@@ -101,7 +102,7 @@ void main() {
 
   testWidgets('mark today not done reports what it removed', (tester) async {
     await pump(tester);
-    await tapReal(tester, find.text('Mark today not done'));
+    await tapReal(tester, iconLabeled('Mark today not done'));
     expect(find.textContaining('Nothing logged today'), findsOneWidget);
 
     final today = DateTime.now().toIso8601String().substring(0, 10);
@@ -114,7 +115,7 @@ void main() {
         json: '{}',
       ),
     );
-    await tapReal(tester, find.text('Mark today not done'));
+    await tapReal(tester, iconLabeled('Mark today not done'));
     expect(find.textContaining('Removed 1 workout'), findsOneWidget);
   });
 
@@ -126,7 +127,7 @@ void main() {
     // The row's own button: the PC LINK section has a "Save" too.
     final save = find.descendant(
       of: find.ancestor(of: field, matching: find.byType(Row)).first,
-      matching: find.text('Save'),
+      matching: iconLabeled('Save'),
     );
     await tester.enterText(field, 'abc');
     await tapReal(tester, save);
@@ -163,7 +164,7 @@ void main() {
     );
     expect(saved, 10);
 
-    await tapReal(tester, find.text('Wipe sandbox data'));
+    await tapReal(tester, iconLabeled('Wipe sandbox data'));
     expect(Sandbox.runReplayFactor, Sandbox.defaultReplayFactor);
   });
 }

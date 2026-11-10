@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/screens/home_screen.dart';
+import 'package:workout_app/screens/settings_screen.dart';
 import 'package:workout_app/screens/workout_screen.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/workout_sync_service.dart';
@@ -108,7 +109,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       // The card must lead somewhere: telling the user sync is broken and
       // leaving them to find Settings is the silence this whole card fixes.
-      expect(find.text('Settings'), findsOneWidget);
+      expect(find.byType(SettingsScreen), findsOneWidget);
 
       // Coming back re-checks sync, so connecting there clears the card
       // without needing an app restart.

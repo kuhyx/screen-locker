@@ -17,6 +17,7 @@ import 'package:workout_app/services/sync_settings.dart';
 import 'package:workout_app/ui/theme.dart';
 
 import '../fake_secure_storage.dart';
+import '../icon_finders.dart';
 
 /// Stub launcher that records the URL instead of opening it, so the device
 /// dialog's "Open GitHub & copy code" can be exercised without a real
@@ -98,7 +99,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 300));
       await tester.pump();
 
-      await tester.tap(find.text('Connect GitHub'));
+      await tester.tap(iconLabeled('Connect GitHub'));
       await _pumpUntil(
         tester,
         () => find.textContaining('NOT syncing').evaluate().isNotEmpty,
@@ -140,7 +141,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 300));
       await tester.pump();
 
-      await tester.tap(find.text('Connect GitHub'));
+      await tester.tap(iconLabeled('Connect GitHub'));
       await _pumpUntil(
         tester,
         () => find.textContaining('verifying').evaluate().isNotEmpty,

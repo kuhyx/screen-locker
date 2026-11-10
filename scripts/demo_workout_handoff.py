@@ -56,19 +56,21 @@ class _DemoHooks:
 
     def build_surface(self, parent: tk.Misc, _surface: object) -> None:
         """Draw the status line and the release/reacquire buttons."""
+        # textgate: glyphs only, colours as the second channel. Was "DEMO
+        # LOCK — local grab, VT switching still enabled" / "Press “Start
+        # workout”. While the app holds the screen, press Ctrl+Shift+Q to
+        # escape." / "Start workout" / "✕ Close demo (or press Escape)".
+        # The escape chord stays visible: it is what the user must press.
         tk.Label(
             parent,
-            text="DEMO LOCK — local grab, VT switching still enabled",
+            text="▣",
             font=("TkDefaultFont", 18, "bold"),
             bg="#1B1D21",
             fg="#E6E6E6",
         ).pack(pady=(120, 8))
         self.status = tk.Label(
             parent,
-            text=(
-                "Press “Start workout”. While the app holds the screen, "
-                "press Ctrl+Shift+Q to escape."
-            ),
+            text="Ctrl+Shift+Q",
             font=("TkDefaultFont", 12),
             bg="#1B1D21",
             fg="#9AA0A6",
@@ -76,7 +78,7 @@ class _DemoHooks:
         self.status.pack(pady=8)
         tk.Button(
             parent,
-            text="Start workout",
+            text="▶",
             font=("TkDefaultFont", 14, "bold"),
             bg="#3B82F6",
             fg="#FFFFFF",
@@ -86,7 +88,7 @@ class _DemoHooks:
         ).pack(pady=16)
         tk.Button(
             parent,
-            text="✕ Close demo (or press Escape)",
+            text="✕",
             bg="#EF4444",
             fg="#FFFFFF",
             command=self._close,

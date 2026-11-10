@@ -164,8 +164,11 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: _openRun,
           ),
           IconButton(
-            icon: Icon(Icons.edit_note, color: colorScheme.onSurface),
-            tooltip: 'Log manual workout',
+            icon: Icon(
+              Icons.edit_note,
+              color: colorScheme.onSurface,
+              semanticLabel: 'Log manual workout',
+            ),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => const ManualWorkoutScreen(),
@@ -173,15 +176,21 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           IconButton(
-            tooltip: 'History',
-            icon: Icon(Icons.history, color: colorScheme.onSurface),
+            icon: Icon(
+              Icons.history,
+              color: colorScheme.onSurface,
+              semanticLabel: 'History',
+            ),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const HistoryScreen()),
             ),
           ),
           IconButton(
-            tooltip: 'Settings',
-            icon: Icon(Icons.settings, color: colorScheme.onSurface),
+            icon: Icon(
+              Icons.settings,
+              color: colorScheme.onSurface,
+              semanticLabel: 'Settings',
+            ),
             onPressed: () async {
               await Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),

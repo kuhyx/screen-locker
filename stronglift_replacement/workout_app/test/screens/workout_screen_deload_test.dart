@@ -68,24 +68,24 @@ void main() {
       find.bySemanticsLabel('Dumbbell Lunge progression settings'),
     );
     await tester.pump(const Duration(seconds: 1)); // sheet slide-in
-    await tapReal(tester, find.text('Deload now'));
+    await tapReal(tester, iconLabeled('Deload now'));
   }
 
   /// Deloads Lunge through the sheet, confirming or cancelling the dialog.
   Future<void> deloadLunge(WidgetTester tester, {bool confirm = true}) async {
     await openDeload(tester);
-    expect(find.text('Deload Dumbbell Lunge?'), findsOneWidget);
-    await tapReal(tester, find.text(confirm ? 'Deload' : 'Cancel'));
+    expect(iconLabeled('Deload Dumbbell Lunge?'), findsOneWidget);
+    await tapReal(tester, iconLabeled(confirm ? 'Deload' : 'Cancel'));
     await tester.pump(const Duration(milliseconds: 300));
   }
 
   /// Finish -> confirm -> summary dialog up, with the writes done.
   Future<void> finish(WidgetTester tester) async {
     await tester.runAsync(() async {
-      await tester.tap(find.widgetWithText(TextButton, 'Finish'));
+      await tester.tap(buttonLabeled<TextButton>('Finish'));
       await Future<void>.delayed(const Duration(milliseconds: 200));
       await tester.pump();
-      await tester.tap(find.widgetWithText(TextButton, 'Finish').last);
+      await tester.tap(buttonLabeled<TextButton>('Finish').last);
       await Future<void>.delayed(const Duration(milliseconds: 800));
       await tester.pump();
     });
@@ -150,7 +150,7 @@ void main() {
     await tester.tapAt(const Offset(5, 5)); // scrim: close the sheet
     await tester.pump(const Duration(seconds: 1));
     for (var s = 0; s < _both.length * 3; s++) {
-      if (restRunning(tester)) await tapReal(tester, find.text('Skip'));
+      if (restRunning(tester)) await tapReal(tester, iconLabeled('Skip'));
       await tapReal(tester, find.byType(RepCircle).at(s));
     }
 
@@ -179,7 +179,7 @@ void main() {
 
     await deloadLunge(tester);
 
-    expect(find.textContaining('already at 0 kg'), findsOneWidget);
+    expect(iconLabeled('Deload refused'), findsOneWidget);
     expect(find.text('3×12×7.5kg'), findsOneWidget);
   });
 
@@ -200,10 +200,7 @@ void main() {
 
     await deloadLunge(tester);
 
-    expect(
-      find.textContaining('The deload could not be saved'),
-      findsOneWidget,
-    );
+    expect(iconLabeled('Deload refused'), findsOneWidget);
     expect(find.text('3×12×7.5kg'), findsOneWidget);
   });
 
@@ -223,7 +220,7 @@ void main() {
 
     await deloadLunge(tester);
 
-    expect(find.textContaining('already finished'), findsOneWidget);
+    expect(iconLabeled('Deload refused'), findsOneWidget);
     final stored = await tester.runAsync(
       () => StorageService.instance.getExerciseState(_lunge.name),
     );
@@ -236,7 +233,7 @@ void main() {
     await pumpBoth(tester);
     await openDeload(tester);
     await tester.runAsync(() async {
-      await tester.tap(find.text('Deload'));
+      await tester.tap(iconLabeled('Deload'));
       await Future<void>.delayed(Duration.zero);
       await tester.pumpWidget(const SizedBox());
       await Future<void>.delayed(const Duration(milliseconds: 500));

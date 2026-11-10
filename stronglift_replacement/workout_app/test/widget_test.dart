@@ -5,6 +5,7 @@ import 'package:workout_app/main.dart';
 import 'package:workout_app/sandbox/sandbox.dart';
 import 'package:workout_app/services/http_server_service.dart';
 import 'package:workout_app/services/storage_service.dart';
+import 'package:workout_app/ui/theme.dart';
 
 import 'fake_secure_storage.dart';
 
@@ -45,7 +46,10 @@ void main() {
     });
     await tester.pump();
     expect(find.byType(Banner), findsOneWidget);
-    expect(tester.widget<Banner>(find.byType(Banner)).message, 'SANDBOX');
+    // A bare red ribbon: the colour and the corner are the cue, no word.
+    final banner = tester.widget<Banner>(find.byType(Banner));
+    expect(banner.message, isEmpty);
+    expect(banner.color, buildAppTheme().colorScheme.error);
   });
 
   testWidgets('the daily build has no ribbon', (tester) async {

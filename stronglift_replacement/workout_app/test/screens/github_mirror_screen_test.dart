@@ -17,6 +17,13 @@ import 'package:workout_app/services/sync_settings.dart';
 import 'package:workout_app/ui/theme.dart';
 
 import '../fake_secure_storage.dart';
+import '../icon_finders.dart';
+
+/// The token field: the one whose prefix icon is labelled 'GitHub PAT'.
+final _patField = find.ancestor(
+  of: iconLabeled('GitHub PAT'),
+  matching: find.byType(TextField),
+);
 
 /// Stub launcher that records the URL instead of opening it, so the device
 /// dialog's "Open GitHub & copy code" can be exercised without a real
@@ -78,52 +85,50 @@ void main() {
     await tester.pump();
 
     expect(find.text('Advanced sync (GitHub)'), findsOneWidget);
-    expect(find.text('Connect GitHub'), findsOneWidget);
+    expect(iconLabeled('Connect GitHub'), findsOneWidget);
   });
 
-  testWidgets(
-    'a saved token is VERIFIED on open, not blindly trusted',
-    (tester) async {
-      // Regression: the badge used to read "Connected." whenever a token
-      // string existed, so a revoked token showed green while every sync
-      // 401'd and history silently stayed empty.
-      installFakeSecureStorage(initial: {'sync.token': 'revoked-token'});
-      final mock = MockClient(
-        (req) async => http.Response('Bad credentials', 401),
-      );
-      await tester.runAsync(() async {
-        await tester.pumpWidget(_wrap(httpClient: mock));
-        await Future<void>.delayed(const Duration(milliseconds: 300));
-      });
-      await tester.pump();
+  testWidgets('a saved token is VERIFIED on open, not blindly trusted', (
+    tester,
+  ) async {
+    // Regression: the badge used to read "Connected." whenever a token
+    // string existed, so a revoked token showed green while every sync
+    // 401'd and history silently stayed empty.
+    installFakeSecureStorage(initial: {'sync.token': 'revoked-token'});
+    final mock = MockClient(
+      (req) async => http.Response('Bad credentials', 401),
+    );
+    await tester.runAsync(() async {
+      await tester.pumpWidget(_wrap(httpClient: mock));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await tester.pump();
 
-      expect(find.text('Connected.'), findsNothing);
-      expect(find.textContaining('NOT connected'), findsOneWidget);
-    },
-  );
+    expect(find.text('Connected.'), findsNothing);
+    expect(find.textContaining('NOT connected'), findsOneWidget);
+  });
 
-  testWidgets(
-    'a saved token that GitHub accepts reports verified',
-    (tester) async {
-      installFakeSecureStorage(initial: {'sync.token': 'good-token'});
-      final mock = MockClient(
-        (req) async => http.Response(
-          jsonEncode({'content': base64Encode(utf8.encode('{}')), 'sha': 's'}),
-          200,
-        ),
-      );
-      await tester.runAsync(() async {
-        await tester.pumpWidget(_wrap(httpClient: mock));
-        await Future<void>.delayed(const Duration(milliseconds: 300));
-      });
-      await tester.pump();
+  testWidgets('a saved token that GitHub accepts reports verified', (
+    tester,
+  ) async {
+    installFakeSecureStorage(initial: {'sync.token': 'good-token'});
+    final mock = MockClient(
+      (req) async => http.Response(
+        jsonEncode({'content': base64Encode(utf8.encode('{}')), 'sha': 's'}),
+        200,
+      ),
+    );
+    await tester.runAsync(() async {
+      await tester.pumpWidget(_wrap(httpClient: mock));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await tester.pump();
 
-      expect(
-        find.textContaining('Connected and verified via GitHub'),
-        findsOneWidget,
-      );
-    },
-  );
+    expect(
+      find.textContaining('Connected and verified via GitHub'),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('the PAT fallback field is present', (tester) async {
     await tester.runAsync(() async {
@@ -132,8 +137,8 @@ void main() {
     });
     await tester.pump();
 
-    expect(find.text('Save'), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'GitHub PAT'), findsOneWidget);
+    expect(iconLabeled('Save'), findsOneWidget);
+    expect(_patField, findsOneWidget);
   });
 
   testWidgets('saving a pasted token shows a confirmation', (tester) async {
@@ -143,11 +148,8 @@ void main() {
     });
     await tester.pump();
 
-    await tester.enterText(
-      find.widgetWithText(TextField, 'GitHub PAT'),
-      'a-pasted-token',
-    );
-    await tester.tap(find.text('Save'));
+    await tester.enterText(_patField, 'a-pasted-token');
+    await tester.tap(iconLabeled('Save'));
     await tester.pump();
     expect(find.text('Sync token saved.'), findsOneWidget);
   });

@@ -1,8 +1,8 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/models/workout_plan.dart';
+import 'package:workout_app/screens/settings_screen.dart';
 import 'package:workout_app/screens/workout_screen.dart';
 import 'package:workout_app/services/storage_service.dart';
 
@@ -40,7 +40,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.history));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Progress'), findsOneWidget);
+    expect(iconLabeled('Progress'), findsOneWidget);
   });
 
   testWidgets('settings icon navigates to settings screen', (tester) async {
@@ -48,7 +48,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.settings));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Settings'), findsOneWidget);
+    expect(find.byType(SettingsScreen), findsOneWidget);
   });
 
   testWidgets('"Done for today" message shows after saving a session today', (
@@ -188,7 +188,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.settings));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Settings'), findsOneWidget);
+    expect(find.byType(SettingsScreen), findsOneWidget);
 
     // Pop back; the trailing _load() (line 135) needs the real loop for DB I/O.
     await tester.runAsync(() async {

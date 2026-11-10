@@ -54,7 +54,7 @@ void main() {
     // Success break (5 done >= 5 target): the 3-minute rest.
     expect(restSecs(tester), inInclusiveRange(175, 180));
 
-    await tapReal(tester, find.text('Skip'));
+    await tapReal(tester, iconLabeled('Skip'));
     expect(restRunning(tester), isFalse);
   });
 
@@ -98,12 +98,12 @@ void main() {
     // resumes into _finishWorkout in the same zone, and _finishWorkout does
     // several sqflite writes that would hang under FakeAsync.
     await tester.runAsync(() async {
-      await tester.tap(find.widgetWithText(TextButton, 'Finish'));
+      await tester.tap(buttonLabeled<TextButton>('Finish'));
       await Future<void>.delayed(const Duration(milliseconds: 200));
       await tester.pump();
-      expect(find.text('Finish workout?'), findsOneWidget);
+      expect(iconLabeled('Finish workout?'), findsOneWidget);
       // The dialog's Finish button is the last 'Finish' in the tree.
-      await tester.tap(find.widgetWithText(TextButton, 'Finish').last);
+      await tester.tap(buttonLabeled<TextButton>('Finish').last);
       await Future<void>.delayed(const Duration(milliseconds: 800));
       await tester.pump();
     });
@@ -131,15 +131,18 @@ void main() {
     await pumpWorkout(tester, wrapWorkout());
 
     // Opening the confirm dialog does no DB work.
-    await tester.tap(find.text('Reset'));
+    await tester.tap(iconLabeled('Reset'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('Reset workout?'), findsOneWidget);
+    expect(
+      iconLabeled('Reset workout? All progress will be lost.'),
+      findsOneWidget,
+    );
 
     // Confirm: clearActiveSession is a DB write, so run on the real loop.
     // (The dialog's Reset button is the last 'Reset' in the tree.)
     await tester.runAsync(() async {
-      await tester.tap(find.widgetWithText(TextButton, 'Reset').last);
+      await tester.tap(buttonLabeled<TextButton>('Reset').last);
       await Future<void>.delayed(const Duration(milliseconds: 300));
     });
     await tester.pump();

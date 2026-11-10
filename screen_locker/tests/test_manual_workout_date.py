@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 from screen_locker._day import today_str
 from screen_locker._manual_schedule import ScheduleResult
+from screen_locker._manual_workout_date import BACK_GLYPH, SCHEDULED_GLYPH
 from screen_locker.tests import test_manual_workout_dialog_part2 as dialog_tests
 from screen_locker.tests.conftest import create_locker
 
@@ -139,12 +140,12 @@ class TestScheduledConfirmation:
         buttons = {
             c.kwargs.get("text"): c.kwargs for c in mock_tk.Button.call_args_list
         }
-        assert set(buttons) == {"OK"}
-        buttons["OK"]["command"]()
+        assert set(buttons) == {BACK_GLYPH}
+        buttons[BACK_GLYPH]["command"]()
         cancelled.assert_called_once_with()
         saved.assert_not_called()
         texts = [c.kwargs.get("text", "") for c in mock_tk.Label.call_args_list]
-        assert any("Workout Scheduled" in t for t in texts)
+        assert SCHEDULED_GLYPH in texts
         assert any("scheduled for tomorrow" in t for t in texts)
 
 

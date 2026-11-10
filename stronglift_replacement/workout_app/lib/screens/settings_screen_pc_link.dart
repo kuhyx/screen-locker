@@ -78,9 +78,10 @@ class _PcLinkSectionState extends State<_PcLinkSection> {
                 key: const Key('pc-host'),
                 controller: _host,
                 keyboardType: TextInputType.url,
+                // Was labelText 'PC address'.
                 decoration: const InputDecoration(
                   isDense: true,
-                  labelText: 'PC address',
+                  prefixIcon: Icon(Icons.computer, semanticLabel: 'PC address'),
                 ),
               ),
             ),
@@ -90,7 +91,7 @@ class _PcLinkSectionState extends State<_PcLinkSection> {
               onPressed: () => unawaited(_save()),
               // Distinct label: the sandbox section has its own "Save", and
               // two identical labels cannot be driven by element.
-              child: const Text('Save', semanticsLabel: 'Save PC address'),
+              child: const Icon(Icons.save, semanticLabel: 'Save PC address'),
             ),
           ],
         ),

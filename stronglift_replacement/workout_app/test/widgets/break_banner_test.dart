@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/break_banner.dart';
 
+import '../icon_finders.dart';
+
 Widget _wrap(Widget child) => MaterialApp(
   theme: buildAppTheme(),
   home: Scaffold(body: child),
@@ -28,7 +30,7 @@ BreakBanner _banner({
 
 Visibility _slotOf(WidgetTester tester, String text) =>
     tester.widget<Visibility>(
-      find.ancestor(of: find.text(text), matching: find.byType(Visibility)),
+      find.ancestor(of: iconLabeled(text), matching: find.byType(Visibility)),
     );
 
 void main() {
@@ -47,7 +49,7 @@ void main() {
     testWidgets('skip button calls onSkip', (tester) async {
       var skipped = false;
       await tester.pumpWidget(_wrap(_banner(onSkip: () => skipped = true)));
-      await tester.tap(find.text('Skip'));
+      await tester.tap(iconLabeled('Skip'));
       expect(skipped, isTrue);
     });
 
@@ -68,20 +70,20 @@ void main() {
     testWidgets('Reset calls onReset', (tester) async {
       var reset = false;
       await tester.pumpWidget(_wrap(_banner(onReset: () => reset = true)));
-      await tester.tap(find.text('Reset'));
+      await tester.tap(iconLabeled('Reset'));
       expect(reset, isTrue);
     });
 
     testWidgets('Finish is disabled until every set is done', (tester) async {
       var finished = 0;
       await tester.pumpWidget(_wrap(_banner(onFinish: () => finished++)));
-      await tester.tap(find.text('Finish'));
+      await tester.tap(iconLabeled('Finish'));
       expect(finished, 0);
 
       await tester.pumpWidget(
         _wrap(_banner(canFinish: true, onFinish: () => finished++)),
       );
-      await tester.tap(find.text('Finish'));
+      await tester.tap(iconLabeled('Finish'));
       expect(finished, 1);
     });
 
@@ -89,14 +91,14 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(_wrap(_banner()));
-      final finishAt = tester.getRect(find.text('Finish'));
+      final finishAt = tester.getRect(iconLabeled('Finish'));
       await tester.pumpWidget(_wrap(_banner(finished: true)));
       for (final label in ['Reset', 'Finish']) {
         final slot = _slotOf(tester, label);
         expect(slot.visible, isFalse, reason: label);
         expect(slot.maintainSize, isTrue, reason: label);
       }
-      expect(tester.getRect(find.text('Finish')), finishAt);
+      expect(tester.getRect(iconLabeled('Finish')), finishAt);
     });
   });
 }

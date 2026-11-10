@@ -199,7 +199,8 @@ def _isolate_shutdown_base(tmp_path: Path) -> Iterator[None]:
     refresh sees an empty unit dir, never the real one.
     """
     target = tmp_path / "shutdown_base.json"
-    today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+    # Local day, as the code compares it (_day.today_str), not the UTC one.
+    today = datetime.now(tz=UTC).astimezone().strftime("%Y-%m-%d")
     target.write_text(json.dumps(dict.fromkeys(["last_reset_date", *_BONUS], today)))
     with (
         patch("screen_locker._constants.SHUTDOWN_BASE_FILE", target),

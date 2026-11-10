@@ -30,6 +30,9 @@ const kBreakEndSilentChannelId = 'break_end_silent_v1';
 /// Notification id of the terminal "workout complete" message.
 const kWorkoutDoneNotificationId = 8802;
 
+/// Name of every notification channel here: the app's proper noun.
+const String _kChannelName = BreakNotificationText.channelName;
+
 /// The real [BreakServicePort], running inside the foreground-service isolate.
 class FlutterBreakServicePort implements BreakServicePort {
   /// Creates a port. Cheap: nothing happens until [ensureIsolateReady].
@@ -64,7 +67,9 @@ class FlutterBreakServicePort implements BreakServicePort {
         ?.createNotificationChannel(
           const AndroidNotificationChannel(
             kBreakEndChannelId,
-            'Break finished',
+            // Channel names are the app name only (textgate settled
+            // decision 4). Was 'Break finished' / 'Break finished, no tone'.
+            _kChannelName,
             description: 'Sounds when a rest period between sets is over.',
             importance: Importance.max,
             sound: RawResourceAndroidNotificationSound('break_end'),
@@ -77,7 +82,7 @@ class FlutterBreakServicePort implements BreakServicePort {
         ?.createNotificationChannel(
           const AndroidNotificationChannel(
             kBreakEndSilentChannelId,
-            'Break finished, no tone',
+            _kChannelName,
             importance: Importance.max,
             playSound: false,
           ),
@@ -110,12 +115,13 @@ class FlutterBreakServicePort implements BreakServicePort {
     }
     await _notifications.show(
       id: kBreakEndNotificationId,
-      title: 'Break over',
-      body: 'Back to the bar.',
+      // Was "Break over" / "Back to the bar.".
+      title: BreakNotificationText.breakOverGlyph,
+      body: '',
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           sound ? kBreakEndChannelId : kBreakEndSilentChannelId,
-          sound ? 'Break finished' : 'Break finished, no tone',
+          _kChannelName,
           playSound: sound,
           importance: Importance.max,
           priority: Priority.max,
@@ -134,12 +140,13 @@ class FlutterBreakServicePort implements BreakServicePort {
   Future<void> finishAndStop() async {
     await _notifications.show(
       id: kWorkoutDoneNotificationId,
-      title: 'Workout complete',
-      body: 'Open the app to save it.',
+      // Was "Workout complete" / "Open the app to save it.".
+      title: BreakNotificationText.doneGlyph,
+      body: '',
       notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
           kBreakEndChannelId,
-          'Break finished',
+          _kChannelName,
           importance: Importance.high,
           priority: Priority.high,
         ),

@@ -119,12 +119,12 @@ void main() {
       ..grantOnRequest = false;
     await pump(tester);
 
-    expect(find.textContaining('Notifications are off'), findsOneWidget);
+    expect(iconLabeled('Notifications are off'), findsOneWidget);
   });
 
   testWidgets('no warning when notifications were allowed', (tester) async {
     await pump(tester);
-    expect(find.textContaining('Notifications are off'), findsNothing);
+    expect(iconLabeled('Notifications are off'), findsNothing);
   });
 
   testWidgets('a press that arrives after the workout is finished is dropped', (
@@ -134,10 +134,10 @@ void main() {
     // Whole flow on the real loop: _confirmFinish's showDialog resumes into
     // _finishWorkout, which does several sqflite writes.
     await tester.runAsync(() async {
-      await tester.tap(find.widgetWithText(TextButton, 'Finish'));
+      await tester.tap(buttonLabeled<TextButton>('Finish'));
       await Future<void>.delayed(const Duration(milliseconds: 200));
       await tester.pump();
-      await tester.tap(find.widgetWithText(TextButton, 'Finish').last);
+      await tester.tap(buttonLabeled<TextButton>('Finish').last);
       await Future<void>.delayed(const Duration(milliseconds: 800));
       await tester.pump();
     });
@@ -180,10 +180,10 @@ void main() {
   testWidgets('finishing the workout DOES stop the service', (tester) async {
     await pump(tester, saved: completeSaved());
     await tester.runAsync(() async {
-      await tester.tap(find.widgetWithText(TextButton, 'Finish'));
+      await tester.tap(buttonLabeled<TextButton>('Finish'));
       await Future<void>.delayed(const Duration(milliseconds: 200));
       await tester.pump();
-      await tester.tap(find.widgetWithText(TextButton, 'Finish').last);
+      await tester.tap(buttonLabeled<TextButton>('Finish').last);
       await Future<void>.delayed(const Duration(milliseconds: 800));
       await tester.pump();
     });

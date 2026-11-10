@@ -9,6 +9,7 @@ import 'package:workout_app/ui/theme.dart';
 
 import '../fake_pc_pairing.dart';
 import '../fake_secure_storage.dart';
+import '../icon_finders.dart';
 
 Widget _settings() => MaterialApp(
   theme: buildAppTheme(),
@@ -41,7 +42,7 @@ Future<void> _reveal(WidgetTester tester) async {
   await tester.pump();
 }
 
-Finder get _switch => find.widgetWithText(SwitchListTile, 'Sound');
+Finder get _switch => buttonLabeled<SwitchListTile>('Sound');
 
 void main() {
   setUpAll(() {

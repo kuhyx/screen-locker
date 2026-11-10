@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 
 def _today() -> str:
-    return datetime.now(tz=UTC).strftime("%Y-%m-%d")
+    return datetime.now(tz=UTC).astimezone().strftime("%Y-%m-%d")
 
 
 class TestExplainLockDecision:

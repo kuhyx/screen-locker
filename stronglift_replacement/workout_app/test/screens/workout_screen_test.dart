@@ -54,8 +54,8 @@ void main() {
 
   testWidgets('Reset and Finish buttons are present', (tester) async {
     await pumpWorkout(tester, wrapWorkout());
-    expect(find.text('Reset'), findsOneWidget);
-    expect(find.text('Finish'), findsOneWidget);
+    expect(iconLabeled('Reset'), findsOneWidget);
+    expect(iconLabeled('Finish'), findsOneWidget);
   });
 
   testWidgets('Finish button is disabled when not all sets done', (
@@ -63,21 +63,22 @@ void main() {
   ) async {
     await pumpWorkout(tester, wrapWorkout());
     final finishButton = tester.widget<TextButton>(
-      find.widgetWithText(TextButton, 'Finish'),
+      buttonLabeled<TextButton>('Finish'),
     );
     expect(finishButton.onPressed, isNull);
   });
 
   testWidgets('Reset dialog shows and cancels', (tester) async {
     await pumpWorkout(tester, wrapWorkout());
-    await tester.tap(find.text('Reset'));
+    await tester.tap(iconLabeled('Reset'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('Reset workout?'), findsOneWidget);
-    await tester.tap(find.text('Cancel'));
+    const title = 'Reset workout? All progress will be lost.';
+    expect(iconLabeled(title), findsOneWidget);
+    await tester.tap(iconLabeled('Cancel'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('Reset workout?'), findsNothing);
+    expect(iconLabeled(title), findsNothing);
   });
 
   testWidgets('tapping a set circle marks it as tapped', (tester) async {
@@ -107,7 +108,7 @@ void main() {
     };
     await pumpWorkout(tester, wrapWorkout(savedState: saved));
     final finishButton = tester.widget<TextButton>(
-      find.widgetWithText(TextButton, 'Finish'),
+      buttonLabeled<TextButton>('Finish'),
     );
     expect(finishButton.onPressed, isNotNull);
   });
@@ -128,11 +129,11 @@ void main() {
       'warmupTapped': [false, false],
     };
     await pumpWorkout(tester, wrapWorkout(savedState: saved));
-    await tester.tap(find.text('Finish'));
+    await tester.tap(iconLabeled('Finish'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('Finish workout?'), findsOneWidget);
-    await tester.tap(find.text('Cancel'));
+    expect(iconLabeled('Finish workout?'), findsOneWidget);
+    await tester.tap(iconLabeled('Cancel'));
     await tester.pump();
   });
 }

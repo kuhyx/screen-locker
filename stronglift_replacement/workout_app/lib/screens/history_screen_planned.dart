@@ -40,19 +40,33 @@ extension _HistoryPlanned on _HistoryScreenState {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete planned workout?'),
+        // Was "Delete planned workout?" / "<source> on <date> at <time>.
+        // It will not be credited." -- now the bin glyph plus the entry's
+        // own data (source, date, time).
+        title: Icon(
+          Icons.delete_outline,
+          color: Theme.of(context).colorScheme.error,
+          semanticLabel: 'Delete planned workout?',
+        ),
         content: Text(
-          '${payload['source'] ?? 'Manual workout'} on $date at '
-          '${payload['start_time']}. It will not be credited.',
+          [
+            '${payload['source'] ?? ''}',
+            date,
+            '${payload['start_time']}',
+          ].where((part) => part.isNotEmpty).join('  ·  '),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('KEEP'),
+            child: const Icon(Icons.close, semanticLabel: 'KEEP'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('DELETE'),
+            child: Icon(
+              Icons.delete_outline,
+              color: Theme.of(context).colorScheme.error,
+              semanticLabel: 'DELETE',
+            ),
           ),
         ],
       ),
@@ -62,11 +76,16 @@ extension _HistoryPlanned on _HistoryScreenState {
     // loaded, and a delete confirmed after midnight would cancel a workout
     // that is now today's -- one the PC may already have credited.
     if (!_isPlanned(payload, dayKey((widget.clock ?? DateTime.now)()))) {
+      // Was "Not deleted — <date> has started, so it is no longer a
+      // planned workout.": a blocked glyph next to the date.
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Not deleted — $date has started, so it is no longer '
-            'a planned workout.',
+          content: Row(
+            children: [
+              const Icon(Icons.block, semanticLabel: 'Not deleted'),
+              const SizedBox(width: 8),
+              Text(date),
+            ],
           ),
         ),
       );
@@ -81,9 +100,20 @@ extension _HistoryPlanned on _HistoryScreenState {
     });
     if (!mounted) return;
     if (!result.pushed) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Not deleted — ${result.reason}')));
+      // Was "Not deleted — <reason>"; the reason goes to the log instead.
+      developer.log(
+        'History: planned $id not deleted: ${result.reason}',
+        level: 900,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Icon(
+            Icons.cloud_off,
+            color: Theme.of(context).colorScheme.error,
+            semanticLabel: 'Not deleted',
+          ),
+        ),
+      );
       return;
     }
     await _load();
@@ -141,8 +171,11 @@ class _PlannedWorkoutTile extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Delete planned workout',
-            icon: Icon(Icons.delete_outline, color: colorScheme.error),
+            icon: Icon(
+              Icons.delete_outline,
+              color: colorScheme.error,
+              semanticLabel: 'Delete planned workout',
+            ),
             onPressed: onDelete,
           ),
         ],

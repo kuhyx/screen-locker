@@ -16,6 +16,8 @@ import 'package:workout_app/services/map_tile_cache.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/ui/theme.dart';
 
+export '../icon_finders.dart';
+
 Future<void> pumpHistory(WidgetTester tester, Widget w) async {
   await tester.runAsync(() async {
     await tester.pumpWidget(w);

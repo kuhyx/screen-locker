@@ -123,9 +123,10 @@ extension _WorkoutScreenIntents on _WorkoutScreenState {
     if (result.needsPermissionWarning && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Notifications are off — the rest timer still runs and still '
-            'sounds, but there will be no status-bar countdown.',
+          content: Icon(
+            Icons.notifications_off,
+            size: 20,
+            semanticLabel: 'Notifications are off',
           ),
           duration: Duration(seconds: 6),
         ),

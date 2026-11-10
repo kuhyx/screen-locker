@@ -64,7 +64,7 @@ class TestTryAutoUpgradeEarlyBirdRunnerUp:
             result = locker._try_auto_upgrade_early_bird()
 
         assert result is True
-        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).astimezone().strftime("%Y-%m-%d")
         data = json.loads(log_file.read_text())
         assert data[today][0]["workout_data"]["type"] == "runnerup_verified"
         assert data[today][0]["workout_data"]["after_early_bird"] == "true"

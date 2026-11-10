@@ -8,6 +8,8 @@ import 'package:workout_app/widgets/exercise_settings_sheet.dart';
 import 'package:workout_app/widgets/exercise_tile.dart';
 import 'package:workout_app/widgets/rep_circle.dart';
 
+import '../icon_finders.dart';
+
 Widget _wrap(Widget child) => MaterialApp(
   theme: buildAppTheme(),
   home: Scaffold(body: child),
@@ -159,7 +161,7 @@ void main() {
       await tester.tap(find.bySemanticsLabel('Squat progression settings'));
       await tester.pumpAndSettle();
       expect(find.byType(ExerciseSettingsSheet), findsOneWidget);
-      await tester.tap(find.text('Reps'));
+      await tester.tap(iconLabeled('Reps'));
       await tester.pump();
       expect(edits.single.mode, ProgressionMode.reps);
     });

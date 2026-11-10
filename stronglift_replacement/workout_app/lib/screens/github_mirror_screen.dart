@@ -224,10 +224,13 @@ class _GitHubMirrorScreenState extends State<GitHubMirrorScreen> {
                 ],
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: ElevatedButton.icon(
+                  child: ElevatedButton(
                     onPressed: _connectGitHub,
-                    icon: const Icon(Icons.login),
-                    label: const Text('Connect GitHub'),
+                    child: const Icon(
+                      Icons.login,
+                      size: 20,
+                      semanticLabel: 'Connect GitHub',
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),

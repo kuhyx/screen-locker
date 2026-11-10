@@ -34,7 +34,7 @@ class TestRelaxedDayAlreadySkippedBranch:
         # script_dir.parent/"log.json" resolves to tmp_path/"log.json" -- NOT
         # tmp_path/"screen_locker"/"log.json".
         log_file = tmp_path / "log.json"
-        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).astimezone().strftime("%Y-%m-%d")
         write_signed_entry(log_file, today, {"type": "relaxed_day_skip"})
 
         with (

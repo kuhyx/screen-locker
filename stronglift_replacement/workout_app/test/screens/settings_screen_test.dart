@@ -12,6 +12,7 @@ import 'package:workout_app/ui/theme.dart';
 
 import '../fake_pc_pairing.dart';
 import '../fake_secure_storage.dart';
+import '../icon_finders.dart';
 
 void main() {
   setUpAll(() {
@@ -83,7 +84,7 @@ void main() {
 
   testWidgets('shows Settings app bar', (tester) async {
     await _pump(tester, _wrap());
-    expect(find.text('Settings'), findsOneWidget);
+    expect(iconLabeled('Settings'), findsOneWidget);
   });
 
   testWidgets('shows WEIGHTS, TARGET REPS and PER EXERCISE', (tester) async {

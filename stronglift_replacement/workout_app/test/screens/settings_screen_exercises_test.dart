@@ -11,6 +11,7 @@ import 'package:workout_app/widgets/exercise_settings_sheet.dart';
 
 import '../fake_pc_pairing.dart';
 import '../fake_secure_storage.dart';
+import '../icon_finders.dart';
 
 const _situp = 'Situp exercise settings';
 
@@ -110,9 +111,9 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 200));
     });
     await tester.pump();
-    await tester.tap(find.text('Reps'));
+    await tester.tap(iconLabeled('Reps'));
     await tester.pump();
-    await tester.tap(find.text('Pause'));
+    await tester.tap(iconLabeled('Pause'));
     await tester.pump();
     await closeSheet(tester);
 
@@ -133,7 +134,7 @@ void main() {
     expect(pushes, 0);
   });
 
-  testWidgets('a push that did not happen says so', (tester) async {
+  testWidgets('a push that did not happen is flagged', (tester) async {
     pushResult = const ProgressionSyncResult(
       changed: false,
       reason: 'no Firebase account on this device',
@@ -145,11 +146,6 @@ void main() {
     await closeSheet(tester);
 
     expect(pushes, 1);
-    expect(
-      find.text(
-        'Saved on this phone, not synced: no Firebase account on this device',
-      ),
-      findsOneWidget,
-    );
+    expect(iconLabeled('Saved on this phone, not synced'), findsOneWidget);
   });
 }

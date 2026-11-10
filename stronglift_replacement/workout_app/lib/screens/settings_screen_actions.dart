@@ -23,26 +23,29 @@ extension _SettingsScreenActions on _SettingsScreenState {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: colorScheme.surfaceContainerHigh,
-        title: Text(
-          'Reset to defaults?',
-          style: TextStyle(color: colorScheme.onSurface),
-        ),
-        content: Text(
-          'All weights and thresholds will be reset. '
-          'Streak counters will be cleared.',
-          style: TextStyle(color: colorScheme.onSurfaceVariant),
+        // Was "Reset to defaults?" / "All weights and thresholds will be
+        // reset. Streak counters will be cleared.".
+        title: Icon(
+          Icons.restart_alt,
+          color: colorScheme.error,
+          semanticLabel: 'Reset to defaults?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: colorScheme.onSurfaceVariant),
+            child: Icon(
+              Icons.close,
+              color: colorScheme.onSurfaceVariant,
+              semanticLabel: 'Cancel',
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Reset', style: TextStyle(color: colorScheme.error)),
+            child: Icon(
+              Icons.restart_alt,
+              color: colorScheme.error,
+              semanticLabel: 'Reset',
+            ),
           ),
         ],
       ),
@@ -79,6 +82,22 @@ extension _SettingsScreenActions on _SettingsScreenState {
           googleFirebaseFactory:
               widget.googleFirebaseFactory ?? openFirebaseWithGoogle,
           googleAvailable: widget.googleAvailable ?? googleSignInSupported,
+        ),
+      ),
+    );
+  }
+
+  /// Flags an exercise edit that stayed on this phone (the push did not
+  /// happen). Was "Saved on this phone, not synced: `reason`"; the reason
+  /// now goes to the log, the screen shows the glyph.
+  void _flagUnsynced(String reason) {
+    log('Settings: saved on this phone, not synced: $reason', level: 900);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Icon(
+          Icons.cloud_off,
+          color: Theme.of(context).colorScheme.error,
+          semanticLabel: 'Saved on this phone, not synced',
         ),
       ),
     );

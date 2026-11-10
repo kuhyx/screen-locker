@@ -12,6 +12,7 @@ import 'package:workout_app/ui/theme.dart';
 
 import '../fake_pc_pairing.dart';
 import '../fake_secure_storage.dart';
+import '../icon_finders.dart';
 
 void main() {
   setUpAll(() {
@@ -86,11 +87,11 @@ void main() {
     await tester.tap(find.text('Reset defaults'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('Reset to defaults?'), findsOneWidget);
-    await tester.tap(find.text('Cancel'));
+    expect(iconLabeled('Reset to defaults?'), findsOneWidget);
+    await tester.tap(iconLabeled('Cancel'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('Reset to defaults?'), findsNothing);
+    expect(iconLabeled('Reset to defaults?'), findsNothing);
   });
 
   testWidgets('Reset dialog confirms and resets data', (tester) async {
@@ -103,7 +104,7 @@ void main() {
     await tester.tap(find.text('Reset defaults'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(find.text('Reset'));
+    await tester.tap(iconLabeled('Reset'));
     await tester.runAsync(() async {
       await Future<void>.delayed(const Duration(milliseconds: 300));
     });
@@ -130,7 +131,7 @@ void main() {
       ),
     );
     await tester.scrollUntilVisible(
-      find.text('Grant storage permission'),
+      iconLabeled('Grant storage permission'),
       500,
       scrollable: find.byType(Scrollable).first,
     );
@@ -141,14 +142,14 @@ void main() {
     );
 
     // The scroll step can leave the row just below the fold.
-    await tester.ensureVisible(find.text('Grant storage permission'));
+    await tester.ensureVisible(iconLabeled('Grant storage permission'));
     await tester.pump();
-    await tester.tap(find.text('Grant storage permission'));
+    await tester.tap(iconLabeled('Grant storage permission'));
     await tester.pumpAndSettle();
 
     expect(asked, isTrue, reason: 'the grant page is opened on demand only');
-    expect(find.text('Storage permission granted'), findsOneWidget);
-    expect(find.text('Grant storage permission'), findsNothing);
+    expect(iconLabeled('Storage permission granted'), findsOneWidget);
+    expect(iconLabeled('Grant storage permission'), findsNothing);
   });
 
   testWidgets('offline backup reports an already-granted permission', (
@@ -156,13 +157,13 @@ void main() {
   ) async {
     await _pump(tester, _wrap(storageChecker: () async => true));
     await tester.scrollUntilVisible(
-      find.text('Storage permission granted'),
+      iconLabeled('Storage permission granted'),
       500,
       scrollable: find.byType(Scrollable).first,
     );
 
-    expect(find.text('Storage permission granted'), findsOneWidget);
-    expect(find.text('Grant storage permission'), findsNothing);
+    expect(iconLabeled('Storage permission granted'), findsOneWidget);
+    expect(iconLabeled('Grant storage permission'), findsNothing);
     expect(
       find.textContaining('Granted.', skipOffstage: false),
       findsOneWidget,

@@ -49,7 +49,7 @@ class TestTryAutoUpgradeEarlyBird:
         assert result is True
         with log_file.open() as f:
             data: dict[str, Any] = json.load(f)
-        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).astimezone().strftime("%Y-%m-%d")
         assert data[today][0]["workout_data"]["type"] == "phone_verified"
         assert data[today][0]["workout_data"]["after_early_bird"] == "true"
 
