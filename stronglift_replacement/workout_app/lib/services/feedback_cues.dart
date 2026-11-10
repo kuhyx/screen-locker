@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:vibration/vibration.dart';
 import 'package:workout_app/sandbox/sandbox_log.dart';
 import 'package:workout_app/services/storage_service.dart';
 
@@ -52,6 +53,27 @@ class FeedbackCues {
       // Never fatal, never silent: a chime that did not play must show up in
       // the log, or "no sound" is indistinguishable from "no cue".
       debugPrint('WorkoutApp: finish chime failed to play ($error).');
+    });
+  }
+
+  /// A whole kilometre of a run was just credited: a double buzz and, if
+  /// allowed, the chime.
+  ///
+  /// The vibration plugin rather than [HapticFeedback]: a run happens with the
+  /// screen off in a pocket, where view haptics may not fire.
+  Future<void> kilometreReached(int km) async {
+    SandboxLog.event('cue kilometre', {'km': km, 'sound': soundOn});
+    if (await Vibration.hasVibrator()) {
+      // Android/iOS-only: hasVibrator() is false on the Linux test host.
+      // coverage:ignore-start
+      unawaited(Vibration.vibrate(pattern: [0, 150, 100, 150]));
+      // coverage:ignore-end
+    }
+    if (!soundOn) return;
+    await _player.play(AssetSource('sounds/workout_done.wav')).catchError((
+      Object error,
+    ) {
+      debugPrint('WorkoutApp: kilometre chime failed to play ($error).');
     });
   }
 }

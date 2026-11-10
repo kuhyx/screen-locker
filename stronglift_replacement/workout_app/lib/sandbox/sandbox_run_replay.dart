@@ -34,7 +34,7 @@ double replaySpeedMps(RunSport sport) => switch (sport) {
 /// Fixes for one lap of a [kLoopLengthM] circle starting at [start], one every
 /// [kFixStepSeconds], 5 m accuracy.
 List<GpsFix> sandboxLoopFixes(DateTime start, RunSport sport) {
-  final radius = kLoopLengthM / (2 * math.pi);
+  const radius = kLoopLengthM / (2 * math.pi);
   final steps = (kLoopLengthM / replaySpeedMps(sport) / kFixStepSeconds)
       .round();
   const metresPerDegree = 111194.9;
