@@ -29,14 +29,14 @@ class _GatedSource extends ManualPositionSource {
 void main() {
   setUp(installFakeAudioPlatform);
 
-  testWidgets('idle: sport toggle, start, zeros and the map slot', (
+  testWidgets('idle: start, zeros and the map slot', (
     tester,
   ) async {
     final h = RunHarness();
     await h.pump(tester);
 
     expect(key('run_start'), findsOneWidget);
-    expect(key('run_sport'), findsOneWidget);
+    expect(key('run_sport'), findsNothing);
     expect(key('run_pause'), findsNothing);
     expect(key('run_map_slot'), findsOneWidget);
     expect(find.byType(RunMapSlot), findsOneWidget);
@@ -45,26 +45,6 @@ void main() {
     expect(_text('run_pace'), '-:--');
     expect(key('run_upload_badge'), findsOneWidget);
     expect(h.uploader.passes, 1);
-  });
-
-  testWidgets('the sport can be switched until the run starts', (tester) async {
-    final h = RunHarness();
-    await h.pump(tester);
-
-    await tester.tap(find.byIcon(Icons.directions_walk));
-    await tester.pumpAndSettle();
-    expect(
-      find.descendant(
-        of: key('run_sport'),
-        matching: find.byIcon(Icons.directions_walk),
-      ),
-      findsOneWidget,
-    );
-
-    await tapKey(tester, 'run_start');
-    expect(find.byIcon(Icons.directions_walk), findsOneWidget);
-    expect(key('run_sport'), findsNothing);
-    expect(h.service.starts, [true]);
   });
 
   testWidgets('a run shows live numbers and can pause, resume, finish', (
@@ -157,20 +137,21 @@ void main() {
     expect(find.byType(RunScreen), findsNothing);
   });
 
-  testWidgets('start is disabled while the permission prompt is open', (
+  testWidgets('start stays disabled until the access answer lands', (
     tester,
   ) async {
     final source = _GatedSource();
     final h = RunHarness(source: source);
     await h.pump(tester);
-    expect(_enabled(tester, 'run_start'), isTrue);
-
-    await tester.tap(key('run_start'));
-    await tester.pumpAndSettle();
+    // The open-time request is still showing its prompt: no start yet, so a
+    // second request can never race it.
     expect(_enabled(tester, 'run_start'), isFalse);
 
     source.gate.complete();
     await tester.pumpAndSettle();
+    expect(_enabled(tester, 'run_start'), isTrue);
+
+    await tapKey(tester, 'run_start');
     expect(key('run_pause'), findsOneWidget);
   });
 

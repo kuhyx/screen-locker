@@ -32,6 +32,9 @@ class ScriptedPositionSource implements PositionSource {
   Future<LocationAccess> requestAccess() async => access;
 
   @override
+  Future<LocationAccess> checkAccess() async => access;
+
+  @override
   Stream<GpsFix> fixes({
     Duration interval = const Duration(seconds: 2),
   }) async* {

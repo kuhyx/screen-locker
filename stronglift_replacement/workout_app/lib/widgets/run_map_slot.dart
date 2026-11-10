@@ -3,25 +3,31 @@ library;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:workout_app/models/run_track.dart';
 import 'package:workout_app/services/map_tile_cache.dart';
 import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/run_map.dart';
 
-/// The live map on the run screen: [RunMap.live] over the recorder's points,
-/// clipped to the card shape.
+/// The live map on the run screen: [RunMap.live] over the recorder's points
+/// (and, before the first one, the user's current [position]), clipped to the
+/// card shape.
 ///
 /// `RunScreen` fills this space from `mapBuilder`, defaulting to this widget.
 class RunMapSlot extends StatelessWidget {
   /// Creates the slot; [points] updates with every accepted GPS fix.
   const RunMapSlot({
     required this.points,
+    this.position,
     super.key,
     this.tileProviderOpener = openOsmTileProvider,
   });
 
   /// The accepted points of the run so far, oldest first.
   final ValueListenable<List<RunPoint>> points;
+
+  /// Where the user is now, shown until the run has points; null for none.
+  final ValueListenable<LatLng?>? position;
 
   /// Where the map's tiles come from; tests pass a fake.
   final TileProviderOpener tileProviderOpener;
@@ -38,6 +44,7 @@ class RunMapSlot extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: RunMap.live(
         pointsListenable: points,
+        positionListenable: position,
         tileProviderOpener: tileProviderOpener,
       ),
     );

@@ -16,31 +16,6 @@ void main() {
   setUp(installFakeAudioPlatform);
 
   group('problems are icons', () {
-    for (final (access, id, fixable) in [
-      (LocationAccess.denied, 'run_issue_denied', false),
-      (LocationAccess.deniedForever, 'run_issue_deniedForever', true),
-      (LocationAccess.serviceOff, 'run_issue_serviceOff', true),
-    ]) {
-      testWidgets('${access.name}: red icon, start stays available', (
-        tester,
-      ) async {
-        final h = RunHarness(access: access);
-        await h.pump(tester);
-        await tapKey(tester, 'run_start');
-
-        expect(key(id), findsOneWidget);
-        expect(find.byIcon(Icons.location_disabled), findsOneWidget);
-        expect(key('run_start'), findsOneWidget);
-        expect(h.service.calls, isEmpty);
-        final button = tester.widget<IconButton>(key(id));
-        expect(button.onPressed != null, fixable);
-        if (fixable) {
-          await tester.tap(key(id));
-          expect(h.settingsOpened, [1]);
-        }
-      });
-    }
-
     testWidgets('a mock fix shows the wrong-location icon', (tester) async {
       final h = RunHarness();
       await h.pump(tester);
@@ -150,7 +125,7 @@ void main() {
     List<RunPoint>? seen;
     await h.pump(
       tester,
-      mapBuilder: (context, points) => ValueListenableBuilder(
+      mapBuilder: (context, points, _) => ValueListenableBuilder(
         valueListenable: points,
         builder: (context, list, _) {
           seen = list;

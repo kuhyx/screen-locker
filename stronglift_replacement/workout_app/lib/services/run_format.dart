@@ -22,9 +22,11 @@ String formatDuration(int seconds) {
 /// covered (the quotient is meaningless, and 0 would divide by zero).
 String formatPace({required int seconds, required double distanceM}) {
   if (distanceM < 10) return '-:--';
-  final perKm = (seconds / (distanceM / 1000)).round();
-  return '${perKm ~/ 60}:${_two(perKm % 60)}';
+  return formatPaceSeconds((seconds / (distanceM / 1000)).round());
 }
+
+/// A pace of [perKm] seconds per kilometre as `m:ss`.
+String formatPaceSeconds(int perKm) => '${perKm ~/ 60}:${_two(perKm % 60)}';
 
 /// `dd.MM` of [when] in the device's local time.
 String formatRunDay(DateTime when) {

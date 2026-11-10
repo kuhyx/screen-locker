@@ -8,14 +8,14 @@ import 'package:workout_app/services/run_recorder.dart';
 import '../run_test_fixtures.dart';
 
 RunRecorder _recorder(ManualPositionSource source, {List<int>? km}) =>
-    RunRecorder(sourceFor: (_) => source, onKilometre: km?.add);
+    RunRecorder(sourceFor: () => source, onKilometre: km?.add);
 
 void main() {
   group('a scripted run', () {
     test('records points, moving time and distance, then finishes', () async {
       final kms = <int>[];
       final recorder = RunRecorder(
-        sourceFor: (_) => ScriptedPositionSource(straightRun(340)),
+        sourceFor: () => ScriptedPositionSource(straightRun(340)),
         onKilometre: kms.add,
       );
       expect(await recorder.start(), isTrue);
@@ -43,7 +43,7 @@ void main() {
       'a stream that ends early is logged, the run is still savable',
       () async {
         final recorder = RunRecorder(
-          sourceFor: (_) => ScriptedPositionSource(straightRun(5)),
+          sourceFor: () => ScriptedPositionSource(straightRun(5)),
         );
         await recorder.start();
         await pumpEventQueue();
@@ -63,7 +63,7 @@ void main() {
         Sandbox.enabled = false;
       });
       final recorder = RunRecorder(
-        sourceFor: (_) => ScriptedPositionSource(straightRun(340)),
+        sourceFor: () => ScriptedPositionSource(straightRun(340)),
       );
       await recorder.start();
       await pumpEventQueue();

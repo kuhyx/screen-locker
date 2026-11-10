@@ -1,4 +1,4 @@
-/// The GPS run/walk state machine: idle, recording, paused, finished.
+/// The GPS activity state machine: idle, recording, paused, finished.
 library;
 
 import 'dart:async';
@@ -8,30 +8,40 @@ import 'package:flutter/foundation.dart';
 import 'package:workout_app/models/run_track.dart';
 import 'package:workout_app/sandbox/sandbox_log.dart';
 import 'package:workout_app/services/gps_filter.dart';
+import 'package:workout_app/services/pace_band.dart';
+import 'package:workout_app/services/pace_coach.dart';
 import 'package:workout_app/services/position_source.dart';
 import 'package:workout_app/services/run_math.dart';
 import 'package:workout_app/services/run_phase.dart';
 
 export 'package:workout_app/services/run_phase.dart';
 
-/// Records one run or walk from a [PositionSource].
+/// Records one GPS activity from a [PositionSource].
+///
+/// Every activity is a run (one jump cap, one `Sport="Running"` TCX): the PC
+/// credits every GPS activity with the same rule.
 ///
 /// A pause ignores fixes and breaks the filter's segment, so the stretch
 /// walked while paused and the first fix after it credit nothing. Moving time
 /// is the PC's rule ([movingSeconds]) applied as fixes arrive, so the number
 /// on screen is the number the PC will credit.
 class RunRecorder extends ChangeNotifier {
-  /// Creates a recorder; [sourceFor] builds the fix stream for the chosen
-  /// sport when [start] is called (the sandbox's replay speed follows it).
-  RunRecorder({required this.sourceFor, this.onKilometre});
+  /// Creates a recorder; [sourceFor] builds the fix stream on [start].
+  RunRecorder({
+    required this.sourceFor,
+    this.onKilometre,
+    void Function(PaceCue cue)? onPaceCue,
+  }) : coach = PaceCoach(onCue: onPaceCue);
 
   /// Builds the source for one recording.
-  final PositionSource Function(RunSport sport) sourceFor;
+  final PositionSource Function() sourceFor;
 
   /// Called with 1, 2, 3 ... as each whole kilometre is credited.
   final void Function(int km)? onKilometre;
 
-  RunSport _sport = RunSport.running;
+  /// The pace target's state: current pace, band and cues.
+  final PaceCoach coach;
+
   RunPhase _phase = RunPhase.idle;
   RunIssue _issue = RunIssue.none;
   GpsFilter? _filter;
@@ -41,9 +51,6 @@ class RunRecorder extends ChangeNotifier {
   int _km = 0;
   final _live = ValueNotifier<List<RunPoint>>(const []);
   final _seenVerdicts = <FixVerdict>{};
-
-  /// Running or walking.
-  RunSport get sport => _sport;
 
   /// The state machine's phase.
   RunPhase get phase => _phase;
@@ -60,12 +67,20 @@ class RunRecorder extends ChangeNotifier {
   /// Credited distance in metres.
   double get distanceM => _filter?.distanceM ?? 0;
 
-  /// Picks the sport; only possible while [RunPhase.idle].
-  bool selectSport(RunSport sport) {
-    if (_phase != RunPhase.idle) return false;
-    _sport = sport;
+  /// Sets the pace target ([seconds] per kilometre), or off with null.
+  void setPaceTarget(int? seconds) {
+    coach.setTarget(seconds);
     notifyListeners();
-    return true;
+  }
+
+  /// Folds an access check in while idle: a refusal becomes the issue, a
+  /// grant clears it.
+  void noteAccess(LocationAccess access) {
+    if (_phase != RunPhase.idle) return;
+    if (!access.isGranted) return _refuse(access);
+    if (!_issue.isAccess) return;
+    _issue = RunIssue.none;
+    notifyListeners();
   }
 
   /// Asks for location access, runs [afterAccess] (where the caller starts the
@@ -76,20 +91,20 @@ class RunRecorder extends ChangeNotifier {
     if (_phase != RunPhase.idle || _starting) return false;
     _starting = true;
     try {
-      final source = sourceFor(_sport);
+      final source = sourceFor();
       final access = await source.requestAccess();
       if (!access.isGranted) {
         _refuse(access);
         return false;
       }
       await afterAccess?.call();
-      _filter = GpsFilter(sport: _sport);
+      _filter = GpsFilter();
       _sub = source
           .fixes() // the source's default 2 s, far under kMaxCreditGapSeconds
           .listen(_onFix, onError: _onError, onDone: _onDone);
       _issue = RunIssue.none;
       _phase = RunPhase.recording;
-      SandboxLog.event('run started', {'sport': _sport.tcxName});
+      SandboxLog.event('run started');
       notifyListeners();
       return true;
     } finally {
@@ -110,6 +125,7 @@ class RunRecorder extends ChangeNotifier {
   void resume() {
     if (_phase != RunPhase.paused) return;
     _phase = RunPhase.recording;
+    coach.restartAt(_filter!.points.length);
     SandboxLog.event('run resumed', {'m': distanceM});
     notifyListeners();
   }
@@ -122,7 +138,7 @@ class RunRecorder extends ChangeNotifier {
     _sub = null;
     _phase = RunPhase.finished;
     final points = _filter!.points;
-    _moving = movingSeconds(points, _sport);
+    _moving = movingSeconds(points);
     RunTrack? track;
     if (points.length < 2) {
       _issue = RunIssue.tooShort;
@@ -133,7 +149,7 @@ class RunRecorder extends ChangeNotifier {
       );
     } else {
       track = RunTrack.started(
-        sport: _sport,
+        sport: RunSport.running,
         startedAt: points.first.time,
         points: points,
         totalSeconds: _moving,
@@ -151,11 +167,7 @@ class RunRecorder extends ChangeNotifier {
   }
 
   void _refuse(LocationAccess access) {
-    _issue = switch (access) {
-      LocationAccess.deniedForever => RunIssue.deniedForever,
-      LocationAccess.serviceOff => RunIssue.serviceOff,
-      _ => RunIssue.denied,
-    };
+    _issue = RunIssue.forAccess(access);
     final fix = access == LocationAccess.serviceOff
         ? 'Switch location on'
         : 'Grant location to the app in system settings';
@@ -178,10 +190,11 @@ class RunRecorder extends ChangeNotifier {
     final points = _filter!.points;
     final n = points.length;
     if (n >= 2 &&
-        isMovingStep(points[n - 2], points[n - 1], maxSpeedMps(_sport))) {
+        isMovingStep(points[n - 2], points[n - 1], kRunningMaxSpeedMps)) {
       _moving += points[n - 1].time.difference(points[n - 2].time).inSeconds;
     }
     _live.value = points;
+    coach.update(points);
     while (distanceM ~/ 1000 > _km) {
       _km++;
       SandboxLog.event('run km', {'km': _km, 'secs': _moving});

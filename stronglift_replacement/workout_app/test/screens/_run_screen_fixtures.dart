@@ -5,16 +5,49 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:workout_app/models/run_track.dart';
 import 'package:workout_app/screens/run_screen.dart';
+import 'package:workout_app/services/pace_target_store.dart';
 import 'package:workout_app/services/position_source.dart';
 import 'package:workout_app/services/run_controller.dart';
 import 'package:workout_app/services/run_saver.dart';
 import 'package:workout_app/ui/theme.dart';
+import 'package:workout_app/widgets/run_map_slot.dart';
 
 import '../fake_run_service.dart';
 import '../fake_run_uploader.dart';
 import '../run_test_fixtures.dart';
+import '../widgets/_run_map_fixtures.dart';
+
+/// An in-memory [PaceTargetStore].
+class MemoryPaceStore implements PaceTargetStore {
+  /// The stored target.
+  int value = kDefaultPaceTarget;
+
+  /// How many times [save] ran.
+  int saves = 0;
+
+  @override
+  Future<int> load() async => value;
+
+  @override
+  Future<void> save(int seconds) async {
+    saves++;
+    value = seconds;
+  }
+}
+
+/// The real map slot over fake tiles, so nothing reaches the network.
+Widget fakeTileMap(
+  BuildContext context,
+  ValueListenable<List<RunPoint>> points,
+  ValueListenable<LatLng?> position,
+) => RunMapSlot(
+  points: points,
+  position: position,
+  tileProviderOpener: fakeTiles(),
+);
 
 /// Everything a test needs to drive and inspect one screen.
 class RunHarness {
@@ -33,12 +66,13 @@ class RunHarness {
   final Completer<void>? saveGate;
   final uploader = FakeRunUploader();
   final cues = QuietCues();
+  final paceStore = MemoryPaceStore();
   final saved = <RunTrack>[];
   final settingsOpened = <int>[];
   final navigator = GlobalKey<NavigatorState>();
 
   RunController build() => RunController(
-    sourceFor: (_) => source,
+    sourceFor: () => source,
     service: service,
     cues: cues,
     save: (track) async {
@@ -55,12 +89,11 @@ class RunHarness {
     home: const SizedBox(),
   );
 
-  RunScreen screen({
-    Widget Function(BuildContext, ValueListenable<List<RunPoint>>)? mapBuilder,
-  }) => RunScreen(
+  RunScreen screen({RunMapBuilder? mapBuilder}) => RunScreen(
     controllerFactory: build,
     uploader: uploader,
-    mapBuilder: mapBuilder,
+    paceStore: paceStore,
+    mapBuilder: mapBuilder ?? fakeTileMap,
     openSettings: () async {
       settingsOpened.add(1);
       return true;
@@ -68,10 +101,7 @@ class RunHarness {
   );
 
   /// Pumps the app with the run screen pushed on top of an empty route.
-  Future<void> pump(
-    WidgetTester tester, {
-    Widget Function(BuildContext, ValueListenable<List<RunPoint>>)? mapBuilder,
-  }) async {
+  Future<void> pump(WidgetTester tester, {RunMapBuilder? mapBuilder}) async {
     await tester.pumpWidget(app());
     navigator.currentState!.push(
       MaterialPageRoute<void>(builder: (_) => screen(mapBuilder: mapBuilder)),

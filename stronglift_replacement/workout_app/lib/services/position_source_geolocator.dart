@@ -25,14 +25,25 @@ class GeolocatorPositionSource implements PositionSource {
     if (permission == LocationPermission.denied) {
       permission = await _platform.requestPermission();
     }
-    return switch (permission) {
-      LocationPermission.always ||
-      LocationPermission.whileInUse => LocationAccess.granted,
-      LocationPermission.deniedForever => LocationAccess.deniedForever,
-      LocationPermission.denied ||
-      LocationPermission.unableToDetermine => LocationAccess.denied,
-    };
+    return _access(permission);
   }
+
+  @override
+  Future<LocationAccess> checkAccess() async {
+    if (!await _platform.isLocationServiceEnabled()) {
+      return LocationAccess.serviceOff;
+    }
+    return _access(await _platform.checkPermission());
+  }
+
+  static LocationAccess _access(LocationPermission permission) =>
+      switch (permission) {
+        LocationPermission.always ||
+        LocationPermission.whileInUse => LocationAccess.granted,
+        LocationPermission.deniedForever => LocationAccess.deniedForever,
+        LocationPermission.denied ||
+        LocationPermission.unableToDetermine => LocationAccess.denied,
+      };
 
   @override
   Stream<GpsFix> fixes({Duration interval = const Duration(seconds: 2)}) =>

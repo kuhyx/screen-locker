@@ -4,6 +4,7 @@ library;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:workout_app/services/feedback_cues.dart';
 import 'package:workout_app/services/foreground_run_client.dart';
+import 'package:workout_app/services/pace_band.dart';
 
 /// Stands in for `flutter_foreground_task` on the run screen's side.
 class FakeForegroundRunClient implements ForegroundRunClient {
@@ -85,8 +86,14 @@ class QuietCues extends FeedbackCues {
   /// How many times the finish cue fired.
   int finishes = 0;
 
+  /// Pace cues given, in order.
+  final paceCues = <PaceCue>[];
+
   @override
   Future<void> load() async {}
+
+  @override
+  Future<void> paceOff(PaceCue cue) async => paceCues.add(cue);
 
   @override
   Future<void> kilometreReached(int km) async => kilometres.add(km);

@@ -58,7 +58,7 @@ enum FixVerdict {
   /// Dropped: not strictly later (whole seconds) than the last point.
   outOfOrder,
 
-  /// Dropped: implies a speed above the sport's cap, i.e. a GPS jump.
+  /// Dropped: implies a speed above [kRunningMaxSpeedMps], i.e. a GPS jump.
   tooFast,
 }
 
@@ -66,13 +66,10 @@ enum FixVerdict {
 ///
 /// A step between two accepted points adds distance only when it is a moving
 /// step (see [isMovingStep]): a dropout longer than [kMaxCreditGapSeconds]
-/// and standing-still jitter credit nothing, same as the PC reads a walk.
+/// and standing-still jitter credit nothing, same as the PC reads an activity.
 class GpsFilter {
-  /// Creates a filter for [sport] (which picks the speed cap).
-  GpsFilter({required this.sport});
-
-  /// The sport being recorded.
-  final RunSport sport;
+  /// Creates a filter; every recording uses the running jump cap.
+  GpsFilter();
 
   final List<RunPoint> _points = [];
   int _jumps = 0;
@@ -121,7 +118,7 @@ class GpsFilter {
       fix.latitude,
       fix.longitude,
     );
-    if (step / gap > maxSpeedMps(sport)) {
+    if (step / gap > kRunningMaxSpeedMps) {
       _jumps++;
       if (_jumps < kMaxConsecutiveJumps) return FixVerdict.tooFast;
       // The anchor, not the fixes, was wrong: continue from here, no credit.

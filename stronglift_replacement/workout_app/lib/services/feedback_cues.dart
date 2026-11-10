@@ -8,7 +8,22 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:vibration/vibration.dart';
 import 'package:workout_app/sandbox/sandbox_log.dart';
+import 'package:workout_app/services/pace_band.dart';
 import 'package:workout_app/services/storage_service.dart';
+
+/// The vibration pattern (pause, buzz, pause, buzz ... in ms) of a pace cue:
+/// one long buzz to speed up, three short ones to ease off. Both differ from
+/// the kilometre double buzz.
+List<int> paceCuePattern(PaceCue cue) => switch (cue) {
+  PaceCue.tooSlow => const [0, 700],
+  PaceCue.tooFast => const [0, 90, 70, 90, 70, 90],
+};
+
+/// The tone of a pace cue: falling to speed up, rising to ease off.
+String paceCueSound(PaceCue cue) => switch (cue) {
+  PaceCue.tooSlow => 'sounds/pace_slow.wav',
+  PaceCue.tooFast => 'sounds/pace_fast.wav',
+};
 
 /// Cues for recording a set and finishing a workout.
 ///
@@ -74,6 +89,24 @@ class FeedbackCues {
       Object error,
     ) {
       debugPrint('WorkoutApp: kilometre chime failed to play ($error).');
+    });
+  }
+
+  /// The runner left the pace band: the cue's buzz pattern and, if allowed,
+  /// its tone. Silent while on pace (the caller only calls this off pace).
+  Future<void> paceOff(PaceCue cue) async {
+    SandboxLog.event('cue pace', {'cue': cue.name, 'sound': soundOn});
+    if (await Vibration.hasVibrator()) {
+      // Android/iOS-only: hasVibrator() is false on the Linux test host.
+      // coverage:ignore-start
+      unawaited(Vibration.vibrate(pattern: paceCuePattern(cue)));
+      // coverage:ignore-end
+    }
+    if (!soundOn) return;
+    await _player.play(AssetSource(paceCueSound(cue))).catchError((
+      Object error,
+    ) {
+      debugPrint('WorkoutApp: pace tone failed to play ($error).');
     });
   }
 }

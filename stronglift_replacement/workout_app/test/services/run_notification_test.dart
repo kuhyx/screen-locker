@@ -13,4 +13,17 @@ void main() {
     expect(copy.title, '0.00');
     expect(copy.body, '0:00  -:--');
   });
+
+  test('a pace target adds the current pace, to the nearest 5 s', () {
+    final copy = runNotificationCopy(
+      metres: 3524,
+      movingSeconds: 723,
+      currentPace: 333.3,
+    );
+    expect(copy.body, '12:03  3:25  5:35');
+    expect(
+      runNotificationCopy(metres: 1, movingSeconds: 1, currentPace: 332.4).body,
+      endsWith('5:30'),
+    );
+  });
 }

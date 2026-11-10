@@ -36,8 +36,15 @@ class ManualPositionSource implements PositionSource {
   /// Creates a source answering [access].
   ManualPositionSource({this.access = LocationAccess.granted});
 
-  /// What [requestAccess] answers.
-  final LocationAccess access;
+  /// What [requestAccess] and [checkAccess] answer; tests flip it to play a
+  /// grant in system settings.
+  LocationAccess access;
+
+  /// How many times the permission prompt path ran.
+  int requests = 0;
+
+  /// How many times the silent re-check ran.
+  int checks = 0;
 
   /// The stream the recorder listens to.
   final controller = StreamController<GpsFix>.broadcast();
@@ -46,7 +53,16 @@ class ManualPositionSource implements PositionSource {
   int subscriptions = 0;
 
   @override
-  Future<LocationAccess> requestAccess() async => access;
+  Future<LocationAccess> requestAccess() async {
+    requests++;
+    return access;
+  }
+
+  @override
+  Future<LocationAccess> checkAccess() async {
+    checks++;
+    return access;
+  }
 
   @override
   Stream<GpsFix> fixes({Duration interval = const Duration(seconds: 2)}) {

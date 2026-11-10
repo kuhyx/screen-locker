@@ -40,7 +40,7 @@ void main() {
     FakeForegroundRunClient service, {
     Future<RunSaveResult> Function(RunTrack)? save,
   }) => RunController(
-    sourceFor: (_) => source,
+    sourceFor: () => source,
     service: service,
     cues: FeedbackCues(AudioPlayer()),
     save:
