@@ -19,7 +19,7 @@ const int kMaxCreditGapSeconds = 30;
 
 /// A pair slower than this is standing still, not moving.
 ///
-/// Mirrors the lower bound of `WALK_SPEED_MPS` on the PC.
+/// Mirrors `MIN_MOVING_SPEED_MPS` on the PC.
 const double kMinMovingSpeedMps = 0.5;
 
 /// Speed cap above which a fix is a GPS jump, 25 km/h for a run.

@@ -105,10 +105,13 @@ SHUTDOWN_BASE_FILE = Path(__file__).resolve().parent / "shutdown_base.json"
 REST_DAY_FILE = Path(__file__).resolve().parent / "rest_days.json"
 REST_DAYS_PER_ISO_WEEK = 2
 GRACE_STATE_FILE = Path(__file__).resolve().parent / "grace_floor.json"
-# A day's RunnerUp walks (commute legs) count as the workout once their
-# MOVING time reaches WORKOUT_DURATION_ACCEPT_MINUTES (the shared bar above);
-# moving = trackpoint pairs at walking speed.
-WALK_SPEED_MPS = (0.5, 3.0)
+# Every GPS activity (run or walk, whatever its TCX sport) is judged the same
+# way: a day's activities count as the workout once their summed distance
+# reaches MIN_RUN_DISTANCE_KM OR their summed MOVING time reaches
+# WORKOUT_DURATION_ACCEPT_MINUTES. Moving = trackpoint pairs seen within
+# WALK_MAX_GAP_SECONDS and travelled at least this fast (slower is standing
+# still). There is no upper speed: a run must count. The Dart app mirrors it.
+MIN_MOVING_SPEED_MPS = 0.5
 WALK_MAX_GAP_SECONDS = 30
 # Workout records this PC must keep deleted in the sync store, pushed as
 # tombstones on every tick (see _sync_tombstones for why once is not enough).

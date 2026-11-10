@@ -48,6 +48,16 @@ so a run finished after 20:00 pushes the hour later without the phone being
 plugged in; the per-minute shutdown check then lifts the night lockdown on its
 own once the hour is past "now" (digital-wellbeing's check script).
 
+Runs and walks are credited by ONE rule, whatever the TCX sport or the
+`_Walking` file-name suffix (RunnerUp's files and the workout app's alike): a
+day's activities are summed, and the day counts once their distance reaches
+3.5 km (5% GPS tolerance) OR their *moving* time reaches the shared duration
+bar (30 min minus the hidden leeway). Moving time is the trackpoint pairs
+seen within 30 s of each other and travelled at 0.5 m/s or more, so pauses,
+standing still and GPS dropouts earn nothing. The reward is the usual one
+workout credit per day (`runnerup_verified:<date>`); the log's `activity`
+field is display only. Code: `screen_locker/_walk_tcx.py`.
+
 **Retiring RunnerUp.** A week after the PC first credits a run recorded by the
 workout app (TCX author `kuhy workout_app`), `runnerup-retire.timer` (daily, retries
 until the phone is attached) backs `/sdcard/Documents/RunnerUp` up to
