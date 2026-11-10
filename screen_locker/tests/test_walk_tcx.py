@@ -79,10 +79,29 @@ class TestTrackSummary:
             pytest.approx(600)
         )
 
-    def test_a_gps_dropout_earns_nothing(self) -> None:
-        """Two points 100 s apart at walking pace: motion unseen, not counted."""
-        summary = track_summary(activity([(0, "0.1", None), (100, "130", None)]))
+    def test_a_repeated_timestamp_tail_adds_nothing(self) -> None:
+        """A final fix with the same time as the one before it has no duration."""
+        summary = track_summary(
+            activity([(0, "0", None), (20, "30", None), (20, "31", None)])
+        )
+        assert summary["moving_seconds"] == pytest.approx(20)
+
+    def test_a_slow_dropout_earns_nothing(self) -> None:
+        """Two points 100 s apart, 30 m: a pause, not motion. No time."""
+        summary = track_summary(activity([(0, "0.1", None), (100, "30", None)]))
         assert not summary["moving_seconds"]
+
+    def test_a_dropout_at_walking_pace_keeps_its_time(self) -> None:
+        """Two points 100 s apart, 130 m: the walker kept walking while unseen."""
+        summary = track_summary(activity([(0, "0.1", None), (100, "130", None)]))
+        assert summary["moving_seconds"] == pytest.approx(100)
+        assert summary["track_distance_m"] == pytest.approx(129.9)
+
+    def test_a_vehicle_across_a_dropout_earns_nothing(self) -> None:
+        """Two points 100 s apart, 2 km: 72 km/h is not a person."""
+        summary = track_summary(activity([(0, "0", None), (100, "2000", None)]))
+        assert not summary["moving_seconds"]
+        assert not summary["track_distance_m"]
 
     def test_unusable_points_are_skipped(
         self, caplog: pytest.LogCaptureFixture

@@ -116,6 +116,11 @@ GRACE_STATE_FILE = Path(__file__).resolve().parent / "grace_floor.json"
 MIN_MOVING_SPEED_MPS = 0.5
 MAX_MOVING_SPEED_MPS = 25 / 3.6
 WALK_MAX_GAP_SECONDS = 30
+# Speed is judged over windows of at least this long (1 s fixes jitter), and a
+# window longer than WALK_MAX_GAP_SECONDS (a GPS dropout) only counts as
+# moving time at this speed or faster, so standing through a gap earns nothing.
+TRACK_WINDOW_SECONDS = 10
+MIN_DROPOUT_SPEED_MPS = 1.0
 # Workout records this PC must keep deleted in the sync store, pushed as
 # tombstones on every tick (see _sync_tombstones for why once is not enough).
 SYNC_TOMBSTONES_FILE = Path(__file__).resolve().parent / "sync_tombstones.json"

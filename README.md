@@ -52,10 +52,11 @@ Runs and walks are credited by ONE rule, whatever the TCX sport or the
 `_Walking` file-name suffix (RunnerUp's files and the workout app's alike): a
 day's activities are summed, and the day counts once their distance reaches
 3.5 km (5% GPS tolerance) OR their *moving* time reaches the shared duration
-bar (30 min minus the hidden leeway). Both are summed over trackpoint pairs
-seen within 30 s of each other and travelled at no more than 25 km/h (faster
-is a vehicle or a GPS jump: no time, no distance); moving time also needs
-0.5 m/s or more. Pauses, standing still, dropouts and files without
+bar (30 min minus the hidden leeway). Both are summed over the track cut into
+windows of at least 10 s, each judged by its average speed: faster than 25 km/h
+(a vehicle or a GPS jump) counts neither time nor distance; moving time needs
+0.5 m/s or more (1 m/s across a signal dropout longer than 30 s, so a pause
+earns nothing but a run through a dropout keeps its time). Files without
 trackpoints earn nothing (the lap totals are never used). The reward is the usual one
 workout credit per day (`runnerup_verified:<date>`); the log's `activity`
 field is display only. Code: `screen_locker/_walk_tcx.py`.
