@@ -1,15 +1,10 @@
-import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/models/workout_plan.dart';
-import 'package:workout_app/screens/home_screen.dart';
 import 'package:workout_app/screens/workout_screen.dart';
 import 'package:workout_app/services/storage_service.dart';
-import 'package:workout_app/services/workout_sync_service.dart';
-import 'package:workout_app/ui/theme.dart';
-import 'package:workout_app/widgets/sync_status_card.dart';
 
 import '../fake_secure_storage.dart';
 import '_home_test_fixtures.dart';
@@ -74,8 +69,17 @@ void main() {
         json: '{"exercises":[]}',
       ),
     );
+    // Finishing A is what makes B the next workout (saveSession alone does
+    // not move the A/B rotation).
+    await tester.runAsync(
+      () => StorageService.instance.setLastWorkoutType('A'),
+    );
     await pumpHome(tester, wrapHome());
     expect(find.text('Done for today!'), findsOneWidget);
+    // An extra session is still allowed: the PC pays for further ones.
+    expect(find.text('Start Workout B'), findsOneWidget);
+    // The run entry must not vanish either.
+    expect(find.byKey(const Key('home_run')), findsOneWidget);
   });
 
   testWidgets('manual-workout icon navigates to the manual form', (

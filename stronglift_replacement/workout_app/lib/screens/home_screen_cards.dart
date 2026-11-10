@@ -52,7 +52,7 @@ class _WorkoutCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Next: Workout $type — tomorrow',
+                'Next: Workout $type',
                 style: TextStyle(
                   color: colorScheme.onSurface,
                   fontSize: AppTextSize.body,
@@ -103,7 +103,9 @@ class _WorkoutCard extends StatelessWidget {
                   ),
                 ),
               )
-            else if (!doneToday)
+            else
+              // Never hidden by "done today": the PC pays for every further
+              // session, so an extra workout must stay one tap away.
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
