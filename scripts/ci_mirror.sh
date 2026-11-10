@@ -20,7 +20,7 @@
 # per push under the resource cap, for work finish_auto.sh had just done.
 #
 # Usage: ci_mirror.sh [venv|precommit|pytest|all] [pytest args...]
-#   Each step is its own manual hook (ci-venv, ci-precommit, ci-pytest) so no
+#   Each step is its own manual hook (ci-venv, ci-precommit-*, ci-pytest) so no
 #   single call outlives the 60 s action cap; `all` (the default) is the old
 #   one-shot behaviour. pytest runs under xdist (-n auto --dist worksteal):
 #   serial it was ~85 s, and pytest-cov merges the workers' coverage.
@@ -79,9 +79,28 @@ ensure_venv() {
     log "clean venv ready"
 }
 
-run_precommit_all_files() {
-    log "pre-commit run --all-files (mirrors the pre-commit workflow)"
-    pre-commit run --all-files || fail "pre-commit --all-files"
+# Hooks that get their own group because they dominate the run time. `rest`
+# skips them by id (SKIP matches the id, so `pylint` covers both pylint hooks).
+readonly HEAVY_IDS="pylint,flutter-analyze,web-lint,web-typecheck"
+
+# One slice of `pre-commit run --all-files`, small enough for the 60 s action
+# cap. The groups partition the default-stage hooks: pylint-source and
+# pylint-tests (the aliases of the two `pylint` hooks), flutter-web, and rest
+# (everything else). With no group, all of it runs in one go, as CI does.
+run_precommit_group() {
+    local group="${1:-all}"
+    log "pre-commit run --all-files [$group] (mirrors the pre-commit workflow)"
+    case "$group" in
+        all) pre-commit run --all-files ;;
+        pylint-source | pylint-tests) pre-commit run "$group" --all-files ;;
+        flutter-web)
+            pre-commit run flutter-analyze --all-files \
+                && pre-commit run web-lint --all-files \
+                && pre-commit run web-typecheck --all-files
+            ;;
+        rest) SKIP="$HEAVY_IDS" pre-commit run --all-files ;;
+        *) fail "unknown pre-commit group '$group'" ;;
+    esac || fail "pre-commit --all-files [$group]"
 }
 
 run_pytest_clean_venv() {
@@ -98,7 +117,7 @@ main() {
     esac
 
     case "$mode" in
-        precommit) run_precommit_all_files; return ;;
+        precommit) run_precommit_group "${1:-all}"; return ;;
         *) ;;
     esac
     require_file
@@ -107,7 +126,7 @@ main() {
         venv) ;;
         pytest) run_pytest_clean_venv "$@" ;;
         *)
-            run_precommit_all_files
+            run_precommit_group all
             run_pytest_clean_venv "$@"
             log "all CI gates passed locally — safe to push"
             ;;

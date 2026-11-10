@@ -130,6 +130,7 @@ repos:
       # what else happened to be staged alongside. Both are a hard 10.00.
       - id: pylint
         name: pylint (source, 10.00)
+        alias: pylint-source
         exclude: ^screen_locker/tests/
         args:
           - --rcfile=pyproject.toml
@@ -189,6 +190,9 @@ repos:
       # The CI mirror, one step per hook so each call stays under the 60 s
       # action cap. Order matters: ci-venv (re)builds .ci-mirror-venv from
       # requirements.txt when it changed, so ci-pytest only reuses it.
+      # `pre-commit run --all-files` is split into four ci-precommit-* steps
+      # (each well under the cap); together they run every default-stage hook
+      # exactly once -- see run_precommit_group in scripts/ci_mirror.sh.
       - id: ci-venv
         name: CI mirror (clean requirements.txt venv)
         entry: bash scripts/ci_mirror.sh venv
@@ -197,9 +201,33 @@ repos:
         always_run: true
         require_serial: true
         stages: [manual]
-      - id: ci-precommit
-        name: CI mirror (pre-commit --all-files)
-        entry: bash scripts/ci_mirror.sh precommit
+      - id: ci-precommit-pylint-source
+        name: "CI mirror (pre-commit --all-files: pylint source)"
+        entry: bash scripts/ci_mirror.sh precommit pylint-source
+        language: system
+        pass_filenames: false
+        always_run: true
+        require_serial: true
+        stages: [manual]
+      - id: ci-precommit-pylint-tests
+        name: "CI mirror (pre-commit --all-files: pylint tests)"
+        entry: bash scripts/ci_mirror.sh precommit pylint-tests
+        language: system
+        pass_filenames: false
+        always_run: true
+        require_serial: true
+        stages: [manual]
+      - id: ci-precommit-flutter-web
+        name: "CI mirror (pre-commit --all-files: flutter analyze + web lint/typecheck)"
+        entry: bash scripts/ci_mirror.sh precommit flutter-web
+        language: system
+        pass_filenames: false
+        always_run: true
+        require_serial: true
+        stages: [manual]
+      - id: ci-precommit-rest
+        name: "CI mirror (pre-commit --all-files: every other hook)"
+        entry: bash scripts/ci_mirror.sh precommit rest
         language: system
         pass_filenames: false
         always_run: true
