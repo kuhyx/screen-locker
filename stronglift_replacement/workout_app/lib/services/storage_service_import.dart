@@ -24,7 +24,7 @@ extension StorageServiceImport on StorageService {
   /// [ImportReport.manualSkipped] says so. Idempotent.
   Future<ImportReport> importDataReport(Map<String, dynamic> data) async {
     if (!_exportTables.any((t) => data[t] is List)) {
-      if (data['manual_workouts'] is! List) {
+      if (data['manual_workouts'] is! List && data['runs'] is! List) {
         throw const FormatException('not a workout_app export');
       }
     }
@@ -36,6 +36,7 @@ extension StorageServiceImport on StorageService {
       for (final table in _exportTables) {
         rows += await _mergeTable(txn, table, data[table], fileWins, stamped);
       }
+      rows += await _mergeRuns(txn, data['runs']);
     });
     if (rows > 0) unawaited(_backupNow());
     final manual = await _importManual(data['manual_workouts']);

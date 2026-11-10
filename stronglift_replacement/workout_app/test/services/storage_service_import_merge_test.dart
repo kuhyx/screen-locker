@@ -50,9 +50,10 @@ void main() {
     return await _row('exercise_state', _name);
   }
 
-  test('export is version 2 and rows carry updated_at', () async {
+  test('export is the current version (3) and rows carry updated_at', () async {
     final data = await _svc.exportData();
-    expect(data['version'], 2);
+    expect(data['version'], kExportVersion);
+    expect(kExportVersion, 3);
     expect(
       (await _row('exercise_state', _name)).containsKey('updated_at'),
       true,

@@ -29,3 +29,15 @@ Implementing design_v2.md improvements.
 - Thresholds that decide credit (3.5 km / 25 min) live on the PC only.
 - GPS sits behind `PositionSource` (`position_source*.dart`); imported
   RunnerUp runs are stored with `upload_state='never'` (table CHECK).
+- RunnerUp history import (`runnerup_importer.dart`): once, on app start, on
+  the phone only (never the sandbox). PROPFINDs `/RunnerUp/processed/`, stores
+  every `.tcx` as `runnerup_import`/`never`, then PUTs the dotfile marker
+  `/RunnerUp/.workout_app_import.json` = `{"completed_at": ISO-UTC, "count": N,
+  "tcx_names": [...]}`. The importer never PUTs a `.tcx` (a top-level one would
+  be credited by `runnerup_watch.sh`). A reinstall re-imports and rewrites the
+  marker with a new `completed_at`: the PC must not use it as a clock.
+- `runs`/`run_points` travel in backup.json (app-made runs only; the RunnerUp
+  history comes back from the PC) and in the user export (version 3, all runs).
+  Points are one compact JSON string per run.
+- dufs login: `dufs_credentials.dart` (`dufs_url`, `dufs_user`, `dufs_password`
+  in secure storage).

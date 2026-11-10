@@ -7,8 +7,9 @@ part of 'storage_service.dart';
 const kExportFormat = 'workout_app-export';
 
 /// The format written now. Version 2 adds `updated_at` to `exercise_state` and
-/// `settings` rows plus `manual_workouts`; version 1 files still import.
-const kExportVersion = 2;
+/// `settings` rows plus `manual_workouts`; version 3 adds `runs` (with their
+/// points); version 1 and 2 files still import.
+const kExportVersion = 3;
 
 const _exportTables = [
   'workout_history',
@@ -47,6 +48,7 @@ extension StorageServiceExport on StorageService {
         for (final row in settings)
           if (!_isPerInstallSetting(row['key']! as String)) row,
       ],
+      'runs': await _runsForTransfer(appOnly: false),
       'manual_workouts': manual == null
           ? null
           : [
