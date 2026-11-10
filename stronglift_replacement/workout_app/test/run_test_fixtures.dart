@@ -40,7 +40,7 @@ class ManualPositionSource implements PositionSource {
   final LocationAccess access;
 
   /// The stream the recorder listens to.
-  final controller = StreamController<GpsFix>();
+  final controller = StreamController<GpsFix>.broadcast();
 
   /// How many times [fixes] was called.
   int subscriptions = 0;

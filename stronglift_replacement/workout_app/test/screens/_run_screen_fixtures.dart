@@ -1,5 +1,7 @@
 // Shared harness for the run screen tests: every dependency is an in-memory
 // fake, so nothing here needs the real event loop or the database.
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,12 +23,14 @@ class RunHarness {
     ManualPositionSource? source,
     FakeForegroundRunClient? service,
     this.saveThrows = false,
+    this.saveGate,
   }) : source = source ?? ManualPositionSource(access: access),
        service = service ?? FakeForegroundRunClient();
 
   final ManualPositionSource source;
   final FakeForegroundRunClient service;
   final bool saveThrows;
+  final Completer<void>? saveGate;
   final uploader = FakeRunUploader();
   final cues = QuietCues();
   final saved = <RunTrack>[];
@@ -38,6 +42,7 @@ class RunHarness {
     service: service,
     cues: cues,
     save: (track) async {
+      await saveGate?.future;
       if (saveThrows) throw Exception('disk full');
       saved.add(track);
       return const RunSaveResult(stored: true, reason: 'saved');
@@ -85,6 +90,10 @@ Finder key(String id) => find.byKey(Key(id));
 
 Future<void> tapKey(WidgetTester tester, String id) async {
   await tester.tap(key(id));
-  // Settles the async hops of start/finish (stream cancel, save) as well.
+  // Stream cancel only completes on the real event loop, so give it a turn
+  // before settling the frames.
+  await tester.runAsync(
+    () => Future<void>.delayed(const Duration(milliseconds: 10)),
+  );
   await tester.pumpAndSettle();
 }
