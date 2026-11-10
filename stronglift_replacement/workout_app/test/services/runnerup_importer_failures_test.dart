@@ -92,7 +92,7 @@ void main() {
     expect(report.failures, isEmpty);
     expect(report.skipped, 2);
     final marker = jsonDecode(dufs.markers.single) as Map<String, dynamic>;
-    expect(marker['count'], 3);
+    expect(marker['count'], expectedMarkerNames(fixtureTcx()).length);
     expect(marker['tcx_names'], isNot(contains('junk_Running.tcx')));
     expect(runnerUpImportStatus.value, RunnerUpImportStatus.done);
   });
@@ -149,6 +149,21 @@ void main() {
     expect(report.failures.single, contains('PC was not told'));
     expect(dufs.puts, isEmpty);
   });
+
+  test(
+    'a throw outside the per-file handling fails loudly, not forever',
+    () async {
+      final importer = RunnerUpImporter(
+        client: dufs.client,
+        loadLogin: fakeLogin,
+        canReadStorage: () async => throw StateError('platform down'),
+        isAndroid: true,
+      );
+      final report = await importer.runGuarded();
+      expect(report.failures.single, contains('platform down'));
+      expect(runnerUpImportStatus.value, RunnerUpImportStatus.failed);
+    },
+  );
 
   test('the sandbox never imports', () async {
     Sandbox.enabled = true;

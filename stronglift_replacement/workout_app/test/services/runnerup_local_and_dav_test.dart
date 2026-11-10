@@ -64,7 +64,7 @@ void main() {
       expect(stored, hasLength(4));
       // The phone-only file is history but is not offered to the PC's list.
       final marker = jsonDecode(dufs.markers.single) as Map<String, dynamic>;
-      expect(marker['count'], 3);
+      expect(marker['count'], expectedMarkerNames(dufs.files).length);
     });
 
     test('an unreadable file warns but never blocks completion', () async {

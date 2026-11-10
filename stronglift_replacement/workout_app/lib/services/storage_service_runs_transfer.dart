@@ -127,9 +127,10 @@ extension StorageServiceRunsTransfer on StorageService {
         },
         points,
       );
-    } on Object {
-      // Wrong shape, unknown enum key, or a points string that is not JSON:
-      // the caller counts it and logs the total via _warnSkipped.
+    } on Object catch (error) {
+      // Wrong shape, unknown enum key, or a points string that is not JSON;
+      // the caller also logs the total via _warnSkipped.
+      debugPrint('WorkoutApp: malformed run entry skipped: $error');
       return null;
     }
   }

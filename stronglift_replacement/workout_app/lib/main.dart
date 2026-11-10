@@ -123,7 +123,7 @@ void main(List<String> args) async {
   }
   // One-time RunnerUp history import (no-op in the sandbox and off-phone,
   // and once it completed). Off the launch path: it is many downloads.
-  unawaited(RunnerUpImporter().runIfNeeded());
+  unawaited(RunnerUpImporter().runGuarded());
   runApp(const WorkoutApp());
 }
 // coverage:ignore-end

@@ -5,9 +5,11 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:workout_app/models/run_record.dart';
+import 'package:workout_app/models/run_track.dart';
 import 'package:workout_app/services/dufs_credentials.dart';
 import 'package:workout_app/services/runnerup_importer.dart';
 import 'package:workout_app/services/storage_service.dart';
+import 'package:workout_app/services/tcx_codec.dart';
 
 const String kFixtureDir = '../../screen_locker/tests/fixtures/run_tcx';
 
@@ -101,3 +103,16 @@ RunnerUpImporter makeImporter(
 );
 
 Future<List<RunRecord>> storedRuns() => StorageService.instance.listRuns();
+
+/// What the marker must list for [files]: every RunnerUp-authored run once
+/// (a `Pixel_6a_` twin is the same run), never an app-authored file.
+List<String> expectedMarkerNames(Map<String, Uint8List> files) {
+  final seen = <String>{};
+  return [
+    for (final name in files.keys.toList()..sort())
+      if (decodeTcx(utf8.decode(files[name]!), fileName: name).source ==
+              RunSource.runnerupImport &&
+          seen.add(name.replaceFirst('Pixel_6a_', '')))
+        name,
+  ];
+}

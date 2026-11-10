@@ -60,8 +60,10 @@ void main() {
       expect(dufs.puts, ['PUT /RunnerUp/.workout_app_import.json']);
       final marker = jsonDecode(dufs.markers.single) as Map<String, dynamic>;
       expect(marker['completed_at'], '2026-11-10T08:00:00.000Z');
-      expect(marker['count'], 3);
-      expect(marker['tcx_names'], dufs.files.keys.toList()..sort());
+      final names = expectedMarkerNames(dufs.files);
+      expect(names, isNotEmpty);
+      expect(marker['count'], names.length);
+      expect(marker['tcx_names'], names);
     },
   );
 
@@ -81,6 +83,27 @@ void main() {
       );
       expect(stored.track.source, RunSource.runnerupImport);
       expect(stored.uploadState, RunUploadState.never);
+    },
+  );
+
+  test(
+    'twins are one run: stored once, listed once, app files not at all',
+    () async {
+      final original = dufs.files.keys.firstWhere((n) => n.contains('08-12'));
+      final twin = original.replaceFirst('RunnerUp_', 'RunnerUp_Pixel_6a_');
+      // Same <Id>, different bytes: the phone's own copy of the export.
+      dufs.files[twin] = utf8Bytes('${utf8.decode(dufs.files[original]!)}\n');
+
+      final report = await makeImporter(dufs).runIfNeeded();
+
+      expect(report.failures, isEmpty);
+      expect(report.duplicates, 1);
+      expect(await storedRuns(), hasLength(3));
+      final marker = jsonDecode(dufs.markers.single) as Map<String, dynamic>;
+      final names = (marker['tcx_names'] as List<dynamic>).cast<String>();
+      expect(names.where((n) => n.contains('08-12')), [original]);
+      expect(marker['count'], names.length);
+      expect(names.any((n) => n.contains('17-30-00')), isFalse);
     },
   );
 

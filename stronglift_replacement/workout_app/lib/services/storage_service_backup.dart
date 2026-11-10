@@ -24,12 +24,16 @@ extension StorageServiceBackup on StorageService {
     final eventRows = await _db.query('progression_events');
     final runRows = await _runsForTransfer(appOnly: true);
 
-    if (historyRows.isEmpty && runRows.isEmpty) {
+    if (historyRows.isEmpty) {
       final existing = await BackupService.instance.readBackup();
       final existingHistory =
           (existing?['workout_history'] as List?) ?? const [];
       final existingRuns = (existing?['runs'] as List?) ?? const [];
-      if (existingHistory.isNotEmpty || existingRuns.isNotEmpty) {
+      // A recorded run must not lift the history guard (a seeded DB that
+      // then records a run would erase months of sessions); only a DB with
+      // neither is also barred from erasing a runs-only backup.
+      if (existingHistory.isNotEmpty ||
+          (runRows.isEmpty && existingRuns.isNotEmpty)) {
         debugPrint(
           'WorkoutApp: REFUSING to overwrite the backup — this DB has no '
           'workout history or runs but the backup holds '

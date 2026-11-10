@@ -85,6 +85,24 @@ class RunnerUpImporter {
     return report;
   }
 
+  /// [runIfNeeded] that cannot leave the badge spinning: anything thrown
+  /// outside the per-file handling (a platform error, a prefs write) becomes
+  /// a logged failure and the `failed` state, retried next start.
+  Future<RunnerUpImportReport> runGuarded() async {
+    try {
+      return await runIfNeeded();
+    } on Object catch (error) {
+      debugPrint('WorkoutApp: RunnerUp import WARNING: aborted: $error');
+      runnerUpImportStatus.value = RunnerUpImportStatus.failed;
+      return (
+        imported: 0,
+        duplicates: 0,
+        skipped: 0,
+        failures: ['aborted: $error'],
+      );
+    }
+  }
+
   Future<RunnerUpImportReport> _importAll(SharedPreferences prefs) async {
     final tally = ImportTally();
     final login = await _loadLogin();
@@ -119,16 +137,26 @@ class RunnerUpImporter {
     try {
       remote = await listProcessedTcx(_client, login);
     } on Exception catch (error) {
-      tally.fail('listing the PC history failed: $error');
+      debugPrint('WorkoutApp: RunnerUp import WARNING: listing failed: $error');
+      tally.failures.add('listing the PC history failed: $error');
       return const [];
     }
     final accounted = <String>[];
+    final seen = <String>{};
     for (final name in remote) {
       try {
         final bytes = await fetchProcessedTcx(_client, login, name);
-        if (await _ingest(name, bytes, tally)) accounted.add(name);
+        final source = await _ingest(name, bytes, tally);
+        // The marker lists each distinct RunnerUp run once (the phone's
+        // `Pixel_6a_` twin of a file is the same run) and never an
+        // app-authored file.
+        if (source == RunSource.runnerupImport &&
+            seen.add(name.replaceFirst('Pixel_6a_', ''))) {
+          accounted.add(name);
+        }
       } on Exception catch (error) {
-        tally.fail('$name: $error');
+        debugPrint('WorkoutApp: RunnerUp import WARNING: $name: $error');
+        tally.failures.add('$name: $error');
       }
       await Future<void>.delayed(Duration.zero);
     }
@@ -161,8 +189,13 @@ class RunnerUpImporter {
     }
   }
 
-  /// Stores one export; false when it is not a usable run.
-  Future<bool> _ingest(String name, Uint8List bytes, ImportTally tally) async {
+  /// Stores one export; returns what its file says made it (before it is
+  /// forced to history), or null when it is not a usable run.
+  Future<RunSource?> _ingest(
+    String name,
+    Uint8List bytes,
+    ImportTally tally,
+  ) async {
     final String xml;
     final RunTrack decoded;
     try {
@@ -174,7 +207,7 @@ class RunnerUpImporter {
         'WorkoutApp: RunnerUp import WARNING: $name is not a usable run '
         '($error); skipped for good.',
       );
-      return false;
+      return null;
     }
     // Forced, whatever the file says: an app-made TCX that came back through
     // processed/ must not be re-uploaded, so it is history, never pending.
@@ -194,7 +227,7 @@ class RunnerUpImporter {
       uploadState: RunUploadState.never,
     );
     added ? tally.imported++ : tally.duplicates++;
-    return true;
+    return decoded.source;
   }
 
   /// PUTs the marker; returns the failures (empty once the PC has it).

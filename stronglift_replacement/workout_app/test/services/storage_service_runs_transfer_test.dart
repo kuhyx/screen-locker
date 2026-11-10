@@ -141,6 +141,39 @@ void main() {
     });
   });
 
+  test(
+    'a run on a history-less DB cannot clobber a backup with history',
+    () async {
+      await BackupService.instance.export({
+        'exercise_state': <Object?>[],
+        'workout_history': [
+          {
+            'date': '2026-07-17',
+            'workout_type': 'B',
+            'duration_seconds': 6465,
+            'succeeded': 1,
+            'json': '{}',
+          },
+        ],
+        'settings': <Object?>[],
+      });
+      final (name, xml, track) = _tracks().firstWhere(
+        (t) => t.$3.source == RunSource.app,
+      );
+
+      await _svc.insertRun(
+        track,
+        tcxFilename: name,
+        tcxSha256: tcxSha256(xml),
+        uploadState: RunUploadState.pending,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+
+      final after = await BackupService.instance.readBackup();
+      expect(after!['workout_history'], hasLength(1));
+    },
+  );
+
   group('user export / merge-import', () {
     test(
       'round trip keeps every run and point; a re-import adds nothing',
