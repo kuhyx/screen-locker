@@ -103,7 +103,12 @@ class TestTrackSummary:
     def test_no_points_has_no_end(self) -> None:
         """A track with no points has zero moving time and no end."""
         summary = track_summary(activity([]))
-        assert summary == {"activity_id": "A1", "moving_seconds": 0.0, "ended_at": None}
+        assert summary == {
+            "activity_id": "A1",
+            "moving_seconds": 0.0,
+            "track_distance_m": 0.0,
+            "ended_at": None,
+        }
 
 
 def leg(

@@ -23,7 +23,13 @@ consecutive trackpoint pairs travelled at least at ``MIN_MOVING_SPEED_MPS``:
 standing still is too slow. A pair further apart than ``WALK_MAX_GAP_SECONDS``
 is a GPS dropout whose motion is unknown and earns nothing -- an activity is
 never credited for time nobody saw, so a pause cannot buy a run its duration.
-There is no upper speed: a run is faster than a walk and must still count.
+A pair faster than ``MAX_MOVING_SPEED_MPS`` (25 km/h) is a vehicle or a GPS
+jump: it counts neither moving time nor distance, so a bus ride earns nothing.
+The day's distance is the sum of the surviving pairs (``track_distance_m``),
+never the lap's ``DistanceMeters`` total, and an export with no trackpoints
+cannot be speed-checked, so it credits nothing. Only the root-DB fallback,
+which has no trackpoints at all, is judged by its recorded distance and
+duration.
 """
 
 from __future__ import annotations
@@ -35,6 +41,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from screen_locker._constants import (
+    MAX_MOVING_SPEED_MPS,
     MIN_MOVING_SPEED_MPS,
     MIN_RUN_DISTANCE_KM,
     MIN_WORKOUT_DURATION_MINUTES,
@@ -94,16 +101,30 @@ def _trackpoints(activity: ET.Element) -> list[tuple[float, float]]:
 
 
 def track_summary(activity: ET.Element) -> dict[str, Any]:
-    """Moving seconds and end time of one activity, from its trackpoints."""
+    """Moving seconds, credited distance and end time, from the trackpoints.
+
+    A pair counts when its points are within ``WALK_MAX_GAP_SECONDS`` and it
+    was not travelled faster than ``MAX_MOVING_SPEED_MPS``. It then adds its
+    metres to ``track_distance_m``, and its seconds to ``moving_seconds`` too
+    when it was travelled at least at ``MIN_MOVING_SPEED_MPS``.
+    """
     points = _trackpoints(activity)
     moving = 0.0
+    metres = 0.0
     for (t0, d0), (t1, d1) in itertools.pairwise(points):
         gap = t1 - t0
-        if 0 < gap <= WALK_MAX_GAP_SECONDS and (d1 - d0) / gap >= MIN_MOVING_SPEED_MPS:
+        if not 0 < gap <= WALK_MAX_GAP_SECONDS:
+            continue
+        speed = (d1 - d0) / gap
+        if speed > MAX_MOVING_SPEED_MPS:
+            continue
+        metres += max(d1 - d0, 0.0)
+        if speed >= MIN_MOVING_SPEED_MPS:
             moving += gap
     return {
         "activity_id": activity.findtext(f"{_TCX_NS}Id") or "",
         "moving_seconds": moving,
+        "track_distance_m": metres,
         "ended_at": points[-1][0] if points else None,
     }
 
@@ -116,6 +137,11 @@ def distance_qualifies(distance_km: float) -> bool:
 def moving_qualifies(moving_minutes: float) -> bool:
     """Whether moving time meets the shared duration bar (leeway included)."""
     return moving_minutes >= WORKOUT_DURATION_ACCEPT_MINUTES
+
+
+def _distance_metres(activity: dict[str, Any]) -> float:
+    """Credited metres; the root-DB path has no trackpoints, so its total stands in."""
+    return float(activity.get("track_distance_m", activity.get("distance_m", 0.0)))
 
 
 def _moving_seconds(activity: dict[str, Any]) -> float:
@@ -188,7 +214,7 @@ def activity_day(activities: Iterable[dict[str, Any]]) -> ActivityDay:
     completed_at: float | None = None
     for activity in ordered:
         moving += _moving_seconds(activity)
-        metres += float(activity.get("distance_m", 0.0))
+        metres += _distance_metres(activity)
         if completed_at is None and (
             moving_qualifies(moving / 60) or distance_qualifies(metres / 1000)
         ):

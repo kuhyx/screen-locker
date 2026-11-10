@@ -15,7 +15,14 @@ from screen_locker._walk_tcx import (
     activity_shortfall,
     walk_day,
 )
-from screen_locker.tests._activity_helpers import DAY, Verifier, drop, tcx, verify
+from screen_locker.tests._activity_helpers import (
+    DAY,
+    Verifier,
+    drop,
+    tcx,
+    tcx_points,
+    verify,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -193,3 +200,37 @@ class TestLapOnlyExport:
         result = verify(verifier)
         assert result is not None
         assert result[0] == "too_short"
+
+
+class TestSpeedCap:
+    """Pairs faster than 25 km/h count neither moving time nor distance."""
+
+    def test_a_car_trip_credits_nothing(self, verifier: Verifier) -> None:
+        """10 km at 40 km/h (15 min) is a vehicle, not a workout."""
+        drop(
+            verifier.folder,
+            "08-00-00",
+            "_Walking",
+            tcx("Walking", "08:00", moving_min=15, metres=10000),
+        )
+        result = verify(verifier)
+        assert result is not None
+        assert result[0] == "too_short"
+
+    def test_one_gps_jump_drops_only_its_pair(self, verifier: Verifier) -> None:
+        """A 60 km/h jump inside a 3 m/s run loses that pair and nothing else."""
+        points = [(s, s * 3.0 + (83.0 if s > 600 else 0.0)) for s in range(0, 1201, 5)]
+        drop(
+            verifier.folder,
+            "08-00-00",
+            "_Running",
+            tcx_points("Running", "08:00", points),
+        )
+        (path,) = verifier._find_runnerup_exports_for_date(DAY)
+        data = verifier._pull_and_parse_tcx(path)
+        assert data is not None
+        assert data["moving_seconds"] == pytest.approx(1195)
+        assert data["track_distance_m"] == pytest.approx(3585)
+        result = verify(verifier)
+        assert result is not None
+        assert result[0] == "verified"

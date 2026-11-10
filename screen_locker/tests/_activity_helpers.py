@@ -76,3 +76,21 @@ def verify(verifier: Verifier) -> tuple[str, str] | None:
     """The file-based verdict for the test day."""
     with patch("screen_locker._runnerup_verification.today_str", return_value=DAY):
         return verifier._verify_runnerup_via_files()
+
+
+def tcx_points(sport: str, start: str, points: list[tuple[int, float]]) -> str:
+    """An export whose track is exactly ``(seconds after start, cumulative metres)``."""
+    begin = datetime.fromisoformat(f"{DAY}T{start}:00+00:00")
+    body = "".join(
+        f"<Trackpoint><Time>{(begin + timedelta(seconds=s)).isoformat()}</Time>"
+        f"<DistanceMeters>{m:.1f}</DistanceMeters></Trackpoint>"
+        for s, m in points
+    )
+    return (
+        f'<TrainingCenterDatabase xmlns="{_NS}"><Activities>'
+        f'<Activity Sport="{sport}"><Id>{DAY}T{start}</Id><Lap>'
+        f"<TotalTimeSeconds>{points[-1][0]}</TotalTimeSeconds>"
+        f"<DistanceMeters>{points[-1][1]}</DistanceMeters>"
+        f"<Track>{body}</Track></Lap></Activity></Activities>"
+        "</TrainingCenterDatabase>"
+    )

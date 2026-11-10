@@ -12,25 +12,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+from screen_locker.tests._activity_helpers import tcx
 from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-_TCX = """\
-<?xml version="1.0" encoding="UTF-8"?>
-<TrainingCenterDatabase
-    xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2">
-  <Activities>
-    <Activity Sport="Running">
-      <Lap>
-        <TotalTimeSeconds>4200.0</TotalTimeSeconds>
-        <DistanceMeters>5800.0</DistanceMeters>
-      </Lap>
-    </Activity>
-  </Activities>
-</TrainingCenterDatabase>
-"""
+# A 5.8 km / 70 min run WITH its trackpoints: lap totals alone credit nothing.
+_TCX = tcx("Running", "18:58", moving_min=70, metres=5800)
 
 
 def _webdav_tree(tmp_path: Path) -> tuple[Path, Path]:

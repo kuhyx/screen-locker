@@ -110,8 +110,11 @@ GRACE_STATE_FILE = Path(__file__).resolve().parent / "grace_floor.json"
 # reaches MIN_RUN_DISTANCE_KM OR their summed MOVING time reaches
 # WORKOUT_DURATION_ACCEPT_MINUTES. Moving = trackpoint pairs seen within
 # WALK_MAX_GAP_SECONDS and travelled at least this fast (slower is standing
-# still). There is no upper speed: a run must count. The Dart app mirrors it.
+# still). A pair faster than MAX_MOVING_SPEED_MPS (25 km/h, the app's running
+# jump filter) is a vehicle or a GPS jump and counts neither moving time NOR
+# distance, for every activity. The Dart app mirrors the bounds.
 MIN_MOVING_SPEED_MPS = 0.5
+MAX_MOVING_SPEED_MPS = 25 / 3.6
 WALK_MAX_GAP_SECONDS = 30
 # Workout records this PC must keep deleted in the sync store, pushed as
 # tombstones on every tick (see _sync_tombstones for why once is not enough).
