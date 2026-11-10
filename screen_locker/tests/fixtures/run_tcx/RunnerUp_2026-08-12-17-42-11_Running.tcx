@@ -96,7 +96,7 @@
           </Trackpoint>
         </Track>
       </Lap>
-
+      
       <Lap StartTime="2026-08-12T15:52:36Z">
         <TotalTimeSeconds>626</TotalTimeSeconds>
         <DistanceMeters>980.7304027080536</DistanceMeters>
