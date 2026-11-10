@@ -179,6 +179,7 @@ class _SettingsAppBar extends StatelessWidget implements PreferredSizeWidget {
       title: Text('Settings', style: TextStyle(color: colorScheme.onSurface)),
       iconTheme: IconThemeData(color: colorScheme.onSurface),
       actions: [
+        const RunnerUpImportBadge(),
         TextButton(
           onPressed: loading ? null : onReset,
           child: Text(

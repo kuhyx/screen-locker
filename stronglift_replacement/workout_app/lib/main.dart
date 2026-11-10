@@ -14,6 +14,7 @@ import 'package:workout_app/services/http_server_service.dart';
 import 'package:workout_app/services/lock_mode.dart';
 import 'package:workout_app/services/pc_pairing.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
+import 'package:workout_app/services/runnerup_importer.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_device_id.dart';
 import 'package:workout_app/services/sync_service.dart';
@@ -120,6 +121,9 @@ void main(List<String> args) async {
   if (!Platform.isLinux && !Sandbox.enabled) {
     await HttpServerService.instance.start();
   }
+  // One-time RunnerUp history import (no-op in the sandbox and off-phone,
+  // and once it completed). Off the launch path: it is many downloads.
+  unawaited(RunnerUpImporter().runIfNeeded());
   runApp(const WorkoutApp());
 }
 // coverage:ignore-end
