@@ -32,12 +32,14 @@ void main() {
     expect(provider.supportsCancelLoading, isTrue);
   });
 
-  test('openOsmTileProvider opens a cached provider once', () async {
+  test('every open is a fresh cached provider (TileLayer disposes it)', () async {
     final dir = installFakePathProvider();
     addTearDown(() => dir.deleteSync(recursive: true));
     final first = await openOsmTileProvider();
+    final second = await openOsmTileProvider();
     expect(first, isA<CachedTileProvider>());
-    expect(identical(await openOsmTileProvider(), first), isTrue);
+    expect(second, isA<CachedTileProvider>());
+    expect(identical(second, first), isFalse);
   });
 
   test('without a cache dir: network provider and a warning', () async {
@@ -47,6 +49,8 @@ void main() {
       provider = await openOsmTileProvider();
     });
     expect(provider, isA<NetworkTileProvider>());
+    // Looked up once: the second map falls back without a second warning.
+    expect(await openOsmTileProvider(), isA<NetworkTileProvider>());
     expect(
       lines.where((l) => l.contains('WARNING') && l.contains('persist')),
       hasLength(1),

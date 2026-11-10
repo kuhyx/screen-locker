@@ -37,25 +37,33 @@ TileProvider buildCachedTileProvider(String cacheDir, {Dio? dio}) =>
       dio: dio,
     );
 
-Future<TileProvider>? _opened;
+Future<String?>? _cacheDir;
 
-/// The shared disk-cached OSM provider; opened once per process.
+/// A disk-cached OSM provider; each map gets its own.
+///
+/// Only the cache directory is looked up once per process. A provider is
+/// never shared: `TileLayer` disposes its provider when the map goes away
+/// (a `NetworkTileProvider` closes its HTTP client then), so a shared one
+/// would be dead for the second map.
 ///
 /// If the cache directory cannot be had, the map still works over the
-/// network without a cache, and the reason is logged at warning level.
-Future<TileProvider> openOsmTileProvider() => _opened ??= _open();
+/// network without a cache, and the reason is logged once at warning level.
+Future<TileProvider> openOsmTileProvider() async {
+  final dir = await (_cacheDir ??= _resolveCacheDir());
+  return dir == null ? NetworkTileProvider() : buildCachedTileProvider(dir);
+}
 
-/// Forgets the opened provider (tests only).
+/// Forgets the looked-up cache directory (tests only).
 @visibleForTesting
-void resetOsmTileProvider() => _opened = null;
+void resetOsmTileProvider() => _cacheDir = null;
 
-Future<TileProvider> _open() async {
+Future<String?> _resolveCacheDir() async {
   try {
     final dir = await getApplicationCacheDirectory();
-    return buildCachedTileProvider('${dir.path}/osm_tiles');
+    return '${dir.path}/osm_tiles';
   } on Object catch (error) {
     logMapWarning('map tile cache unavailable, tiles will not persist: $error');
-    return NetworkTileProvider();
+    return null;
   }
 }
 
