@@ -2,35 +2,30 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_app/services/run_format.dart';
 
 void main() {
-  test('durations are m:ss, then h:mm:ss, never negative', () {
+  test('distance is km with two decimals', () {
+    expect(formatDistanceKm(5200), '5.20');
+    expect(formatDistanceKm(0), '0.00');
+    expect(formatDistanceKm(12345.6), '12.35');
+  });
+
+  test('duration is m:ss under an hour, h:mm:ss from it', () {
     expect(formatDuration(0), '0:00');
-    expect(formatDuration(723), '12:03');
+    expect(formatDuration(65), '1:05');
+    expect(formatDuration(3599), '59:59');
     expect(formatDuration(3600), '1:00:00');
     expect(formatDuration(3725), '1:02:05');
-    expect(formatDuration(-4), '0:00');
   });
 
-  test('distance is kilometres with two decimals', () {
-    expect(formatKm(0), '0.00');
-    expect(formatKm(3524), '3.52');
+  test('pace is m:ss per km, and a dash when nothing was covered', () {
+    expect(formatPace(seconds: 1800, distanceM: 5000), '6:00');
+    expect(formatPace(seconds: 1930, distanceM: 5200), '6:11');
+    expect(formatPace(seconds: 100, distanceM: 9.9), '-:--');
+    expect(formatPace(seconds: 100, distanceM: 0), '-:--');
   });
 
-  test('pace needs 20 m and is m:ss per km', () {
-    expect(paceSecPerKm(10, 19.9), isNull);
-    expect(paceSecPerKm(312, 1000), 312);
-    expect(formatPace(312), '5:12');
-    expect(formatPace(null), '--:--');
-    expect(formatPace(double.infinity), '--:--');
-    expect(formatPace(double.nan), '--:--');
-  });
-
-  test('the notification is numbers only', () {
-    final copy = runNotificationCopy(metres: 3524, movingSeconds: 723);
-    expect(copy.title, '3.52');
-    expect(copy.body, '12:03  3:25');
-    expect(
-      runNotificationCopy(metres: 0, movingSeconds: 0).body,
-      '0:00  --:--',
-    );
+  test('dates are shown in local time', () {
+    final when = DateTime(2026, 11, 3, 7, 5);
+    expect(formatRunDay(when.toUtc()), '03.11');
+    expect(formatFullDate(when.toUtc()), '2026-11-03 07:05');
   });
 }

@@ -14,6 +14,7 @@ import 'package:http/http.dart' as http;
 import 'package:workout_app/models/run_record.dart';
 import 'package:workout_app/sandbox/sandbox.dart';
 import 'package:workout_app/sandbox/sandbox_log.dart';
+import 'package:workout_app/services/dufs_credentials.dart';
 import 'package:workout_app/services/run_upload_credentials.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/tcx_codec.dart';
@@ -156,7 +157,7 @@ class RunUploader {
   /// A sentence naming the failure, or null once the run is uploaded.
   Future<String?> _upload(
     http.Client client,
-    RunUploadCredentials login,
+    DufsCredentials login,
     RunRecord record,
   ) async {
     final full = await _db.getRun(record.track.id);
@@ -171,7 +172,7 @@ class RunUploader {
       );
     }
     final url = Uri.parse(
-      '${login.baseUrl}/$kRunInboxFolder/${record.tcxFilename}',
+      '${login.url}/$kRunInboxFolder/${record.tcxFilename}',
     );
     final http.Response response;
     try {
@@ -179,7 +180,7 @@ class RunUploader {
           .put(
             url,
             headers: {
-              'Authorization': login.basicAuth,
+              'Authorization': login.authorization,
               'Content-Type': 'application/vnd.garmin.tcx+xml',
             },
             body: tcx,

@@ -117,12 +117,17 @@ List<(DateTime, double)> _rollingAvg2(List<(DateTime, double)> pts) {
 ///
 /// Synced dates are included so a day you only worked out on the PC (a
 /// RunnerUp run) still marks the calendar here.
+///
+/// Runs recorded here count by their local start day, which is also the day
+/// of the PC entry they replaced.
 Set<String> _allWorkoutDates(
   List<Map<String, dynamic>> rows,
   List<Map<String, dynamic>> syncedRows,
+  List<RunRecord> runs,
 ) => {
   ...rows.map((r) => r['date'] as String),
   ...syncedRows.map((r) => '${r['date']}'),
+  ...runs.map((r) => dayKey(r.track.startedAt.toLocal())),
 };
 
 /// Synced kinds this phone has no local record of, so showing them can't

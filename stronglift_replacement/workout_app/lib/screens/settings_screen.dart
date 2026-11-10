@@ -2,9 +2,8 @@
 /// settings sheet, plus links to the sync surfaces.
 ///
 /// "Sync settings" is the shared `sync_settings_ui` package (Firebase sync;
-/// no Backup section -- see the class doc on [SettingsScreen] for why).
-/// "Advanced sync (GitHub)" stays app-local ([GitHubMirrorScreen]) because
-/// the shared package has no GitHub surface at all.
+/// no Backup section -- see [SettingsScreen]). "Advanced sync (GitHub)" stays
+/// app-local ([GitHubMirrorScreen]): the shared package has no GitHub surface.
 library;
 
 import 'dart:async';
@@ -26,6 +25,7 @@ import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/data_transfer_buttons.dart';
 import 'package:workout_app/widgets/exercise_settings_sheet.dart';
+import 'package:workout_app/widgets/runnerup_import_badge.dart';
 
 part 'settings_screen_actions.dart';
 part 'settings_screen_deload.dart';

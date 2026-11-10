@@ -14,33 +14,10 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:workout_app/services/dufs_credentials.dart';
 
 /// File name the provisioning script pushes.
 const String kProvisionFileName = 'dufs_login.json';
-
-/// A dufs login.
-@immutable
-class RunUploadCredentials {
-  /// Creates a login; [baseUrl] has no trailing slash.
-  const RunUploadCredentials({
-    required this.baseUrl,
-    required this.user,
-    required this.password,
-  });
-
-  /// The dufs server, e.g. `https://host`.
-  final String baseUrl;
-
-  /// The dufs user.
-  final String user;
-
-  /// The dufs password.
-  final String password;
-
-  /// The `Authorization` header value.
-  String get basicAuth =>
-      'Basic ${base64.encode(utf8.encode('$user:$password'))}';
-}
 
 /// What an import attempt found.
 enum ProvisionStatus {
@@ -75,7 +52,8 @@ Future<Directory?> _externalFilesDir() async {
   return null;
 }
 
-/// Reads and writes the upload login in secure storage.
+/// Imports the upload login into secure storage (the slots of
+/// [DufsCredentials], shared with the history importer).
 class RunCredentialStore {
   /// Creates a store; the arguments are test seams.
   RunCredentialStore({
@@ -83,21 +61,11 @@ class RunCredentialStore {
     this._externalDir = _externalFilesDir,
   });
 
-  static const _urlKey = 'run_upload_url';
-  static const _userKey = 'run_upload_user';
-  static const _passwordKey = 'run_upload_password';
-
   final FlutterSecureStorage _secure;
   final Future<Directory?> Function() _externalDir;
 
   /// The stored login, or null when none was provisioned yet.
-  Future<RunUploadCredentials?> read() async {
-    final url = await _secure.read(key: _urlKey);
-    final user = await _secure.read(key: _userKey);
-    final password = await _secure.read(key: _passwordKey);
-    if (url == null || user == null || password == null) return null;
-    return RunUploadCredentials(baseUrl: url, user: user, password: password);
-  }
+  Future<DufsCredentials?> read() => DufsCredentials.load(storage: _secure);
 
   /// Moves `<external files dir>/dufs_login.json` into secure storage and
   /// deletes it. An unusable file stays put and is reported, so a typo in the
@@ -123,9 +91,7 @@ class RunCredentialStore {
       log('RunCredentialStore: $reason', level: 1000);
       return const ProvisionOutcome(ProvisionStatus.invalid, reason);
     }
-    await _secure.write(key: _urlKey, value: login.baseUrl);
-    await _secure.write(key: _userKey, value: login.user);
-    await _secure.write(key: _passwordKey, value: login.password);
+    await login.save(storage: _secure);
     await file.delete();
     log('RunCredentialStore: imported the run-upload login for ${login.user}.');
     return ProvisionOutcome(
@@ -134,7 +100,7 @@ class RunCredentialStore {
     );
   }
 
-  RunUploadCredentials? _parse(String text) {
+  DufsCredentials? _parse(String text) {
     final Object? decoded;
     try {
       decoded = jsonDecode(text);
@@ -142,22 +108,10 @@ class RunCredentialStore {
       log('RunCredentialStore: $kProvisionFileName is not JSON ($error)');
       return null;
     }
-    if (decoded is! Map) return null;
-    final url = decoded['url'];
-    final user = decoded['user'];
-    final password = decoded['password'];
-    if (url is! String || user is! String || password is! String) return null;
-    final uri = Uri.tryParse(url.trim());
-    if (uri == null ||
-        !uri.hasAuthority ||
-        !const {'http', 'https'}.contains(uri.scheme)) {
-      return null;
-    }
-    if (user.isEmpty || password.isEmpty) return null;
-    return RunUploadCredentials(
-      baseUrl: url.trim().replaceFirst(RegExp(r'/+$'), ''),
-      user: user,
-      password: password,
-    );
+    if (decoded is! Map<String, dynamic>) return null;
+    final login = DufsCredentials.fromJson(decoded);
+    final uri = login == null ? null : Uri.tryParse(login.url);
+    if (uri == null || !uri.hasAuthority) return null;
+    return const {'http', 'https'}.contains(uri.scheme) ? login : null;
   }
 }

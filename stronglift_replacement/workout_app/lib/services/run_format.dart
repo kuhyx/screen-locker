@@ -1,40 +1,40 @@
-/// Number formatting for the live run screen and its notification.
+/// Number formatting for run tiles and the run detail screen.
 ///
-/// Numbers only (textgate): the digits are the whole display.
+/// Numbers only: textgate bans words in the UI, so there are no unit
+/// suffixes. The icon next to a value (distance, clock, pace) names it.
 library;
 
-/// Distance below which a pace means nothing (GPS noise at the start line).
-const double kMinPaceDistanceM = 20;
+String _two(int v) => v.toString().padLeft(2, '0');
 
-/// `m:ss`, or `h:mm:ss` from one hour on.
+/// Kilometres with two decimals, e.g. `5.20`.
+String formatDistanceKm(double distanceM) =>
+    (distanceM / 1000).toStringAsFixed(2);
+
+/// `m:ss`, or `h:mm:ss` from an hour up; [seconds] is moving time.
 String formatDuration(int seconds) {
-  final s = seconds < 0 ? 0 : seconds;
-  String two(int v) => v.toString().padLeft(2, '0');
-  final h = s ~/ 3600;
-  final m = s % 3600 ~/ 60;
-  return h > 0 ? '$h:${two(m)}:${two(s % 60)}' : '$m:${two(s % 60)}';
+  final h = seconds ~/ 3600;
+  final m = (seconds ~/ 60).remainder(60);
+  final s = seconds % 60;
+  return h > 0 ? '$h:${_two(m)}:${_two(s)}' : '$m:${_two(s)}';
 }
 
-/// Kilometres with two decimals, e.g. `3.52`.
-String formatKm(double metres) => (metres / 1000).toStringAsFixed(2);
+/// Average pace as `m:ss` per kilometre, or `-:--` when under 10 m was
+/// covered (the quotient is meaningless, and 0 would divide by zero).
+String formatPace({required int seconds, required double distanceM}) {
+  if (distanceM < 10) return '-:--';
+  final perKm = (seconds / (distanceM / 1000)).round();
+  return '${perKm ~/ 60}:${_two(perKm % 60)}';
+}
 
-/// Average pace in seconds per km, or null while the run is too short.
-double? paceSecPerKm(int movingSeconds, double metres) =>
-    metres < kMinPaceDistanceM ? null : movingSeconds / (metres / 1000);
+/// `dd.MM` of [when] in the device's local time.
+String formatRunDay(DateTime when) {
+  final l = when.toLocal();
+  return '${_two(l.day)}.${_two(l.month)}';
+}
 
-/// `m:ss` per km, or `--:--` while there is no pace yet.
-String formatPace(double? secPerKm) =>
-    secPerKm == null || secPerKm.isInfinite || secPerKm.isNaN
-    ? '--:--'
-    : formatDuration(secPerKm.round());
-
-/// The two notification lines: distance, then time and pace.
-({String title, String body}) runNotificationCopy({
-  required double metres,
-  required int movingSeconds,
-}) => (
-  title: formatKm(metres),
-  body:
-      '${formatDuration(movingSeconds)}  '
-      '${formatPace(paceSecPerKm(movingSeconds, metres))}',
-);
+/// `yyyy-MM-dd HH:mm` of [when] in the device's local time.
+String formatFullDate(DateTime when) {
+  final l = when.toLocal();
+  return '${l.year}-${_two(l.month)}-${_two(l.day)} '
+      '${_two(l.hour)}:${_two(l.minute)}';
+}

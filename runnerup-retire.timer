@@ -1,0 +1,18 @@
+[Unit]
+Description=Retry the RunnerUp retirement daily until the phone has been cleaned up
+
+# No After=graphical-session.target: timers.target is ordered before it, and
+# that After= closes a cycle systemd resolves by deleting this timer's job
+# (see early-bird-workout-check.timer for the 2026-08-04 incident).
+
+[Timer]
+# The phone is not always on USB, so a failed or skipped pass is simply tried
+# again: shortly after boot and once a day. Most passes are an instant no-op
+# (not due yet, or already done), so the timer stays installed.
+OnBootSec=10min
+OnCalendar=*-*-* 19:00:00
+# Persistent=true: a PC that was off at 19:00 still gets that day's pass.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

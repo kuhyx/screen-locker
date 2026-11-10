@@ -9,7 +9,6 @@ import 'package:workout_app/models/run_track.dart';
 import 'package:workout_app/sandbox/sandbox_log.dart';
 import 'package:workout_app/services/gps_filter.dart';
 import 'package:workout_app/services/position_source.dart';
-import 'package:workout_app/services/run_format.dart';
 import 'package:workout_app/services/run_math.dart';
 
 /// Where a recording stands.
@@ -97,9 +96,6 @@ class RunRecorder extends ChangeNotifier {
   /// Credited distance in metres.
   double get distanceM => _filter?.distanceM ?? 0;
 
-  /// Average pace in seconds per km, or null while the run is too short.
-  double? get pace => paceSecPerKm(_moving, distanceM);
-
   /// Picks the sport; only possible while [RunPhase.idle].
   bool selectSport(RunSport sport) {
     if (_phase != RunPhase.idle) return false;
@@ -142,7 +138,7 @@ class RunRecorder extends ChangeNotifier {
     if (_phase != RunPhase.recording) return;
     _filter!.breakSegment();
     _phase = RunPhase.paused;
-    SandboxLog.event('run paused', {'km': formatKm(distanceM)});
+    SandboxLog.event('run paused', {'km': distanceM});
     notifyListeners();
   }
 
@@ -150,7 +146,7 @@ class RunRecorder extends ChangeNotifier {
   void resume() {
     if (_phase != RunPhase.paused) return;
     _phase = RunPhase.recording;
-    SandboxLog.event('run resumed', {'km': formatKm(distanceM)});
+    SandboxLog.event('run resumed', {'km': distanceM});
     notifyListeners();
   }
 
@@ -181,7 +177,7 @@ class RunRecorder extends ChangeNotifier {
       );
     }
     SandboxLog.event('run finished', {
-      'km': formatKm(distanceM),
+      'km': distanceM,
       'secs': _moving,
       'points': points.length,
       'saved': track != null,
@@ -263,7 +259,7 @@ class RunRecorder extends ChangeNotifier {
       'finish the run to save what was captured.',
       level: 900,
     );
-    SandboxLog.event('run stream ended', {'km': formatKm(distanceM)});
+    SandboxLog.event('run stream ended', {'km': distanceM});
   }
 
   @override

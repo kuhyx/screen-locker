@@ -11,7 +11,7 @@ import 'package:workout_app/sandbox/sandbox.dart';
 import 'package:workout_app/services/feedback_cues.dart';
 import 'package:workout_app/services/foreground_run_client.dart';
 import 'package:workout_app/services/position_source.dart';
-import 'package:workout_app/services/run_format.dart';
+import 'package:workout_app/services/run_notification.dart';
 import 'package:workout_app/services/run_recorder.dart';
 import 'package:workout_app/services/run_saver.dart';
 

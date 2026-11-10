@@ -48,6 +48,13 @@ so a run finished after 20:00 pushes the hour later without the phone being
 plugged in; the per-minute shutdown check then lifts the night lockdown on its
 own once the hour is past "now" (digital-wellbeing's check script).
 
+**Retiring RunnerUp.** A week after the PC first credits a run recorded by the
+workout app (TCX author `kuhy workout_app`), `runnerup-retire.timer` (daily, retries
+until the phone is attached) backs `/sdcard/Documents/RunnerUp` up to
+`~/data/cloud/RunnerUp/runnerup_phone_backup_<date>/` and uninstalls `org.runnerup.free`,
+once the app's `.workout_app_import.json` matches `processed/`; no app run, no uninstall.
+`python3 -m screen_locker.runnerup_retire --status` / `--dry-run` change nothing.
+
 ## MCP server (Claude Code integration)
 
 screen-locker exposes a **read-only** MCP server (`screen_locker._mcp`) so

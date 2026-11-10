@@ -169,6 +169,9 @@ void main() {
     await StorageService.init();
     final t = _track();
     await _insert(t);
+    // A recorded run triggers an unawaited backup; let it finish before the
+    // tables are dropped under it.
+    await Future<void>.delayed(const Duration(milliseconds: 100));
     StorageService.resetForTesting();
 
     final raw = await databaseFactory.openDatabase(path);

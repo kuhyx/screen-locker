@@ -147,12 +147,15 @@ class _Numbers extends StatelessWidget {
             small(
               Icons.straighten,
               const Key('run_distance'),
-              formatKm(recorder.distanceM),
+              formatDistanceKm(recorder.distanceM),
             ),
             small(
               Icons.speed,
               const Key('run_pace'),
-              formatPace(recorder.pace),
+              formatPace(
+                seconds: recorder.seconds,
+                distanceM: recorder.distanceM,
+              ),
             ),
           ],
         ),

@@ -73,7 +73,7 @@ void main() {
     expect(service.starts, [true]);
     expect(controller.serviceState, RunServiceState.running);
     expect(service.calls, ['has', 'start']);
-    expect(service.drawn.single, '0.00|0:00  --:--');
+    expect(service.drawn.single, '0.00|0:00  -:--');
     expect(controller.active, isTrue);
     controller.dispose();
   });

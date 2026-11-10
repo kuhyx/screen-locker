@@ -61,7 +61,7 @@ extension StorageServiceRuns on StorageService {
         'an imported run must be RunUploadState.never',
       );
     }
-    return await _db.transaction((txn) async {
+    final added = await _db.transaction((txn) async {
       final clash = await txn.query(
         'runs',
         columns: ['id'],
@@ -95,6 +95,9 @@ extension StorageServiceRuns on StorageService {
       await batch.commit(noResult: true);
       return true;
     });
+    // A recorded run exists nowhere else yet; the RunnerUp history does (PC).
+    if (added && track.source == RunSource.app) unawaited(_backupNow());
+    return added;
   }
 
   /// Whether a run with this TCX hash is stored.

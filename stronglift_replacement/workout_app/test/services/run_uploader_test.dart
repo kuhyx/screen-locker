@@ -9,6 +9,7 @@ import 'package:http/testing.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/models/run_record.dart';
 import 'package:workout_app/sandbox/sandbox.dart';
+import 'package:workout_app/services/dufs_credentials.dart';
 import 'package:workout_app/services/run_saver.dart';
 import 'package:workout_app/services/run_upload_credentials.dart';
 import 'package:workout_app/services/run_uploader.dart';
@@ -18,8 +19,8 @@ import 'package:workout_app/services/tcx_codec.dart';
 import '../fake_secure_storage.dart';
 import '../run_test_fixtures.dart';
 
-const _login = RunUploadCredentials(
-  baseUrl: 'https://cloud.example',
+final _login = DufsCredentials(
+  url: 'https://cloud.example',
   user: 'workout_app',
   password: 'pw',
 );
@@ -28,12 +29,12 @@ const _login = RunUploadCredentials(
 class _FixedStore implements RunCredentialStore {
   _FixedStore(this._login, {this.onRead, this.throwing = false});
 
-  final RunUploadCredentials? _login;
+  final DufsCredentials? _login;
   final Future<void> Function()? onRead;
   final bool throwing;
 
   @override
-  Future<RunUploadCredentials?> read() async {
+  Future<DufsCredentials?> read() async {
     await onRead?.call();
     if (throwing) throw PlatformException(code: 'keystore');
     return _login;
@@ -302,11 +303,7 @@ void main() {
     await _save('2026-11-09T12:00:00Z');
     final up = RunUploader(
       credentials: _FixedStore(
-        const RunUploadCredentials(
-          baseUrl: 'http://127.0.0.1:1',
-          user: 'u',
-          password: 'p',
-        ),
+        DufsCredentials(url: 'http://127.0.0.1:1', user: 'u', password: 'p'),
       ),
     );
     final status = await up.uploadPending();
@@ -343,11 +340,11 @@ void main() {
       expect(outcome.status, ProvisionStatus.imported);
       expect(file().existsSync(), isFalse);
       final login = (await s.read())!;
-      expect(login.baseUrl, 'https://cloud.example');
+      expect(login.url, 'https://cloud.example');
       expect(login.user, 'workout_app');
       expect(login.password, 'secret');
       expect(
-        login.basicAuth,
+        login.authorization,
         'Basic ${base64.encode(utf8.encode('workout_app:secret'))}',
       );
     });

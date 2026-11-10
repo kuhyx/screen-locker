@@ -17,6 +17,8 @@ BONUS_SERVICE_NAME="earner-bonus.service"
 BONUS_PATH_NAME="earner-bonus.path"
 RUNNERUP_WATCH_NAME="runnerup-watch.service"
 WORKOUT_POKE_NAME="workout-poke.service"
+RETIRE_SERVICE_NAME="runnerup-retire.service"
+RETIRE_TIMER_NAME="runnerup-retire.timer"
 
 # Runtime dependencies. screen_lock.py imports tkinter at module scope. On Arch
 # the tkinter MODULE ships inside the `python` package, but the shared library
@@ -147,6 +149,12 @@ cp "$SCRIPT_DIR/$RUNNERUP_WATCH_NAME" "$USER_SERVICE_DIR/$RUNNERUP_WATCH_NAME"
 bash "$SCRIPT_DIR/scripts/workout_poke_keygen.sh"
 cp "$SCRIPT_DIR/$WORKOUT_POKE_NAME" "$USER_SERVICE_DIR/$WORKOUT_POKE_NAME"
 
+# The RunnerUp retirement: a week after the workout app's first credited run
+# it backs the old app's exports up and uninstalls it from the phone. A daily
+# timer, because the phone is not always attached; a no-op until then.
+cp "$SCRIPT_DIR/$RETIRE_SERVICE_NAME" "$USER_SERVICE_DIR/$RETIRE_SERVICE_NAME"
+cp "$SCRIPT_DIR/$RETIRE_TIMER_NAME" "$USER_SERVICE_DIR/$RETIRE_TIMER_NAME"
+
 # Update paths in the service file to use absolute paths
 REPO_ROOT="$SCRIPT_DIR"
 sed -i "s|WorkingDirectory=.*|WorkingDirectory=$REPO_ROOT|" "$USER_SERVICE_DIR/$SERVICE_NAME"
@@ -178,6 +186,9 @@ systemctl --user restart "$RUNNERUP_WATCH_NAME"
 # Enable the LAN workout poke listener (restart picks up new code)
 systemctl --user enable "$WORKOUT_POKE_NAME"
 systemctl --user restart "$WORKOUT_POKE_NAME"
+
+# Enable the daily RunnerUp retirement retry
+systemctl --user enable --now "$RETIRE_TIMER_NAME"
 
 # Verify enforcement is actually armed. enable can silently no-op when systemd
 # breaks an ordering cycle by deleting the timer's job -- exactly what happened

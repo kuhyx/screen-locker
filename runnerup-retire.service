@@ -1,0 +1,15 @@
+[Unit]
+Description=Back up and uninstall the stock RunnerUp app a week after the workout app's first credited run
+
+[Service]
+Type=oneshot
+# screen_locker is pip-installed (editable), like workout-sync.service, so no
+# WorkingDirectory/PYTHONPATH. Headless: no DISPLAY, no Tk, no lock screen.
+#
+# Exit 0 for "not due yet", "no app run credited yet" and "phone not attached"
+# (the timer retries), non-zero when a human is needed: invalid import marker,
+# adb missing, a failed backup or a refused uninstall. That shows up in
+# `systemctl --user --failed`. Every skip says why in the journal:
+#   journalctl --user -u runnerup-retire
+# State and the anchor: python3 -m screen_locker.runnerup_retire --status
+ExecStart=/usr/bin/python3 -m screen_locker.runnerup_retire

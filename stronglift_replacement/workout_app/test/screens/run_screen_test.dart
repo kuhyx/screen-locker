@@ -45,7 +45,7 @@ void main() {
     expect(find.byType(RunMapSlot), findsOneWidget);
     expect(_text('run_time'), '0:00');
     expect(_text('run_distance'), '0.00');
-    expect(_text('run_pace'), '--:--');
+    expect(_text('run_pace'), '-:--');
     expect(key('run_upload_badge'), findsOneWidget);
     expect(h.uploader.passes, 1);
   });

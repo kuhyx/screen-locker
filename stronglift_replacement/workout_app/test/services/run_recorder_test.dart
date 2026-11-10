@@ -25,7 +25,6 @@ void main() {
       expect(recorder.livePoints.value, hasLength(340));
       expect(recorder.distanceM, closeTo(2034, 5));
       expect(recorder.seconds, 678);
-      expect(recorder.pace, closeTo(333, 3));
 
       final track = (await recorder.finish())!;
       expect(recorder.phase, RunPhase.finished);
@@ -276,7 +275,6 @@ void main() {
       final recorder = _recorder(ManualPositionSource());
       expect(await recorder.finish(), isNull);
       expect(recorder.distanceM, 0);
-      expect(recorder.pace, isNull);
       recorder.dispose();
     });
   });
