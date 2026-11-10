@@ -64,7 +64,7 @@ void main() {
       });
 
       test('stored moving time equals the app-side moving-time rule', () {
-        expect(movingSeconds(track.points, track.sport), track.totalSeconds);
+        expect(movingSeconds(track.points), track.totalSeconds);
       });
 
       test('the checked-in file decodes back to the same track', () {

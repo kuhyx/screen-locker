@@ -152,6 +152,36 @@ class TestGoldenWalk:
         assert by_name["walking"] is True
 
 
+class TestGoldenDropout:
+    """A run whose GPS dropped out for 2 minutes, written by the app's filter.
+
+    The app bridges a dropout it did not pause the way RunnerUp's export does
+    (straight-line metres across the gap), so the PC's dropout rule keeps both
+    the distance and the moving time. Pinned by the Dart twin
+    ``test/services/run_dropout_tcx_test.dart``.
+    """
+
+    NAME = "RunnerUp_2026-11-09-18-00-00_Running.tcx"
+
+    def test_pc_credits_the_bridged_dropouts_metres_and_moving_time(
+        self, inbox: Path
+    ) -> None:
+        """30 min at 3 m/s with seconds 600-720 unseen: 5400 m and 1800 s."""
+        _drop(inbox, self.NAME)
+        data = Verifier()._pull_and_parse_tcx(str(inbox / self.NAME))
+        assert data is not None
+        # Zeroed across the gap (the old app) this was 5040 m and 1680 s.
+        assert data["track_distance_m"] == pytest.approx(5400, abs=1)
+        assert data["moving_seconds"] == pytest.approx(1800)
+
+    def test_the_run_is_verified_on_its_day(self, inbox: Path) -> None:
+        """The whole file passes the real file-based verification."""
+        _drop(inbox, self.NAME)
+        result = _verify(inbox, "2026-11-09")
+        assert result is not None
+        assert result[0] == "verified"
+
+
 class TestRunnerUpSample:
     """The trimmed real RunnerUp export parses to the numbers Dart's decoder sees."""
 

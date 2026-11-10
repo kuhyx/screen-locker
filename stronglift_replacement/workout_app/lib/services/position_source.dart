@@ -39,6 +39,7 @@ abstract class PositionSource {
   /// Fixes roughly every [interval], best accuracy, until cancelled.
   ///
   /// [interval] must stay well under the PC's 30 s credit gap
-  /// (`kMaxCreditGapSeconds`): a quieter stream earns nothing.
+  /// (`kMaxCreditGapSeconds`): a quieter stream is treated as a dropout and
+  /// only counts at 1 m/s or faster.
   Stream<GpsFix> fixes({Duration interval = const Duration(seconds: 2)});
 }
