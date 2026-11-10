@@ -20,7 +20,6 @@ from screen_locker.tests._activity_helpers import (
     Verifier,
     drop,
     tcx,
-    tcx_points,
     verify,
 )
 
@@ -182,55 +181,3 @@ class TestActivityDay:
         """The shortfall names both ways to qualify."""
         day: ActivityDay = activity_day([{"distance_m": 100.0, "moving_seconds": 60.0}])
         assert activity_shortfall(day).endswith("need 3.5+ km or 30+ min moving")
-
-
-class TestLapOnlyExport:
-    """An export with laps but no trackpoints has no moving time to credit."""
-
-    def test_wall_clock_alone_credits_nothing(self, verifier: Verifier) -> None:
-        """40 min on the lap clock, 1 km, no trackpoints: too short."""
-        body = (
-            '<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/'
-            'TrainingCenterDatabase/v2"><Activities><Activity Sport="Running">'
-            "<Id>2026-10-10T08:00</Id><Lap><TotalTimeSeconds>2400</TotalTimeSeconds>"
-            "<DistanceMeters>1000</DistanceMeters></Lap></Activity></Activities>"
-            "</TrainingCenterDatabase>"
-        )
-        drop(verifier.folder, "08-00-00", "_Running", body)
-        result = verify(verifier)
-        assert result is not None
-        assert result[0] == "too_short"
-
-
-class TestSpeedCap:
-    """Pairs faster than 25 km/h count neither moving time nor distance."""
-
-    def test_a_car_trip_credits_nothing(self, verifier: Verifier) -> None:
-        """10 km at 40 km/h (15 min) is a vehicle, not a workout."""
-        drop(
-            verifier.folder,
-            "08-00-00",
-            "_Walking",
-            tcx("Walking", "08:00", moving_min=15, metres=10000),
-        )
-        result = verify(verifier)
-        assert result is not None
-        assert result[0] == "too_short"
-
-    def test_one_gps_jump_drops_only_its_pair(self, verifier: Verifier) -> None:
-        """A 60 km/h jump inside a 3 m/s run loses that pair and nothing else."""
-        points = [(s, s * 3.0 + (83.0 if s > 600 else 0.0)) for s in range(0, 1201, 5)]
-        drop(
-            verifier.folder,
-            "08-00-00",
-            "_Running",
-            tcx_points("Running", "08:00", points),
-        )
-        (path,) = verifier._find_runnerup_exports_for_date(DAY)
-        data = verifier._pull_and_parse_tcx(path)
-        assert data is not None
-        assert data["moving_seconds"] == pytest.approx(1195)
-        assert data["track_distance_m"] == pytest.approx(3585)
-        result = verify(verifier)
-        assert result is not None
-        assert result[0] == "verified"

@@ -18,58 +18,53 @@ survives only in the file name (``Sport.TapiriikType()``): ``..._Walking.tcx``.
 The Strava export variant writes ``Sport="Walking"``, so that counts too.
 
 **Moving time, not elapsed.** A lap's ``TotalTimeSeconds`` is wall-clock: one
-real lap reads 101 min for 1 km of standing about. Moving time is summed over
-consecutive trackpoint pairs travelled at least at ``MIN_MOVING_SPEED_MPS``:
-standing still is too slow. A pair further apart than ``WALK_MAX_GAP_SECONDS``
-is a GPS dropout whose motion is unknown and earns nothing -- an activity is
-never credited for time nobody saw, so a pause cannot buy a run its duration.
-A pair faster than ``MAX_MOVING_SPEED_MPS`` (25 km/h) is a vehicle or a GPS
-jump: it counts neither moving time nor distance, so a bus ride earns nothing.
-The day's distance is the sum of the surviving pairs (``track_distance_m``),
-never the lap's ``DistanceMeters`` total, and an export with no trackpoints
-cannot be speed-checked, so it credits nothing. Only the root-DB fallback,
-which has no trackpoints at all, is judged by its recorded distance and
-duration.
+real lap reads 101 min for 1 km of standing about. The track is cut into
+windows of at least ``TRACK_WINDOW_SECONDS`` (a fix every second jitters, so
+one raw pair can read 15 m/s inside a 3 m/s run) and each window is judged by
+its average speed. Faster than ``MAX_MOVING_SPEED_MPS`` (25 km/h) is a vehicle
+or a GPS jump: neither time nor distance counts, so a bus ride earns nothing.
+Otherwise its metres count, and its seconds count as moving time at
+``MIN_MOVING_SPEED_MPS`` or faster; standing still is too slow. A window longer
+than ``WALK_MAX_GAP_SECONDS`` is a signal dropout (real exports have 2 minute
+ones): the runner may have kept running unseen, so it counts as moving only at
+``MIN_DROPOUT_SPEED_MPS`` or faster, while a pause (no distance across the
+gap) earns nothing -- a pause cannot buy a run its duration.
+The day's distance is the sum of the windows (``track_distance_m``), never the
+lap's ``DistanceMeters`` total, and an export with no trackpoints cannot be
+speed-checked, so it credits nothing. Only the root-DB fallback, which has no
+trackpoints at all, is judged by its recorded distance and duration.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
-import itertools
 import logging
 from typing import TYPE_CHECKING, Any
 
+from screen_locker._activity_day import (
+    SPORT_NAMES,
+    ActivityDay,
+    activity_day,
+    activity_shortfall,
+    distance_qualifies,
+    moving_qualifies,
+)
 from screen_locker._constants import (
     MAX_MOVING_SPEED_MPS,
+    MIN_DROPOUT_SPEED_MPS,
     MIN_MOVING_SPEED_MPS,
-    MIN_RUN_DISTANCE_KM,
-    MIN_WORKOUT_DURATION_MINUTES,
-    RUNNERUP_DISTANCE_TOLERANCE,
+    TRACK_WINDOW_SECONDS,
     WALK_MAX_GAP_SECONDS,
-    WORKOUT_DURATION_ACCEPT_MINUTES,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterator
     import xml.etree.ElementTree as ET
 
 _logger = logging.getLogger(__name__)
 
 _TCX_NS = "{http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2}"
 _WALKING = "Walking"
-
-# RunnerUp's sport codes, for labels only (the label never decides credit).
-SPORT_NAMES: dict[int, str] = {
-    0: "Running",
-    1: "Biking",
-    2: "Other",
-    3: "Orienteering",
-    4: "Walking",
-    5: "Treadmill",
-    6: "Gym",
-    7: "Stationary Bike",
-}
 
 
 def is_walking_export(name: str, sport: str) -> bool:
@@ -100,27 +95,55 @@ def _trackpoints(activity: ET.Element) -> list[tuple[float, float]]:
     return points
 
 
+def _segments(
+    points: list[tuple[float, float]],
+) -> Iterator[tuple[float, float]]:
+    """``(seconds, metres)`` of the track cut into windows of >= TRACK_WINDOW_SECONDS.
+
+    A fix every second jitters (one pair can read 15 m/s inside a 3 m/s run),
+    so speed is judged over a window, never over a raw 1 s pair. Fixes that
+    are already further apart than the window are their own segment.
+    """
+    if not points:
+        return
+    anchor = points[0]
+    for point in points[1:]:
+        if point[0] - anchor[0] >= TRACK_WINDOW_SECONDS:
+            yield point[0] - anchor[0], point[1] - anchor[1]
+            anchor = point
+    if points[-1] is not anchor:
+        yield points[-1][0] - anchor[0], points[-1][1] - anchor[1]
+
+
 def track_summary(activity: ET.Element) -> dict[str, Any]:
     """Moving seconds, credited distance and end time, from the trackpoints.
 
-    A pair counts when its points are within ``WALK_MAX_GAP_SECONDS`` and it
-    was not travelled faster than ``MAX_MOVING_SPEED_MPS``. It then adds its
-    metres to ``track_distance_m``, and its seconds to ``moving_seconds`` too
-    when it was travelled at least at ``MIN_MOVING_SPEED_MPS``.
+    A segment (see :func:`_segments`) counts unless it was travelled faster
+    than ``MAX_MOVING_SPEED_MPS``: it then adds its metres to
+    ``track_distance_m``, and its seconds to ``moving_seconds`` too when it was
+    travelled at least at ``MIN_MOVING_SPEED_MPS``. A segment longer than
+    ``WALK_MAX_GAP_SECONDS`` is a signal dropout whose motion is unknown; it
+    only counts as moving time at ``MIN_DROPOUT_SPEED_MPS``, so a pause (no
+    distance across the gap) earns no time while a runner whose GPS went away
+    for two minutes keeps the time and metres the far side proves.
     """
     points = _trackpoints(activity)
     moving = 0.0
     metres = 0.0
-    for (t0, d0), (t1, d1) in itertools.pairwise(points):
-        gap = t1 - t0
-        if not 0 < gap <= WALK_MAX_GAP_SECONDS:
+    for seconds, travelled in _segments(points):
+        if seconds <= 0:
             continue
-        speed = (d1 - d0) / gap
+        speed = travelled / seconds
         if speed > MAX_MOVING_SPEED_MPS:
             continue
-        metres += max(d1 - d0, 0.0)
-        if speed >= MIN_MOVING_SPEED_MPS:
-            moving += gap
+        metres += max(travelled, 0.0)
+        floor = (
+            MIN_MOVING_SPEED_MPS
+            if seconds <= WALK_MAX_GAP_SECONDS
+            else MIN_DROPOUT_SPEED_MPS
+        )
+        if speed >= floor:
+            moving += seconds
     return {
         "activity_id": activity.findtext(f"{_TCX_NS}Id") or "",
         "moving_seconds": moving,
@@ -129,107 +152,21 @@ def track_summary(activity: ET.Element) -> dict[str, Any]:
     }
 
 
-def distance_qualifies(distance_km: float) -> bool:
-    """Whether a distance meets the minimum, with the GPS tolerance."""
-    return distance_km * (1 + RUNNERUP_DISTANCE_TOLERANCE) >= MIN_RUN_DISTANCE_KM
-
-
-def moving_qualifies(moving_minutes: float) -> bool:
-    """Whether moving time meets the shared duration bar (leeway included)."""
-    return moving_minutes >= WORKOUT_DURATION_ACCEPT_MINUTES
-
-
-def _distance_metres(activity: dict[str, Any]) -> float:
-    """Credited metres; the root-DB path has no trackpoints, so its total stands in."""
-    return float(activity.get("track_distance_m", activity.get("distance_m", 0.0)))
-
-
-def _moving_seconds(activity: dict[str, Any]) -> float:
-    """Moving seconds; the root-DB path has no trackpoints, so wall-clock stands in."""
-    return float(activity.get("moving_seconds", activity.get("duration_seconds", 0.0)))
-
-
-@dataclass(frozen=True)
-class ActivityDay:
-    """A day's activities, summed.
-
-    Attributes:
-        legs: Distinct activities (deduplicated by the activity's ``Id``: the
-            WebDAV copy and the phone's copy are the same activity).
-        moving_minutes: Their summed moving time.
-        distance_km: Their summed distance.
-        completed_at: Unix time the activity that took the day over the bar
-            ended -- when the workout was actually done -- or ``None`` if the
-            day never got there (or the activity recorded no end).
-        all_walks: Whether every activity was a walk (label only).
-        sport: The sport code when the day is a single non-walk activity.
-    """
-
-    legs: int
-    moving_minutes: float
-    distance_km: float
-    completed_at: float | None
-    all_walks: bool = False
-    sport: int = -1
-
-    @property
-    def qualifies(self) -> bool:
-        """Whether the day counts as its workout: distance OR moving time."""
-        return distance_qualifies(self.distance_km) or moving_qualifies(
-            self.moving_minutes
-        )
-
-    def message(self) -> str:
-        """The verification line, in the RunnerUp verifier's own style."""
-        if self.all_walks:
-            return (
-                f"Walking: {self.legs} walk(s), {self.distance_km:.1f} km, "
-                f"{self.moving_minutes:.0f} min moving"
-            )
-        if self.legs == 1:
-            name = SPORT_NAMES.get(self.sport, str(self.sport))
-            return f"{name}: {self.distance_km:.1f} km in {self.moving_minutes:.0f} min"
-        return (
-            f"Activity: {self.legs} activities, {self.distance_km:.1f} km, "
-            f"{self.moving_minutes:.0f} min moving"
-        )
-
-
-def activity_shortfall(day: ActivityDay) -> str:
-    """Why a day's activity did not count yet."""
-    return (
-        f"{day.message()} -- need {MIN_RUN_DISTANCE_KM:g}+ km or "
-        f"{MIN_WORKOUT_DURATION_MINUTES}+ min moving"
-    )
-
-
-def activity_day(activities: Iterable[dict[str, Any]]) -> ActivityDay:
-    """Sum parsed exports (``parse_tcx_file`` dicts) into one :class:`ActivityDay`."""
-    unique: dict[str, dict[str, Any]] = {}
-    for activity in activities:
-        unique.setdefault(str(activity.get("activity_id") or id(activity)), activity)
-    ordered = sorted(unique.values(), key=lambda a: a.get("ended_at") or 0.0)
-    moving = 0.0
-    metres = 0.0
-    completed_at: float | None = None
-    for activity in ordered:
-        moving += _moving_seconds(activity)
-        metres += _distance_metres(activity)
-        if completed_at is None and (
-            moving_qualifies(moving / 60) or distance_qualifies(metres / 1000)
-        ):
-            completed_at = activity.get("ended_at")
-    return ActivityDay(
-        legs=len(ordered),
-        moving_minutes=moving / 60,
-        distance_km=metres / 1000,
-        completed_at=completed_at,
-        all_walks=bool(ordered) and all(a.get("walking") for a in ordered),
-        sport=int(ordered[0].get("sport", -1)) if ordered else -1,
-    )
-
-
-# Back-compat names: the walk-only rule these replaced.
+# The day aggregate lives in ``_activity_day``; these names stay importable here,
+# along with the walk-only names they replaced.
 WalkDay = ActivityDay
 walk_day = activity_day
 walk_shortfall = activity_shortfall
+__all__ = [
+    "SPORT_NAMES",
+    "ActivityDay",
+    "WalkDay",
+    "activity_day",
+    "activity_shortfall",
+    "distance_qualifies",
+    "is_walking_export",
+    "moving_qualifies",
+    "track_summary",
+    "walk_day",
+    "walk_shortfall",
+]
