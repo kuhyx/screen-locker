@@ -15,7 +15,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from screen_locker._log_mixin import write_signed_entry
-from screen_locker._walk_tcx import activity_day, activity_shortfall
+from screen_locker._walk_tcx import walk_day, walk_shortfall
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -72,47 +72,66 @@ class RunnerUpBackfillMixin:
 
         Returns True if a new verified entry was appended for ``date_str``.
         """
-        activities = [
-            data
-            for remote in self._find_runnerup_exports_for_date(date_str)
-            if (data := self._pull_and_parse_tcx(remote)) is not None
-        ]
-        return self._try_fill_day(date_str, activities, log_file, on_ingested)
+        walks: list[dict[str, Any]] = []
+        for remote in self._find_runnerup_exports_for_date(date_str):
+            data = self._pull_and_parse_tcx(remote)
+            if data is None:
+                continue
+            if data.get("walking"):
+                # Never one walk at a time: a day's walks are summed below.
+                walks.append(data)
+                continue
+            status, msg = self._validate_runnerup_data(data)
+            if status != "verified":
+                _logger.warning(
+                    "RunnerUp export %s for %s did not qualify (%s): %s",
+                    remote,
+                    date_str,
+                    status,
+                    msg,
+                )
+                continue
+            workout_data = {
+                "type": "runnerup_verified",
+                "source": f"Auto-scanned: {msg}",
+                "distance_km": round(data["distance_m"] / 1000, 2),
+                "duration_minutes": round(data["duration_seconds"] / 60, 1),
+                "completed_at": data.get("ended_at"),
+            }
+            return _record(log_file, date_str, workout_data, on_ingested)
+        return self._try_fill_walks(date_str, walks, log_file, on_ingested)
 
     @staticmethod
-    def _try_fill_day(
+    def _try_fill_walks(
         date_str: str,
-        activities: list[dict[str, Any]],
+        walks: list[dict[str, Any]],
         log_file: Path,
         on_ingested: OnIngestedCallback | None,
     ) -> bool:
-        """Append the day's activity as its RunnerUp workout, once it adds up.
+        """Append the day's walking as its RunnerUp workout, once it adds up.
 
-        One rule for runs and walks alike (see :mod:`screen_locker._walk_tcx`):
-        the day's activities are summed, never judged one file at a time. They
-        share the ``runnerup_verified:{date}`` slot, so a walk and a run on
-        one day are one RunnerUp credit. ``activity: walking`` is kept for the
-        phone's history display only; it never decides credit.
+        Same type and so the same ``runnerup_verified:{date}`` slot as a run:
+        a walk and a run on one day are one RunnerUp credit, exactly as two
+        runs already were.
         """
-        if not activities:
+        if not walks:
             return False
-        day = activity_day(activities)
+        day = walk_day(walks)
         if not day.qualifies:
             _logger.warning(
-                "RunnerUp activity for %s does not count yet: %s",
+                "RunnerUp walks for %s do not count yet: %s",
                 date_str,
-                activity_shortfall(day),
+                walk_shortfall(day),
             )
             return False
-        workout_data: dict[str, Any] = {
+        workout_data = {
             "type": "runnerup_verified",
+            "activity": "walking",
             "source": f"Auto-scanned: {day.message()}",
             "distance_km": round(day.distance_km, 2),
             "duration_minutes": round(day.moving_minutes, 1),
             "completed_at": day.completed_at,
         }
-        if day.all_walks:
-            workout_data["activity"] = "walking"
         return _record(log_file, date_str, workout_data, on_ingested)
 
     def _scan_and_fill_week_runnerup(

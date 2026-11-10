@@ -19,7 +19,7 @@ const int kMaxCreditGapSeconds = 30;
 
 /// A pair slower than this is standing still, not moving.
 ///
-/// Mirrors `MIN_MOVING_SPEED_MPS` on the PC.
+/// Mirrors the lower bound of `WALK_SPEED_MPS` on the PC.
 const double kMinMovingSpeedMps = 0.5;
 
 /// Speed cap above which a fix is a GPS jump, 25 km/h for a run.
@@ -28,9 +28,7 @@ const double kRunningMaxSpeedMps = 25 / 3.6;
 /// Speed cap above which a fix is a GPS jump, 8 km/h for a walk.
 const double kWalkingMaxSpeedMps = 8 / 3.6;
 
-/// The jump cap for [sport]. Display only: the PC's cap is 25 km/h for every
-/// sport (`MAX_MOVING_SPEED_MPS`), so the walking cap here can show less than
-/// the PC credits, never more.
+/// The jump cap for [sport].
 double maxSpeedMps(RunSport sport) => switch (sport) {
   RunSport.running => kRunningMaxSpeedMps,
   RunSport.walking => kWalkingMaxSpeedMps,

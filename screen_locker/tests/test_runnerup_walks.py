@@ -116,31 +116,26 @@ class TestVerifyToday:
         drop(verifier.folder, "08-00-00_Walking", tcx("Other", 60, "08:00", 0.1))
         assert self._verify(verifier) == (
             "too_short",
-            "Walking: 1 walk(s), 0.4 km, 0 min moving -- need 3.5+ km or 30+ min moving",
+            "Walking: 1 walk(s), 0.4 km, 0 min moving -- need 30+ min moving",
         )
 
-    def test_a_run_beside_short_walks_is_one_summed_day(
-        self, verifier: Verifier
-    ) -> None:
+    def test_a_run_still_verifies_beside_short_walks(self, verifier: Verifier) -> None:
         """A long enough run verifies even when the day also has short walks."""
         drop(verifier.folder, "07-00-00_Walking", tcx("Other", 10, "07:00"))
         drop(verifier.folder, "18-00-00_Running", tcx("Running", 45, "18:00", 2.5))
         result = self._verify(verifier)
         assert result is not None
         assert result[0] == "verified"
-        assert result[1].startswith("Activity: 2 activities")
+        assert result[1].startswith("Running")
 
-    def test_a_short_run_and_short_walks_share_one_shortfall(
-        self, verifier: Verifier
-    ) -> None:
-        """A too-short run and short walks are summed into one shortfall."""
+    def test_a_short_run_outranks_the_walk_shortfall(self, verifier: Verifier) -> None:
+        """A too-short run is the reported shortfall rather than the walks'."""
         drop(verifier.folder, "07-00-00_Walking", tcx("Other", 10, "07:00"))
         drop(verifier.folder, "18-00-00_Running", tcx("Running", 5, "18:00", 2.5))
         result = self._verify(verifier)
         assert result is not None
         assert result[0] == "too_short"
-        assert result[1].startswith("Activity: 2 activities")
-        assert "need 3.5+ km or 30+ min moving" in result[1]
+        assert result[1].startswith("Run was")
 
 
 class TestBackfill:
@@ -179,7 +174,7 @@ class TestBackfill:
         log = tmp_path / "log.json"
         with caplog.at_level(logging.WARNING):
             assert verifier._try_fill_runnerup_for_date(_DAY, log) is False
-        assert "does not count yet" in caplog.text
+        assert "do not count yet" in caplog.text
         assert not log.exists()
 
     def test_a_run_records_its_end_time(

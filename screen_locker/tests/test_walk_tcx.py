@@ -72,12 +72,10 @@ class TestTrackSummary:
         assert summary["activity_id"] == "A1"
         assert summary["ended_at"] == (_START + timedelta(seconds=600)).timestamp()
 
-    def test_standing_is_not_moving_but_a_run_is(self) -> None:
-        """Standing still adds no moving time; any speed above it does (runs)."""
+    def test_standing_and_vehicles_are_not_moving(self) -> None:
+        """Standing-still and vehicle speeds add no moving time."""
         assert not track_summary(walk(600, speed=0.1))["moving_seconds"]
-        assert track_summary(walk(600, speed=4.5))["moving_seconds"] == (
-            pytest.approx(600)
-        )
+        assert not track_summary(walk(600, speed=8.0))["moving_seconds"]
 
     def test_a_gps_dropout_earns_nothing(self) -> None:
         """Two points 100 s apart at walking pace: motion unseen, not counted."""
@@ -103,12 +101,7 @@ class TestTrackSummary:
     def test_no_points_has_no_end(self) -> None:
         """A track with no points has zero moving time and no end."""
         summary = track_summary(activity([]))
-        assert summary == {
-            "activity_id": "A1",
-            "moving_seconds": 0.0,
-            "track_distance_m": 0.0,
-            "ended_at": None,
-        }
+        assert summary == {"activity_id": "A1", "moving_seconds": 0.0, "ended_at": None}
 
 
 def leg(
@@ -117,7 +110,6 @@ def leg(
     """Build a per-walk summary dict like track_summary produces."""
     return {
         "activity_id": ident,
-        "walking": True,
         "moving_seconds": minutes * 60,
         "ended_at": ended,
         "distance_m": metres,
@@ -156,7 +148,7 @@ class TestWalkDay:
     def test_shortfall_says_what_is_missing(self) -> None:
         """The shortfall text states how much moving time is still needed."""
         text = walk_shortfall(walk_day([leg("a", 20, 1.0)]))
-        assert text.endswith("need 3.5+ km or 30+ min moving")
+        assert text.endswith("need 30+ min moving")
 
     def test_walks_share_the_one_workout_accept_bar(self) -> None:
         # Same advertised-30 / accept-25 bar as every other workout type.

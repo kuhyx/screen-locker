@@ -25,11 +25,8 @@ Implementing design_v2.md improvements.
   LOCAL time; `<Id>`/`<Time>` UTC `Z`; source tag `kuhy workout_app` in
   `Author/Name` + `Creator/Name`.
 - Trackpoints must be <= 30 s apart with cumulative `DistanceMeters`, or the PC
-  credits no moving time (`lib/services/run_math.dart` mirrors that rule).
-- Thresholds that decide credit live on the PC only, one rule for runs and
-  walks alike: a day's summed distance >= 3.5 km OR summed moving time >= 25 min (pairs
-  faster than 25 km/h count neither)
-  (`screen_locker/_walk_tcx.py`); sport and file-name suffix never matter.
+  credits no walking time (`lib/services/run_math.dart` mirrors that rule).
+- Thresholds that decide credit (3.5 km / 25 min) live on the PC only.
 - GPS sits behind `PositionSource` (`position_source*.dart`); imported
   RunnerUp runs are stored with `upload_state='never'` (table CHECK).
 - RunnerUp history import (`runnerup_importer.dart`): once, on app start, on

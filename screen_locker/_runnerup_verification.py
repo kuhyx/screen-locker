@@ -12,26 +12,31 @@ from typing import Any
 
 from screen_locker._constants import (
     MIN_RUN_DISTANCE_KM,
+    MIN_WORKOUT_DURATION_MINUTES,
     RUNNERUP_DISTANCE_TOLERANCE,
     RUNNERUP_EXPORT_DIRS,
     RUNNERUP_WEBDAV_DIRS,
+    WORKOUT_DURATION_ACCEPT_MINUTES,
 )
 from screen_locker._day import today_str
 from screen_locker._runnerup_backfill import RunnerUpBackfillMixin
 from screen_locker._runnerup_db import RunnerUpDbMixin
 from screen_locker._runnerup_tcx import RunnerUpTcxMixin
 from screen_locker._time_check import check_clock_skew
-from screen_locker._walk_tcx import (
-    SPORT_NAMES,
-    activity_day,
-    activity_shortfall,
-    distance_qualifies,
-)
+from screen_locker._walk_tcx import walk_day, walk_shortfall
 
 _logger = logging.getLogger(__name__)
 
-# Kept for importers; the labels live next to the one crediting rule.
-_SPORT_NAMES = SPORT_NAMES
+_SPORT_NAMES: dict[int, str] = {
+    0: "Running",
+    1: "Biking",
+    2: "Other",
+    3: "Orienteering",
+    4: "Walking",
+    5: "Treadmill",
+    6: "Gym",
+    7: "Stationary Bike",
+}
 
 # TCX uses sport name strings; map back to integer codes for unified validation.
 
@@ -116,46 +121,73 @@ class RunnerUpVerificationMixin(
             )
             return None
 
-        # One rule for the whole day, whatever the sport or file name: the
-        # day's activities are summed (see _walk_tcx), never judged one file
-        # at a time.
-        activities = [
-            data
-            for remote in exports
-            if (data := self._pull_and_parse_tcx(remote)) is not None
-        ]
-        if not activities:
-            return (
-                "not_verified",
-                "RunnerUp TCX export found but could not be read",
-            )
-        day = activity_day(activities)
-        if day.qualifies:
-            return "verified", day.message()
-        return "too_short", activity_shortfall(day)
+        # Try each file; return the best result (verified > validation error).
+        # Walks never qualify one file at a time: they are summed below.
+        best: tuple[str, str] | None = None
+        walks: list[dict[str, Any]] = []
+        for remote in exports:
+            data = self._pull_and_parse_tcx(remote)
+            if data is None:
+                continue
+            if data.get("walking"):
+                walks.append(data)
+                continue
+            status, msg = self._validate_runnerup_data(data)
+            if status == "verified":
+                return status, msg
+            if best is None:
+                best = (status, msg)
+        if walks:
+            day = walk_day(walks)
+            if day.qualifies:
+                return "verified", day.message()
+            best = best or ("too_short", walk_shortfall(day))
+
+        # All files found but none passed validation.
+        return best or (
+            "not_verified",
+            "RunnerUp TCX export found but could not be read",
+        )
 
     def _validate_runnerup_data(self, data: dict[str, Any]) -> tuple[str, str]:
         """Validate a RunnerUp activity against configured thresholds.
 
         Returns ``(status, message)`` following the same contract as
-        ``PhoneVerificationMixin._verify_phone_workout``. The one rule is
-        :func:`screen_locker._walk_tcx.activity_day`; a dict without
-        ``moving_seconds`` (the root-DB path) is judged by its duration.
+        ``PhoneVerificationMixin._verify_phone_workout``.
         """
-        day = activity_day([data])
-        if not day.qualifies:
-            return "too_short", activity_shortfall(day)
-        if day.distance_km < MIN_RUN_DISTANCE_KM and distance_qualifies(
-            day.distance_km
-        ):
+        sport = data["sport"]
+
+        duration_min = data["duration_seconds"] / 60
+        distance_km = data["distance_m"] / 1000
+
+        # Either criterion qualifies the run on its own (see _constants.py).
+        # Distance gets the GPS tolerance (a measurement correction); duration
+        # gets the shared hidden leeway (a deliberate concession). Different
+        # reasons, so they stay separate constants.
+        distance_ok = (
+            distance_km * (1 + RUNNERUP_DISTANCE_TOLERANCE) >= MIN_RUN_DISTANCE_KM
+        )
+        duration_ok = duration_min >= WORKOUT_DURATION_ACCEPT_MINUTES
+        if not distance_ok and not duration_ok:
+            msg = (
+                f"Run was {distance_km:.1f} km / {duration_min:.0f} min — need "
+                f"{MIN_RUN_DISTANCE_KM:g}+ km or {MIN_WORKOUT_DURATION_MINUTES}+ min"
+            )
+            return "too_short", msg
+        if distance_ok and distance_km < MIN_RUN_DISTANCE_KM:
             _logger.info(
                 "RunnerUp distance %.2f km is under the %.1f km minimum but "
                 "within %.0f%% GPS tolerance — accepted.",
-                day.distance_km,
+                distance_km,
                 MIN_RUN_DISTANCE_KM,
                 RUNNERUP_DISTANCE_TOLERANCE * 100,
             )
-        return "verified", day.message()
+
+        sport_name = _SPORT_NAMES.get(sport, str(sport))
+        return (
+            "verified",
+            f"{sport_name}: {distance_km:.1f} km in {duration_min:.0f} min",
+        )
 
     # ------------------------------------------------------------------
     # Main entry point
