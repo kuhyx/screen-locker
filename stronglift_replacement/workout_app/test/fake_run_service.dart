@@ -1,6 +1,8 @@
 /// A recording fake for the run foreground service.
 library;
 
+import 'package:audioplayers/audioplayers.dart';
+import 'package:workout_app/services/feedback_cues.dart';
 import 'package:workout_app/services/foreground_run_client.dart';
 
 /// Stands in for `flutter_foreground_task` on the run screen's side.
@@ -70,4 +72,25 @@ class FakeForegroundRunClient implements ForegroundRunClient {
 
   @override
   Future<void> stop() async => calls.add('stop');
+}
+
+/// Cues that touch neither the database nor a speaker, and count kilometres.
+class QuietCues extends FeedbackCues {
+  /// Creates cues over a player (needs the fake audio platform installed).
+  QuietCues() : super(AudioPlayer());
+
+  /// Kilometres announced.
+  final kilometres = <int>[];
+
+  /// How many times the finish cue fired.
+  int finishes = 0;
+
+  @override
+  Future<void> load() async {}
+
+  @override
+  Future<void> kilometreReached(int km) async => kilometres.add(km);
+
+  @override
+  Future<void> workoutFinished() async => finishes++;
 }

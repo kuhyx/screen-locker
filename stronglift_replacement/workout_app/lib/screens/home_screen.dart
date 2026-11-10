@@ -8,6 +8,7 @@ import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/sandbox/sandbox_log.dart';
 import 'package:workout_app/screens/history_screen.dart';
 import 'package:workout_app/screens/manual_workout_screen.dart';
+import 'package:workout_app/screens/run_screen.dart';
 import 'package:workout_app/screens/settings_screen.dart';
 import 'package:workout_app/screens/workout_screen.dart';
 import 'package:workout_app/services/done_today.dart';
@@ -153,6 +154,15 @@ class _HomeScreenState extends State<HomeScreen> {
           style: TextStyle(color: colorScheme.onSurface),
         ),
         actions: [
+          IconButton(
+            key: const Key('home_run'),
+            icon: Icon(
+              Icons.directions_run,
+              color: colorScheme.onSurface,
+              semanticLabel: 'run',
+            ),
+            onPressed: _openRun,
+          ),
           IconButton(
             icon: Icon(Icons.edit_note, color: colorScheme.onSurface),
             tooltip: 'Log manual workout',

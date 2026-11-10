@@ -14,6 +14,16 @@ extension _HomeScreenNavigation on _HomeScreenState {
     unawaited(_load());
   }
 
+  /// Pushes the GPS run screen, then reloads (a finished run can change
+  /// today's credit once the PC has it).
+  Future<void> _openRun() async {
+    SandboxLog.event('open run screen');
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const RunScreen()));
+    unawaited(_load());
+  }
+
   /// Pushes the workout, resuming the saved session when [resume].
   ///
   /// [auto] is the launch-time open: it replaces home without a transition,
