@@ -4,8 +4,8 @@ Every other earner publishes its credits as HMAC-signed rows in a ledger that
 ``earned_time`` reads (``first_credit_at``, ``credit_units``). This is the
 workout's: ``~/.local/share/workout_locker/ledger.json``, one row per
 
-* workout credit slot in ``log.json`` -- RunnerUp (a run, or the day's walks
-  summed), StrongLifts (phone or PC session), manual, any lock-screen or
+* workout credit slot in ``log.json`` -- RunnerUp (the day's runs and walks,
+  summed by one rule), StrongLifts (phone or PC session), manual, any lock-screen or
   verify path -- appended by the one log write chokepoint
   (``_log_mixin.write_signed_entry``), so no path can credit without it; and
 * declared rest day -- appended when it is declared.
