@@ -11,8 +11,14 @@ import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:workout_app/models/manual_workout.dart';
+import 'package:workout_app/models/run_record.dart';
+import 'package:workout_app/models/run_track.dart';
 import 'package:workout_app/sandbox/sandbox_log.dart';
+import 'package:workout_app/screens/run_detail_screen.dart';
 import 'package:workout_app/services/done_today.dart';
+import 'package:workout_app/services/map_tile_cache.dart';
+import 'package:workout_app/services/run_format.dart';
+import 'package:workout_app/services/run_history_merge.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/workout_sync_service.dart';
 import 'package:workout_app/ui/theme.dart';
@@ -23,6 +29,7 @@ part 'history_screen_charts.dart';
 part 'history_screen_data.dart';
 part 'history_screen_painter.dart';
 part 'history_screen_planned.dart';
+part 'history_screen_runs.dart';
 part 'history_screen_tiles.dart';
 
 const _kTotal = 'Total (all workouts)';
@@ -44,6 +51,7 @@ class HistoryScreen extends StatefulWidget {
     this.httpClient,
     this.firebaseFactory,
     this.clock,
+    this.tileProviderOpener = openOsmTileProvider,
   });
 
   /// Overrides the HTTP client used to read synced workouts (tests only).
@@ -56,6 +64,9 @@ class HistoryScreen extends StatefulWidget {
   /// defaults to [DateTime.now], injected by tests.
   final DateTime Function()? clock;
 
+  /// Where a run's map tiles come from; a fake in tests.
+  final TileProviderOpener tileProviderOpener;
+
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
 }
@@ -64,6 +75,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   List<Map<String, dynamic>> _rows = [];
   List<Map<String, dynamic>> _syncedRows = [];
   List<Map<String, dynamic>> _plannedRows = [];
+  List<RunRecord> _runs = [];
   bool _loading = true;
   String _selected = _kTotal;
   List<String> _exerciseNames = [];
@@ -103,13 +115,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
       // coverage:ignore-end
     }
     final today = dayKey((widget.clock ?? DateTime.now)());
-    final synced = _syncedOnly(remote, today);
+    final runs = await StorageService.instance.listRuns();
+    // The phone's own copy of a run (it has the map) replaces the PC's entry.
+    final synced = withoutLocalRuns(_syncedOnly(remote, today), runs);
     final planned = _plannedOnly(remote, today);
     if (mounted) {
       setState(() {
         _rows = rows;
         _syncedRows = synced;
         _plannedRows = planned;
+        _runs = runs;
         _exerciseNames = names;
         _selectedState = state;
         _loading = false;
@@ -137,8 +152,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
-  // ── Data helpers ──────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     final allNames = [_kTotal, ..._exerciseNames];
@@ -155,7 +168,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ? const Center(child: CircularProgressIndicator())
           // Synced and planned entries count too: a phone with no local
           // sessions must still list (and let the user delete) its plans.
-          : _rows.isEmpty && _syncedRows.isEmpty && _plannedRows.isEmpty
+          : _rows.isEmpty &&
+                _syncedRows.isEmpty &&
+                _plannedRows.isEmpty &&
+                _runs.isEmpty
           ? Center(
               child: Text(
                 'No workouts yet.',
@@ -180,28 +196,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
+  void _shiftMonth(int delta) => setState(() {
+    _calendarMonth = DateTime(
+      _calendarMonth.year,
+      _calendarMonth.month + delta,
+    );
+  });
+
   List<Widget> _buildTotalView() => [
     ..._plannedSection(),
+    if (_runs.isNotEmpty) ...[
+      _RunsStrip(runs: _runs, onOpen: _openRun),
+      const SizedBox(height: 16),
+    ],
     const _SectionLabel('TOTAL VOLUME (2-session rolling avg, kg)'),
     const SizedBox(height: 6),
     _WeightChart(points: _rollingAvg2(_totalVolumePoints(_rows))),
     const SizedBox(height: 16),
-    WorkoutCalendar(
-      workoutDates: _allWorkoutDates(_rows, _syncedRows),
-      month: _calendarMonth,
-      onPrevMonth: () => setState(() {
-        _calendarMonth = DateTime(
-          _calendarMonth.year,
-          _calendarMonth.month - 1,
-        );
-      }),
-      onNextMonth: () => setState(() {
-        _calendarMonth = DateTime(
-          _calendarMonth.year,
-          _calendarMonth.month + 1,
-        );
-      }),
-    ),
+    _calendar(_allWorkoutDates(_rows, _syncedRows, _runs)),
     const SizedBox(height: 16),
     const _SectionLabel('ALL SESSIONS'),
     const SizedBox(height: 8),
@@ -223,22 +235,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     const SizedBox(height: 6),
     _WeightChart(points: _exerciseWeightPoints(_rows, name)),
     const SizedBox(height: 16),
-    WorkoutCalendar(
-      workoutDates: _exerciseDates(_rows, name),
-      month: _calendarMonth,
-      onPrevMonth: () => setState(() {
-        _calendarMonth = DateTime(
-          _calendarMonth.year,
-          _calendarMonth.month - 1,
-        );
-      }),
-      onNextMonth: () => setState(() {
-        _calendarMonth = DateTime(
-          _calendarMonth.year,
-          _calendarMonth.month + 1,
-        );
-      }),
-    ),
+    _calendar(_exerciseDates(_rows, name)),
     const SizedBox(height: 16),
     _SectionLabel(name.toUpperCase()),
     const SizedBox(height: 8),

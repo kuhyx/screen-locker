@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:workout_app/screens/history_screen.dart';
+import 'package:workout_app/services/map_tile_cache.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/ui/theme.dart';
 
@@ -35,12 +36,14 @@ Widget wrapHistory({
   http.Client? httpClient,
   Future<FirebaseRestClient?> Function()? firebaseFactory,
   DateTime Function()? clock,
+  TileProviderOpener? tileProviderOpener,
 }) => MaterialApp(
   theme: buildAppTheme(),
   home: HistoryScreen(
     httpClient: httpClient,
     firebaseFactory: firebaseFactory ?? () async => null,
     clock: clock,
+    tileProviderOpener: tileProviderOpener ?? openOsmTileProvider,
   ),
 );
 
