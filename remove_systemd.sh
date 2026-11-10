@@ -17,6 +17,8 @@ UNITS=(
 	"earner-bonus.service"
 	"runnerup-watch.service"
 	"workout-poke.service"
+	"runnerup-retire.timer"
+	"runnerup-retire.service"
 )
 
 for unit in "${UNITS[@]}"; do
