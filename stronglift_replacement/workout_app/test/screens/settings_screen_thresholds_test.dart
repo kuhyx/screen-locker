@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sync_settings_ui/sync_settings_ui.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/workout_plan.dart';
 import 'package:workout_app/screens/settings_screen.dart';
@@ -105,9 +106,9 @@ void main() {
     await tester.tap(iconLabeled('Sync settings'));
     await tester.pumpAndSettle();
 
-    // The shared package's own screen -- its AppBar title, not this app's.
-    expect(find.text('Sync settings'), findsOneWidget);
-    expect(find.text('Firebase sync'), findsWidgets);
+    // The shared package's own screen (text-free since sync_settings_ui 0.7.0,
+    // so it is found by type, not by its old AppBar title).
+    expect(find.byType(SyncSettingsScreen), findsOneWidget);
   });
 
   testWidgets('opening Advanced sync (GitHub) pushes the app-local screen', (
