@@ -37,6 +37,12 @@ SPORT_LABELS: dict[str, str] = {
     SPORT_TABLE_TENNIS: "Table tennis",
     SPORT_OTHER: "Other",
 }
+# What the form paints for each sport (textgate); SPORT_LABELS stays the
+# radio value and the data, never painted.
+SPORT_GLYPHS: dict[str, str] = {
+    SPORT_TABLE_TENNIS: "◍",
+    SPORT_OTHER: "✱",
+}
 
 
 def _today_iso() -> str:
@@ -133,12 +139,16 @@ def budget_summary(
     *,
     today: str | None = None,
 ) -> str:
-    """One-line UI summary string for the manual-workout budget."""
+    """One-line UI summary of the manual-workout budget: glyph and numbers.
+
+    ``≡ used/7-day budget · used/30-day budget`` (textgate; was
+    ``Manual: 0/2w · 0/10m``). The shorter window always comes first.
+    """
     week = count_in_window(log_file, 7, today=today)
     month = count_in_window(log_file, 30, today=today)
     return (
-        f"Manual: {week}/{MANUAL_WORKOUT_BUDGET_PER_7_DAYS}w · "
-        f"{month}/{MANUAL_WORKOUT_BUDGET_PER_30_DAYS}m"
+        f"≡ {week}/{MANUAL_WORKOUT_BUDGET_PER_7_DAYS} · "
+        f"{month}/{MANUAL_WORKOUT_BUDGET_PER_30_DAYS}"
     )
 
 

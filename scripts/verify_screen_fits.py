@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING
 
 from gatelock import LockConfig, measure_fit, report_fit
 
-from screen_locker._constants import MANUAL_WORKOUT_REFLECTION_MIN_CHARS
+from screen_locker._manual_workout_date import REJECTED_GLYPH
 from screen_locker._manual_workout_dialog import ManualWorkoutDialogMixin
 from screen_locker._surface_group import FrameGroup
 from screen_locker._ui_flows import UIFlowsMixin
@@ -147,12 +147,7 @@ class ScreenHost(
         not fitting.
         """
         self._show_manual_workout_form()
-        self._mw_error_label.config(
-            text=(
-                "Start time must look like HH:MM, and every reflection needs "
-                f"at least {MANUAL_WORKOUT_REFLECTION_MIN_CHARS} characters."
-            )
-        )
+        self._mw_error_label.config(text=REJECTED_GLYPH)
 
     def paint_sick_refused(self) -> None:
         """Paint the screen shown when today cannot be marked sick."""

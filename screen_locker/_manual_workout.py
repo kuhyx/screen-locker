@@ -32,6 +32,7 @@ from screen_locker._manual_workout_checks import (
 from screen_locker._manual_workout_types import (
     MANUAL_WORKOUT_TYPE,
     SPORT_CHOICES,
+    SPORT_GLYPHS,
     SPORT_LABELS,
     SPORT_OTHER,
     SPORT_TABLE_TENNIS,
@@ -44,6 +45,7 @@ from screen_locker._manual_workout_types import (
 __all__ = [
     "MANUAL_WORKOUT_TYPE",
     "SPORT_CHOICES",
+    "SPORT_GLYPHS",
     "SPORT_LABELS",
     "SPORT_OTHER",
     "SPORT_TABLE_TENNIS",

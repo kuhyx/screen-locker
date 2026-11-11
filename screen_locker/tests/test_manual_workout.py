@@ -163,8 +163,11 @@ class TestBudgetSummary:
         log_file = tmp_path / "log.json"
         _write_logs(log_file, {"2026-07-04": "manual_workout"})
         summary = budget_summary(log_file, today=_TODAY)
-        assert "Manual:" in summary
-        assert "1/" in summary
+        # Glyph + used/7-day budget · used/30-day budget, no words.
+        assert summary == (
+            f"≡ 1/{MANUAL_WORKOUT_BUDGET_PER_7_DAYS} · "
+            f"1/{MANUAL_WORKOUT_BUDGET_PER_30_DAYS}"
+        )
 
 
 _TT_DEFAULT = ManualWorkoutDraft(

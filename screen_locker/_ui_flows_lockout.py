@@ -7,8 +7,10 @@ Split out of :mod:`screen_locker._ui_flows` to keep every file under the
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
+from screen_locker import _glyphs as g
 from screen_locker._constants import (
     NO_PHONE_EXTRA_LOCKOUT_SECONDS,
     PHONE_PENALTY_DELAY_DEMO,
@@ -17,6 +19,8 @@ from screen_locker._constants import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+_logger = logging.getLogger(__name__)
 
 
 class LockoutFlowMixin:
@@ -27,10 +31,14 @@ class LockoutFlowMixin:
     # ------------------------------------------------------------------
 
     def lockout(self) -> None:
-        """Display lockout screen with countdown timer."""
+        """Display lockout screen with countdown timer.
+
+        Was "Go work out! Locked for N seconds": the barbell in the danger
+        colour over the seconds counting down.
+        """
         self.clear_container()
         self.lockout_label = self._label(
-            f"Go work out!\nLocked for {self.lockout_time} seconds",
+            g.LIFT,
             role="display",
             scale=1.5,
             color=self._colors.palette.danger,
@@ -61,7 +69,13 @@ class LockoutFlowMixin:
     def _show_phone_penalty(
         self, message: str, *, on_done: Callable[[], None] | None = None
     ) -> None:
-        """Show penalty countdown when phone verification is unavailable."""
+        """Show penalty countdown when phone verification is unavailable.
+
+        Was "Cannot Verify Workout", the reason, and "Connect phone via ADB
+        to skip this wait, or wait for the penalty timer". Now the phone glyph
+        crossed out over the seconds left; the reason goes to the log.
+        """
+        _logger.warning("Phone check unavailable, penalty wait: %s", message)
         self.clear_container()
         self._phone_penalty_done_fn: Callable[[], None] = (
             on_done
@@ -80,17 +94,10 @@ class LockoutFlowMixin:
             else base_delay + NO_PHONE_EXTRA_LOCKOUT_SECONDS
         )
         self._label(
-            "Cannot Verify Workout",
+            f"{g.PHONE}{g.FAIL}",
             role="display",
             color=self._colors.palette.warning,
             pad="md",
-        )
-        self._text(message, color=self._colors.palette.warning)
-        self._text(
-            "Connect phone via ADB to skip this wait,\n"
-            "or wait for the penalty timer.\n\n"
-            "Note: Phone must be rooted and StrongLifts installed.",
-            role="body",
         )
         self.phone_penalty_remaining = delay
         self.phone_penalty_label = self._label(

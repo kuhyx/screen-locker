@@ -11,10 +11,12 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date
+import logging
 from typing import TYPE_CHECKING
 
 import earned_time
 
+from screen_locker import _glyphs as g
 from screen_locker._day import today_str
 from screen_locker._earned import extra_minutes, span
 from screen_locker._status_data import gather_status
@@ -27,6 +29,9 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from screen_locker._workout_credit import WorkoutCreditResult
+
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -73,7 +78,9 @@ def _backfill_week_and_apply_bonus(verifier: ScreenLocker) -> str | None:
     workout above the weekly minimum); it is a separate source with its own
     dedup and is out of scope for the RunnerUp credit fix.
 
-    Returns a human-readable summary if anything was filled, else ``None``.
+    Returns a glyph summary if anything was filled, else ``None``:
+    ``↻●━━● +N`` and, with a bonus, `` ⏻ +1h`` (textgate; was "Auto-filled
+    N workouts from earlier this week. +1h shutdown time.").
     """
     prev_count = count_weekly_workouts(verifier.log_file)
     filled = verifier._scan_and_fill_week_runnerup(
@@ -93,10 +100,9 @@ def _backfill_week_and_apply_bonus(verifier: ScreenLocker) -> str | None:
     filled += sl_filled
     if not filled:
         return None
-    plural = "workout" if filled == 1 else "workouts"
-    message = f"Auto-filled {filled} {plural} from earlier this week."
+    message = f"{g.RETRY}{g.LIFT} +{filled}"
     if bonus > 0:
-        message += f" +{span(bonus)} shutdown time."
+        message += f" {g.SHUTDOWN} +{span(bonus)}"
     return message
 
 
@@ -184,10 +190,8 @@ class PhoneCheckMixin:
                 if outcome.credited_type == "runnerup_verified"
                 else outcome.phone_message
             )
-            source_label = (
-                "RunnerUp"
-                if outcome.credited_type == "runnerup_verified"
-                else "StrongLifts"
+            source_glyph = (
+                g.RUN if outcome.credited_type == "runnerup_verified" else g.LIFT
             )
             verifier = self.verifier_factory(self.log_file)
             verifier.workout_data = {
@@ -196,24 +200,27 @@ class PhoneCheckMixin:
             }
             credit = verifier._apply_workout_credit()
             self._credit_message = "\n".join(
-                self._credit_result_lines(f"{source_label} verified: {message}", credit)
+                self._credit_result_lines(f"{source_glyph} {g.OK}", credit)
             )
         elif outcome.week_fill_message is not None:
             self._credit_message = outcome.week_fill_message
         else:
+            # The reasons are logged; the window shows the failure glyphs.
+            _logger.warning(
+                "Check Phone found nothing: StrongLifts: %s · RunnerUp: %s",
+                outcome.phone_message,
+                outcome.runnerup_message,
+            )
             self._phone_check_result = (
                 outcome.status,
-                (
-                    f"StrongLifts: {outcome.phone_message} · "
-                    f"RunnerUp: {outcome.runnerup_message}"
-                ),
+                f"{g.LIFT}{g.FAIL} {g.RUN}{g.FAIL}",
             )
         self.render(gather_status())
 
     def _credit_result_lines(
         self, header: str, credit: WorkoutCreditResult
     ) -> list[str]:
-        """Human-readable outcome lines for an applied workout credit.
+        """Glyph outcome lines for an applied workout credit (no words).
 
         Shared by the "Check Phone" verify path and the "Log Manual Workout"
         path so both report the reward identically: the base +2h shutdown push
@@ -223,12 +230,11 @@ class PhoneCheckMixin:
         """
         lines = [header]
         if credit.already_counted_today:
-            lines.append("(Already recorded today — no additional credit.)")
+            # Was "(Already recorded today — no additional credit.)".
+            lines.append(f"{g.OK}{g.OK} {g.GIFT}0")
             return lines
         if credit.shutdown_adjusted:
-            lines.append("Shutdown time +2h later!")
+            lines.append(f"{g.SHUTDOWN} {g.GIFT}{span(120)}")
         if credit.extra_bonus_delta > 0:
-            lines.append(
-                f"Extra workout today! +{span(credit.extra_bonus_delta)} tonight"
-            )
+            lines.append(f"{g.LIFT} {g.GIFT}{span(credit.extra_bonus_delta)}")
         return lines

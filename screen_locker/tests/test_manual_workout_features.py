@@ -6,6 +6,7 @@ import pathlib
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+from screen_locker import _glyphs as g
 from screen_locker.tests.conftest import create_locker
 
 # The Dart mirror of the budget caps; read at test time so drift on
@@ -38,7 +39,7 @@ class TestShowRetryAndManualWorkoutBudget:
         ):
             locker._show_retry_and_sick("nope")
         button_texts = {c.kwargs.get("text") for c in mock_tk.Button.call_args_list}
-        assert "Log Manual Workout" in button_texts
+        assert g.FORM in button_texts
 
     def test_hides_button_when_budget_exhausted(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -52,9 +53,9 @@ class TestShowRetryAndManualWorkoutBudget:
         button_texts: set[str] = set()
         for call in mock_tk.Button.call_args_list:
             button_texts.add(call.kwargs.get("text", ""))
-        assert "Log Manual Workout" not in button_texts
+        assert g.FORM not in button_texts
         text_calls = [c.kwargs.get("text", "") for c in mock_tk.Label.call_args_list]
-        assert any("Manual-workout budget exhausted" in t for t in text_calls)
+        assert f"{g.FORM} {g.CLOSE}" in text_calls
 
 
 class TestOnManualWorkoutSaved:

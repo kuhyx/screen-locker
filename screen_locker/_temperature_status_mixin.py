@@ -15,8 +15,10 @@ writes to ``log.json``. Host class must provide:
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
+from screen_locker import _glyphs as g
 from screen_locker._constants import HEAT_SKIP_CITY, HEAT_SKIP_TEMP_THRESHOLD
 from screen_locker._temperature import HARD_TIMEOUT_SECONDS, submit_background
 
@@ -25,54 +27,45 @@ if TYPE_CHECKING:
 
     from screen_locker._temperature import TemperatureCheck
 
+_logger = logging.getLogger(__name__)
+
 
 class TemperatureStatusMixin:
     """Provides the background Warsaw-temperature fetch/poll/render."""
 
     def _section_temperature(self, parent: tk.Widget) -> None:
-        """Render the live Warsaw temperature.
+        """Render the live temperature against the heat-skip threshold.
 
         The same reading the real locker's heat-skip check would see,
-        fetched in the background.
+        fetched in the background. textgate: was "Warsaw Temperature" and a
+        sentence per state; now ``▲`` with the reading (or wait / clock-fail /
+        fail glyphs), danger-coloured with ``↷`` when it would heat-skip.
         """
         del parent
-        self._label("Warsaw Temperature", role="body", pad="sm")
         result = self._temp_result
+        palette = self._colors.palette
         if result is None:
-            self._text(
-                "Checking Warsaw temperature…",
-                role="caption",
-                color=self._colors.palette.muted,
-            )
+            self._text(f"{g.HEAT} {g.WAIT}", role="body", color=palette.muted)
             return
         if result.timed_out:
+            _logger.warning(
+                "Temperature check timed out after ~%ds", int(HARD_TIMEOUT_SECONDS)
+            )
             self._text(
-                f"Warsaw temperature check timed out after ~"
-                f"{int(HARD_TIMEOUT_SECONDS)}s — network may be down.",
-                role="caption",
-                color=self._colors.palette.warning,
+                f"{g.HEAT} {g.CLOCK}{g.FAIL}", role="body", color=palette.warning
             )
             return
         if result.temp_celsius is None:
-            self._text(
-                "Warsaw temperature check failed (network/API error).",
-                role="caption",
-                color=self._colors.palette.warning,
-            )
+            self._text(f"{g.HEAT} {g.FAIL}", role="body", color=palette.warning)
             return
         hot = result.temp_celsius >= HEAT_SKIP_TEMP_THRESHOLD
+        relation = "≥" if hot else "<"
         self._text(
-            f"Warsaw: {result.temp_celsius:.0f}°C (heat-skip threshold "
-            f"{HEAT_SKIP_TEMP_THRESHOLD}°C)",
-            role="caption",
-            color=self._colors.palette.warning if hot else self._colors.palette.muted,
+            f"{g.HEAT} {result.temp_celsius:.0f}°C {relation} "
+            f"{HEAT_SKIP_TEMP_THRESHOLD}°C" + (f" {g.SKIP}" if hot else ""),
+            role="body",
+            color=palette.danger if hot else palette.muted,
         )
-        if hot:
-            self._text(
-                "Would trigger heat-skip today.",
-                role="caption",
-                color=self._colors.palette.danger,
-            )
 
     def _start_temperature_check(self) -> None:
         """Submit a background Warsaw-temperature fetch and start polling it.

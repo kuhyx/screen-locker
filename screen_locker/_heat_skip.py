@@ -56,10 +56,8 @@ def build_heat_skip_content(
 
     tk.Label(
         outer,
-        text=(
-            f"{HEAT_SKIP_CITY}  {temp:.0f}\u00b0C"
-            f" \u2265 {HEAT_SKIP_TEMP_THRESHOLD}\u00b0C"
-        ),
+        # The city name was dropped too: the reading is what matters.
+        text=f"{temp:.0f}\u00b0C \u2265 {HEAT_SKIP_TEMP_THRESHOLD}\u00b0C",
         font=_COLORS.font("body", family=_FONT),
         bg=_COLORS.palette.bg,
         fg=_COLORS.palette.warning,

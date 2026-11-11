@@ -8,12 +8,18 @@ from unittest.mock import MagicMock, patch
 
 from screen_locker._day import today_str
 from screen_locker._manual_schedule import ScheduleResult
-from screen_locker._manual_workout_date import BACK_GLYPH, SCHEDULED_GLYPH
+from screen_locker._manual_workout_date import (
+    BACK_GLYPH,
+    REJECTED_GLYPH,
+    SCHEDULED_GLYPH,
+)
 from screen_locker.tests import test_manual_workout_dialog_part2 as dialog_tests
 from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    import pytest
 
 _MOD = "screen_locker._manual_workout_date"
 
@@ -31,6 +37,11 @@ def _locker(mock_tk: MagicMock, tmp_path: Path, day: str) -> MagicMock:
     locker._mw_error_label = MagicMock()
     locker._show_manual_workout_scheduled = MagicMock()
     return locker
+
+
+def _warned(caplog: pytest.LogCaptureFixture) -> list[str]:
+    """Every WARNING message logged during the test."""
+    return [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
 
 
 class TestBudgetClosed:
@@ -67,25 +78,35 @@ class TestHandledByDate:
         """An unparsable date shows an error and schedules nothing."""
         locker = _locker(mock_tk, tmp_path, "soon")
         assert locker._mw_handled_by_date(MagicMock()) is True
-        locker._mw_error_label.config.assert_called_once()
+        locker._mw_error_label.config.assert_called_once_with(text=REJECTED_GLYPH)
         locker._show_manual_workout_scheduled.assert_not_called()
 
     def test_a_past_date_shows_the_error(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """A date before today is rejected with a message mentioning the past."""
+        """A past date shows the fail mark; the reason (the past) is logged."""
         locker = _locker(mock_tk, tmp_path, _plus(-1))
         assert locker._mw_handled_by_date(MagicMock()) is True
-        assert "past" in locker._mw_error_label.config.call_args.kwargs["text"]
+        locker._mw_error_label.config.assert_called_once_with(text=REJECTED_GLYPH)
+        assert any("past" in m for m in _warned(caplog))
 
     def test_today_over_budget_shows_the_error(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Today's date with no budget left shows the budget error and is handled."""
         locker = _locker(mock_tk, tmp_path, today_str())
         with patch(f"{_MOD}.budget_error", return_value="budget full"):
             assert locker._mw_handled_by_date(MagicMock()) is True
-        locker._mw_error_label.config.assert_called_once_with(text="budget full")
+        locker._mw_error_label.config.assert_called_once_with(text=REJECTED_GLYPH)
+        assert any("budget full" in m for m in _warned(caplog))
 
     def test_today_within_budget_is_left_to_the_host(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -97,14 +118,19 @@ class TestHandledByDate:
         locker._mw_error_label.config.assert_not_called()
 
     def test_a_refused_future_entry_shows_why(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """A future entry the scheduler refuses shows its reason and no confirmation."""
+        """A refused future entry shows the fail mark, logs why, confirms nothing."""
         locker = _locker(mock_tk, tmp_path, _plus(2))
         refused = ScheduleResult(scheduled=False, record_id="r", reason="no room")
         with patch(f"{_MOD}.schedule_future_workout", return_value=refused):
             assert locker._mw_handled_by_date(MagicMock()) is True
-        locker._mw_error_label.config.assert_called_once_with(text="no room")
+        locker._mw_error_label.config.assert_called_once_with(text=REJECTED_GLYPH)
+        assert any("no room" in m for m in _warned(caplog))
         locker._show_manual_workout_scheduled.assert_not_called()
 
     def test_a_scheduled_future_entry_shows_the_confirmation(
@@ -117,7 +143,7 @@ class TestHandledByDate:
         with patch(f"{_MOD}.schedule_future_workout", return_value=done) as schedule:
             assert locker._mw_handled_by_date(draft) is True
         schedule.assert_called_once_with(locker.log_file, draft, _plus(2))
-        locker._show_manual_workout_scheduled.assert_called_once_with("scheduled")
+        locker._show_manual_workout_scheduled.assert_called_once_with(_plus(2))
         locker._mw_error_label.config.assert_not_called()
 
 
@@ -135,7 +161,7 @@ class TestScheduledConfirmation:
         object.__setattr__(locker, "_on_manual_workout_cancelled", cancelled)
         mock_tk.Button.reset_mock()
 
-        locker._show_manual_workout_scheduled("scheduled for tomorrow")
+        locker._show_manual_workout_scheduled("2026-11-13")
 
         buttons = {
             c.kwargs.get("text"): c.kwargs for c in mock_tk.Button.call_args_list
@@ -146,7 +172,7 @@ class TestScheduledConfirmation:
         saved.assert_not_called()
         texts = [c.kwargs.get("text", "") for c in mock_tk.Label.call_args_list]
         assert SCHEDULED_GLYPH in texts
-        assert any("scheduled for tomorrow" in t for t in texts)
+        assert "2026-11-13" in texts
 
 
 class TestSubmitRoutesThroughTheDateRules:

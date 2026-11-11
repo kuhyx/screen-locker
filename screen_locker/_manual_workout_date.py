@@ -13,6 +13,7 @@ the form shows a "scheduled" screen that returns to the host's cancelled hook
 
 from __future__ import annotations
 
+import logging
 import tkinter as tk
 from typing import TYPE_CHECKING
 
@@ -34,6 +35,10 @@ SCHEDULED_GLYPH = "✓"
 """Heading of the scheduled screen (success colour)."""
 BACK_GLYPH = "↩"
 """The scheduled screen's only button: back to the form's host."""
+REJECTED_GLYPH = "✗"
+"""Form rejected (danger); was the validator's sentence (now logged)."""
+
+_logger = logging.getLogger(__name__)
 
 
 class ManualWorkoutDateMixin:
@@ -87,19 +92,29 @@ class ManualWorkoutDateMixin:
         if error is None and not future:
             error = budget_error(self.log_file, date)
         if error is not None:
-            self._mw_error_label.config(text=error)
+            self._mw_reject(error)
             return True
         if not future:
             return False
         result = schedule_future_workout(self.log_file, draft, date)
         if not result.scheduled:
-            self._mw_error_label.config(text=result.reason)
+            self._mw_reject(result.reason)
             return True
-        self._show_manual_workout_scheduled(result.reason)
+        _logger.info("Manual workout scheduled for %s: %s", date, result.reason)
+        self._show_manual_workout_scheduled(date)
         return True
 
-    def _show_manual_workout_scheduled(self, reason: str) -> None:
-        """Confirm a future entry and go back; it does NOT unlock anything."""
+    def _mw_reject(self, reason: str) -> None:
+        """Show the form's fail mark; the reason goes to the log (textgate)."""
+        _logger.warning("Manual workout date/budget rejected: %s", reason)
+        self._mw_error_label.config(text=REJECTED_GLYPH)
+
+    def _show_manual_workout_scheduled(self, date: str) -> None:
+        """Confirm a future entry and go back; it does NOT unlock anything.
+
+        Shows the scheduled *date* (content) under the tick; the scheduler's
+        sentence is logged by the caller.
+        """
         self.clear_container()
         # Was "✓ Workout Scheduled" + "Nothing is credited today. It counts by
         # itself on that date, and can be deleted in the phone app until
@@ -111,7 +126,7 @@ class ManualWorkoutDateMixin:
             color=self._colors.palette.success,
             pad="lg",
         )
-        self._text(reason, role="subtitle", color=self._colors.palette.success)
+        self._text(date, role="subtitle", color=self._colors.palette.success)
         row = self._button_row()
         self._button(
             row,

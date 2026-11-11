@@ -23,7 +23,11 @@ from screen_locker import _manual_workout
 from screen_locker._constants import (
     MANUAL_WORKOUT_REFLECTION_MIN_CHARS,
 )
-from screen_locker._manual_workout_date import BACK_GLYPH, ManualWorkoutDateMixin
+from screen_locker._manual_workout_date import (
+    BACK_GLYPH,
+    REJECTED_GLYPH,
+    ManualWorkoutDateMixin,
+)
 from screen_locker._manual_workout_sport_fields import ManualWorkoutSportFieldsMixin
 from screen_locker._manual_workout_widgets import ManualWorkoutFormWidgetsMixin
 
@@ -94,24 +98,23 @@ class ManualWorkoutDialogMixin(
         self._mw_rpe_var = tk.IntVar(value=5)
         self._mw_text_widgets: dict[str, tk.Text] = {}
 
-        self._mw_section(form, "Basics")
+        # textgate: every prompt is a glyph; optional fields are in
+        # parentheses; section headings are plain rules. The old prompts were
+        # the Basics heading, start and end time, the location heading and
+        # name, how you got there, the cost in PLN, the optional reservation
+        # phone number, and the activity-details heading.
+        self._mw_section(form)
         self._mw_sport_row(form)
-        self._mw_vars["start_time"] = self._mw_entry(
-            form, "Start time (HH:MM):", focus=True
-        )
-        self._mw_vars["end_time"] = self._mw_entry(form, "End time (HH:MM):")
+        self._mw_vars["start_time"] = self._mw_entry(form, "◷▶", focus=True)
+        self._mw_vars["end_time"] = self._mw_entry(form, "◷■")
 
-        self._mw_section(form, "Location & logistics")
-        self._mw_vars["location_name"] = self._mw_entry(form, "Location name:")
-        self._mw_vars["transport_method"] = self._mw_entry(
-            form, "How did you get there?"
-        )
-        self._mw_vars["cost"] = self._mw_entry(form, "Cost (e.g. 40 PLN):")
-        self._mw_vars["reservation_phone"] = self._mw_entry(
-            form, "Reservation phone number (if booked by phone, optional):"
-        )
+        self._mw_section(form)
+        self._mw_vars["location_name"] = self._mw_entry(form, "⌖")
+        self._mw_vars["transport_method"] = self._mw_entry(form, "⇄")
+        self._mw_vars["cost"] = self._mw_entry(form, "¤")
+        self._mw_vars["reservation_phone"] = self._mw_entry(form, "(▯#)")
 
-        self._mw_section(form, "Activity details")
+        self._mw_section(form)
         # Both sport sub-frames occupy the same full-width grid slot; only the
         # selected one is shown (see _on_mw_sport_changed).
         act_row = self._mw_next_full_row(form)
@@ -131,33 +134,22 @@ class ManualWorkoutDialogMixin(
         self._build_table_tennis_fields(self._mw_tt_frame)
         self._build_other_sport_fields(self._mw_other_frame)
         self._mw_rpe_row(form)
-        self._mw_vars["techniques_practiced"] = self._mw_entry(
-            form, "Techniques/focus areas practiced (optional):"
-        )
-        self._mw_vars["warm_up_minutes"] = self._mw_entry(
-            form, "Warm-up duration (optional):"
-        )
-        self._mw_vars["pain_or_injury"] = self._mw_entry(
-            form, "Pain or injury notes (optional, default none):"
-        )
+        # Was "Techniques/focus areas practiced (optional):", "Warm-up
+        # duration (optional):", "Pain or injury notes (optional, ...)".
+        self._mw_vars["techniques_practiced"] = self._mw_entry(form, "(◎)")
+        self._mw_vars["warm_up_minutes"] = self._mw_entry(form, "(∿)")
+        self._mw_vars["pain_or_injury"] = self._mw_entry(form, "(↯)")
         self._on_mw_sport_changed(
             _manual_workout.SPORT_LABELS[_manual_workout.SPORT_TABLE_TENNIS]
         )
 
-        self._mw_section(form, "Reflection")
-        self._mw_text_widgets["went_well"] = self._mw_textbox(
-            form,
-            f"What went well (min {MANUAL_WORKOUT_REFLECTION_MIN_CHARS} chars):",
-        )
-        self._mw_text_widgets["to_improve"] = self._mw_textbox(
-            form,
-            f"What to improve (min {MANUAL_WORKOUT_REFLECTION_MIN_CHARS} chars):",
-        )
-        self._mw_text_widgets["overall_feeling"] = self._mw_textbox(
-            form,
-            "Overall feeling about the session "
-            f"(min {MANUAL_WORKOUT_REFLECTION_MIN_CHARS} chars):",
-        )
+        # Was "Reflection", "What went well / What to improve / Overall
+        # feeling about the session (min N chars):".
+        self._mw_section(form)
+        least = f"≥{MANUAL_WORKOUT_REFLECTION_MIN_CHARS}"
+        self._mw_text_widgets["went_well"] = self._mw_textbox(form, f"+ {least}")
+        self._mw_text_widgets["to_improve"] = self._mw_textbox(form, f"↑ {least}")
+        self._mw_text_widgets["overall_feeling"] = self._mw_textbox(form, f"~ {least}")
 
         self._mw_error_label = self._text(
             "", role="label", color=self._colors.palette.danger, pad="xs"
@@ -219,7 +211,9 @@ class ManualWorkoutDialogMixin(
         )
         error = _manual_workout.validate_manual_workout(draft)
         if error is not None:
-            self._mw_error_label.config(text=error)
+            # textgate: the reason is logged; the form shows the fail mark.
+            _logger.warning("Manual workout form rejected: %s", error)
+            self._mw_error_label.config(text=REJECTED_GLYPH)
             return
         if self._mw_handled_by_date(draft):
             return

@@ -6,14 +6,19 @@ mixins, so the class's public surface is unchanged.
 
 Every method here is display-only: it reads the snapshot it is handed and
 paints widgets. Nothing in this module writes to disk or reaches the network.
+
+textgate: no section has a heading or a sentence any more. Each is one or
+two lines of glyphs (``_glyphs``) and numbers, coloured by state. Weekdays
+are positions in a Mon..Sun row, not names.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from screen_locker import _glyphs as g
 from screen_locker._earned import hhmm
-from screen_locker._sync_status import format_sync_line, gather_sync_status
+from screen_locker._sync_status import gather_sync_status
 
 if TYPE_CHECKING:
     import tkinter as tk
@@ -30,56 +35,46 @@ if TYPE_CHECKING:
 class StatusSectionsMixin:
     """Renders each section of the status window from a snapshot."""
 
+    def _day_cell(self, day: DayStatus) -> str:
+        """One day as a glyph: its entries, sick, or an empty circle."""
+        if day.entry_types:
+            return g.entry_glyphs(day.entry_types)
+        return g.WEEK_SICK if day.is_sick_day else g.WEEK_EMPTY
+
     def _section_today(self, parent: tk.Widget, day: DayStatus) -> None:
-        """Render today's outcome."""
+        """Render today's outcome (was "✓ Today (Wed Nov 11): phone_verified")."""
         del parent
-        mark = "✓" if day.counted else ("😷" if day.is_sick_day else "—")
-        entry_str = ", ".join(day.entry_types) or (
-            "sick day" if day.is_sick_day else "no entry yet"
-        )
-        self._text(
-            f"{mark} Today ({day.label}): {entry_str}",
-            role="body",
+        mark = g.OK if day.counted else (g.SICK if day.is_sick_day else g.FAIL)
+        self._label(
+            f"{mark} {self._day_cell(day)}",
+            role="title",
             color=self._colors.palette.success
             if day.counted
             else self._colors.palette.warning,
         )
-        if day.source:
-            # Secondary provenance note on an already-shown entry -- a
-            # deliberately caption-sized exception to the 16px floor.
-            self._text(
-                day.source, role="caption", color=self._colors.palette.muted, pad="xs"
-            )
 
     def _section_week(self, parent: tk.Widget, week: WeeklySummary) -> None:
-        """Render this ISO week's per-day breakdown and totals."""
+        """Render this ISO week: dots + count, then one cell per day.
+
+        Was "This Week: 2/4", a "Mon Nov 09: no entry" line per day and "Need
+        2 more this week." / "1 above the weekly minimum!".
+        """
         del parent
-        self._label(
-            f"This Week: {week.counted_count}/{week.minimum}", role="body", pad="sm"
+        enough = week.remaining <= 0
+        self._text(
+            g.dots(week.counted_count, week.minimum),
+            role="title",
+            color=self._colors.palette.success
+            if enough
+            else self._colors.palette.warning,
+            pad="sm",
         )
-        for day in week.days:
-            mark = "✓" if day.counted else ("😷" if day.is_sick_day else "·")
-            entry_str = ", ".join(day.entry_types) or (
-                "sick day" if day.is_sick_day else "no entry"
-            )
-            self._text(
-                f"{mark} {day.label}: {entry_str}",
-                role="body",
-                color=self._colors.palette.muted,
-                pad="xs",
-            )
-        if week.remaining > 0:
-            self._text(
-                f"Need {week.remaining} more this week.",
-                role="body",
-                color=self._colors.palette.warning,
-            )
-        elif week.extra > 0:
-            self._text(
-                f"{week.extra} above the weekly minimum!",
-                role="body",
-                color=self._colors.palette.success,
-            )
+        self._text(
+            "  ".join(self._day_cell(day) for day in week.days),
+            role="body",
+            color=self._colors.palette.muted,
+            pad="xs",
+        )
 
     def _section_streak(
         self, parent: tk.Widget, streak: int, week_rewards: tuple[str, ...] = ()
@@ -87,29 +82,23 @@ class StatusSectionsMixin:
         """Render the consecutive 5+-workout-week streak and this week's reward.
 
         Display only, and exactly the stored values (``extra_benefits_state``):
-        a streak of 0 is said plainly, never padded or rounded up. Nothing here
-        grants time or relaxes a lock. The early-bird extension is not shown:
-        it no longer changes anything (wake-alarm owns early bird).
+        a streak of 0 is shown as 0, never padded or rounded up. Nothing here
+        grants time or relaxes a lock. Was "🔥 N-week streak (5+ workouts a
+        week)" / "No streak yet: ..." and the reward sentences.
         """
         del parent
-        self._label("Workout streak", role="body", pad="sm")
-        if streak > 0:
-            self._text(
-                f"🔥 {streak}-week streak (5+ workouts a week)",
-                role="body",
-                color=self._colors.palette.success,
-            )
-        else:
-            self._text(
-                "No streak yet: 5+ workouts in a week starts one.",
-                role="body",
-                color=self._colors.palette.muted,
-            )
+        self._text(
+            f"{g.STREAK * min(streak, 10)} {streak}" if streak else f"{g.STREAK} 0",
+            role="body",
+            color=self._colors.palette.success
+            if streak
+            else self._colors.palette.muted,
+        )
         for message in week_rewards:
             # A reset is news, not a celebration: it must not be painted green.
             lost = message.startswith("Streak reset")
             self._text(
-                message,
+                f"{g.STREAK}{g.FAIL}" if lost else f"{g.STREAK}{g.GIFT}",
                 role="body",
                 color=self._colors.palette.warning
                 if lost
@@ -119,32 +108,30 @@ class StatusSectionsMixin:
     def _section_lock_explanation(
         self, parent: tk.Widget, expl: LockExplanation
     ) -> None:
-        """Render why the lock did/didn't fire today, plus its evaluation trace."""
+        """Render whether the lock fired today and the stage that decided it.
+
+        Was "Why the lock did/didn't fire" over the stage's sentence.
+        """
         del parent
-        self._label("Why the lock did/didn't fire", role="body", pad="sm")
+        square = g.LOCK if expl.fired else g.UNLOCK
         self._text(
-            expl.reason,
-            role="body",
+            f"{square} {g.STAGE_GLYPH.get(expl.stage, '')}".rstrip(),
+            role="title",
             color=self._colors.palette.danger
             if expl.fired
             else self._colors.palette.success,
         )
         if expl.auto_upgrade.would_attempt:
-            self._text(
-                f"Pending auto-upgrade: {expl.auto_upgrade.reason}",
-                role="label",
-                color=self._colors.palette.warning,
-            )
+            self._text(g.RETRY, role="label", color=self._colors.palette.warning)
 
     def _section_manual_workout_budget(
         self, parent: tk.Widget, manual: ManualWorkoutBudgetStatus
     ) -> None:
-        """Render rolling manual-workout budget usage."""
+        """Render rolling manual-workout budget usage (7-day, then 30-day)."""
         del parent
-        self._label("Manual Workout Budget", role="body", pad="sm")
         self._text(
-            f"{manual.used_7d}/{manual.budget_7d} week · "
-            f"{manual.used_30d}/{manual.budget_30d} month",
+            f"{g.FORM} {manual.used_7d}/{manual.budget_7d} · "
+            f"{manual.used_30d}/{manual.budget_30d}",
             role="body",
             color=self._colors.palette.danger
             if manual.exhausted
@@ -152,7 +139,7 @@ class StatusSectionsMixin:
         )
 
     def _section_sync_backend(self, parent: tk.Widget) -> None:
-        """Render which backend this machine syncs through.
+        """Render whether this machine's sync is healthy, and its peer count.
 
         Read from local state only (see :mod:`screen_locker._sync_status`), so
         opening or refreshing the window never makes a network call. Coloured
@@ -162,9 +149,8 @@ class StatusSectionsMixin:
         """
         del parent
         status = gather_sync_status()
-        self._label("Sync backend", role="body", pad="sm")
         self._text(
-            format_sync_line(status),
+            f"{g.SYNC} {g.OK if status.healthy else g.FAIL} {status.peer_count}",
             role="body",
             color=self._colors.palette.muted
             if status.healthy
@@ -174,41 +160,25 @@ class StatusSectionsMixin:
     def _section_shutdown(
         self, parent: tk.Widget, shutdown: ShutdownProjection
     ) -> None:
-        """Render tonight's live config, rest-of-week, and next-week preview."""
+        """Render tonight's live config, rest-of-week, and next-week preview.
+
+        Was "Live config — Mon-Wed 21:00, Thu-Sun 22:00", "Rest of week: Mon
+        21:00, ...", "Next week (speculative): ..." and an explanation. Now
+        the times only, in day order: live config bold, the rest muted.
+        """
         del parent
-        self._label("Shutdown Time", role="body", pad="sm")
         if shutdown.tonight is not None:
             mon_wed, thu_sun, _morning = shutdown.tonight
-            self._text(
-                f"Live config — Mon-Wed {hhmm(mon_wed)}, Thu-Sun {hhmm(thu_sun)}",
-                role="body",
-            )
+            self._text(f"{g.SHUTDOWN} {hhmm(mon_wed)} · {hhmm(thu_sun)}", role="title")
         else:
             self._text(
-                "Live shutdown config unavailable.",
-                role="body",
+                f"{g.SHUTDOWN} {g.FAIL}",
+                role="title",
                 color=self._colors.palette.warning,
             )
-        # Rest-of-week/next-week/explanation are speculative annotations, not
-        # the section's primary content -- a deliberate caption-sized
-        # exception to the 16px floor, all sharing one muted tone instead of
-        # three unrelated ad hoc grays.
-        rest_line = ", ".join(
-            f"{d.label} {hhmm(d.minutes)}" for d in shutdown.rest_of_week
-        )
-        self._text(
-            f"Rest of week: {rest_line}",
-            role="caption",
-            color=self._colors.palette.muted,
-        )
-        next_line = ", ".join(
-            f"{d.label} {hhmm(d.minutes)}" for d in shutdown.next_week_preview
-        )
-        self._text(
-            f"Next week (speculative): {next_line}",
-            role="caption",
-            color=self._colors.palette.muted,
-        )
-        self._text(
-            shutdown.explanation, role="caption", color=self._colors.palette.muted
-        )
+        for days in (shutdown.rest_of_week, shutdown.next_week_preview):
+            self._text(
+                "  ".join(hhmm(d.minutes) for d in days),
+                role="caption",
+                color=self._colors.palette.muted,
+            )

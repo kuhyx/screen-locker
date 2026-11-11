@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import freedays
 import sickdays
 
+from screen_locker import _glyphs as g
 from screen_locker import _sick, _ui_flows_sick
 from screen_locker._auto_upgrade import AutoUpgradeMixin
 from screen_locker._compliance_predicates import is_sick_day_today
@@ -19,6 +20,8 @@ from screen_locker.tests.conftest import create_locker
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    import pytest
 
 
 def _button_texts(mock_tk: MagicMock) -> list[str]:
@@ -155,7 +158,7 @@ class TestButtonEverywhere:
         """The retry screen shows the I'm sick button."""
         locker = create_locker(mock_tk, tmp_path)
         locker._show_retry_and_sick("nope")
-        assert "I'm sick" in _button_texts(mock_tk)
+        assert g.SICK in _button_texts(mock_tk)
 
     def test_phone_penalty_screen_offers_it_without_waiting(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -163,7 +166,7 @@ class TestButtonEverywhere:
         """The phone penalty screen shows I'm sick immediately."""
         locker = create_locker(mock_tk, tmp_path)
         locker._show_phone_penalty("no phone")
-        assert "I'm sick" in _button_texts(mock_tk)
+        assert g.SICK in _button_texts(mock_tk)
 
     def test_relaxed_prompt_and_retry_offer_it(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -171,10 +174,10 @@ class TestButtonEverywhere:
         """Both the relaxed-day prompt and its retry screen show I'm sick."""
         locker = create_locker_relaxed_day(mock_tk, tmp_path)
         locker._start_relaxed_day_flow()
-        assert "I'm sick" in _button_texts(mock_tk)
+        assert g.SICK in _button_texts(mock_tk)
         mock_tk.Button.reset_mock()
         locker._show_relaxed_retry("nothing", "no_workout")
-        assert "I'm sick" in _button_texts(mock_tk)
+        assert g.SICK in _button_texts(mock_tk)
 
 
 class TestTap:
@@ -200,9 +203,13 @@ class TestTap:
         close.assert_called_once_with()
 
     def test_refusal_stays_locked_and_says_why(
-        self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
+        self,
+        mock_tk: MagicMock,
+        mock_sys_exit: MagicMock,
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """A refused tap keeps the lock, shows the reason and offers a Back button."""
+        """A refused tap keeps the lock, shows sick-fail, logs why, offers back."""
         locker = create_locker(mock_tk, tmp_path)
         close = MagicMock()
         object.__setattr__(locker, "close", close)
@@ -214,9 +221,15 @@ class TestTap:
             locker.mark_sick_and_unlock()
         close.assert_not_called()
         push.assert_not_called()
-        assert "today is a free day" in _label_texts(mock_tk)
+        assert f"{g.SICK} {g.FAIL}" in _label_texts(mock_tk)
+        assert "today is a free day" not in _label_texts(mock_tk)
+        assert any(
+            "today is a free day" in r.getMessage()
+            for r in caplog.records
+            if r.levelname == "WARNING"
+        )
         back = next(
-            c for c in mock_tk.Button.call_args_list if c.kwargs.get("text") == "Back"
+            c for c in mock_tk.Button.call_args_list if c.kwargs.get("text") == g.BACK
         )
         assert [back.kwargs["command"]] == [locker._start_phone_check]
 
@@ -227,6 +240,6 @@ class TestTap:
         locker = create_locker_relaxed_day(mock_tk, tmp_path)
         locker._show_sick_refused("nope")
         back = next(
-            c for c in mock_tk.Button.call_args_list if c.kwargs.get("text") == "Back"
+            c for c in mock_tk.Button.call_args_list if c.kwargs.get("text") == g.BACK
         )
         assert [back.kwargs["command"]] == [locker._start_relaxed_day_flow]

@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING
 
 from gatelock import LockConfig
 
+from screen_locker import _glyphs as g
 from screen_locker._manual_workout_dialog import ManualWorkoutDialogMixin
 from screen_locker._status_data import (
     StatusSnapshot,
@@ -112,7 +113,7 @@ class StatusWindow(
         """Redraw the whole window from *snapshot*."""
         self._last_snapshot = snapshot
         self.clear_container()
-        self._label("Workout Status", role="title", pad="md")
+        # textgate: the "Workout Status" heading is gone; see the sections.
         self._section_today(self.container, snapshot.today)
         self._section_week(self.container, snapshot.week)
         self._section_streak(self.container, snapshot.streak, snapshot.week_rewards)
@@ -130,44 +131,29 @@ class StatusWindow(
                 if status == "verified"
                 else self._colors.palette.warning
             )
-            self._text(f"Phone check ({status}): {message}", role="body", color=color)
+            self._text(message, role="title", color=color)
         if self._credit_message is not None:
             self._text(
                 self._credit_message, role="body", color=self._colors.palette.success
             )
-        # "Check Phone"/"Log Manual Workout" are the primary write actions
-        # (accent, high contrast per rule 3); "Refresh"/"Close" are secondary
-        # utility actions (muted) -- two tiers instead of four arbitrary hues.
+        # Check phone / manual log are the primary write actions (accent,
+        # high contrast per rule 3); refresh / close are secondary utility
+        # actions (muted) -- two tiers instead of four arbitrary hues. Was
+        # "Check Phone" / "Log Manual Workout" / "Refresh" / "Close".
         frame = self._button_row()
-        self._button(
-            frame,
-            "Check Phone",
-            bg=self._colors.palette.accent,
-            command=self._on_check_phone_clicked,
-            width=14,
-        ).pack(side="left", padx=self._colors.space("sm"))
+        buttons = [(g.PHONE, self._colors.palette.accent, self._on_check_phone_clicked)]
         if not self._mw_budget_closed():
-            self._button(
-                frame,
-                "Log Manual Workout",
-                bg=self._colors.palette.accent,
-                command=self._show_manual_workout_form,
-                width=16,
-            ).pack(side="left", padx=self._colors.space("sm"))
-        self._button(
-            frame,
-            "Refresh",
-            bg=self._colors.palette.field_bg,
-            command=self._on_refresh_clicked,
-            width=10,
-        ).pack(side="left", padx=self._colors.space("sm"))
-        self._button(
-            frame,
-            "Close",
-            bg=self._colors.palette.field_bg,
-            command=self.root.destroy,
-            width=8,
-        ).pack(side="left", padx=self._colors.space("sm"))
+            buttons.append(
+                (g.FORM, self._colors.palette.accent, self._show_manual_workout_form)
+            )
+        buttons += [
+            (g.RETRY, self._colors.palette.field_bg, self._on_refresh_clicked),
+            (g.CLOSE, self._colors.palette.field_bg, self.root.destroy),
+        ]
+        for glyph, bg, command in buttons:
+            self._button(frame, glyph, bg=bg, command=command, width=4).pack(
+                side="left", padx=self._colors.space("sm")
+            )
 
     def _on_refresh_clicked(self) -> None:
         """Clear any stale phone-check/credit/temperature results, re-check both."""
@@ -192,9 +178,7 @@ class StatusWindow(
         verifier.workout_data = entry
         credit = verifier._apply_workout_credit()
         self._credit_message = "\n".join(
-            self._credit_result_lines(
-                f"Manual workout logged: {entry.get('source', '')}", credit
-            )
+            self._credit_result_lines(f"{g.FORM} {g.OK}", credit)
         )
         self.render(gather_status())
 

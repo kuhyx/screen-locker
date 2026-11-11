@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from screen_locker import _glyphs as g
 from screen_locker._status_view_verify import (
     _backfill_week_and_apply_bonus,
 )
@@ -46,7 +47,7 @@ class TestBackfillWeekAndApplyBonus:
         ):
             message = _backfill_week_and_apply_bonus(verifier)
 
-        assert message == "Auto-filled 1 workout from earlier this week."
+        assert message == f"{g.RETRY}{g.LIFT} +1"
         verifier._scan_and_fill_week_runnerup.assert_called_once_with(
             verifier.log_file, on_ingested=verifier._credit_ingested_workout
         )
@@ -65,9 +66,7 @@ class TestBackfillWeekAndApplyBonus:
             message = _backfill_week_and_apply_bonus(verifier)
 
         # prev 4 + 1 RunnerUp fill already credited = 5; 7 - 5 = 2 surplus.
-        assert message == (
-            "Auto-filled 2 workouts from earlier this week. +2h shutdown time."
-        )
+        assert message == f"{g.RETRY}{g.LIFT} +2 {g.SHUTDOWN} +2h"
         verifier._adjust_shutdown_time_by.assert_called_once_with(120)
 
     def test_stronglifts_fill_below_minimum_earns_no_surplus(self) -> None:
@@ -82,5 +81,5 @@ class TestBackfillWeekAndApplyBonus:
         ):
             message = _backfill_week_and_apply_bonus(verifier)
 
-        assert message == "Auto-filled 1 workout from earlier this week."
+        assert message == f"{g.RETRY}{g.LIFT} +1"
         verifier._adjust_shutdown_time_by.assert_not_called()

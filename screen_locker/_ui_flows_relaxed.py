@@ -1,14 +1,22 @@
-"""Relaxed-day (Tue/Wed/Thu) UI flow methods mixin."""
+"""Relaxed-day (Tue/Wed/Thu) UI flow methods mixin.
+
+textgate: glyphs and numbers only (``_glyphs``); the verifier's reason goes
+to the log, not the screen.
+"""
 
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+import logging
 
+from screen_locker import _glyphs as g
 from screen_locker._weekly_check import (
     RELAXED_DAY_SKIP_TYPE,
     WEEKLY_WORKOUT_MINIMUM,
     count_weekly_workouts,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 class UIFlowsRelaxedMixin:
@@ -23,36 +31,39 @@ class UIFlowsRelaxedMixin:
 
         The screen is not locked — the user can skip freely or voluntarily
         import a Stronglift workout that counts toward the weekly minimum.
+        Was "Optional Day (Tue / Wed / Thu)" / "Weekly workouts: N / M. No
+        penalty for skipping today." / "Skip — No Penalty" / "Log Stronglift
+        Workout": now the optional-day diamond, the week as dots + numbers,
+        skip (green) and the barbell (go).
         """
         count = count_weekly_workouts(self.log_file)
         self.clear_container()
         self._label(
-            "Optional Day (Tue / Wed / Thu)",
-            role="title",
+            g.OPTIONAL,
+            role="display",
             color=self._colors.palette.warning,
             pad="md",
         )
         self._text(
-            f"Weekly workouts: {count} / {WEEKLY_WORKOUT_MINIMUM}\n"
-            "No penalty for skipping today.",
-            role="subtitle",
+            g.dots(count, WEEKLY_WORKOUT_MINIMUM),
+            role="title",
             color=self._colors.palette.muted,
             pad="sm",
         )
         frame = self._button_row()
         self._button(
             frame,
-            "Skip — No Penalty",
+            g.SKIP,
             bg=self._colors.palette.success,
             command=self._skip_relaxed_day,
-            width=18,
+            width=4,
         ).pack(side="left", padx=self._colors.space("sm"))
         self._button(
             frame,
-            "Log Stronglift Workout",
+            f"{g.GO} {g.LIFT}",
             bg=self._colors.palette.accent,
             command=self._start_relaxed_phone_check,
-            width=20,
+            width=8,
         ).pack(side="left", padx=self._colors.space("sm"))
         # Skipping is free here, but a sick day is more than a skip: it
         # stands every gate down and lifts tonight's shutdown to 20:00.
@@ -74,12 +85,12 @@ class UIFlowsRelaxedMixin:
         """Run Stronglift check in relaxed mode (no screen grab)."""
         self.clear_container()
         self._label(
-            "Checking phone...",
+            f"{g.PHONE} {g.LIFT}",
             role="display",
             color=self._colors.palette.warning,
             pad="lg",
         )
-        self._text("Looking for today's workout in StrongLifts...", role="body")
+        self._text(g.WAIT, role="display", color=self._colors.palette.muted)
         executor = ThreadPoolExecutor(max_workers=1)
         self._phone_future = executor.submit(self._verify_phone_workout)
         executor.shutdown(wait=False)
@@ -108,30 +119,34 @@ class UIFlowsRelaxedMixin:
             self._show_relaxed_retry(message, status)
 
     def _show_relaxed_retry(self, message: str, status: str) -> None:
-        """Show retry and skip-close when workout not found in relaxed mode."""
+        """Show retry and skip-close when workout not found in relaxed mode.
+
+        Was "No Workout Found" / the reason / "TRY AGAIN" / "Close (Skip)".
+        """
+        _logger.warning("Relaxed-day check found no workout (%s): %s", status, message)
         self.clear_container()
         self._label(
-            "No Workout Found",
+            f"{g.LIFT} {g.FAIL}",
             role="display",
             color=self._colors.palette.danger,
             pad="md",
         )
         self._text(
-            f"❌ {message}\n\nReason: {status}", color=self._colors.palette.warning
+            g.status_glyph(status), role="display", color=self._colors.palette.warning
         )
         frame = self._button_row()
         self._button(
             frame,
-            "TRY AGAIN",
+            g.RETRY,
             bg=self._colors.palette.accent,
             command=self._start_relaxed_phone_check,
-            width=12,
+            width=4,
         ).pack(side="left", padx=self._colors.space("sm"))
         self._sick_button(frame)
         self._button(
             frame,
-            "Close (Skip)",
+            g.SKIP,
             bg=self._colors.palette.success,
             command=self.close,
-            width=14,
+            width=4,
         ).pack(side="left", padx=self._colors.space("sm"))

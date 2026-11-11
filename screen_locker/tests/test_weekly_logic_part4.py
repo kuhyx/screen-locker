@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+from screen_locker import _glyphs as g
 from screen_locker._compliance_predicates import is_relaxed_day_skipped_today
 from screen_locker.tests.conftest import (
     create_locker,
@@ -69,9 +70,7 @@ class TestStartRelaxedDayFlow:
             locker._start_relaxed_day_flow()
 
         skip_cmds = [
-            c.kwargs["command"]
-            for c in mock_button.call_args_list
-            if "Skip" in str(c.args)
+            c.kwargs["command"] for c in mock_button.call_args_list if g.SKIP in c.args
         ]
         assert locker._skip_relaxed_day in skip_cmds
 
@@ -120,7 +119,7 @@ class TestStartRelaxedDayFlow:
         log_cmds = [
             c.kwargs["command"]
             for c in mock_button.call_args_list
-            if "Log" in str(c.args)
+            if f"{g.GO} {g.LIFT}" in c.args
         ]
         assert locker._start_relaxed_phone_check in log_cmds
 
@@ -233,5 +232,5 @@ class TestHandleRelaxedPhoneResult:
         button_texts = {
             call.kwargs.get("text") for call in mock_tk.Button.call_args_list
         }
-        assert "TRY AGAIN" in button_texts
-        assert "Close (Skip)" in button_texts
+        assert g.RETRY in button_texts
+        assert g.SKIP in button_texts

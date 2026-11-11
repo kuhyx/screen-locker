@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import sickdays
 
+from screen_locker import _glyphs as g
 from screen_locker import _ui_flows_sick
 from screen_locker._ui_flows_sick_panel import KEPT_NOTE
 from screen_locker.tests._sick_helpers import mark_sick
@@ -75,7 +76,7 @@ class TestSaved:
         assert KEPT_NOTE in _texts(mock_tk.Label)
         mock_tk.Button.return_value.focus_set.assert_called_once_with()
         back = next(
-            c for c in mock_tk.Button.call_args_list if c.kwargs.get("text") == "Back"
+            c for c in mock_tk.Button.call_args_list if c.kwargs.get("text") == g.BACK
         )
         back.kwargs["command"]()
         assert locker._sick_overlay is None

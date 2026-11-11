@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+from screen_locker import _glyphs as g
 from screen_locker._status_view_verify import PhoneCheckOutcome
 from screen_locker._workout_credit import WorkoutCreditResult
 from screen_locker.status_view import (
@@ -20,6 +21,8 @@ from screen_locker.tests._status_view_helpers import (
 if TYPE_CHECKING:
     from pathlib import Path
 
+    import pytest
+
 
 class TestPhoneCheckResultRendering:
     """PhoneCheckResultRendering."""
@@ -28,17 +31,17 @@ class TestPhoneCheckResultRendering:
         """No result shows nothing."""
         snap = _snapshot()
         _make_window(mock_tk, snap)
-        assert not any("Phone check" in t for t in _texts(mock_tk))
+        assert not any(f"{g.RUN}{g.FAIL}" in t for t in _texts(mock_tk))
 
     def test_verified_result_shown_in_green(self, mock_tk: MagicMock) -> None:
         """Verified result shown in green."""
         window = _make_window(mock_tk, _snapshot())
-        window._phone_check_result = ("verified", "Workout verified!")
+        window._phone_check_result = ("verified", "verified glyphs")
         window.render(_snapshot())
         calls = [
             c
             for c in mock_tk.Label.call_args_list
-            if "Phone check" in c.kwargs.get("text", "")
+            if c.kwargs.get("text") == "verified glyphs"
         ]
         assert calls
         assert calls[-1].kwargs.get("fg") == window._colors.palette.success
@@ -46,12 +49,11 @@ class TestPhoneCheckResultRendering:
     def test_non_verified_result_shown_in_orange(self, mock_tk: MagicMock) -> None:
         """Non verified result shown in orange."""
         window = _make_window(mock_tk, _snapshot())
-        window._phone_check_result = ("no_phone", "Phone not connected")
+        failed = f"{g.LIFT}{g.FAIL} {g.RUN}{g.FAIL}"
+        window._phone_check_result = ("no_phone", failed)
         window.render(_snapshot())
         calls = [
-            c
-            for c in mock_tk.Label.call_args_list
-            if "Phone check" in c.kwargs.get("text", "")
+            c for c in mock_tk.Label.call_args_list if c.kwargs.get("text") == failed
         ]
         assert calls
         assert calls[-1].kwargs.get("fg") == window._colors.palette.warning
@@ -65,12 +67,7 @@ class TestButtons:
     ) -> None:
         """Renders check phone refresh close."""
         _make_window(mock_tk, _snapshot(), log_file=temp_log_file)
-        assert _button_texts(mock_tk) == {
-            "Check Phone",
-            "Log Manual Workout",
-            "Refresh",
-            "Close",
-        }
+        assert _button_texts(mock_tk) == {g.PHONE, g.FORM, g.RETRY, g.CLOSE}
 
 
 class TestRefreshAndCheckPhoneFlow:
@@ -124,9 +121,9 @@ class TestRefreshAndCheckPhoneFlow:
         mock_handle.assert_not_called()
 
     def test_failed_check_shows_combined_message_and_rerenders(
-        self, mock_tk: MagicMock
+        self, mock_tk: MagicMock, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """Neither source verified → show both messages, apply no credit."""
+        """Neither source verified → both fail glyphs, both reasons logged."""
         window = _make_window(mock_tk, _snapshot())
         with patch(
             "screen_locker._status_view_verify.gather_status", return_value=_snapshot()
@@ -136,8 +133,10 @@ class TestRefreshAndCheckPhoneFlow:
             )
         assert window._phone_check_result == (
             "no_phone",
-            "StrongLifts: no lifts · RunnerUp: no run",
+            f"{g.LIFT}{g.FAIL} {g.RUN}{g.FAIL}",
         )
+        warned = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+        assert any("no lifts" in m and "no run" in m for m in warned)
         assert window._credit_message is None
         mock_gather.assert_called_once()
 
@@ -174,8 +173,7 @@ class TestRefreshAndCheckPhoneFlow:
         assert window._phone_check_result is None
         message = window._credit_message
         assert message is not None
-        assert "StrongLifts verified: StrongLifts ok" in message
-        assert "Shutdown time +2h later!" in message
+        assert message.splitlines() == [f"{g.LIFT} {g.OK}", f"{g.SHUTDOWN} +2h"]
 
     def test_runnerup_verified_credits_using_runnerup_message(
         self, mock_tk: MagicMock, temp_log_file: Path
@@ -210,7 +208,7 @@ class TestRefreshAndCheckPhoneFlow:
         }
         message = window._credit_message
         assert message is not None
-        assert "RunnerUp verified: RunnerUp 5.0 km" in message
+        assert message == f"{g.RUN} {g.OK}"
 
 
 class TestMakeBareVerifier:

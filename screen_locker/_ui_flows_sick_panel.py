@@ -29,6 +29,7 @@ from gatelock import bind_activate
 import sickdays
 from sickdays.gui import KeepPanel
 
+from screen_locker import _glyphs as g
 from screen_locker._sick import stands_down_workout
 from screen_locker._surface_group import FrameGroup
 
@@ -39,8 +40,10 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
-LINK_TEXT = "choose lockers…"
-KEPT_NOTE = "Workout lock kept — finish the workout to unlock."
+# textgate: was "choose lockers…" (sick, then pick) and "Workout lock kept —
+# finish the workout to unlock." (sick, but the barbell lock stays).
+LINK_TEXT = f"{g.SICK}▾"
+KEPT_NOTE = f"{g.SICK} {g.LIFT} {g.LOCK}"
 
 
 def build_sick_panel(
@@ -162,10 +165,10 @@ class SickPanelFlowMixin:
         ).pack(pady=self._colors.space("md"))
         back = self._button(
             box,
-            "Back",
+            g.BACK,
             bg=self._colors.palette.accent,
             command=self._close_sick_panel,
-            width=12,
+            width=4,
         )
         back.pack(pady=self._colors.space("sm"))
         back.first.focus_set()

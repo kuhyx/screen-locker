@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from screen_locker import _glyphs as g
 from screen_locker.tests._locker_factories import create_locker
 from screen_locker.tests._unlock_helpers import setup_unlock
 
@@ -51,7 +52,7 @@ class TestUnlockScreenRewards:
         ):
             locker.unlock_screen()
 
-        assert any("streak" in c.lower() for c in text_calls)
+        assert f"{g.STREAK * 3} 3" in text_calls
 
     def test_extra_bonus_skipped_when_old_cfg_none(
         self,

@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from screen_locker import _glyphs as g
 from screen_locker.tests._unlock_helpers import setup_unlock
 
 if TYPE_CHECKING:
@@ -49,7 +50,7 @@ class TestUnlockScreenExtras:
         mock_sys_exit: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """extra_bonus_delta > 0 → _text called with 'Extra workout'."""
+        """extra_bonus_delta > 0 → _text shows the barbell and the +1h gift."""
         locker = setup_unlock(mock_tk, tmp_path, seed_today_type="manual_workout")
 
         # Simulate before=22:00, after=23:00 → delta=60
@@ -77,7 +78,7 @@ class TestUnlockScreenExtras:
         ):
             locker.unlock_screen()
 
-        assert any("Extra workout" in c for c in text_calls)
+        assert f"{g.LIFT} {g.GIFT}1h" in text_calls
 
     def test_no_extra_bonus_when_adjust_fails(
         self,

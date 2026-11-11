@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+from screen_locker import _glyphs as g
 from screen_locker.status_view import (
     StatusWindow,
     main,
@@ -93,21 +94,21 @@ class TestTemperatureSectionRendering:
         window = _make_window(mock_tk, _snapshot())
         window._temp_result = None
         window.render(_snapshot())
-        assert any("Checking Warsaw temperature" in t for t in _texts(mock_tk))
+        assert f"{g.HEAT} {g.WAIT}" in _texts(mock_tk)
 
     def test_shows_resolved_temperature(self, mock_tk: MagicMock) -> None:
         """Shows resolved temperature."""
         window = _make_window(mock_tk, _snapshot())
         window._temp_result = _temp_check(temp_celsius=22.0)
         window.render(_snapshot())
-        assert any("Warsaw: 22" in t for t in _texts(mock_tk))
+        assert f"{g.HEAT} 22°C < 33°C" in _texts(mock_tk)
 
     def test_flags_would_trigger_heat_skip_when_hot(self, mock_tk: MagicMock) -> None:
         """Flags would trigger heat skip when hot."""
         window = _make_window(mock_tk, _snapshot())
         window._temp_result = _temp_check(temp_celsius=35.0)
         window.render(_snapshot())
-        assert any("Would trigger heat-skip today." in t for t in _texts(mock_tk))
+        assert f"{g.HEAT} 35°C ≥ 33°C {g.SKIP}" in _texts(mock_tk)
 
     def test_does_not_flag_heat_skip_when_below_threshold(
         self, mock_tk: MagicMock
@@ -116,21 +117,28 @@ class TestTemperatureSectionRendering:
         window = _make_window(mock_tk, _snapshot())
         window._temp_result = _temp_check(temp_celsius=22.0)
         window.render(_snapshot())
-        assert not any("Would trigger heat-skip today." in t for t in _texts(mock_tk))
+        assert not any(g.SKIP in t for t in _texts(mock_tk) if t.startswith(g.HEAT))
 
-    def test_shows_timeout_message(self, mock_tk: MagicMock) -> None:
-        """Shows timeout message."""
+    def test_shows_timeout_message(
+        self, mock_tk: MagicMock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A timeout shows the clock-fail glyph and logs the timeout."""
         window = _make_window(mock_tk, _snapshot())
         window._temp_result = _temp_check(temp_celsius=None, timed_out=True)
         window.render(_snapshot())
-        assert any("timed out" in t for t in _texts(mock_tk))
+        assert f"{g.HEAT} {g.CLOCK}{g.FAIL}" in _texts(mock_tk)
+        assert any(
+            "timed out" in r.getMessage()
+            for r in caplog.records
+            if r.levelname == "WARNING"
+        )
 
     def test_shows_failure_message_when_not_timed_out(self, mock_tk: MagicMock) -> None:
         """Shows failure message when not timed out."""
         window = _make_window(mock_tk, _snapshot())
         window._temp_result = _temp_check(temp_celsius=None, timed_out=False)
         window.render(_snapshot())
-        assert any("failed (network/API error)" in t for t in _texts(mock_tk))
+        assert f"{g.HEAT} {g.FAIL}" in _texts(mock_tk)
 
 
 class TestTemperatureCheckFlow:

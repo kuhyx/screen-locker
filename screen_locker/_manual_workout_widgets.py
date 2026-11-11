@@ -66,17 +66,10 @@ class ManualWorkoutFormWidgetsMixin:
         counters[id(parent)] = idx + 2
         return idx // 2
 
-    def _mw_section(self, parent: tk.Widget, title: str) -> None:
-        """Add a full-width section heading inside the form."""
-        label = tk.Label(
-            parent,
-            text=title,
-            font=self._colors.font("body", bold=True),
-            fg=self._colors.palette.accent,
-            bg=self._colors.palette.bg,
-            anchor="w",
-        )
-        self._mw_grid(parent, label, full=True)
+    def _mw_section(self, parent: tk.Widget) -> None:
+        """Add a full-width rule between form sections (was a heading)."""
+        rule = tk.Frame(parent, bg=self._colors.palette.accent, height=2)
+        self._mw_grid(parent, rule, full=True)
 
     def _mw_entry(
         self, parent: tk.Widget, label: str, *, focus: bool = False
@@ -190,10 +183,8 @@ class ManualWorkoutFormWidgetsMixin:
         row = tk.Frame(parent, bg=self._colors.palette.bg)
         tk.Label(
             row,
-            text=(
-                f"RPE — perceived exertion "
-                f"({MANUAL_WORKOUT_RPE_MIN}-{MANUAL_WORKOUT_RPE_MAX}):"
-            ),
+            # Was "RPE — perceived exertion (1-10):": effort bars + range.
+            text=f"▁▃▅▇ {MANUAL_WORKOUT_RPE_MIN}-{MANUAL_WORKOUT_RPE_MAX}",
             font=self._colors.font("label"),
             fg=self._colors.palette.fg,
             bg=self._colors.palette.bg,

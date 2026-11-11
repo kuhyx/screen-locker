@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+from screen_locker import _glyphs as g
 from screen_locker._workout_credit import WorkoutCreditResult
 from screen_locker.tests._status_view_helpers import (
     _button_texts,
@@ -31,7 +32,7 @@ class TestSectionManualWorkoutBudget:
         calls = [
             c
             for c in mock_tk.Label.call_args_list
-            if "week" in c.kwargs.get("text", "")
+            if c.kwargs.get("text", "") == f"{g.FORM} 2/2 · 0/5"
         ]
         assert any(c.kwargs.get("fg") == window._colors.palette.danger for c in calls)
 
@@ -44,7 +45,7 @@ class TestSectionManualWorkoutBudget:
         calls = [
             c
             for c in mock_tk.Label.call_args_list
-            if "week" in c.kwargs.get("text", "")
+            if c.kwargs.get("text", "") == f"{g.FORM} 0/2 · 0/5"
         ]
         assert any(c.kwargs.get("fg") == window._colors.palette.muted for c in calls)
 
@@ -57,7 +58,7 @@ class TestManualWorkoutButtonVisibility:
     ) -> None:
         """The Log Manual Workout button appears while budget remains."""
         _make_window(mock_tk, _snapshot(), log_file=temp_log_file)
-        assert "Log Manual Workout" in _button_texts(mock_tk)
+        assert g.FORM in _button_texts(mock_tk)
 
     def test_hidden_when_budget_exhausted(
         self, mock_tk: MagicMock, temp_log_file: Path
@@ -65,7 +66,7 @@ class TestManualWorkoutButtonVisibility:
         """The Log Manual Workout button is hidden once the budget is closed."""
         with patch(_CLOSED, return_value=True):
             _make_window(mock_tk, _snapshot(), log_file=temp_log_file)
-        assert "Log Manual Workout" not in _button_texts(mock_tk)
+        assert g.FORM not in _button_texts(mock_tk)
 
 
 class TestOnManualWorkoutSaved:
@@ -102,8 +103,7 @@ class TestOnManualWorkoutSaved:
         fake_verifier._apply_workout_credit.assert_called_once()
         message = window._credit_message
         assert message is not None
-        assert "table tennis at Solec" in message
-        assert "Shutdown time +2h later!" in message
+        assert message.splitlines() == [f"{g.FORM} {g.OK}", f"{g.SHUTDOWN} +2h"]
 
     def test_shows_extra_bonus_line_and_no_debt(
         self, mock_tk: MagicMock, temp_log_file: Path
@@ -127,13 +127,12 @@ class TestOnManualWorkoutSaved:
 
         message = window._credit_message
         assert message is not None
-        assert "Extra workout today! +1h tonight" in message
-        assert "debt" not in message.lower()
+        assert message.splitlines() == [f"{g.FORM} {g.OK}", f"{g.LIFT} +1h"]
 
     def test_already_counted_today_shows_no_extra_credit_note(
         self, mock_tk: MagicMock, temp_log_file: Path
     ) -> None:
-        """A second workout the same day says no additional credit was given."""
+        """A second workout the same day shows a zero gift and no reward line."""
         credit = WorkoutCreditResult(
             shutdown_adjusted=False,
             extra_bonus_delta=0,
@@ -152,8 +151,7 @@ class TestOnManualWorkoutSaved:
 
         message = window._credit_message
         assert message is not None
-        assert "no additional credit" in message
-        assert "Shutdown time" not in message
+        assert message.splitlines() == [f"{g.FORM} {g.OK}", f"{g.OK}{g.OK} +0"]
 
 
 class TestOnManualWorkoutCancelled:

@@ -18,6 +18,10 @@ import pytest
 from screen_locker import _credit_notify
 from screen_locker.tests.conftest import create_locker
 
+# The toast's glyphs (textgate): the module's own constants, not words.
+_SHUTDOWN = _credit_notify._SHUTDOWN
+_GAMING = _credit_notify._GAMING
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
@@ -64,28 +68,30 @@ class TestCreditBody:
     def test_full_body(self) -> None:
         """Shutdown time, tonight's move and the gaming budget."""
         body = _credit_notify.credit_body((0, 1200, 0), (0, 1320, 0), 420)
-        assert body == "Shutdown 22:00 (+2h) \N{MIDDLE DOT} gaming 7.0h"
+        assert body == f"{_SHUTDOWN} 22:00 (+2h) \N{MIDDLE DOT} {_GAMING} 7.0h"
 
     def test_a_capped_credit_shows_plus_zero(self) -> None:
         """No backwards move is ever shown: the delta floors at zero."""
         body = _credit_notify.credit_body((0, 1380, 0), (0, 1320, 0), None)
-        assert body == "Shutdown 22:00 (+0h)"
+        assert body == f"{_SHUTDOWN} 22:00 (+0h)"
 
     def test_unknown_before_drops_the_delta(self) -> None:
         """Without the old config there is no move to show."""
-        assert _credit_notify.credit_body(None, (0, 1320, 0), None) == "Shutdown 22:00"
+        assert (
+            _credit_notify.credit_body(None, (0, 1320, 0), None) == f"{_SHUTDOWN} 22:00"
+        )
 
     def test_unreadable_after_warns_and_shows_gaming_only(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
         """An unreadable config is said out loud, not silently omitted."""
-        assert _credit_notify.credit_body(None, None, 90) == "gaming 1.5h"
+        assert _credit_notify.credit_body(None, None, 90) == f"{_GAMING} 1.5h"
         assert _warned(caplog, "unreadable")
 
     def test_nothing_known_still_says_something(self) -> None:
         """An empty body would read as a glitch; say the credit happened."""
         body = _credit_notify.credit_body(None, None, None)
-        assert body == "Credit applied (details unavailable)"
+        assert body == "\N{CHECK MARK}"
 
 
 class TestSendNotification:
@@ -151,7 +157,7 @@ def test_notify_workout_credit_sends_the_composed_body() -> None:
     ):
         assert _real_notify((0, 1200, 0), (0, 1260, 0), None)
     send.assert_called_once_with(
-        _credit_notify.TITLE, "Shutdown 21:00 (+1h) \N{MIDDLE DOT} gaming 1.0h"
+        _credit_notify.TITLE, f"{_SHUTDOWN} 21:00 (+1h) \N{MIDDLE DOT} {_GAMING} 1.0h"
     )
 
 

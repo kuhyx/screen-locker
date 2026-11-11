@@ -13,6 +13,7 @@ import pytest
 import sickdays
 import sickdays.gui._panel
 
+from screen_locker import _glyphs as g
 from screen_locker import _ui_flows_sick, _ui_flows_sick_panel
 from screen_locker._ui_flows_sick_panel import LINK_TEXT, build_sick_panel
 from screen_locker.tests.conftest import create_locker
@@ -97,15 +98,15 @@ class TestLink:
     def test_the_link_sits_next_to_the_one_tap_button(
         self, mock_tk: MagicMock, locker: ScreenLocker
     ) -> None:
-        """The link is wired to open_sick_panel and appears right after the "I'm sick" button."""
+        """The link is wired to open_sick_panel and sits right after the sick button."""
         locker._show_retry_and_sick("nope")
         buttons = mock_tk.Button.call_args_list
         texts = _texts(mock_tk.Button)
-        sick = next(c for c in buttons if c.kwargs.get("text") == "I'm sick")
+        sick = next(c for c in buttons if c.kwargs.get("text") == g.SICK)
         link = next(c for c in buttons if c.kwargs.get("text") == LINK_TEXT)
         assert sick.kwargs["command"] == locker.mark_sick_and_unlock
         assert link.kwargs["command"] == locker.open_sick_panel
-        assert texts.index(LINK_TEXT) == texts.index("I'm sick") + 1
+        assert texts.index(LINK_TEXT) == texts.index(g.SICK) + 1
 
     def test_opening_builds_todays_panel_on_a_backdrop(
         self, locker: ScreenLocker, panels: list[FakePanel]

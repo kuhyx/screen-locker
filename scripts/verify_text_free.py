@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tkinter as tk
@@ -34,6 +35,11 @@ _logger = logging.getLogger(__name__)
 
 INNER_ENV = "_TEXT_FREE_CHECK_INNER"
 _SIZE = (1366, 768)
+# Screens whose words come from a package this repo does not own: reported,
+# not failed, so the gate stays meaningful for screen-locker's own text.
+EXTERNAL: dict[str, str] = {
+    "sick-keep-panel": "sickdays.gui.KeepPanel (kuhyx/utils, sickdays)",
+}
 _TYPED = frozenset({"Entry", "Spinbox", "Text", "TEntry", "TSpinbox", "TCombobox"})
 
 
@@ -69,8 +75,12 @@ def _widget_texts(widget: tk.Misc) -> list[str]:
 def _shoot(win: tk.Toplevel, path: Path) -> None:
     """Save *win* as a PNG; a failed shot is logged, never fatal."""
     win.update()
+    tool = shutil.which("import")
+    if tool is None:
+        _logger.warning("no ImageMagick import on PATH: %s not saved", path)
+        return
     result = subprocess.run(
-        ["import", "-window", str(win.winfo_id()), str(path)],
+        [tool, "-window", str(win.winfo_id()), str(path)],
         capture_output=True,
         text=True,
         check=False,
@@ -118,6 +128,11 @@ def main(argv: list[str] | None = None) -> int:
     root.withdraw()
     bad = _paint_all(root, shots)
     root.destroy()
+    for name, owner in EXTERNAL.items():
+        if name in bad:
+            _logger.warning(
+                "external %s (%s): %s", name, owner, " ".join(bad.pop(name))
+            )
     if not bad:
         _logger.info("OK: no locker screen paints a word.")
         return 0

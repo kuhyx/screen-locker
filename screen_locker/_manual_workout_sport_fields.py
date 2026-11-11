@@ -50,10 +50,10 @@ class ManualWorkoutSportFieldsMixin:
         )
         row = tk.Frame(parent, bg=self._colors.palette.bg)
         # textgate: the "Sport:" caption is gone; the radio row is the cue.
-        for label in _manual_workout.SPORT_LABELS.values():
+        for code, label in _manual_workout.SPORT_LABELS.items():
             tk.Radiobutton(
                 row,
-                text=label,
+                text=_manual_workout.SPORT_GLYPHS[code],
                 value=label,
                 variable=self._mw_sport_var,
                 # Radiobutton's command takes no argument -- bind the label.
@@ -91,25 +91,25 @@ class ManualWorkoutSportFieldsMixin:
 
     def _build_table_tennis_fields(self, parent: tk.Widget) -> None:
         """Build the table-tennis-specific score/equipment fields."""
-        self._mw_int_vars["matches_won"] = self._mw_int_field(parent, "Matches won:")
-        self._mw_int_vars["matches_lost"] = self._mw_int_field(parent, "Matches lost:")
-        self._mw_int_vars["sets_won"] = self._mw_int_field(parent, "Sets won:")
-        self._mw_int_vars["sets_lost"] = self._mw_int_field(parent, "Sets lost:")
-        self._mw_vars["racket"] = self._mw_entry(parent, "Racket used:")
-        self._mw_vars["balls"] = self._mw_entry(parent, "Balls used:")
+        # textgate: was "Matches won/lost:", "Sets won/lost:", "Racket used:",
+        # "Balls used:". Match / set glyph + win / loss mark.
+        self._mw_int_vars["matches_won"] = self._mw_int_field(parent, "◍✓")
+        self._mw_int_vars["matches_lost"] = self._mw_int_field(parent, "◍✗")
+        self._mw_int_vars["sets_won"] = self._mw_int_field(parent, "▤✓")
+        self._mw_int_vars["sets_lost"] = self._mw_int_field(parent, "▤✗")
+        self._mw_vars["racket"] = self._mw_entry(parent, "◖")
+        self._mw_vars["balls"] = self._mw_entry(parent, "•")
 
     def _build_other_sport_fields(self, parent: tk.Widget) -> None:
         """Build the generic "other sport" fields."""
-        self._mw_vars["activity_type_other"] = self._mw_entry(
-            parent, "What sport/activity:"
-        )
+        # Was "What sport/activity:" / "What was done (min N chars):" /
+        # "Equipment used (optional):"; optional fields are in parentheses.
+        self._mw_vars["activity_type_other"] = self._mw_entry(parent, "✱")
         self._mw_text_widgets["activity_details"] = self._mw_textbox(
             parent,
-            f"What was done (min {MANUAL_WORKOUT_DESCRIPTION_MIN_CHARS} chars):",
+            f"✱≡ ≥{MANUAL_WORKOUT_DESCRIPTION_MIN_CHARS}",
         )
-        self._mw_vars["equipment"] = self._mw_entry(
-            parent, "Equipment used (optional):"
-        )
+        self._mw_vars["equipment"] = self._mw_entry(parent, "(⊡)")
 
     def _current_mw_sport(self) -> str:
         """Return the internal sport code for the currently-selected label."""

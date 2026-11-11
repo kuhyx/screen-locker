@@ -9,12 +9,10 @@ check). Each build paints into ``surface.content`` like the fit check's.
 from __future__ import annotations
 
 import threading
-from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 from screen_locker._status_data import gather_status
 from screen_locker._temperature import TemperatureCheck
-from screen_locker._ui_flows import UIFlowsMixin
 from screen_locker._unlock_view import UnlockViewMixin
 from screen_locker._workout_credit import WorkoutCreditResult
 from screen_locker.status_view import StatusWindow
@@ -22,6 +20,7 @@ from scripts.verify_screen_fits import ScreenHost
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from types import SimpleNamespace
 
 
 class _Host(UnlockViewMixin, ScreenHost):
@@ -46,7 +45,7 @@ class _Host(UnlockViewMixin, ScreenHost):
 
     def paint_manual_saved(self) -> None:
         """The real confirmation screen (ScreenHost stubs the hook out)."""
-        UIFlowsMixin._on_manual_workout_saved(self, {"source": "x"})
+        super(ScreenHost, self)._on_manual_workout_saved({"source": "x"})
 
 
 def _host_paint(method: str, *args: object) -> Callable[[object], None]:

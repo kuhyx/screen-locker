@@ -1,10 +1,18 @@
-"""UI flow methods mixin for the screen locker."""
+"""UI flow methods mixin for the screen locker.
+
+textgate: every screen here is glyphs (``_glyphs``) plus numbers, with the
+palette colour as the second channel. The sentences these screens used to
+paint ("No Workout Found", the verifier's reason, the sync diagnosis) go to
+the log at warning instead, so the reason is never lost, only unpainted.
+"""
 
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+import logging
 from typing import TYPE_CHECKING
 
+from screen_locker import _glyphs as g
 from screen_locker import _manual_workout
 from screen_locker._source_health import collect_source_findings, explain_findings
 from screen_locker._ui_flows_lockout import LockoutFlowMixin
@@ -13,6 +21,8 @@ from screen_locker._ui_flows_sick_panel import SickPanelFlowMixin
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+_logger = logging.getLogger(__name__)
 
 
 class UIFlowsMixin(SickDayFlowMixin, SickPanelFlowMixin, LockoutFlowMixin):
@@ -28,15 +38,16 @@ class UIFlowsMixin(SickDayFlowMixin, SickPanelFlowMixin, LockoutFlowMixin):
         Split from :meth:`_start_phone_check` so the fit check
         (``scripts/verify_screen_fits.py``) can measure this screen without
         starting a background thread that talks to a phone over adb.
+        Was "Checking phone..." / "Looking for today's workout in StrongLifts".
         """
         self.clear_container()
         self._label(
-            "Checking phone...",
+            f"{g.PHONE} {g.LIFT}",
             role="display",
             color=self._colors.palette.warning,
             pad="lg",
         )
-        self._text("Looking for today's workout in StrongLifts...", role="body")
+        self._text(g.WAIT, role="display", color=self._colors.palette.muted)
 
     def _start_phone_check(self) -> None:
         """Check phone for today's workout immediately at startup."""
@@ -54,23 +65,39 @@ class UIFlowsMixin(SickDayFlowMixin, SickPanelFlowMixin, LockoutFlowMixin):
         else:
             self.root.after(500, self._poll_phone_check)
 
-    def _show_retry_and_sick(self, message: str) -> None:
-        """Show TRY AGAIN, I'm sick and (budget allowing) the manual log."""
+    def _show_retry_and_sick(self, message: str, *, status: str = "") -> None:
+        """Show retry, I'm sick and (budget allowing) the manual log.
+
+        Was "No Workout Found" over *message*. The screen now shows the
+        failure glyph for *status*; *message* goes to the log.
+        """
+        _logger.warning("No workout accepted (%s): %s", status or "?", message)
         self.clear_container()
         self._label(
-            "No Workout Found",
+            f"{g.LIFT} {g.FAIL}",
             role="display",
             color=self._colors.palette.danger,
             pad="md",
         )
-        self._text(message, color=self._colors.palette.warning)
+        if status:
+            self._text(
+                g.status_glyph(status),
+                role="display",
+                color=self._colors.palette.warning,
+            )
         # Never accuse the user of skipping a workout the machine simply could
         # not see. On 2026-08-24 this screen said "No Workout Found" after a
         # 1h57m session, because Firebase was unreadable and the GitHub mirror
         # had been stale for nine days -- neither of which was shown here.
-        diagnosis = explain_findings(collect_source_findings())
-        if diagnosis:
-            self._text(diagnosis, color=self._colors.palette.muted)
+        # Now a sync-fault glyph, one per finding; the prose is logged.
+        findings = collect_source_findings()
+        if findings:
+            _logger.warning("%s", explain_findings(findings))
+            self._text(
+                f"{g.SYNC}{g.FAIL} " * len(findings),
+                role="title",
+                color=self._colors.palette.warning,
+            )
         self._text(
             _manual_workout.budget_summary(self.log_file),
             color=self._colors.palette.muted,
@@ -78,43 +105,46 @@ class UIFlowsMixin(SickDayFlowMixin, SickPanelFlowMixin, LockoutFlowMixin):
         frame = self._button_row()
         self._button(
             frame,
-            "TRY AGAIN",
+            g.RETRY,
             bg=self._colors.palette.accent,
             command=self._start_phone_check,
-            width=12,
+            width=4,
         ).pack(side="left", padx=self._colors.space("sm"))
         self._sick_button(frame)
         if self._mw_budget_closed():
-            self._text(
-                "Manual-workout budget exhausted. No manual-log option available.",
-                color=self._colors.palette.danger,
-            )
+            # Was "Manual-workout budget exhausted. No manual-log option".
+            self._text(f"{g.FORM} {g.CLOSE}", color=self._colors.palette.danger)
         else:
             self._button(
                 frame,
-                "Log Manual Workout",
+                g.FORM,
                 bg=self._colors.palette.accent,
                 command=self._show_manual_workout_form,
-                width=16,
+                width=4,
             ).pack(side="left", padx=self._colors.space("sm"))
 
-    def _on_manual_workout_saved(self, entry: dict) -> None:
-        """Show confirmation and unlock after a manual-workout entry is built."""
-        self.workout_data = entry
+    def _paint_accepted(self, glyph: str) -> None:
+        """Paint "accepted, unlocking" and schedule the unlock.
+
+        Was "✓ Workout Verified!" / "✓ Run Verified!" / "✓ Manual Workout
+        Logged!" over the source line and "Unlocking...".
+        """
         self.clear_container()
         self._label(
-            "✓ Manual Workout Logged!",
+            f"{glyph} {g.OK}",
             role="display",
             scale=1.3,
             color=self._colors.palette.success,
             pad="lg",
         )
-        self._text(
-            entry.get("source", ""), role="subtitle", color=self._colors.palette.success
-        )
-        self._text("Unlocking...", role="body", color=self._colors.palette.muted)
+        self._text(g.WAIT, role="display", color=self._colors.palette.muted)
         unlock_delay = 1500 if self.demo_mode else 2000
         self.root.after(unlock_delay, self.unlock_screen)
+
+    def _on_manual_workout_saved(self, entry: dict) -> None:
+        """Show confirmation and unlock after a manual-workout entry is built."""
+        self.workout_data = entry
+        self._paint_accepted(g.FORM)
 
     def _on_manual_workout_cancelled(self) -> None:
         """Return to the retry screen when the manual-workout form is cancelled."""
@@ -125,39 +155,13 @@ class UIFlowsMixin(SickDayFlowMixin, SickPanelFlowMixin, LockoutFlowMixin):
         if status == "verified":
             self.workout_data["type"] = "phone_verified"
             self.workout_data["source"] = message
-            self.clear_container()
-            self._label(
-                "✓ Workout Verified!",
-                role="display",
-                scale=1.3,
-                color=self._colors.palette.success,
-                pad="lg",
-            )
-            self._text(message, role="subtitle", color=self._colors.palette.success)
-            self._text("Unlocking...", role="body", color=self._colors.palette.muted)
-            unlock_delay = 1500 if self.demo_mode else 2000
-            self.root.after(unlock_delay, self.unlock_screen)
-        elif status == "too_short":
-            self._show_retry_and_sick(
-                f"❌ {message}\n\n"
-                "Your workout was too short!\n"
-                "Actually do the full workout, don't just\n"
-                "spam through the exercises.",
-            )
-        elif status == "clock_tampered":
-            self._show_retry_and_sick(
-                f"❌ {message}\n\n"
-                "System clock appears to be manipulated.\n"
-                "Fix your system time and try again.",
-            )
+            self._paint_accepted(g.LIFT)
+        elif status in ("too_short", "clock_tampered"):
+            self._show_retry_and_sick(message, status=status)
         elif status in ("stale", "no_exercises", "not_verified"):
             # Try RunnerUp before showing failure — user may have run instead of lifted.
             self._start_runnerup_fallback(
-                lambda: self._show_retry_and_sick(
-                    f"❌ {message}\n\n"
-                    "Neither StrongLifts nor RunnerUp found a workout today.\n"
-                    "Go do your workout first!",
-                )
+                lambda: self._show_retry_and_sick(message, status=status)
             )
         else:
             # no_phone or error — try RunnerUp first, then penalty timer.
@@ -168,15 +172,16 @@ class UIFlowsMixin(SickDayFlowMixin, SickPanelFlowMixin, LockoutFlowMixin):
 
         Shows a waiting screen, runs the check in a background thread, then
         either unlocks (run verified) or calls ``on_failure``.
+        Was "Checking RunnerUp..." / "Looking for today's run in RunnerUp".
         """
         self.clear_container()
         self._label(
-            "Checking RunnerUp...",
+            f"{g.PHONE} {g.RUN}",
             role="display",
             color=self._colors.palette.warning,
             pad="lg",
         )
-        self._text("Looking for today's run in RunnerUp...", role="body")
+        self._text(g.WAIT, role="display", color=self._colors.palette.muted)
         executor = ThreadPoolExecutor(max_workers=1)
         self._runnerup_future = executor.submit(self._verify_runnerup_workout)
         executor.shutdown(wait=False)
@@ -190,20 +195,7 @@ class UIFlowsMixin(SickDayFlowMixin, SickPanelFlowMixin, LockoutFlowMixin):
             if status == "verified":
                 self.workout_data["type"] = "runnerup_verified"
                 self.workout_data["source"] = message
-                self.clear_container()
-                self._label(
-                    "✓ Run Verified!",
-                    role="display",
-                    scale=1.3,
-                    color=self._colors.palette.success,
-                    pad="lg",
-                )
-                self._text(message, role="subtitle", color=self._colors.palette.success)
-                self._text(
-                    "Unlocking...", role="body", color=self._colors.palette.muted
-                )
-                unlock_delay = 1500 if self.demo_mode else 2000
-                self.root.after(unlock_delay, self.unlock_screen)
+                self._paint_accepted(g.RUN)
             else:
                 self._runnerup_on_failure()
         else:

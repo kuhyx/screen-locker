@@ -298,6 +298,13 @@ repos:
         files: '^screen_locker/.*\.py$'
         pass_filenames: false
         require_serial: true
+      - id: text-free
+        name: No locker screen paints a word (textgate)
+        entry: python3 -m scripts.verify_text_free
+        language: system
+        files: '^(screen_locker|scripts)/.*\.py$'
+        pass_filenames: false
+        require_serial: true
       - id: flutter-analyze
         name: flutter analyze (workout app)
         # env -u GIT_DIR: git exports it to hooks, and flutter shells out to

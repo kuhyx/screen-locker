@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+from screen_locker import _glyphs as g
 from screen_locker._status_view_verify import (
     PhoneCheckOutcome,
     _verify_phone_then_runnerup,
@@ -68,8 +69,6 @@ class TestVerifyPhoneThenRunnerup:
             result = _verify_phone_then_runnerup(verifier)
 
         assert result.credited_type is None
-        assert (
-            result.week_fill_message == "Auto-filled 1 workout from earlier this week."
-        )
+        assert result.week_fill_message == f"{g.RETRY}{g.LIFT} +1"
         # The RunnerUp fill is credited by the shared callback, not here.
         verifier._adjust_shutdown_time_by.assert_not_called()

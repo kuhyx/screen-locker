@@ -23,8 +23,10 @@ Split out of :mod:`screen_locker._ui_flows` to keep every file under the
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
+from screen_locker import _glyphs as g
 from screen_locker._constants import SHUTDOWN_BASE_FILE
 from screen_locker._credit_slot import locked_shutdown_state
 from screen_locker._sick import mark_today_sick, push_in_background
@@ -32,18 +34,20 @@ from screen_locker._sick import mark_today_sick, push_in_background
 if TYPE_CHECKING:
     import tkinter as tk
 
+_logger = logging.getLogger(__name__)
+
 
 class SickDayFlowMixin:
     """The one-tap sick-day button and what follows it."""
 
     def _sick_button(self, frame: tk.Widget) -> None:
-        """Pack the "I'm sick" button into ``frame``."""
+        """Pack the sick-day button (was "I'm sick") into ``frame``."""
         self._button(
             frame,
-            "I'm sick",
+            g.SICK,
             bg=self._colors.palette.warning,
             command=self.mark_sick_and_unlock,
-            width=12,
+            width=4,
         ).pack(side="left", padx=self._colors.space("sm"))
         # The keep-aware alternative (``_ui_flows_sick_panel``), next to it.
         self._choose_lockers_link(frame)
@@ -78,15 +82,19 @@ class SickDayFlowMixin:
         self.close()
 
     def _show_sick_refused(self, message: str) -> None:
-        """Say why today could not be marked sick; the lock stays up."""
+        """Show that today could not be marked sick; the lock stays up.
+
+        Was "Could not mark today as sick" over sickdays' reason; the reason
+        (a free day, an unreadable pool) now goes to the log.
+        """
+        _logger.warning("Could not mark today sick: %s", message)
         self.clear_container()
         self._label(
-            "Could not mark today as sick",
+            f"{g.SICK} {g.FAIL}",
             role="display",
             color=self._colors.palette.danger,
             pad="md",
         )
-        self._text(message, color=self._colors.palette.warning)
         frame = self._button_row()
         back = (
             self._start_relaxed_day_flow
@@ -95,8 +103,8 @@ class SickDayFlowMixin:
         )
         self._button(
             frame,
-            "Back",
+            g.BACK,
             bg=self._colors.palette.accent,
             command=back,
-            width=12,
+            width=4,
         ).pack(side="left", padx=self._colors.space("sm"))

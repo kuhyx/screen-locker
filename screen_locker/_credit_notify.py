@@ -34,7 +34,12 @@ if TYPE_CHECKING:
 
 _logger: Final = logging.getLogger(__name__)
 
-TITLE: Final = "Workout credited \N{FLEXED BICEPS}"
+# textgate: glyphs + numbers (colour emoji are safe in the notification
+# daemon, unlike Tk). Was "Workout credited 💪" / "Shutdown 23:00 (+2h) ·
+# gaming 7.0h" / "Credit applied (details unavailable)".
+TITLE: Final = "\N{FLEXED BICEPS} \N{CHECK MARK}"
+_SHUTDOWN: Final = "\N{POWER SYMBOL}"
+_GAMING: Final = "\N{VIDEO GAME}"
 _NOTIFY_TIMEOUT_SECONDS: Final = 5
 _MINUTES_PER_HOUR: Final = 60.0
 
@@ -62,7 +67,7 @@ def credit_body(
     after: tuple[int, int, int] | None,
     gaming_minutes: int | None,
 ) -> str:
-    """``Shutdown 23:00 (+2h) · gaming 7.0h`` -- whichever parts are known.
+    """``⏻ 23:00 (+2h) · 🎮 7.0h`` -- whichever parts are known.
 
     ``before``/``after`` are the shutdown config around the credit; the delta
     is tonight's actual move, so a capped or rest-day credit shows ``+0h``.
@@ -76,14 +81,14 @@ def credit_body(
     else:
         day = date.fromisoformat(today_str())
         tonight = tonight_minutes(after, day)
-        text = f"Shutdown {hhmm(tonight)}"
+        text = f"{_SHUTDOWN} {hhmm(tonight)}"
         if before is not None:
             moved = max(0, tonight - tonight_minutes(before, day))
             text += f" (+{span(moved)})"
         parts.append(text)
     if gaming_minutes is not None:
-        parts.append(f"gaming {gaming_minutes / _MINUTES_PER_HOUR:.1f}h")
-    return " \N{MIDDLE DOT} ".join(parts) or "Credit applied (details unavailable)"
+        parts.append(f"{_GAMING} {gaming_minutes / _MINUTES_PER_HOUR:.1f}h")
+    return " \N{MIDDLE DOT} ".join(parts) or "\N{CHECK MARK}"
 
 
 def send_notification(title: str, body: str) -> bool:
