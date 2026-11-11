@@ -192,8 +192,8 @@ class _WorkoutAppState extends State<WorkoutApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      // Same proper noun as BreakNotificationText.channelName.
-      title: 'Workout Tracker',
+      // textgate: no title. Was 'Workout Tracker'; the recents card shows
+      // the launcher icon and the manifest label (android:label) already.
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       home: const HomeScreen(),

@@ -130,7 +130,7 @@ def main() -> int:
     if workout_app_binary() is None:
         return 1
     root = tk.Tk()
-    root.title("Workout handoff demo")
+    root.title("")
     # Local grab + VT switching enabled: every escape hatch stays open.
     config = LockConfig(mode="hard", grab=GrabPolicy(kind="local", disable_vt=False))
     hooks = _DemoHooks()

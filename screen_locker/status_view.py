@@ -221,7 +221,7 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     root = tk.Tk()
-    root.title("Workout Status")
+    root.title("")
     root.configure(bg=_STATUS_COLORS.palette.bg)
     root.minsize(560, 200)
 

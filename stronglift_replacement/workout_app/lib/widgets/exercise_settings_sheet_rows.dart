@@ -14,9 +14,13 @@ class _SettingRow extends StatelessWidget {
     required this.suffix,
     required this.trailing,
     required this.onChanged,
+    this.icon,
   });
 
   final String label;
+
+  /// Optional glyph painted right after [label] (e.g. `+` then a weight).
+  final IconData? icon;
 
   /// Semantic name of the leading stepper.
   final String name;
@@ -36,6 +40,8 @@ class _SettingRow extends StatelessWidget {
     return Row(
       children: [
         Text(label, style: style),
+        if (icon != null)
+          Icon(icon, size: AppTextSize.label, color: style.color),
         const SizedBox(width: 8),
         _Stepper(
           name: name,

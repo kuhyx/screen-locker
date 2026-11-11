@@ -163,7 +163,8 @@ class _ExerciseSettingsSheetState extends State<ExerciseSettingsSheet> {
               maintainState: true,
               child: _SettingRow(
                 // Was "+kg at [N] reps, restart at [M]".
-                label: '+kg',
+                label: '+',
+                icon: Icons.fitness_center,
                 name: 'Top reps',
                 value: _s.repsHigh,
                 min: _s.repsLow + 1,

@@ -76,10 +76,12 @@ class _ExerciseSettingsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final until = state.isPausedAt(DateTime.now()) ? state.pausedUntil : null;
+    // Spoken only: excludeSemantics hides the painted children from it.
+    final semanticsLabel = '${state.name} exercise settings';
     return Semantics(
       container: true,
       button: true,
-      label: '${state.name} exercise settings',
+      label: semanticsLabel,
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,

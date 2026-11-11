@@ -28,10 +28,12 @@ class _ModeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Spoken only: excludeSemantics hides the painted children from it.
+    final semanticsLabel = '${state.name} progression settings';
     return Semantics(
       container: true,
       button: true,
-      label: '${state.name} progression settings',
+      label: semanticsLabel,
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,

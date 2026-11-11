@@ -129,7 +129,7 @@ class HeatSkipMixin:
         # Use the root itself (not a Toplevel) so we can go fullscreen.
         # This window is destroyed before the main GateRoot is created.
         root = tk.Tk()
-        root.title("Extreme Heat")
+        root.title("")
         root.configure(bg=_COLORS.palette.bg)
         root.attributes("-fullscreen", True)
         root.attributes("-topmost", True)

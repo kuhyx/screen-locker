@@ -168,7 +168,9 @@ class ScreenLocker(
             self._instance_lock.release()
             sys.exit(0)
         self.root.on_callback_error = self.on_callback_error
-        self.root.title("Workout Locker" + (" [DEMO MODE]" if demo_mode else ""))
+        # textgate: the window is fullscreen, so its title is never painted;
+        # was "Workout Locker" (+ " [DEMO MODE]"). Nothing matches on it.
+        self.root.title("")
         self.demo_mode = demo_mode
         self.lockout_time = 10 if demo_mode else 1800
         self._lock: LockWindow | None = None
