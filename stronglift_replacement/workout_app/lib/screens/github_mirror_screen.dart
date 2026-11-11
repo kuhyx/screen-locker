@@ -198,9 +198,11 @@ class _GitHubMirrorScreenState extends State<GitHubMirrorScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: colorScheme.surfaceContainerHigh,
-        title: Text(
-          'Advanced sync (GitHub)',
-          style: TextStyle(color: colorScheme.onSurface),
+        // textgate: was "Advanced sync (GitHub)".
+        title: Icon(
+          Icons.code,
+          color: colorScheme.onSurface,
+          semanticLabel: 'Advanced sync (GitHub)',
         ),
         iconTheme: IconThemeData(color: colorScheme.onSurface),
       ),
@@ -209,15 +211,7 @@ class _GitHubMirrorScreenState extends State<GitHubMirrorScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                Text(
-                  'Authorize in your browser -- no token to paste. '
-                  'Syncs to $syncRepoOwner/$syncRepoName.',
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: AppTextSize.caption,
-                  ),
-                ),
-                const SizedBox(height: 12),
+                // textgate: the explanation sentence above is gone.
                 if (_syncStatus != null) ...[
                   _SyncStatusBadge(text: _syncStatus!, kind: _syncStatusKind),
                   const SizedBox(height: 12),

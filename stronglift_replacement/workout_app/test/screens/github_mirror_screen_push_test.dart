@@ -122,9 +122,9 @@ void main() {
 
       await _pumpUntil(
         tester,
-        () => find.textContaining('access_denied').evaluate().isNotEmpty,
+        () => iconLabelContaining('access_denied').evaluate().isNotEmpty,
       );
-      expect(find.textContaining('access_denied'), findsOneWidget);
+      expect(iconLabelContaining('access_denied'), findsOneWidget);
 
       await tester.tap(iconLabeled('Open GitHub & copy code'));
       await tester.pump();
@@ -175,7 +175,12 @@ void main() {
             .evaluate()
             .isNotEmpty,
       );
-      expect(find.textContaining('could not save the token'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(
+          RegExp(RegExp.escape('could not save the token')),
+        ),
+        findsOneWidget,
+      );
     });
   });
 }

@@ -84,7 +84,7 @@ void main() {
     });
     await tester.pump();
 
-    expect(find.text('Advanced sync (GitHub)'), findsOneWidget);
+    expect(iconLabeled('Advanced sync (GitHub)'), findsOneWidget);
     expect(iconLabeled('Connect GitHub'), findsOneWidget);
   });
 
@@ -104,8 +104,11 @@ void main() {
     });
     await tester.pump();
 
-    expect(find.text('Connected.'), findsNothing);
-    expect(find.textContaining('NOT connected'), findsOneWidget);
+    expect(find.bySemanticsLabel('Connected.'), findsNothing);
+    expect(
+      find.bySemanticsLabel(RegExp(RegExp.escape('NOT connected'))),
+      findsOneWidget,
+    );
   });
 
   testWidgets('a saved token that GitHub accepts reports verified', (
@@ -125,7 +128,9 @@ void main() {
     await tester.pump();
 
     expect(
-      find.textContaining('Connected and verified via GitHub'),
+      find.bySemanticsLabel(
+        RegExp(RegExp.escape('Connected and verified via GitHub')),
+      ),
       findsOneWidget,
     );
   });
@@ -151,6 +156,6 @@ void main() {
     await tester.enterText(_patField, 'a-pasted-token');
     await tester.tap(iconLabeled('Save'));
     await tester.pump();
-    expect(find.text('Sync token saved.'), findsOneWidget);
+    expect(find.bySemanticsLabel('Sync token saved.'), findsOneWidget);
   });
 }

@@ -102,9 +102,15 @@ void main() {
       await tester.tap(iconLabeled('Connect GitHub'));
       await _pumpUntil(
         tester,
-        () => find.textContaining('NOT syncing').evaluate().isNotEmpty,
+        () => find
+            .bySemanticsLabel(RegExp(RegExp.escape('NOT syncing')))
+            .evaluate()
+            .isNotEmpty,
       );
-      expect(find.textContaining('NOT syncing'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(RegExp(RegExp.escape('NOT syncing'))),
+        findsOneWidget,
+      );
     });
   });
 
@@ -144,17 +150,28 @@ void main() {
       await tester.tap(iconLabeled('Connect GitHub'));
       await _pumpUntil(
         tester,
-        () => find.textContaining('verifying').evaluate().isNotEmpty,
+        () => find
+            .bySemanticsLabel(RegExp(RegExp.escape('verifying')))
+            .evaluate()
+            .isNotEmpty,
       );
       // Pending tile (spinner + white70 status colour) is now on screen.
-      expect(find.textContaining('verifying'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(RegExp(RegExp.escape('verifying'))),
+        findsOneWidget,
+      );
 
       await _pumpUntil(
         tester,
-        () =>
-            find.textContaining('Connected and verified').evaluate().isNotEmpty,
+        () => find
+            .bySemanticsLabel(RegExp(RegExp.escape('Connected and verified')))
+            .evaluate()
+            .isNotEmpty,
       );
-      expect(find.textContaining('Connected and verified'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(RegExp(RegExp.escape('Connected and verified'))),
+        findsOneWidget,
+      );
     });
   });
 
@@ -195,8 +212,16 @@ void main() {
       });
       await tester.pump();
 
-      expect(find.textContaining('recovered the saved token'), findsOneWidget);
-      expect(find.textContaining('NOT connected'), findsNothing);
+      expect(
+        find.bySemanticsLabel(
+          RegExp(RegExp.escape('recovered the saved token')),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(RegExp(RegExp.escape('NOT connected'))),
+        findsNothing,
+      );
     },
   );
 }

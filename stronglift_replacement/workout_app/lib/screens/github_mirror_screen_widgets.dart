@@ -19,6 +19,12 @@ class _SyncStatusBadge extends StatelessWidget {
       _SyncStatusKind.error => colorScheme.error,
       _SyncStatusKind.pending => colorScheme.onSurfaceVariant,
     };
+    // textgate: the status sentence is spoken only; the pill shows the
+    // state glyph in the state colour.
+    return Semantics(label: text, excludeSemantics: true, child: _pill(color));
+  }
+
+  Widget _pill(Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -42,17 +48,6 @@ class _SyncStatusBadge extends StatelessWidget {
               color: color,
               size: 16,
             ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                color: color,
-                fontSize: AppTextSize.label,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -176,7 +171,12 @@ class _DeviceCodeDialogState extends State<_DeviceCodeDialog> {
               ),
             )
           else
-            Text(_error!, style: TextStyle(color: colorScheme.error)),
+            // textgate: the failure is spoken only.
+            Icon(
+              Icons.error_outline,
+              color: colorScheme.error,
+              semanticLabel: _error,
+            ),
         ],
       ),
       actions: [

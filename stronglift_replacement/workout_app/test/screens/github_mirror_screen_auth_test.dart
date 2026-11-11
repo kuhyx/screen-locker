@@ -88,7 +88,9 @@ void main() {
       );
 
       expect(
-        find.textContaining('Could not start device flow'),
+        find.bySemanticsLabel(
+          RegExp(RegExp.escape('Could not start device flow')),
+        ),
         findsOneWidget,
       );
     });
@@ -141,7 +143,9 @@ void main() {
       );
 
       expect(
-        find.textContaining('Connected and verified via GitHub'),
+        find.bySemanticsLabel(
+          RegExp(RegExp.escape('Connected and verified via GitHub')),
+        ),
         findsOneWidget,
       );
     });
