@@ -35,44 +35,45 @@ class _WorkoutCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (doneToday && !hasActiveSession) ...[
-              Row(
-                children: [
-                  Icon(Icons.check_circle, color: status.success, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Done for today!',
-                    style: TextStyle(
-                      color: status.success,
-                      fontWeight: FontWeight.bold,
-                      fontSize: AppTextSize.body,
-                    ),
+            // textgate: was "Done for today!" / "Next: Workout A" /
+            // "Workout A in progress". Now the plan letter plus a state
+            // glyph; colour is the second channel (success / warning).
+            Row(
+              children: [
+                if (doneToday && !hasActiveSession)
+                  Icon(
+                    Icons.check_circle,
+                    key: const Key('home_done_today'),
+                    color: status.success,
+                    semanticLabel: 'Done for today',
+                  )
+                else if (hasActiveSession)
+                  Icon(
+                    Icons.timelapse,
+                    key: const Key('home_in_progress'),
+                    color: status.warning,
+                    semanticLabel: 'Workout $type in progress',
+                  )
+                else
+                  Icon(
+                    Icons.arrow_forward,
+                    key: const Key('home_next'),
+                    color: colorScheme.onSurface,
+                    semanticLabel: 'Next: Workout $type',
                   ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Next: Workout $type',
-                style: TextStyle(
-                  color: colorScheme.onSurface,
-                  fontSize: AppTextSize.body,
-                  fontWeight: FontWeight.bold,
+                const SizedBox(width: 8),
+                Text(
+                  type,
+                  style: TextStyle(
+                    color: hasActiveSession
+                        ? status.warning
+                        : colorScheme.onSurface,
+                    fontSize: AppTextSize.subtitle,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ] else ...[
-              Text(
-                hasActiveSession
-                    ? 'Workout $type in progress'
-                    : 'Next: Workout $type',
-                style: TextStyle(
-                  color: hasActiveSession
-                      ? status.warning
-                      : colorScheme.onSurface,
-                  fontSize: AppTextSize.subtitle,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+              ],
+            ),
             const SizedBox(height: 10),
             ...exercises.map(
               (e) => Text(
@@ -93,13 +94,10 @@ class _WorkoutCard extends StatelessWidget {
                     padding: buttonPadding,
                   ),
                   onPressed: onResume,
-                  child: Text(
-                    'Resume Workout',
-                    style: TextStyle(
-                      color: colorScheme.onPrimary,
-                      fontSize: AppTextSize.body,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: Icon(
+                    Icons.play_arrow,
+                    color: colorScheme.onPrimary,
+                    semanticLabel: 'Resume Workout',
                   ),
                 ),
               )
@@ -114,13 +112,10 @@ class _WorkoutCard extends StatelessWidget {
                     padding: buttonPadding,
                   ),
                   onPressed: onStart,
-                  child: Text(
-                    'Start Workout $type',
-                    style: TextStyle(
-                      color: colorScheme.onPrimary,
-                      fontSize: AppTextSize.body,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: Icon(
+                    Icons.play_arrow,
+                    color: colorScheme.onPrimary,
+                    semanticLabel: 'Start Workout $type',
                   ),
                 ),
               ),

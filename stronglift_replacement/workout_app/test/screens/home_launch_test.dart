@@ -69,7 +69,7 @@ void main() {
     await _launch(tester, _app());
     expect(find.byType(WorkoutScreen), findsOneWidget);
     // No transition: the home card was never built underneath.
-    expect(find.text('Start Workout A'), findsNothing);
+    expect(iconLabeled('Start Workout A'), findsNothing);
     // Sync is not set up, and the card that says so was skipped.
     expect(find.byType(SyncSetupBanner), findsOneWidget);
   });
@@ -86,7 +86,7 @@ void main() {
     );
     await _launch(tester, _app());
     expect(find.byType(WorkoutScreen), findsNothing);
-    expect(find.text('Done for today!'), findsOneWidget);
+    expect(iconLabeled('Done for today'), findsOneWidget);
   });
 
   testWidgets('a synced record dated today (a run, a manual log) keeps home', (
@@ -99,7 +99,7 @@ void main() {
     );
     await _launch(tester, _app(sync: sync, configured: true));
     expect(find.byType(WorkoutScreen), findsNothing);
-    expect(find.text('Done for today!'), findsOneWidget);
+    expect(iconLabeled('Done for today'), findsOneWidget);
   });
 
   testWidgets('synced records from other days still open, without banner', (
@@ -130,7 +130,7 @@ void main() {
     addTearDown(() => lockModeEnabled = false);
     await _launch(tester, _app());
     expect(find.byType(WorkoutScreen), findsNothing);
-    expect(find.text('Start Workout A'), findsOneWidget);
+    expect(iconLabeled('Start Workout A'), findsOneWidget);
   });
 
   testWidgets('backing out lands on home, with no session left behind', (
@@ -146,7 +146,7 @@ void main() {
     await tester.pump();
     expect(find.byType(WorkoutScreen), findsNothing);
     // Only the first load decides: the reload after the pop stays on home.
-    expect(find.text('Start Workout A'), findsOneWidget);
+    expect(iconLabeled('Start Workout A'), findsOneWidget);
     final saved = await tester.runAsync(
       () => StorageService.instance.loadActiveSession(),
     );

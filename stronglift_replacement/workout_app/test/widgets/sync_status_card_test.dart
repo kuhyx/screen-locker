@@ -4,6 +4,8 @@ import 'package:workout_app/services/sync_status.dart';
 import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/sync_status_card.dart';
 
+import '../icon_finders.dart';
+
 void main() {
   var retried = 0;
   var setUpTapped = 0;
@@ -30,16 +32,16 @@ void main() {
     await tester.pumpWidget(
       wrap(const SyncStatus(state: SyncState.notConnected)),
     );
-    expect(find.text('Not connected to sync'), findsOneWidget);
     // The consequence is the whole point of the card -- a workout logged
     // while disconnected does not count, which is what cost a real session.
-    expect(find.textContaining('NOT count'), findsOneWidget);
-    await tester.tap(find.text('Set up sync'));
+    expect(iconLabeled(_notConnected), findsOneWidget);
+    expect(find.byIcon(Icons.cloud_off), findsOneWidget);
+    await tester.tap(iconLabeled('Set up sync'));
     expect(setUpTapped, 1);
     expect(retried, 0);
   });
 
-  testWidgets('failed shows the concrete reason and retries', (tester) async {
+  testWidgets('failed speaks the concrete reason and retries', (tester) async {
     await tester.pumpWidget(
       wrap(
         const SyncStatus(
@@ -48,39 +50,47 @@ void main() {
         ),
       ),
     );
-    expect(find.text('Sync failed'), findsOneWidget);
-    expect(find.textContaining('connection refused'), findsOneWidget);
-    await tester.tap(find.text('Retry'));
+    expect(
+      iconLabeled('Sync failed. sync failed: connection refused'),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.sync_problem), findsOneWidget);
+    await tester.tap(iconLabeled('Retry'));
     expect(retried, 1);
   });
 
-  testWidgets('failed falls back to generic text when reason is null', (
+  testWidgets('failed falls back to a generic reason when it is null', (
     tester,
   ) async {
     await tester.pumpWidget(wrap(const SyncStatus(state: SyncState.failed)));
-    expect(find.textContaining('did not go through'), findsOneWidget);
+    expect(
+      iconLabeled('Sync failed. The last attempt failed.'),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('outOfDate reports how long ago and retries', (tester) async {
+  testWidgets('outOfDate shows how long ago and retries', (tester) async {
     await tester.pumpWidget(
       wrap(
-        const SyncStatus(
-          state: SyncState.outOfDate,
-          age: Duration(hours: 9),
-        ),
+        const SyncStatus(state: SyncState.outOfDate, age: Duration(hours: 9)),
       ),
     );
-    expect(find.text('Sync out of date'), findsOneWidget);
-    expect(find.textContaining('9h ago'), findsOneWidget);
-    await tester.tap(find.text('Retry'));
+    expect(find.byIcon(Icons.cloud_queue), findsOneWidget);
+    expect(find.text('9h'), findsOneWidget);
+    expect(
+      iconLabeled('Sync out of date. Last synced 9h ago.'),
+      findsOneWidget,
+    );
+    await tester.tap(iconLabeled('Retry'));
     expect(retried, 1);
   });
 
-  testWidgets('outOfDate with no age says it has never synced', (tester) async {
-    await tester.pumpWidget(
-      wrap(const SyncStatus(state: SyncState.outOfDate)),
+  testWidgets('outOfDate with no age says it never synced', (tester) async {
+    await tester.pumpWidget(wrap(const SyncStatus(state: SyncState.outOfDate)));
+    expect(
+      iconLabeled('Sync out of date. Never synced successfully.'),
+      findsOneWidget,
     );
-    expect(find.textContaining('never synced'), findsOneWidget);
   });
 
   testWidgets('synced is a compact line with no button', (tester) async {
@@ -89,24 +99,29 @@ void main() {
         const SyncStatus(state: SyncState.synced, age: Duration(minutes: 3)),
       ),
     );
-    expect(find.textContaining('Synced 3m ago'), findsOneWidget);
+    expect(iconLabeled('Synced'), findsOneWidget);
+    expect(find.text('3m'), findsOneWidget);
     // Healthy state must not carry an action: a card that is always there
     // with a button becomes wallpaper and stops being read.
-    expect(find.byType(TextButton), findsNothing);
+    expect(find.byType(IconButton), findsNothing);
     expect(find.byType(Card), findsNothing);
   });
 
-  testWidgets('synced with no age still renders', (tester) async {
+  testWidgets('synced with no age shows only the glyph', (tester) async {
     await tester.pumpWidget(wrap(const SyncStatus(state: SyncState.synced)));
-    expect(find.text('Synced'), findsOneWidget);
+    expect(iconLabeled('Synced'), findsOneWidget);
+    expect(find.byType(Text), findsNothing);
   });
 
   group('describeAge', () {
-    test('renders each magnitude the way a human would say it', () {
-      expect(SyncStatusCard.describeAge(const Duration(seconds: 5)), 'just now');
-      expect(SyncStatusCard.describeAge(const Duration(minutes: 5)), '5m ago');
-      expect(SyncStatusCard.describeAge(const Duration(hours: 5)), '5h ago');
-      expect(SyncStatusCard.describeAge(const Duration(days: 5)), '5d ago');
+    test('renders each magnitude as a number and a one-letter unit', () {
+      expect(SyncStatusCard.describeAge(const Duration(seconds: 5)), '0m');
+      expect(SyncStatusCard.describeAge(const Duration(minutes: 5)), '5m');
+      expect(SyncStatusCard.describeAge(const Duration(hours: 5)), '5h');
+      expect(SyncStatusCard.describeAge(const Duration(days: 5)), '5d');
     });
   });
 }
+
+const _notConnected =
+    'Not connected to sync. This workout will NOT count until sync is set up.';

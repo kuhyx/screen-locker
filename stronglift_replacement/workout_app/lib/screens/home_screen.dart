@@ -149,10 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: colorScheme.surfaceContainerHigh,
-        title: Text(
-          'Workout Tracker',
-          style: TextStyle(color: colorScheme.onSurface),
-        ),
+        // textgate: no title (was "Workout Tracker"); the app is the app.
         actions: [
           IconButton(
             key: const Key('home_run'),

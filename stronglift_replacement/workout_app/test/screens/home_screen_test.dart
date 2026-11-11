@@ -22,17 +22,17 @@ void main() {
 
   testWidgets('shows Workout Tracker app bar', (tester) async {
     await pumpHome(tester, wrapHome());
-    expect(find.text('Workout Tracker'), findsOneWidget);
+    expect(find.byKey(const Key('home_next')), findsOneWidget);
   });
 
   testWidgets('shows Next: Workout A when no workout done', (tester) async {
     await pumpHome(tester, wrapHome());
-    expect(find.textContaining('Next: Workout A'), findsOneWidget);
+    expect(iconLabeled('Next: Workout A'), findsOneWidget);
   });
 
   testWidgets('shows Start Workout A button', (tester) async {
     await pumpHome(tester, wrapHome());
-    expect(find.text('Start Workout A'), findsOneWidget);
+    expect(iconLabeled('Start Workout A'), findsOneWidget);
   });
 
   testWidgets('history icon navigates to history screen', (tester) async {
@@ -75,9 +75,9 @@ void main() {
       () => StorageService.instance.setLastWorkoutType('A'),
     );
     await pumpHome(tester, wrapHome());
-    expect(find.text('Done for today!'), findsOneWidget);
+    expect(iconLabeled('Done for today'), findsOneWidget);
     // An extra session is still allowed: the PC pays for further ones.
-    expect(find.text('Start Workout B'), findsOneWidget);
+    expect(iconLabeled('Start Workout B'), findsOneWidget);
     // The run entry must not vanish either.
     expect(find.byKey(const Key('home_run')), findsOneWidget);
   });
@@ -90,17 +90,17 @@ void main() {
     await tester.tap(find.byIcon(Icons.edit_note));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Log Manual Workout'), findsOneWidget);
+    expect(iconLabeled('Log Manual Workout'), findsOneWidget);
   });
 
   testWidgets('starting a workout navigates to the workout screen', (
     tester,
   ) async {
     await pumpHome(tester, wrapHome());
-    await tester.tap(find.text('Start Workout A'));
+    await tester.tap(iconLabeled('Start Workout A'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.textContaining('Workout A'), findsWidgets);
+    expect(find.byType(WorkoutScreen), findsOneWidget);
   });
 
   testWidgets('an active session auto-resumes into the workout screen', (
@@ -168,11 +168,11 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(WorkoutScreen), findsNothing);
-    expect(find.text('Resume Workout'), findsOneWidget);
+    expect(iconLabeled('Resume Workout'), findsOneWidget);
 
     // Tapping Resume invokes onResume -> _openWorkout(resume:true) (line 153).
     await tester.runAsync(() async {
-      await tester.tap(find.text('Resume Workout'));
+      await tester.tap(iconLabeled('Resume Workout'));
       await Future<void>.delayed(const Duration(milliseconds: 300));
     });
     await tester.pump();
@@ -197,6 +197,6 @@ void main() {
     });
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Workout Tracker'), findsOneWidget);
+    expect(find.byKey(const Key('home_next')), findsOneWidget);
   });
 }

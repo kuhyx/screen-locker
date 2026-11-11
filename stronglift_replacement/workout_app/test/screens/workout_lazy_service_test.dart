@@ -104,7 +104,7 @@ void main() {
       ),
     );
     expect(find.byType(SyncSetupBanner), findsOneWidget);
-    expect(find.textContaining('will NOT count'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('will NOT count')), findsOneWidget);
 
     await pumpWorkout(tester, wrapWorkout(breakClient: client));
     expect(find.byType(SyncSetupBanner), findsNothing);

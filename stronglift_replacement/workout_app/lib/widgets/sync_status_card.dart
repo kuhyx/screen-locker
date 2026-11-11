@@ -29,12 +29,12 @@ class SyncStatusCard extends StatelessWidget {
   /// Opens sync settings ([SyncState.notConnected]).
   final VoidCallback onSetUp;
 
-  /// Renders a duration the way a human would say it.
+  /// Renders a duration as a number plus a one-letter unit: `5m`, `3h`,
+  /// `2d`. Under a minute is `0m` (textgate: was "just now" / "5m ago").
   static String describeAge(Duration age) {
-    if (age.inMinutes < 1) return 'just now';
-    if (age.inMinutes < 60) return '${age.inMinutes}m ago';
-    if (age.inHours < 24) return '${age.inHours}h ago';
-    return '${age.inDays}d ago';
+    if (age.inMinutes < 60) return '${age.inMinutes}m';
+    if (age.inHours < 24) return '${age.inHours}h';
+    return '${age.inDays}d';
   }
 
   @override
@@ -44,20 +44,27 @@ class SyncStatusCard extends StatelessWidget {
 
     // The healthy state is a compact one-liner on purpose: a full card that
     // is always there becomes wallpaper, and then the unhealthy ones stop
-    // being noticed too.
+    // being noticed too. textgate: was "Synced 5m ago"; now glyph + age.
     if (status.state == SyncState.synced) {
       final age = status.age;
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.cloud_done, size: 16, color: statusColors.success),
-          const SizedBox(width: 8),
-          Text(
-            age == null ? 'Synced' : 'Synced ${describeAge(age)}',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: statusColors.success,
-            ),
+          Icon(
+            Icons.cloud_done,
+            size: 16,
+            color: statusColors.success,
+            semanticLabel: 'Synced',
           ),
+          if (age != null) ...[
+            const SizedBox(width: 8),
+            Text(
+              describeAge(age),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: statusColors.success),
+            ),
+          ],
         ],
       );
     }
@@ -65,23 +72,31 @@ class SyncStatusCard extends StatelessWidget {
     // SyncState.synced returned above, so only the three unhealthy states
     // reach here. `notConnected` is the default arm rather than a listed one
     // so the switch has no unreachable branch to leave uncovered.
-    final (icon, accent, title, body, actionLabel, action) = switch (status
-        .state) {
+    // textgate: the old title / body / button words are spoken only now;
+    // the painted card is state glyph + age + action glyph, accent-bordered.
+    final (
+      icon,
+      accent,
+      spoken,
+      actionIcon,
+      actionSpoken,
+      action,
+    ) = switch (status.state) {
       SyncState.failed => (
         Icons.sync_problem,
         colorScheme.error,
-        'Sync failed',
-        status.reason ?? 'The last sync attempt did not go through.',
+        'Sync failed. ${status.reason ?? 'The last attempt failed.'}',
+        Icons.refresh,
         'Retry',
         onRetry,
       ),
       SyncState.outOfDate => (
         Icons.cloud_queue,
         statusColors.warning,
-        'Sync out of date',
         status.age == null
-            ? 'This device has never synced successfully.'
-            : 'Last synced ${describeAge(status.age!)}.',
+            ? 'Sync out of date. Never synced successfully.'
+            : 'Sync out of date. Last synced ${describeAge(status.age!)} ago.',
+        Icons.refresh,
         'Retry',
         onRetry,
       ),
@@ -89,12 +104,15 @@ class SyncStatusCard extends StatelessWidget {
       _ => (
         Icons.cloud_off,
         colorScheme.error,
-        'Not connected to sync',
-        'This workout will NOT count until sync is set up.',
+        'Not connected to sync. '
+            'This workout will NOT count until sync is set up.',
+        // Not the gear: the home app bar already uses it for Settings.
+        Icons.add_link,
         'Set up sync',
         onSetUp,
       ),
     };
+    final age = status.age;
 
     return Card(
       color: colorScheme.surfaceContainerHigh,
@@ -105,28 +123,23 @@ class SyncStatusCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: accent),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: accent,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(body, style: Theme.of(context).textTheme.bodySmall),
-                ],
+            Icon(icon, color: accent, semanticLabel: spoken),
+            if (status.state == SyncState.outOfDate && age != null) ...[
+              const SizedBox(width: 12),
+              Text(
+                describeAge(age),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(color: accent),
               ),
+            ],
+            const Spacer(),
+            IconButton(
+              onPressed: action,
+              color: accent,
+              icon: Icon(actionIcon, semanticLabel: actionSpoken),
             ),
-            const SizedBox(width: 8),
-            TextButton(onPressed: action, child: Text(actionLabel)),
           ],
         ),
       ),

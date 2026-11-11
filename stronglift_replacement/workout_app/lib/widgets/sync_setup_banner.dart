@@ -14,6 +14,9 @@ class SyncSetupBanner extends StatelessWidget {
   /// Creates the banner.
   const SyncSetupBanner({super.key});
 
+  static const _semanticsLabel =
+      'Sync not set up — this workout will NOT count. Set it up in Settings.';
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -22,20 +25,20 @@ class SyncSetupBanner extends StatelessWidget {
         horizontal: AppSpacing.md,
         vertical: AppSpacing.xs,
       ),
-      child: Row(
-        children: [
-          Icon(Icons.cloud_off, size: 16, color: colorScheme.error),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              'Sync not set up — this workout will NOT count. '
-              'Set it up in Settings.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: colorScheme.error),
-            ),
-          ),
-        ],
+      // textgate: was "Sync not set up — this workout will NOT count. Set
+      // it up in Settings." Now: no cloud -> settings, in the error colour.
+      child: Semantics(
+        label: _semanticsLabel,
+        excludeSemantics: true,
+        child: Row(
+          children: [
+            Icon(Icons.cloud_off, size: 16, color: colorScheme.error),
+            const SizedBox(width: AppSpacing.sm),
+            Icon(Icons.arrow_forward, size: 16, color: colorScheme.error),
+            const SizedBox(width: AppSpacing.sm),
+            Icon(Icons.settings, size: 16, color: colorScheme.error),
+          ],
+        ),
       ),
     );
   }

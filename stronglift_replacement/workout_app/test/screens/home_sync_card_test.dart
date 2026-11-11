@@ -36,7 +36,7 @@ void main() {
     ) async {
       await pumpHome(tester, wrapHome(configuredProbe: () async => false));
       expect(find.byType(SyncStatusCard), findsOneWidget);
-      expect(find.text('Not connected to sync'), findsOneWidget);
+      expect(find.byIcon(Icons.cloud_off), findsOneWidget);
     });
 
     testWidgets('the card sits ABOVE the workout card', (tester) async {
@@ -44,7 +44,7 @@ void main() {
       // The whole point of the placement: the warning has to be read before
       // the workout starts, not discovered after it failed to count.
       final cardY = tester.getTopLeft(find.byType(SyncStatusCard)).dy;
-      final workoutY = tester.getTopLeft(find.text('Start Workout A')).dy;
+      final workoutY = tester.getTopLeft(iconLabeled('Start Workout A')).dy;
       expect(cardY, lessThan(workoutY));
     });
 
@@ -64,8 +64,10 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Sync failed'), findsOneWidget);
-      expect(find.textContaining('no network'), findsOneWidget);
+      expect(
+        iconLabeled('Sync failed. sync failed: no network'),
+        findsOneWidget,
+      );
     });
 
     testWidgets(
@@ -94,8 +96,8 @@ void main() {
             ),
           ),
         );
-        expect(find.text('Sync out of date'), findsOneWidget);
-        expect(find.textContaining('3d ago'), findsOneWidget);
+        expect(find.byIcon(Icons.cloud_queue), findsOneWidget);
+        expect(find.text('3d'), findsOneWidget);
       },
     );
 
@@ -104,7 +106,7 @@ void main() {
     ) async {
       installFakeSecureStorage(); // SettingsScreen reads the token on init
       await pumpHome(tester, wrapHome(configuredProbe: () async => false));
-      await tester.tap(find.text('Set up sync'));
+      await tester.tap(iconLabeled('Set up sync'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       // The card must lead somewhere: telling the user sync is broken and
@@ -119,7 +121,7 @@ void main() {
       });
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text('Workout Tracker'), findsOneWidget);
+      expect(find.byKey(const Key('home_next')), findsOneWidget);
     });
 
     testWidgets('Retry runs another sync tick', (tester) async {
@@ -139,7 +141,7 @@ void main() {
       );
       expect(ticks, 1); // the automatic tick on open
       await tester.runAsync(() async {
-        await tester.tap(find.text('Retry'));
+        await tester.tap(iconLabeled('Retry'));
         await Future<void>.delayed(const Duration(milliseconds: 200));
       });
       await tester.pump();
@@ -163,7 +165,7 @@ void main() {
           ),
         ),
       );
-      expect(find.textContaining('Synced'), findsOneWidget);
+      expect(iconLabeled('Synced'), findsOneWidget);
       // The timestamp must actually persist, or the card would go stale
       // again on the very next open. Read it inside runAsync: the DB is real
       // I/O, and awaiting it under FakeAsync hangs the test.
