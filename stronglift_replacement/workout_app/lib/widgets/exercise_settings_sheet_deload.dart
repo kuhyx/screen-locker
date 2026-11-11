@@ -18,7 +18,7 @@ class _DeloadRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final change = describeTargetChange(state, targetAfterFailure(state));
-    final canDeload = change != 'same';
+    final canDeload = change != kNoTargetChange;
     return SizedBox(
       height: 40,
       child: Row(

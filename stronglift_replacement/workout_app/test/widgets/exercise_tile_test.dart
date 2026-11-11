@@ -134,17 +134,17 @@ void main() {
       await tester.pumpWidget(
         _wrap(_tile(state: _state.copyWith(mode: ProgressionMode.reps))),
       );
-      expect(find.text('0/3 → 6 reps'), findsOneWidget);
-      expect(find.text('0/2 → 4 reps'), findsOneWidget);
+      expect(find.text('0/3 → ×6'), findsOneWidget);
+      expect(find.text('0/2 → ×4'), findsOneWidget);
     });
 
-    testWidgets('mode chip names the mode', (tester) async {
+    testWidgets('mode chip shows the mode glyph', (tester) async {
       await tester.pumpWidget(_wrap(_tile()));
-      expect(find.text('kg'), findsOneWidget);
+      expect(find.byIcon(Icons.fitness_center), findsOneWidget);
       await tester.pumpWidget(
         _wrap(_tile(state: _state.copyWith(mode: ProgressionMode.reps))),
       );
-      expect(find.text('reps'), findsOneWidget);
+      expect(find.byIcon(Icons.repeat), findsOneWidget);
       await tester.pumpWidget(
         _wrap(
           _tile(
@@ -184,10 +184,8 @@ void main() {
       );
       expect(find.byType(RepCircle), findsNothing);
       expect(find.bySemanticsLabel('Squat warmup'), findsNothing);
-      expect(
-        find.textContaining('back on ${formatShortDate(until)}'),
-        findsOneWidget,
-      );
+      expect(find.text(formatShortDate(until)), findsOneWidget);
+      expect(iconLabeled('Paused — counts as failed'), findsOneWidget);
       expect(tester.getSize(find.byType(ExerciseTile)), size);
       expect(_cardColor(tester), idle);
     });

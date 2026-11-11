@@ -62,9 +62,9 @@ void main() {
     });
 
     test('formatShortDate', () {
-      expect(formatShortDate(DateTime(2026, 10, 11)), '11 Oct');
-      expect(formatShortDate(DateTime(2026, 1, 1)), '1 Jan');
-      expect(formatShortDate(DateTime(2026, 12, 31)), '31 Dec');
+      expect(formatShortDate(DateTime(2026, 10, 11)), '11.10');
+      expect(formatShortDate(DateTime(2026, 1, 1)), '1.01');
+      expect(formatShortDate(DateTime(2026, 12, 31)), '31.12');
     });
   });
 }

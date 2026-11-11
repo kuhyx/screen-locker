@@ -20,10 +20,12 @@ class _ModeChip extends StatelessWidget {
 
   static const double width = 64;
 
-  String get _text => switch (state.mode) {
-    ProgressionMode.weight => 'kg',
-    ProgressionMode.reps => 'reps',
-    ProgressionMode.doubleProgression => '${state.repsLow}→${state.repsHigh}',
+  // textgate: was 'kg' / 'reps'. The same mode glyphs as the settings
+  // sheet's segmented control; double progression keeps its rep range.
+  IconData? get _modeIcon => switch (state.mode) {
+    ProgressionMode.weight => Icons.fitness_center,
+    ProgressionMode.reps => Icons.repeat,
+    ProgressionMode.doubleProgression => null,
   };
 
   @override
@@ -52,12 +54,17 @@ class _ModeChip extends StatelessWidget {
               Icon(Icons.tune, size: 13, color: color),
               const SizedBox(width: 3),
               Flexible(
-                child: Text(
-                  _text,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: color, fontSize: AppTextSize.caption),
-                ),
+                child: _modeIcon == null
+                    ? Text(
+                        '${state.repsLow}→${state.repsHigh}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: AppTextSize.caption,
+                        ),
+                      )
+                    : Icon(_modeIcon, size: 14, color: color),
               ),
             ],
           ),
@@ -204,16 +211,24 @@ class _PausedRow extends StatelessWidget {
       height: ExerciseTile.setRowHeight,
       child: Row(
         children: [
-          Icon(Icons.pause_circle_outline, size: 20, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Paused — back on ${formatShortDate(until)} · counts as failed',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: color, fontSize: AppTextSize.label),
-            ),
+          // textgate: was "Paused — back on 11 Oct · counts as failed".
+          // Now: pause glyph, the return date, and the failed-set cross.
+          Icon(
+            Icons.pause_circle_outline,
+            size: 20,
+            color: color,
+            semanticLabel: 'Paused — counts as failed',
           ),
+          const SizedBox(width: 8),
+          Icon(Icons.arrow_forward, size: 16, color: color),
+          const SizedBox(width: 4),
+          Text(
+            formatShortDate(until),
+            key: const Key('paused_until'),
+            style: TextStyle(color: color, fontSize: AppTextSize.label),
+          ),
+          const SizedBox(width: 8),
+          Icon(Icons.close, size: 16, color: color),
         ],
       ),
     );

@@ -125,15 +125,19 @@ ProgressionTarget targetAfterFailure(ProgressionInputs s) {
   }
 }
 
-/// Short label for moving from [from] to [to]: `25 kg`, `13 reps`,
-/// `25 kg × 6`, or `same` when the rule has nowhere left to go.
+/// What [describeTargetChange] returns when the rule has nowhere to go.
+const kNoTargetChange = '=';
+
+/// Short label for moving from [from] to [to]: `25 kg`, `×13` (reps),
+/// `25 kg × 6`, or [kNoTargetChange]. textgate: numerals and symbols only
+/// (was `13 reps` / `same`).
 String describeTargetChange(ProgressionInputs from, ProgressionTarget to) {
   final weightChanged = to.weight != from.weight;
   final repsChanged = to.reps != from.reps;
   if (weightChanged && repsChanged) return '${_kg(to.weight)} kg × ${to.reps}';
   if (weightChanged) return '${_kg(to.weight)} kg';
-  if (repsChanged) return '${to.reps} reps';
-  return 'same';
+  if (repsChanged) return '×${to.reps}';
+  return kNoTargetChange;
 }
 
 /// `25` for 25.0, `27.5` for 27.5 — no trailing `.0` noise in tight rows.

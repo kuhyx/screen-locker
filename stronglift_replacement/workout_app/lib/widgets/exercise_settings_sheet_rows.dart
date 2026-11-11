@@ -207,16 +207,17 @@ class _PauseRow extends StatelessWidget {
                 ),
               ]
             : [
+                // textgate: was "Paused — back on 11 Oct".
                 Icon(
                   Icons.pause_circle_outline,
                   size: 18,
                   color: colorScheme.error,
+                  semanticLabel: 'Paused',
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  'Paused — back on ${formatShortDate(until)}',
-                  style: style,
-                ),
+                Icon(Icons.arrow_forward, size: 16, color: colorScheme.error),
+                const SizedBox(width: 4),
+                Text(formatShortDate(until), style: style),
                 const Spacer(),
                 TextButton(
                   onPressed: onResume,

@@ -153,16 +153,13 @@ void main() {
     });
 
     test('reps only', () {
-      expect(
-        describeTargetChange(from, const ProgressionTarget(20, 9)),
-        '9 reps',
-      );
+      expect(describeTargetChange(from, const ProgressionTarget(20, 9)), '×9');
     });
 
     test('no change', () {
       expect(
         describeTargetChange(from, const ProgressionTarget(20, 8)),
-        'same',
+        kNoTargetChange,
       );
     });
 

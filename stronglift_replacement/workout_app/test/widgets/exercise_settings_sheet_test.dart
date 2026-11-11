@@ -155,7 +155,7 @@ void main() {
       edits.last.pausedUntil,
       pauseEnd(DateTime.now(), kDefaultPauseDays + 1),
     );
-    expect(find.textContaining('Paused — back on'), findsOneWidget);
+    expect(iconLabeled('Paused'), findsOneWidget);
 
     await tester.tap(iconLabeled('Resume'));
     await tester.pump();

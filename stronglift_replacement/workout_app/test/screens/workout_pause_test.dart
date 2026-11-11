@@ -18,6 +18,7 @@ import '../fake_audio_platform.dart';
 import '../fake_break_service.dart';
 import '../fake_secure_storage.dart';
 import '_workout_screen_test_fixtures.dart';
+import '../icon_finders.dart';
 
 // Real plan names, so each has a progression-state row to pause.
 const _lunge = Exercise(name: 'Dumbbell Lunge', sets: 2, reps: 5, weight: 10);
@@ -63,7 +64,7 @@ void main() {
   testWidgets('the paused exercise shows no sets and says so', (tester) async {
     await pumpPausedSitup(tester);
     expect(find.byType(RepCircle), findsNWidgets(_lunge.sets));
-    expect(find.textContaining('Paused — back on'), findsOneWidget);
+    expect(iconLabeled('Paused — counts as failed'), findsOneWidget);
   });
 
   testWidgets('Finish unlocks without it, and it is recorded as failed', (

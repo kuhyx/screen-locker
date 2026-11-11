@@ -200,23 +200,10 @@ DateTime? parsePauseDate(Object? raw) {
   return parsed;
 }
 
-const _months = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
-
-/// `11 Oct`: how a pause's end date is shown.
-String formatShortDate(DateTime d) => '${d.day} ${_months[d.month - 1]}';
+/// `11.10`: how a pause's end date is shown (textgate: numerals, no month
+/// word; was `11 Oct`).
+String formatShortDate(DateTime d) =>
+    '${d.day}.${d.month.toString().padLeft(2, '0')}';
 
 /// `3:00`: how a rest length is shown.
 String formatRest(int secs) =>
