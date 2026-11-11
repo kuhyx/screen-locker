@@ -18,6 +18,7 @@ import '../fake_audio_platform.dart';
 import '../fake_break_service.dart';
 import '../fake_secure_storage.dart';
 import '_workout_screen_test_fixtures.dart';
+import '../icon_finders.dart';
 
 // Real plan names, seeded as Lunge 7.5 kg x 12 and Row 22.5 kg x 6.
 const _lunge = Exercise(name: 'Dumbbell Lunge', sets: 3, reps: 12, weight: 7.5);
@@ -215,7 +216,7 @@ void main() {
       ),
     );
     await finish(tester);
-    await tester.tap(find.text('Back to Home'));
+    await tester.tap(iconLabeled('Back to Home'));
     await tester.pump(const Duration(milliseconds: 300));
 
     await deloadLunge(tester);

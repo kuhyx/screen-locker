@@ -11,6 +11,7 @@ import '../fake_audio_platform.dart';
 import '../fake_break_service.dart';
 import '../fake_secure_storage.dart';
 import '_workout_screen_test_fixtures.dart';
+import '../icon_finders.dart';
 
 /// A client whose teardown fails once [failStop] is armed.
 class _FailingStopClient extends FakeForegroundBreakClient {
@@ -63,6 +64,9 @@ void main() {
     expect(client.failStop, isFalse, reason: 'the failing stop really ran');
     expect(tester.takeException(), isNull);
     // The summary's PC line: this test host is never paired.
-    expect(find.text('PC: will credit within 60 s (via sync)'), findsOneWidget);
+    expect(
+      semanticsLabeled('PC: will credit within 60 s (via sync)'),
+      findsOneWidget,
+    );
   });
 }

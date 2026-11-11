@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:workout_app/services/pc_poke_result.dart';
 import 'package:workout_app/ui/theme.dart';
 
-/// Shows "PC: applying…" until [poke] resolves, then its [PokeResult.label].
+/// A spinner until [poke] resolves, then a PC glyph, an outcome glyph and
+/// the numbers the PC sent back. [PokeResult.label] is the spoken label.
 ///
 /// The service bounds [poke] to 2 s, so this never spins forever: an
 /// unreachable PC turns into the sync fallback line on its own.
@@ -36,12 +37,12 @@ class PcPokeLine extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
-              Text(
-                'PC: applying…',
-                style: TextStyle(
-                  color: colorScheme.onSurfaceVariant,
-                  fontSize: AppTextSize.caption,
-                ),
+              // textgate: was "PC: applying…".
+              Icon(
+                Icons.computer,
+                size: AppTextSize.body,
+                color: colorScheme.onSurfaceVariant,
+                semanticLabel: 'PC: applying…',
               ),
             ],
           );
@@ -52,10 +53,47 @@ class PcPokeLine extends StatelessWidget {
           PokeOutcome.alreadyPaidToday => colorScheme.onSurfaceVariant,
           PokeOutcome.notCounted || PokeOutcome.failed => status.warning,
         };
-        return Text(
-          result.label,
-          key: const Key('pc-poke-result'),
-          style: TextStyle(color: color, fontSize: AppTextSize.caption),
+        // textgate: was the sentence in [PokeResult.label]; now PC glyph +
+        // outcome glyph + the PC's own numbers, outcome colour as channel 2.
+        final glyph = switch (result.outcome) {
+          PokeOutcome.credited || PokeOutcome.sandbox => Icons.check_circle,
+          PokeOutcome.duplicate ||
+          PokeOutcome.alreadyPaidToday => Icons.done_all,
+          PokeOutcome.notCounted => Icons.block,
+          PokeOutcome.failed => Icons.schedule,
+        };
+        final style = TextStyle(color: color, fontSize: AppTextSize.caption);
+        final minutes = result.gamingBudgetMinutes;
+        return Semantics(
+          label: result.label,
+          excludeSemantics: true,
+          child: Row(
+            key: const Key('pc-poke-result'),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.computer, size: AppTextSize.body, color: color),
+              const SizedBox(width: AppSpacing.xs),
+              Icon(glyph, size: AppTextSize.body, color: color),
+              if (result.outcome == PokeOutcome.credited) ...[
+                if (result.shutdown != null) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  Icon(Icons.power_settings_new, size: 14, color: color),
+                  Text(' ${result.shutdown}', style: style),
+                ],
+                if (minutes != null) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  Icon(Icons.sports_esports, size: 14, color: color),
+                  Text(' ${(minutes / 60).toStringAsFixed(1)}h', style: style),
+                ],
+              ],
+              // Sandbox: the round trip in milliseconds behind a timer glyph.
+              if (result.outcome == PokeOutcome.sandbox) ...[
+                const SizedBox(width: AppSpacing.sm),
+                Icon(Icons.timer, size: 14, color: color),
+                Text(' ${result.roundTripMs ?? 0}', style: style),
+              ],
+            ],
+          ),
         );
       },
     );

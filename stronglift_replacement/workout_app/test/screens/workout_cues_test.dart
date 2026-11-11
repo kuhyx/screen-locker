@@ -17,6 +17,7 @@ import '../fake_audio_platform.dart';
 import '../fake_break_service.dart';
 import '../fake_secure_storage.dart';
 import '_workout_screen_test_fixtures.dart';
+import '../icon_finders.dart';
 
 const _select = 'HapticFeedbackType.selectionClick';
 const _medium = 'HapticFeedbackType.mediumImpact';
@@ -155,7 +156,7 @@ void main() {
     testWidgets('a failed workout gets exactly the same cue', (tester) async {
       await pumpWorkout(tester, wrapWorkout(savedState: partialSaved()));
       await finish(tester);
-      expect(find.textContaining('Workout Done'), findsOneWidget);
+      expect(iconLabeled('Workout Done'), findsOneWidget);
       expect(haptics, contains(_medium));
       expect(
         audio.resumedSources.where((s) => s.contains('workout_done')),

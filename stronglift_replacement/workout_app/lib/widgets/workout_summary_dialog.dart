@@ -28,11 +28,16 @@ class WorkoutSummaryDialog extends StatelessWidget {
   /// null where none was sent.
   final Future<PokeResult>? pcPoke;
 
+  /// `45:30` or `1:05:00` (textgate: was "Duration: 45m 30s").
   String _fmt(Duration d) {
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '${d.inHours > 0 ? '${d.inHours}h ' : ''}${m}m ${s}s';
+    return d.inHours > 0 ? '${d.inHours}:$m:$s' : '$m:$s';
   }
+
+  String get _saveSemanticsLabel => syncResult.success
+      ? 'Saved to ${syncResult.path}' // semantics only
+      : 'Sync failed: ${syncResult.error}'; // semantics only
 
   @override
   Widget build(BuildContext context) {
@@ -41,20 +46,31 @@ class WorkoutSummaryDialog extends StatelessWidget {
     final succeeded = session.fullySucceeded;
     return AlertDialog(
       backgroundColor: colorScheme.surfaceContainerHigh,
-      title: Text(
-        succeeded ? 'Workout Complete! 💪' : 'Workout Done',
-        style: TextStyle(
-          color: succeeded ? status.success : status.warning,
-          fontWeight: FontWeight.bold,
-        ),
+      // textgate: was "Workout Complete! 💪" / "Workout Done".
+      title: Icon(
+        succeeded ? Icons.emoji_events : Icons.flag,
+        size: 40,
+        color: succeeded ? status.success : status.warning,
+        semanticLabel: succeeded ? 'Workout Complete!' : 'Workout Done',
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Duration: ${_fmt(session.duration)}',
-            style: TextStyle(color: colorScheme.onSurfaceVariant),
+          Row(
+            children: [
+              Icon(
+                Icons.timer,
+                size: 18,
+                color: colorScheme.onSurfaceVariant,
+                semanticLabel: 'Duration',
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                _fmt(session.duration),
+                style: TextStyle(color: colorScheme.onSurfaceVariant),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           ...session.exercises.map(
@@ -66,16 +82,15 @@ class WorkoutSummaryDialog extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Text(
-            syncResult.success
-                ? 'Saved to ${syncResult.path}'
-                : 'Sync failed: ${syncResult.error}',
-            style: TextStyle(
-              color: syncResult.success
-                  ? colorScheme.onSurfaceVariant
-                  : colorScheme.error,
-              fontSize: AppTextSize.caption,
-            ),
+          // textgate: was "Saved to <path>" / "Sync failed: <error>".
+          Icon(
+            syncResult.success ? Icons.save : Icons.error_outline,
+            key: const Key('summary_save_state'),
+            size: 18,
+            color: syncResult.success
+                ? colorScheme.onSurfaceVariant
+                : colorScheme.error,
+            semanticLabel: _saveSemanticsLabel,
           ),
           if (pcPoke != null) ...[
             const SizedBox(height: AppSpacing.sm),
@@ -88,9 +103,10 @@ class WorkoutSummaryDialog extends StatelessWidget {
           onPressed: () {
             Navigator.of(context).popUntil((r) => r.isFirst);
           },
-          child: Text(
-            'Back to Home',
-            style: TextStyle(color: colorScheme.primary),
+          child: Icon(
+            Icons.home,
+            color: colorScheme.primary,
+            semanticLabel: 'Back to Home',
           ),
         ),
       ],

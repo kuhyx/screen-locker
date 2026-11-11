@@ -8,6 +8,8 @@ import 'package:workout_app/services/sync_service.dart';
 import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/workout_summary_dialog.dart';
 
+import '../icon_finders.dart';
+
 WorkoutSession _session({
   bool allSucceeded = true,
   Duration duration = const Duration(minutes: 45, seconds: 30),
@@ -51,7 +53,8 @@ void main() {
           ),
         ),
       );
-      expect(find.textContaining('Workout Complete'), findsOneWidget);
+      expect(iconLabeled('Workout Complete!'), findsOneWidget);
+      expect(find.byIcon(Icons.emoji_events), findsOneWidget);
     });
 
     testWidgets('shows "Workout Done" when not fully succeeded', (
@@ -70,10 +73,11 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Workout Done'), findsOneWidget);
+      expect(iconLabeled('Workout Done'), findsOneWidget);
+      expect(find.byIcon(Icons.flag), findsOneWidget);
     });
 
-    testWidgets('shows duration in mm m ss s format for sub-hour workout', (
+    testWidgets('shows duration as mm:ss for a sub-hour workout', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -85,7 +89,7 @@ void main() {
           ),
         ),
       );
-      expect(find.textContaining('45m 30s'), findsOneWidget);
+      expect(find.text('45:30'), findsOneWidget);
     });
 
     testWidgets('shows hours in duration for long workouts', (tester) async {
@@ -100,7 +104,7 @@ void main() {
           ),
         ),
       );
-      expect(find.textContaining('1h'), findsOneWidget);
+      expect(find.text('1:05:03'), findsOneWidget);
     });
 
     testWidgets('shows exercise name with check mark on success', (
@@ -149,7 +153,7 @@ void main() {
         ),
       );
       expect(
-        find.textContaining('Saved to /sdcard/workout_result.json'),
+        iconLabeled('Saved to /sdcard/workout_result.json'),
         findsOneWidget,
       );
     });
@@ -169,7 +173,7 @@ void main() {
         ),
       );
       expect(
-        find.textContaining('Sync failed: No writable external path'),
+        iconLabeled('Sync failed: No writable external path'),
         findsOneWidget,
       );
     });
@@ -186,7 +190,7 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.text('Back to Home'));
+      await tester.tap(iconLabeled('Back to Home'));
       await tester.pumpAndSettle();
       // No exception = navigator popped cleanly.
     });
