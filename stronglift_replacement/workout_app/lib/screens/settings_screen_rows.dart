@@ -4,19 +4,23 @@
 // See history_screen_charts.dart for the full reasoning.
 part of 'settings_screen.dart';
 
+/// A section heading as a glyph (textgate: was an all-caps word; the word
+/// survives as [spoken], the glyph's semantic label).
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.text);
+  const _SectionHeader(this.icon, this.spoken);
 
-  final String text;
+  final IconData icon;
+  final String spoken;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: TextStyle(
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Icon(
+        icon,
+        size: 20,
         color: Theme.of(context).colorScheme.onSurfaceVariant,
-        fontSize: AppTextSize.caption,
-        letterSpacing: 1.4,
+        semanticLabel: spoken,
       ),
     );
   }
@@ -56,7 +60,8 @@ class _RepsRow extends StatelessWidget {
           SizedBox(
             width: 72,
             child: Text(
-              '$reps reps',
+              // textgate: was "12 reps"; the section's repeat glyph says it.
+              '×$reps',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colorScheme.onSurface,
@@ -104,9 +109,8 @@ class _WeightRow extends StatelessWidget {
           ),
           _StepperButton(
             icon: Icons.remove,
-            onTap: () => onChanged(
-              (weight - kWeightIncrement).clamp(0.0, 999.0),
-            ),
+            onTap: () =>
+                onChanged((weight - kWeightIncrement).clamp(0.0, 999.0)),
           ),
           // Fixed-width container supports up to "999.9kg" (7 chars).
           SizedBox(
@@ -151,6 +155,30 @@ class _StepperButton extends StatelessWidget {
         ),
         alignment: Alignment.center,
         child: Icon(icon, color: colorScheme.onSurface, size: 18),
+      ),
+    );
+  }
+}
+
+/// An action's outcome as a glyph: a tick (success colour) or a warning
+/// sign (warning colour). textgate: replaces a painted status sentence;
+/// the sentence survives as [spoken], the glyph's semantic label.
+class _StatusGlyph extends StatelessWidget {
+  const _StatusGlyph({required this.ok, required this.spoken, super.key});
+
+  final bool ok;
+  final String spoken;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = Theme.of(context).extension<AppStatusColors>()!;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Icon(
+        ok ? Icons.check_circle : Icons.error_outline,
+        size: 18,
+        color: ok ? status.success : status.warning,
+        semanticLabel: spoken,
       ),
     );
   }

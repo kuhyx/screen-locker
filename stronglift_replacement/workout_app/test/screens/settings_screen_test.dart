@@ -89,33 +89,31 @@ void main() {
 
   testWidgets('shows WEIGHTS, TARGET REPS and PER EXERCISE', (tester) async {
     await _pump(tester, _wrap());
-    expect(find.text('WEIGHTS'), findsOneWidget);
+    expect(iconLabeled('WEIGHTS'), findsOneWidget);
     // TARGET REPS and the per-exercise list below it are off-screen at the test
     // viewport height, so scroll them into view rather than asserting on
     // whatever happens to be built.
-    await tester.scrollUntilVisible(find.text('TARGET REPS'), 200);
-    expect(find.text('TARGET REPS'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('PER EXERCISE'), 200);
-    expect(find.text('PER EXERCISE'), findsOneWidget);
+    await tester.scrollUntilVisible(iconLabeled('TARGET REPS'), 200);
+    expect(iconLabeled('TARGET REPS'), findsOneWidget);
+    await tester.scrollUntilVisible(iconLabeled('PER EXERCISE'), 200);
+    expect(iconLabeled('PER EXERCISE'), findsOneWidget);
   });
 
   testWidgets('increment reps button increases the target reps', (
     tester,
   ) async {
     await _pump(tester, _wrap());
-    await tester.scrollUntilVisible(find.text('TARGET REPS'), 200);
+    await tester.scrollUntilVisible(iconLabeled('TARGET REPS'), 200);
     await tester.pumpAndSettle();
     // Situp defaults to 30 reps and is the only exercise at that value.
-    expect(find.text('30 reps'), findsOneWidget);
+    expect(find.text('×30'), findsOneWidget);
     final plus = find.descendant(
-      of: find
-          .ancestor(of: find.text('30 reps'), matching: find.byType(Row))
-          .first,
+      of: find.ancestor(of: find.text('×30'), matching: find.byType(Row)).first,
       matching: find.byIcon(Icons.add),
     );
     await tester.tap(plus);
     await tester.pumpAndSettle();
-    expect(find.text('31 reps'), findsOneWidget);
+    expect(find.text('×31'), findsOneWidget);
   });
 
   testWidgets('shows all exercise names from both workout plans', (
@@ -129,7 +127,7 @@ void main() {
 
   testWidgets('Reset defaults button is present', (tester) async {
     await _pump(tester, _wrap());
-    expect(find.text('Reset defaults'), findsOneWidget);
+    expect(iconLabeled('Reset defaults'), findsOneWidget);
   });
 
   testWidgets('increment weight button increases weight', (tester) async {

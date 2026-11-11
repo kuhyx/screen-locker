@@ -44,7 +44,12 @@ void main() {
     });
     await tester.pump();
     final buttons = find.byType(DataTransferButtons);
-    await tester.scrollUntilVisible(buttons, 300);
+    await tester.scrollUntilVisible(
+      buttons,
+      300,
+      // The PC address field is a Scrollable too, now on screen.
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.bySemanticsLabel('Export data'), findsOneWidget);
     expect(find.bySemanticsLabel('Import data'), findsOneWidget);
 

@@ -20,7 +20,7 @@ class _PcLinkSection extends StatefulWidget {
 class _PcLinkSectionState extends State<_PcLinkSection> {
   final TextEditingController _host = TextEditingController();
   bool? _paired;
-  String? _status;
+  ({bool ok, String spoken})? _status;
 
   @override
   void initState() {
@@ -44,32 +44,39 @@ class _PcLinkSectionState extends State<_PcLinkSection> {
   Future<void> _save() async {
     final host = _host.text.trim();
     if (!isValidPcHost(host)) {
-      setState(() => _status = 'Not an IPv4 address or hostname: "$host".');
+      setState(
+        () => _status = (
+          ok: false,
+          spoken: 'Not an IPv4 address or hostname: "$host".',
+        ),
+      );
       return;
     }
     await PcPairing.saveHost(host);
     SandboxLog.event('pc host saved', {'host': host});
-    setState(() => _status = 'Workouts are now sent to $host:$kPcPokePort.');
+    setState(
+      () => _status = (
+        ok: true,
+        spoken: 'Workouts are now sent to $host:$kPcPokePort.',
+      ),
+    );
   }
+
+  static String _pairedSemanticsLabel(bool? paired) => switch (paired) {
+    null => 'PC paired: checking…',
+    true => 'PC paired ✓',
+    false => 'PC paired ✗ — run scripts/pair_phone.sh on the PC',
+  };
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final status = Theme.of(context).extension<AppStatusColors>()!;
     final paired = _paired;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _SectionHeader('PC LINK'),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          'A finished workout is sent straight to the PC on the home Wi-Fi, '
-          'so the credit lands in a second. Sync still delivers it otherwise.',
-          style: TextStyle(
-            color: colorScheme.onSurfaceVariant,
-            fontSize: AppTextSize.caption,
-          ),
-        ),
+        // textgate: the explanation sentence under the heading is gone.
+        const _SectionHeader(Icons.computer, 'PC LINK'),
         const SizedBox(height: AppSpacing.sm),
         Row(
           children: [
@@ -96,27 +103,27 @@ class _PcLinkSectionState extends State<_PcLinkSection> {
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
-        Text(
-          switch (paired) {
-            null => 'PC paired: checking…',
-            true => 'PC paired ✓',
-            false => 'PC paired ✗ — run scripts/pair_phone.sh on the PC',
-          },
-          key: const Key('pc-paired'),
-          style: TextStyle(
+        // textgate: was "PC paired: checking…" / "PC paired ✓" / "PC
+        // paired ✗ — run scripts/pair_phone.sh on the PC". Now a link glyph
+        // (hourglass while checking, broken link when unpaired) in the
+        // success / warning colour.
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Icon(
+            switch (paired) {
+              null => Icons.hourglass_empty,
+              true => Icons.link,
+              false => Icons.link_off,
+            },
+            key: const Key('pc-paired'),
+            size: 20,
             color: paired ?? false ? status.success : status.warning,
-            fontSize: AppTextSize.caption,
+            semanticLabel: _pairedSemanticsLabel(paired),
           ),
         ),
-        if (_status != null) ...[
+        if (_status case final s?) ...[
           const SizedBox(height: AppSpacing.xs),
-          Text(
-            _status!,
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: AppTextSize.caption,
-            ),
-          ),
+          _StatusGlyph(ok: s.ok, spoken: s.spoken),
         ],
       ],
     );

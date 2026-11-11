@@ -15,6 +15,28 @@ import '../icon_finders.dart';
 
 const _situp = 'Situp exercise settings';
 
+/// A summary row read back as words: each glyph as the setting it stands
+/// for, each number as painted. textgate: the row paints no words itself.
+List<String> _summaries(WidgetTester tester) {
+  final glyphs = {
+    Icons.fitness_center: 'kg',
+    Icons.repeat: 'reps',
+    Icons.timer: 'rest',
+    Icons.wb_sunny: 'warmup',
+  };
+  return [
+    for (final row
+        in find.byKey(const Key('exercise_settings_summary')).evaluate())
+      [
+        for (final w in (row.widget as Row).children)
+          if (w is Icon)
+            glyphs[w.icon] ?? '?'
+          else if (w is Text)
+            w.data!.trim(),
+      ].where((p) => p.isNotEmpty).join(' '),
+  ];
+}
+
 void main() {
   late int pushes;
   late ProgressionSyncResult pushResult;
@@ -80,10 +102,7 @@ void main() {
   testWidgets('each row summarises its exercise', (tester) async {
     await pumpSettings(tester);
     // Situp is the one plan exercise without a warmup.
-    expect(
-      find.text('kg · ↑3 ↓2 · rest 3:00 / 5:00 · no warmup'),
-      findsOneWidget,
-    );
+    expect(_summaries(tester), contains('kg ↑3 ↓2 rest 3:00 / 5:00'));
   });
 
   testWidgets('a double-progression row names its rep range', (tester) async {
@@ -98,7 +117,10 @@ void main() {
       );
     });
     await pumpSettings(tester);
-    expect(find.textContaining('25→40 reps · ↑3 ↓2'), findsOneWidget);
+    expect(
+      _summaries(tester).where((r) => r.startsWith('25→40 ↑3 ↓2')),
+      hasLength(1),
+    );
   });
 
   testWidgets('edits persist, show on the row, and push once on close', (
@@ -122,8 +144,8 @@ void main() {
     expect(s.restSuccessSecs, 195);
     expect(s.mode, ProgressionMode.reps);
     expect(s.pausedUntil, isNotNull);
-    expect(find.textContaining('reps · ↑3 ↓2 · rest 3:15 / 5:00'), findsOne);
-    expect(find.textContaining('Paused — back on'), findsOneWidget);
+    expect(_summaries(tester), contains('reps ↑3 ↓2 rest 3:15 / 5:00'));
+    expect(find.byIcon(Icons.pause_circle_outline), findsOneWidget);
     expect(find.byType(SnackBar), findsNothing);
   });
 

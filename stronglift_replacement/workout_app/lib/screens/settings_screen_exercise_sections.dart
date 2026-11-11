@@ -26,20 +26,11 @@ class _WeightsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _SectionHeader('WEIGHTS'),
-        const SizedBox(height: 4),
-        Text(
-          'Override current working weight. '
-          'Resets streak counters. Rounded to 2.5 kg.',
-          style: TextStyle(
-            color: colorScheme.onSurfaceVariant,
-            fontSize: AppTextSize.caption,
-          ),
-        ),
+        // textgate: the helper sentence under the heading is gone.
+        const _SectionHeader(Icons.fitness_center, 'WEIGHTS'),
         const SizedBox(height: 12),
         ...orderedNames.map((name) {
           final w = weights[name];
@@ -74,21 +65,11 @@ class _RepsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _SectionHeader('TARGET REPS'),
-        const SizedBox(height: 4),
-        Text(
-          'Override target reps per set. Resets streak counters. '
-          'Progression only ever raises reps, so this is the only way '
-          'to lower one.',
-          style: TextStyle(
-            color: colorScheme.onSurfaceVariant,
-            fontSize: AppTextSize.caption,
-          ),
-        ),
+        // textgate: the helper sentence under the heading is gone.
+        const _SectionHeader(Icons.repeat, 'TARGET REPS'),
         const SizedBox(height: 12),
         ...orderedNames.map((name) {
           final r = reps[name];

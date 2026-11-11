@@ -12,6 +12,7 @@ import 'package:workout_app/ui/theme.dart';
 
 import '../fake_pc_pairing.dart';
 import '../fake_secure_storage.dart';
+import '../icon_finders.dart';
 
 void main() {
   setUpAll(() {
@@ -86,17 +87,17 @@ void main() {
     (tester) async {
       await _pump(tester, _wrap());
       await tester.scrollUntilVisible(
-        find.text('Sync settings'),
+        iconLabeled('Sync settings'),
         500,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.text('Sync settings'));
+      await tester.tap(iconLabeled('Sync settings'));
       await tester.pumpAndSettle();
 
       await tester.pageBack();
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Restored'), findsNothing);
+      expect(iconLabeled('Restored from Firebase'), findsNothing);
     },
   );
 
@@ -104,14 +105,12 @@ void main() {
     tester,
   ) async {
     await _pump(tester, _wrap());
-    await tester.scrollUntilVisible(find.text('TARGET REPS'), 200);
+    await tester.scrollUntilVisible(iconLabeled('TARGET REPS'), 200);
     await tester.pumpAndSettle();
 
     // Situp defaults to 30 reps and is the only exercise at that value.
     final minus = find.descendant(
-      of: find
-          .ancestor(of: find.text('30 reps'), matching: find.byType(Row))
-          .first,
+      of: find.ancestor(of: find.text('×30'), matching: find.byType(Row)).first,
       matching: find.byIcon(Icons.remove),
     );
     // Same 600ms debounce as weights: run on the real loop so the timer fires.

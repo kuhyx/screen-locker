@@ -10,6 +10,7 @@ import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/ui/theme.dart';
 
 import '../fake_secure_storage.dart';
+import '../icon_finders.dart';
 
 void main() {
   setUpAll(() {
@@ -62,14 +63,11 @@ void main() {
   }
 
   String pairedLine(WidgetTester tester) =>
-      tester.widget<Text>(find.byKey(const Key('pc-paired'))).data!;
+      tester.widget<Icon>(find.byKey(const Key('pc-paired'))).semanticLabel!;
 
   testWidgets('a paired phone shows the host and a check', (tester) async {
-    await pump(
-      tester,
-      PcPairingState(host: '192.168.1.43', keyHex: 'c3' * 32),
-    );
-    expect(find.text('PC LINK'), findsOneWidget);
+    await pump(tester, PcPairingState(host: '192.168.1.43', keyHex: 'c3' * 32));
+    expect(iconLabeled('PC LINK'), findsOneWidget);
     expect(pairedLine(tester), 'PC paired ✓');
     final field = tester.widget<TextField>(find.byKey(const Key('pc-host')));
     expect(field.controller!.text, '192.168.1.43');
@@ -84,7 +82,7 @@ void main() {
     await pump(tester, const PcPairingState(host: '10.0.0.2'));
     await save(tester, 'not a host');
     expect(
-      find.text('Not an IPv4 address or hostname: "not a host".'),
+      iconLabeled('Not an IPv4 address or hostname: "not a host".'),
       findsOneWidget,
     );
     final saved = await tester.runAsync(StorageService.instance.getPcHost);
@@ -98,7 +96,7 @@ void main() {
     await pump(tester, const PcPairingState(host: '10.0.0.2'));
     await save(tester, '  192.168.1.77 ');
     expect(
-      find.text('Workouts are now sent to 192.168.1.77:$kPcPokePort.'),
+      iconLabeled('Workouts are now sent to 192.168.1.77:$kPcPokePort.'),
       findsOneWidget,
     );
     final saved = await tester.runAsync(StorageService.instance.getPcHost);

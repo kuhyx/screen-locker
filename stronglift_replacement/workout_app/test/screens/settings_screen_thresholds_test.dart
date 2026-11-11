@@ -87,22 +87,22 @@ void main() {
   ) async {
     await _pump(tester, _wrap());
     await tester.scrollUntilVisible(
-      find.text('Sync settings'),
+      iconLabeled('Sync settings'),
       500,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('Sync settings'), findsOneWidget);
-    expect(find.text('Advanced sync (GitHub)'), findsOneWidget);
+    expect(iconLabeled('Sync settings'), findsOneWidget);
+    expect(iconLabeled('Advanced sync (GitHub)'), findsOneWidget);
   });
 
   testWidgets('opening Sync settings pushes the shared screen', (tester) async {
     await _pump(tester, _wrap());
     await tester.scrollUntilVisible(
-      find.text('Sync settings'),
+      iconLabeled('Sync settings'),
       500,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(find.text('Sync settings'));
+    await tester.tap(iconLabeled('Sync settings'));
     await tester.pumpAndSettle();
 
     // The shared package's own screen -- its AppBar title, not this app's.
@@ -115,13 +115,13 @@ void main() {
   ) async {
     await _pump(tester, _wrap());
     await tester.scrollUntilVisible(
-      find.text('Advanced sync (GitHub)'),
+      iconLabeled('Advanced sync (GitHub)'),
       500,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.ensureVisible(find.text('Advanced sync (GitHub)'));
+    await tester.ensureVisible(iconLabeled('Advanced sync (GitHub)'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Advanced sync (GitHub)'));
+    await tester.tap(iconLabeled('Advanced sync (GitHub)'));
     await tester.pumpAndSettle();
 
     expect(iconLabeled('Connect GitHub'), findsOneWidget);
@@ -151,21 +151,19 @@ void main() {
         ),
       );
       await tester.scrollUntilVisible(
-        find.text('Sync settings'),
+        iconLabeled('Sync settings'),
         500,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.text('Sync settings'));
+      await tester.tap(iconLabeled('Sync settings'));
       await tester.pumpAndSettle();
 
       await tester.pageBack();
       await tester.pumpAndSettle();
 
       expect(pulled, isTrue);
-      expect(
-        find.text('Restored 7 exercise(s) from Firebase.'),
-        findsOneWidget,
-      );
+      expect(iconLabeled('Restored from Firebase'), findsOneWidget);
+      expect(find.text('7'), findsOneWidget);
     },
   );
 }

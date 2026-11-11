@@ -54,7 +54,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _soundEnabled = true;
 
   // Set after a Sync settings visit restores progression; the banner stays.
-  String? _progressionStatus;
+  /// Exercises the last sync-settings visit restored; null until one did.
+  int? _restoredCount;
 
   @override
   void initState() {
@@ -126,10 +127,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ProgressionSyncService().pullProgression)();
     if (!mounted) return;
     if (restored.changed) {
-      setState(
-        () => _progressionStatus =
-            'Restored ${restored.count} exercise(s) from Firebase.',
-      );
+      setState(() => _restoredCount = restored.count);
       await _load();
     }
   }
@@ -225,7 +223,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _SoundSection(enabled: _soundEnabled, onChanged: _setSound),
                 const SizedBox(height: 20),
                 _SyncSection(
-                  progressionStatus: _progressionStatus,
+                  restoredCount: _restoredCount,
                   onOpenSyncSettings: () => unawaited(_openSyncSettings()),
                   onOpenGitHubMirror: () => unawaited(_openGitHubMirror()),
                 ),

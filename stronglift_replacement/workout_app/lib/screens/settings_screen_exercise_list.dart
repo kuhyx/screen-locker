@@ -25,20 +25,11 @@ class _ExercisesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _SectionHeader('PER EXERCISE'),
-        const SizedBox(height: 4),
-        Text(
-          'Progression, warmup, rest and injury pause. '
-          'Same settings as the workout tile.',
-          style: TextStyle(
-            color: colorScheme.onSurfaceVariant,
-            fontSize: AppTextSize.caption,
-          ),
-        ),
+        // textgate: the helper sentence under the heading is gone.
+        const _SectionHeader(Icons.tune, 'PER EXERCISE'),
         const SizedBox(height: 12),
         ...orderedNames.map((name) {
           final s = states[name];
@@ -57,19 +48,38 @@ class _ExerciseSettingsRow extends StatelessWidget {
   final ExerciseState state;
   final VoidCallback onTap;
 
-  String get _summary {
+  // textgate: was "kg · ↑3 ↓2 · rest 3:00 / 5:00 · warmup 1:00" (or
+  // "no warmup"). Now the mode glyph (or rep range), the thresholds, a
+  // timer glyph before the rests, and a sun glyph before the warmup rest
+  // (absent when there is no warmup).
+  Widget _summary(Color color) {
     final s = state;
-    final mode = switch (s.mode) {
-      ProgressionMode.weight => 'kg',
-      ProgressionMode.reps => 'reps',
-      ProgressionMode.doubleProgression => '${s.repsLow}→${s.repsHigh} reps',
+    final style = TextStyle(color: color, fontSize: AppTextSize.caption);
+    final modeIcon = switch (s.mode) {
+      ProgressionMode.weight => Icons.fitness_center,
+      ProgressionMode.reps => Icons.repeat,
+      ProgressionMode.doubleProgression => null,
     };
-    final warmup = s.hasWarmup
-        ? 'warmup ${formatRest(s.restWarmupSecs)}'
-        : 'no warmup';
-    return '$mode · ↑${s.successThreshold} ↓${s.failThreshold} · '
-        'rest ${formatRest(s.restSuccessSecs)} / '
-        '${formatRest(s.restFailSecs)} · $warmup';
+    return Row(
+      key: const Key('exercise_settings_summary'),
+      children: [
+        if (modeIcon == null)
+          Text('${s.repsLow}→${s.repsHigh}', style: style)
+        else
+          Icon(modeIcon, size: 14, color: color),
+        Text('  ↑${s.successThreshold} ↓${s.failThreshold}  ', style: style),
+        Icon(Icons.timer, size: 14, color: color),
+        Text(
+          ' ${formatRest(s.restSuccessSecs)} / ${formatRest(s.restFailSecs)}',
+          style: style,
+        ),
+        if (s.hasWarmup) ...[
+          const SizedBox(width: 8),
+          Icon(Icons.wb_sunny, size: 14, color: color),
+          Text(' ${formatRest(s.restWarmupSecs)}', style: style),
+        ],
+      ],
+    );
   }
 
   @override
@@ -108,21 +118,26 @@ class _ExerciseSettingsRow extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      _summary,
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: AppTextSize.caption,
-                      ),
-                    ),
+                    _summary(colorScheme.onSurfaceVariant),
                     if (until != null) ...[
                       const SizedBox(height: 4),
-                      Text(
-                        'Paused — back on ${formatShortDate(until)}',
-                        style: TextStyle(
-                          color: colorScheme.error,
-                          fontSize: AppTextSize.caption,
-                        ),
+                      // textgate: was "Paused — back on 11 Oct".
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.pause_circle_outline,
+                            size: 14,
+                            color: colorScheme.error,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            formatShortDate(until),
+                            style: TextStyle(
+                              color: colorScheme.error,
+                              fontSize: AppTextSize.caption,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ],

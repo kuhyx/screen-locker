@@ -84,7 +84,7 @@ void main() {
 
   testWidgets('Reset dialog shows on tap and cancels', (tester) async {
     await _pump(tester, _wrap());
-    await tester.tap(find.text('Reset defaults'));
+    await tester.tap(iconLabeled('Reset defaults'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(iconLabeled('Reset to defaults?'), findsOneWidget);
@@ -101,7 +101,7 @@ void main() {
     );
 
     await _pump(tester, _wrap());
-    await tester.tap(find.text('Reset defaults'));
+    await tester.tap(iconLabeled('Reset defaults'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(iconLabeled('Reset'));
@@ -135,11 +135,6 @@ void main() {
       500,
       scrollable: find.byType(Scrollable).first,
     );
-    // Framed as optional: Firebase restores progression without it.
-    expect(
-      find.textContaining('Optional.', skipOffstage: false),
-      findsOneWidget,
-    );
 
     // The scroll step can leave the row just below the fold.
     await tester.ensureVisible(iconLabeled('Grant storage permission'));
@@ -164,9 +159,5 @@ void main() {
 
     expect(iconLabeled('Storage permission granted'), findsOneWidget);
     expect(iconLabeled('Grant storage permission'), findsNothing);
-    expect(
-      find.textContaining('Granted.', skipOffstage: false),
-      findsOneWidget,
-    );
   });
 }

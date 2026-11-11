@@ -13,13 +13,13 @@ part of 'settings_screen.dart';
 /// The SYNC section: progression status line plus the two sync routes.
 class _SyncSection extends StatelessWidget {
   const _SyncSection({
-    required this.progressionStatus,
+    required this.restoredCount,
     required this.onOpenSyncSettings,
     required this.onOpenGitHubMirror,
   });
 
-  /// Last progression-sync outcome, or null when there is nothing to report.
-  final String? progressionStatus;
+  /// Exercises the last progression pull restored, or null when none did.
+  final int? restoredCount;
 
   /// Opens the Firebase sync settings screen.
   final VoidCallback onOpenSyncSettings;
@@ -33,15 +33,29 @@ class _SyncSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _SectionHeader('SYNC'),
+        const _SectionHeader(Icons.sync, 'SYNC'),
         const SizedBox(height: 4),
-        if (progressionStatus != null) ...[
-          Text(
-            progressionStatus!,
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: AppTextSize.caption,
-            ),
+        // textgate: was "Restored N exercise(s) from Firebase."; now a
+        // download glyph and the count, in the success colour.
+        if (restoredCount != null) ...[
+          Row(
+            key: const Key('settings_restored'),
+            children: [
+              Icon(
+                Icons.cloud_download,
+                size: 18,
+                color: Theme.of(context).extension<AppStatusColors>()!.success,
+                semanticLabel: 'Restored from Firebase',
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '$restoredCount',
+                style: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: AppTextSize.caption,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
         ],
@@ -50,14 +64,12 @@ class _SyncSection extends StatelessWidget {
           color: colorScheme.surfaceContainerHigh,
           child: Column(
             children: [
+              // textgate: was "Sync settings" / "Firebase sync".
               ListTile(
-                title: Text(
-                  'Sync settings',
-                  style: TextStyle(color: colorScheme.onSurface),
-                ),
-                subtitle: Text(
-                  'Firebase sync',
-                  style: TextStyle(color: colorScheme.onSurfaceVariant),
+                leading: Icon(
+                  Icons.cloud,
+                  color: colorScheme.onSurface,
+                  semanticLabel: 'Sync settings',
                 ),
                 trailing: Icon(
                   Icons.chevron_right,
@@ -69,14 +81,14 @@ class _SyncSection extends StatelessWidget {
                 height: 1,
                 color: colorScheme.onSurfaceVariant.withValues(alpha: 0.2),
               ),
+              // textgate: was "Advanced sync (GitHub)" / "Cutover mirror —
+              // not recommended": a code glyph, muted as the not-recommended
+              // route.
               ListTile(
-                title: Text(
-                  'Advanced sync (GitHub)',
-                  style: TextStyle(color: colorScheme.onSurface),
-                ),
-                subtitle: Text(
-                  'Cutover mirror — not recommended',
-                  style: TextStyle(color: colorScheme.onSurfaceVariant),
+                leading: Icon(
+                  Icons.code,
+                  color: colorScheme.onSurfaceVariant,
+                  semanticLabel: 'Advanced sync (GitHub)',
                 ),
                 trailing: Icon(
                   Icons.chevron_right,
@@ -107,26 +119,11 @@ class _OfflineBackupSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _SectionHeader('OFFLINE BACKUP'),
-        const SizedBox(height: 4),
-        Text(
-          storageGranted
-              ? 'Granted. Progression is also written to '
-                    '$kBackupPath, so it survives a reinstall even '
-                    'with no network.'
-              : 'Optional. Progression is restored from Firebase on '
-                    'a fresh install, so this is a second, offline '
-                    'copy — not a requirement. Granting it also keeps '
-                    'a readable snapshot at $kBackupPath.',
-          style: TextStyle(
-            color: colorScheme.onSurfaceVariant,
-            fontSize: AppTextSize.caption,
-          ),
-        ),
+        // textgate: the explanation paragraph under the heading is gone.
+        const _SectionHeader(Icons.sd_storage, 'OFFLINE BACKUP'),
         const SizedBox(height: 12),
         if (storageGranted)
           // Was "Storage permission granted": storage glyph + green tick.
@@ -188,12 +185,10 @@ class _SettingsAppBar extends StatelessWidget implements PreferredSizeWidget {
       iconTheme: IconThemeData(color: colorScheme.onSurface),
       actions: [
         const RunnerUpImportBadge(),
-        TextButton(
+        IconButton(
           onPressed: loading ? null : onReset,
-          child: Text(
-            'Reset defaults',
-            style: TextStyle(color: colorScheme.error),
-          ),
+          color: colorScheme.error,
+          icon: const Icon(Icons.restart_alt, semanticLabel: 'Reset defaults'),
         ),
       ],
     );

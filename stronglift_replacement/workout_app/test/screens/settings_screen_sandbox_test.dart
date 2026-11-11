@@ -54,7 +54,7 @@ void main() {
     // The list, explicitly: the section's own TextField is a Scrollable too,
     // and scrolling that one never brings the header into view.
     await tester.scrollUntilVisible(
-      find.text('SANDBOX'),
+      iconLabeled('SANDBOX'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
@@ -79,7 +79,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 300));
     });
     await tester.pump();
-    expect(find.text('SANDBOX'), findsNothing);
+    expect(iconLabeled('SANDBOX'), findsNothing);
   });
 
   testWidgets('wipe resets the database and the rest override', (tester) async {
@@ -92,7 +92,7 @@ void main() {
     Sandbox.restSecs = 30;
     await pump(tester);
     await tapReal(tester, iconLabeled('Wipe sandbox data'));
-    expect(find.textContaining('Wiped —'), findsOneWidget);
+    expect(iconLabelContaining('Wiped —'), findsOneWidget);
     expect(Sandbox.restSecs, Sandbox.defaultRestSecs);
     final active = await tester.runAsync(
       StorageService.instance.loadActiveSession,
@@ -103,7 +103,7 @@ void main() {
   testWidgets('mark today not done reports what it removed', (tester) async {
     await pump(tester);
     await tapReal(tester, iconLabeled('Mark today not done'));
-    expect(find.textContaining('Nothing logged today'), findsOneWidget);
+    expect(iconLabelContaining('Nothing logged today'), findsOneWidget);
 
     final today = DateTime.now().toIso8601String().substring(0, 10);
     await tester.runAsync(
@@ -116,7 +116,7 @@ void main() {
       ),
     );
     await tapReal(tester, iconLabeled('Mark today not done'));
-    expect(find.textContaining('Removed 1 workout'), findsOneWidget);
+    expect(iconLabelContaining('Removed 1 workout'), findsOneWidget);
   });
 
   testWidgets('rest length: rejects junk, persists a whole number', (
@@ -131,16 +131,16 @@ void main() {
     );
     await tester.enterText(field, 'abc');
     await tapReal(tester, save);
-    expect(find.textContaining('whole number of seconds'), findsOneWidget);
+    expect(iconLabelContaining('whole number of seconds'), findsOneWidget);
     expect(Sandbox.restSecs, Sandbox.defaultRestSecs);
 
     await tester.enterText(field, '0');
     await tapReal(tester, save);
-    expect(find.textContaining('whole number of seconds'), findsOneWidget);
+    expect(iconLabelContaining('whole number of seconds'), findsOneWidget);
 
     await tester.enterText(field, '45');
     await tapReal(tester, save);
-    expect(find.text('Every rest now lasts 45 s.'), findsOneWidget);
+    expect(iconLabeled('Every rest now lasts 45 s.'), findsOneWidget);
     expect(Sandbox.restSecs, 45);
     final saved = await tester.runAsync(
       () => StorageService.instance.getSandboxRestSecs(5),
@@ -157,7 +157,7 @@ void main() {
       matching: find.text('10×'),
     );
     await tapReal(tester, tenX);
-    expect(find.text('GPS runs replay at 10×.'), findsOneWidget);
+    expect(iconLabeled('GPS runs replay at 10×.'), findsOneWidget);
     expect(Sandbox.runReplayFactor, 10);
     final saved = await tester.runAsync(
       () => StorageService.instance.getSandboxReplayFactor(60),

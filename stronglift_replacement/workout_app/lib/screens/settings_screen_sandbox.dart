@@ -18,7 +18,7 @@ class _SandboxSectionState extends State<_SandboxSection> {
   late final TextEditingController _rest = TextEditingController(
     text: '${Sandbox.restSecs}',
   );
-  String? _status;
+  ({bool ok, String spoken})? _status;
 
   @override
   void dispose() {
@@ -26,9 +26,9 @@ class _SandboxSectionState extends State<_SandboxSection> {
     super.dispose();
   }
 
-  void _report(String status) {
+  void _report(String status, {bool ok = true}) {
     SandboxLog.event('sandbox settings', {'status': status});
-    setState(() => _status = status);
+    setState(() => _status = (ok: ok, spoken: status));
   }
 
   Future<void> _wipe() async {
@@ -53,7 +53,10 @@ class _SandboxSectionState extends State<_SandboxSection> {
   Future<void> _saveRest() async {
     final secs = int.tryParse(_rest.text.trim());
     if (secs == null || secs < 1) {
-      _report('Rest length must be a whole number of seconds, 1 or more.');
+      _report(
+        'Rest length must be a whole number of seconds, 1 or more.',
+        ok: false,
+      );
       return;
     }
     await StorageService.instance.setSandboxRestSecs(secs);
@@ -73,17 +76,8 @@ class _SandboxSectionState extends State<_SandboxSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _SectionHeader('SANDBOX'),
-        const SizedBox(height: 4),
-        Text(
-          'This install is the sandbox: its own data, no sync (only the '
-          'signed sandbox poke to the PC LINK address, which the PC never '
-          'credits), no LAN server. Nothing here can reach the daily build.',
-          style: TextStyle(
-            color: colorScheme.onSurfaceVariant,
-            fontSize: AppTextSize.caption,
-          ),
-        ),
+        // textgate: the explanation paragraph under the heading is gone.
+        const _SectionHeader(Icons.science, 'SANDBOX'),
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
@@ -151,14 +145,12 @@ class _SandboxSectionState extends State<_SandboxSection> {
             ),
           ],
         ),
-        if (_status != null) ...[
+        if (_status case final s?) ...[
           const SizedBox(height: 8),
-          Text(
-            _status!,
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: AppTextSize.caption,
-            ),
+          _StatusGlyph(
+            key: const Key('sandbox-status'),
+            ok: s.ok,
+            spoken: s.spoken,
           ),
         ],
       ],
