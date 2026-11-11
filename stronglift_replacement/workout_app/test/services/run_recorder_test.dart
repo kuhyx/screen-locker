@@ -185,43 +185,6 @@ void main() {
     });
 
     test(
-      'a signal dropout is bridged, a pause of the same length is not',
-      () async {
-        Future<RunRecorder> run({required bool paused}) async {
-          final source = ManualPositionSource();
-          final recorder = _recorder(source);
-          await recorder.start();
-          source.controller
-            ..add(fixAt(0, 0))
-            ..add(fixAt(2, 6));
-          await pumpEventQueue();
-          if (paused) recorder.pause();
-          // 58 s later and 174 m further: 3 m/s, as if the signal dropped out.
-          if (paused) recorder.resume();
-          source.controller
-            ..add(fixAt(60, 180))
-            ..add(fixAt(62, 186));
-          await pumpEventQueue();
-          return recorder;
-        }
-
-        final dropout = await run(paused: false);
-        expect(dropout.distanceM, closeTo(186, 0.5));
-        expect(dropout.seconds, 62);
-        final track = (await dropout.finish())!;
-        expect(track.distanceM, closeTo(186, 0.5));
-        expect(track.totalSeconds, 62);
-        expect(track.points.last.distanceM, closeTo(186, 0.5));
-
-        final pause = await run(paused: true);
-        expect(pause.distanceM, closeTo(12, 0.5));
-        expect(pause.seconds, 4);
-        dropout.dispose();
-        pause.dispose();
-      },
-    );
-
-    test(
       'finish works from paused; pause and resume elsewhere are no-ops',
       () async {
         final source = ManualPositionSource();

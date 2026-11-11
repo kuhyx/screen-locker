@@ -50,17 +50,9 @@ void main() {
       expect(isMovingStep(_p(10, 0), _p(5, 10), cap), isFalse);
     });
 
-    test('30 s exactly needs 0.5 m/s, a longer dropout needs 1 m/s', () {
+    test('a gap over 30 s earns nothing, 30 s exactly does', () {
       expect(isMovingStep(_p(0, 0), _p(30, 40), cap), isTrue);
-      expect(isMovingStep(_p(0, 0), _p(30, 16), cap), isTrue);
-      // 31 s at 0.65 m/s: a pause-like stand, not a bridged dropout.
-      expect(isMovingStep(_p(0, 0), _p(31, 20), cap), isFalse);
-      // 60 s at 1 m/s and at 3 m/s: bridged dropouts.
-      expect(isMovingStep(_p(0, 0), _p(60, 60), cap), isTrue);
-      expect(isMovingStep(_p(0, 0), _p(60, 180), cap), isTrue);
-      // A dropout faster than the cap or with no distance (pause) is not.
-      expect(isMovingStep(_p(0, 0), _p(60, 400), cap), isFalse);
-      expect(isMovingStep(_p(0, 0), _p(60, 0), cap), isFalse);
+      expect(isMovingStep(_p(0, 0), _p(31, 40), cap), isFalse);
     });
 
     test('movingSeconds sums only the moving steps', () {
@@ -68,11 +60,10 @@ void main() {
         _p(0, 0),
         _p(10, 13), // moving, 10 s
         _p(20, 13), // standing, 0 distance
-        _p(55, 23), // 35 s gap at 0.29 m/s, not credited
-        _p(65, 36), // moving, 10 s
-        _p(125, 216), // 60 s dropout at 3 m/s, bridged
+        _p(55, 60), // 35 s gap, not credited
+        _p(65, 73), // moving, 10 s
       ];
-      expect(movingSeconds(points), 80);
+      expect(movingSeconds(points), 20);
       expect(movingSeconds(const []), 0);
     });
   });

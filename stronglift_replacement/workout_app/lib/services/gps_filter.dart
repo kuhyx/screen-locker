@@ -64,12 +64,11 @@ enum FixVerdict {
 
 /// Accumulates accepted points and their cumulative credited distance.
 ///
-/// A step between two accepted points adds its straight-line distance only
-/// when it is a moving step (see [isMovingStep]). A signal dropout (a gap over
-/// [kMaxCreditGapSeconds] with no pause) is bridged the way RunnerUp's export
-/// bridges it, provided it implies [kMinDropoutSpeedMps] or faster; anything
-/// above the jump cap is rejected, and standing-still jitter credits nothing.
-/// A user pause ([breakSegment]) never bridges: pauses earn nothing.
+/// A step between two accepted points adds distance only when it is a moving
+/// step (see [isMovingStep]): a dropout longer than [kMaxCreditGapSeconds]
+/// and standing-still jitter credit nothing. The PC judges windows of 10 s or
+/// more and keeps a dropout moving at 1 m/s or faster, so it can credit more
+/// than this does (see `run_math.dart`).
 class GpsFilter {
   /// Creates a filter; every recording uses the running jump cap.
   GpsFilter();
@@ -128,7 +127,8 @@ class GpsFilter {
       _accept(fix, time, 0);
       return FixVerdict.accepted;
     }
-    final moving = step / gap >= minStepSpeed(gap);
+    final moving =
+        gap <= kMaxCreditGapSeconds && step / gap >= kMinMovingSpeedMps;
     _accept(fix, time, moving ? step : 0);
     return FixVerdict.accepted;
   }

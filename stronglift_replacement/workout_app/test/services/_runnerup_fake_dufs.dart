@@ -13,16 +13,10 @@ import 'package:workout_app/services/tcx_codec.dart';
 
 const String kFixtureDir = '../../screen_locker/tests/fixtures/run_tcx';
 
-/// The GPS-dropout export: shares the folder for the golden twin, but is not
-/// one of the three exports these importer and backup tests count on.
-const String kDropoutFixture = 'RunnerUp_2026-11-09-18-00-00_Running.tcx';
-
 /// The three golden exports, by file name.
 Map<String, Uint8List> fixtureTcx() => {
   for (final f in Directory(kFixtureDir).listSync().whereType<File>())
-    if (f.path.endsWith('.tcx') &&
-        f.uri.pathSegments.last != kDropoutFixture)
-      f.uri.pathSegments.last: f.readAsBytesSync(),
+    if (f.path.endsWith('.tcx')) f.uri.pathSegments.last: f.readAsBytesSync(),
 };
 
 final DufsCredentials kLogin = DufsCredentials(

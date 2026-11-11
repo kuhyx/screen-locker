@@ -90,14 +90,14 @@ void main() {
       expect(f.points.first.altitudeM, 30);
     });
 
-    test('standing-still jitter and standing through a gap earn nothing', () {
+    test('standing-still jitter and a long dropout earn no distance', () {
       final f = GpsFilter()
         ..add(_fix(0, 0))
         ..add(_fix(10, 2)); // 0.2 m/s: standing
       expect(f.distanceM, 0);
-      f.add(_fix(60, 2)); // 50 s later, same spot: nothing to bridge
+      f.add(_fix(60, 100)); // 50 s later: unseen motion
       expect(f.distanceM, 0);
-      f.add(_fix(70, 29)); // seen again, moving
+      f.add(_fix(70, 127)); // seen again, moving
       expect(f.distanceM, closeTo(27, 0.2));
       expect(f.points, hasLength(4));
     });
@@ -126,60 +126,6 @@ void main() {
         f.add(_fix(s, north));
       }
       expect(movingSeconds(f.points), 260);
-    });
-  });
-
-  group('signal dropout (a gap over 30 s while running)', () {
-    // Mirrors the PC: WALK_MAX_GAP_SECONDS 30, MIN_DROPOUT_SPEED_MPS 1.0,
-    // MAX_MOVING_SPEED_MPS 25 km/h.
-    GpsFilter runningTo30m() => GpsFilter()
-      ..add(_fix(0, 0))
-      ..add(_fix(10, 30));
-
-    test('at 3 m/s the straight-line distance is bridged', () {
-      final f = runningTo30m();
-      expect(f.add(_fix(70, 210)), FixVerdict.accepted); // 60 s, 180 m
-      expect(f.distanceM, closeTo(210, 0.5));
-      expect(f.points.last.distanceM, closeTo(210, 0.5));
-    });
-
-    test('just over the dropout floor (1 m/s) is bridged', () {
-      final f = runningTo30m()..add(_fix(70, 91)); // 60 s, 61 m: 1.02 m/s
-      expect(f.distanceM, closeTo(91, 0.5));
-    });
-
-    test('0.5 m/s is standing about, not a run: nothing is bridged', () {
-      final f = runningTo30m();
-      expect(f.add(_fix(70, 60)), FixVerdict.accepted); // 60 s, 30 m
-      expect(f.distanceM, closeTo(30, 0.5));
-    });
-
-    test('40 km/h is a GPS jump: rejected, nothing is bridged', () {
-      final f = runningTo30m();
-      expect(f.add(_fix(70, 30 + 666)), FixVerdict.tooFast); // 11.1 m/s
-      expect(f.distanceM, closeTo(30, 0.5));
-    });
-
-    test('31 s is a dropout needing 1 m/s, 30 s still needs only 0.5', () {
-      final slow = runningTo30m()..add(_fix(41, 50)); // 31 s, 20 m: 0.65 m/s
-      expect(slow.distanceM, closeTo(30, 0.5));
-      final ok = runningTo30m()..add(_fix(40, 50)); // 30 s, 20 m: 0.67 m/s
-      expect(ok.distanceM, closeTo(50, 0.5));
-    });
-
-    test('a user pause with the same geometry bridges nothing', () {
-      final f = runningTo30m()..breakSegment();
-      expect(f.add(_fix(70, 210)), FixVerdict.accepted);
-      expect(f.distanceM, closeTo(30, 0.5));
-    });
-
-    test('moving time and distance agree across the bridged dropout', () {
-      final f = runningTo30m()
-        ..add(_fix(70, 210))
-        ..add(_fix(80, 240));
-      expect(f.distanceM, closeTo(240, 0.5));
-      // 10 s + 60 s dropout + 10 s, as the PC counts it.
-      expect(movingSeconds(f.points), 80);
     });
   });
 
