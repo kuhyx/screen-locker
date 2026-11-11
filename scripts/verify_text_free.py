@@ -52,23 +52,17 @@ def _widget_texts(widget: tk.Misc) -> list[str]:
     # cget("text") would answer its textvariable's *name*.)
     if widget.winfo_class() in _TYPED:
         return out
-    try:
-        text = str(widget.cget("text"))
-    except tk.TclError:
-        text = ""
-    try:
-        var = str(widget.cget("textvariable"))
-    except tk.TclError:
-        var = ""
+    # Ask only for options the widget has: no try/except, nothing swallowed.
+    options = set(widget.keys())
+    text = str(widget.cget("text")) if "text" in options else ""
+    var = str(widget.cget("textvariable")) if "textvariable" in options else ""
     if var:
         text = f"{text} {widget.getvar(var)}"
     if widget.winfo_class() == "Menu":
         last = widget.index("end")
         for i in range(0 if last is None else int(last) + 1):
-            try:
+            if widget.type(i) not in {"separator", "tearoff"}:
                 text += " " + str(widget.entrycget(i, "label"))
-            except tk.TclError:
-                continue
     return [text, *out] if text.strip() else out
 
 
@@ -94,7 +88,7 @@ def _paint_all(root: tk.Tk, shots: Path | None) -> dict[str, list[str]]:
     builds = [
         (s.name, lambda surface, p=s.paint: p(ScreenHost(surface))) for s in SCREENS
     ]
-    builds += [(name, build) for name, build in EXTRA_SCREENS]
+    builds += list(EXTRA_SCREENS)
     builds += extra_paints()
     bad: dict[str, list[str]] = {}
     for name, build in builds:

@@ -111,7 +111,7 @@ class TestAcceptedScreen:
         assert locker.workout_data["source"] == "Workout A"
         delay, callback = locker.root.after.call_args.args
         assert delay > 0
-        assert callback == locker.unlock_screen
+        assert callback.__name__ == "unlock_screen"
 
     def test_manual_save_paints_the_form_glyph(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -143,4 +143,4 @@ class TestGlyphHelpers:
     def test_entry_glyphs_maps_known_and_unknown_types(self) -> None:
         """Known types get their glyph; an unknown one shows a tick, in order."""
         assert g.entry_glyphs(("runnerup_verified", "mystery")) == f"{g.RUN} {g.OK}"
-        assert g.entry_glyphs(()) == ""
+        assert not g.entry_glyphs(())
