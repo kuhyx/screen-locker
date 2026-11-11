@@ -122,3 +122,4 @@ wait, and tests pin the retry to 0.
 - lint: `pre-commit run ruff --all-files`
 - coverage: `python -m pytest -n auto -p no:sugar -q`
 - coverage-gaps: `coverage-gaps coverage.lcov`
+- deploy: `git -C ~/src/screen-locker pull --ff-only && bash ~/src/screen-locker/scripts/deploy.sh` (reinstalls, restarts web/poke/runnerup units, health-checks them, then release-deploys the workout app; exit 46 from the phone guard means kuhy reruns it with `PHONE_PROTECT_ALLOW=com.kuhy.workout_app`)
