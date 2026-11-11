@@ -173,12 +173,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 _syncedRows.isEmpty &&
                 _plannedRows.isEmpty &&
                 _runs.isEmpty
-          ? Center(
-              child: Text(
-                'No workouts yet.',
-                style: TextStyle(color: colorScheme.onSurfaceVariant),
-              ),
-            )
+          ? const _EmptyHistory()
           : ListView(
               padding: const EdgeInsets.all(12),
               children: [
@@ -210,18 +205,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
       _RunsStrip(runs: _runs, onOpen: _openRun),
       const SizedBox(height: 16),
     ],
-    const _SectionLabel('TOTAL VOLUME (2-session rolling avg, kg)'),
+    const _SectionLabel(
+      Icons.stacked_line_chart,
+      'TOTAL VOLUME (2-session rolling avg, kg)',
+    ),
     const SizedBox(height: 6),
     _WeightChart(points: _rollingAvg2(_totalVolumePoints(_rows))),
     const SizedBox(height: 16),
     _calendar(_allWorkoutDates(_rows, _syncedRows, _runs)),
     const SizedBox(height: 16),
-    const _SectionLabel('ALL SESSIONS'),
+    const _SectionLabel(Icons.list, 'ALL SESSIONS'),
     const SizedBox(height: 8),
     ..._rows.map((row) => _AllSessionTile(row: row)),
     if (_syncedRows.isNotEmpty) ...[
       const SizedBox(height: 16),
-      const _SectionLabel('SYNCED FROM PC'),
+      const _SectionLabel(Icons.computer, 'SYNCED FROM PC'),
       const SizedBox(height: 8),
       ..._syncedRows.map((row) => _SyncedWorkoutTile(payload: row)),
     ],
@@ -232,13 +230,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
       _ProgressStatsCard(state: _selectedState!),
       const SizedBox(height: 12),
     ],
-    const _SectionLabel('WEIGHT OVER TIME'),
+    const _SectionLabel(Icons.show_chart, 'WEIGHT OVER TIME'),
     const SizedBox(height: 6),
     _WeightChart(points: _exerciseWeightPoints(_rows, name)),
     const SizedBox(height: 16),
     _calendar(_exerciseDates(_rows, name)),
     const SizedBox(height: 16),
-    _SectionLabel(name.toUpperCase()),
+    // The picker above already names the exercise: a list glyph here.
+    _SectionLabel(Icons.list, name),
     const SizedBox(height: 8),
     ..._sessionsForExercise(
       _rows,

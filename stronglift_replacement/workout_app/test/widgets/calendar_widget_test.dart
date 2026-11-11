@@ -23,7 +23,7 @@ void main() {
           ),
         ),
       );
-      expect(find.text('June 2024'), findsOneWidget);
+      expect(find.text('06.2024'), findsOneWidget);
     });
 
     testWidgets('shows day-of-week headers', (tester) async {
@@ -37,8 +37,8 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Mo'), findsOneWidget);
-      expect(find.text('Su'), findsOneWidget);
+      expect(find.bySemanticsLabel('Monday'), findsOneWidget);
+      expect(find.bySemanticsLabel('Sunday'), findsOneWidget);
     });
 
     testWidgets('calls onPrevMonth when left arrow tapped', (tester) async {
@@ -101,7 +101,7 @@ void main() {
           ),
         ),
       );
-      expect(find.text('September 2024'), findsOneWidget);
+      expect(find.text('09.2024'), findsOneWidget);
     });
 
     testWidgets('renders January (first month name) correctly', (tester) async {
@@ -115,7 +115,7 @@ void main() {
           ),
         ),
       );
-      expect(find.text('January 2024'), findsOneWidget);
+      expect(find.text('01.2024'), findsOneWidget);
     });
 
     testWidgets('renders December (last month name) correctly', (tester) async {
@@ -129,7 +129,7 @@ void main() {
           ),
         ),
       );
-      expect(find.text('December 2024'), findsOneWidget);
+      expect(find.text('12.2024'), findsOneWidget);
     });
   });
 }

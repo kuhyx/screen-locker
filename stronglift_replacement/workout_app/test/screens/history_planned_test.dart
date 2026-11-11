@@ -139,14 +139,23 @@ void main() {
     await _open(tester, _github(_seed()).client);
 
     // No local sessions, but synced and planned entries still show.
-    expect(find.text('No workouts yet.'), findsNothing);
-    expect(find.text('PLANNED (not done yet)'), findsOneWidget);
-    expect(find.text('2026-10-17 10:00  ·  Planned'), findsOneWidget);
+    expect(iconLabeled('No workouts yet.'), findsNothing);
+    expect(iconLabeled('PLANNED (not done yet)'), findsOneWidget);
+    expect(find.text('2026-10-17 10:00'), findsOneWidget);
     expect(iconLabeled('Delete planned workout'), findsOneWidget);
     // Today's entry already happened: done, and not deletable.
-    expect(find.text('2026-10-16  ·  Manual'), findsOneWidget);
-    expect(find.text('2026-10-14  ·  Manual'), findsOneWidget);
-    expect(find.text('2026-10-18  ·  Manual'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('synced-2026-10-16-Manual')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('synced-2026-10-14-Manual')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('synced-2026-10-18-Manual')),
+      findsOneWidget,
+    );
     final calendar = tester.widget<WorkoutCalendar>(
       find.byType(WorkoutCalendar),
     );
@@ -169,8 +178,8 @@ void main() {
     // The tile goes only once the reload has read the tombstone back.
     await _settle(tester, 4);
     await tester.pumpAndSettle();
-    expect(find.text('PLANNED (not done yet)'), findsNothing);
-    expect(find.text('2026-10-17 10:00  ·  Planned'), findsNothing);
+    expect(iconLabeled('PLANNED (not done yet)'), findsNothing);
+    expect(find.text('2026-10-17 10:00'), findsNothing);
   });
 
   testWidgets('KEEP leaves the plan alone', (tester) async {
@@ -184,7 +193,7 @@ void main() {
       github.files.containsKey('screen-locker-sync/devices/phone/log.json'),
       isFalse,
     );
-    expect(find.text('2026-10-17 10:00  ·  Planned'), findsOneWidget);
+    expect(find.text('2026-10-17 10:00'), findsOneWidget);
   });
 
   testWidgets('a failed delete keeps the tile and says why', (tester) async {
@@ -195,7 +204,7 @@ void main() {
 
     expect(iconLabeled('Not deleted'), findsOneWidget);
     expect(find.byIcon(Icons.cloud_off), findsOneWidget);
-    expect(find.text('2026-10-17 10:00  ·  Planned'), findsOneWidget);
+    expect(find.text('2026-10-17 10:00'), findsOneWidget);
   });
 
   testWidgets('a delete confirmed once the day has started is refused', (
@@ -220,6 +229,9 @@ void main() {
     );
     // Reloaded against the new day: it is done now, not planned.
     await tester.pumpAndSettle();
-    expect(find.text('2026-10-17  ·  Manual'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('synced-2026-10-17-Manual')),
+      findsOneWidget,
+    );
   });
 }

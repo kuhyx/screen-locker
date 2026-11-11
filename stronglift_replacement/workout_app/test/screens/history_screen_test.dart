@@ -37,7 +37,7 @@ void main() {
 
   testWidgets('shows "No workouts yet." when history is empty', (tester) async {
     await pumpHistory(tester, wrapHistory());
-    expect(find.text('No workouts yet.'), findsOneWidget);
+    expect(iconLabeled('No workouts yet.'), findsOneWidget);
   });
 
   testWidgets('shows session rows when history has data', (tester) async {
@@ -58,7 +58,7 @@ void main() {
     });
     await seedSession(tester, json);
     await pumpHistory(tester, wrapHistory());
-    expect(find.textContaining('Workout A'), findsWidgets);
+    expect(find.text('A  ·  2024-06-01'), findsWidgets);
   });
 
   testWidgets('exercise picker shows "Total (all workouts)" initially', (
@@ -79,7 +79,7 @@ void main() {
     });
     await seedSession(tester, json);
     await pumpHistory(tester, wrapHistory());
-    expect(find.textContaining('Total'), findsOneWidget);
+    expect(iconLabeled('Total (all workouts)'), findsOneWidget);
   });
 
   testWidgets('calendar prev/next month navigation works', (tester) async {

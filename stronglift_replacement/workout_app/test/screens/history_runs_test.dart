@@ -52,7 +52,7 @@ Future<void> _pump(WidgetTester tester, {bool withPc = false}) async {
 }
 
 Future<void> _scrollToSynced(WidgetTester tester) => tester.scrollUntilVisible(
-  find.text('SYNCED FROM PC'),
+  iconLabeled('SYNCED FROM PC'),
   200,
   scrollable: find.byType(Scrollable).first,
 );
@@ -75,7 +75,7 @@ void main() {
     await _seedRun(tester, DateTime(2026, 7, 13, 12));
     await _seedRun(tester, DateTime(2026, 7, 14, 12), sport: RunSport.walking);
     await _pump(tester);
-    expect(find.text('No workouts yet.'), findsNothing);
+    expect(iconLabeled('No workouts yet.'), findsNothing);
     expect(find.byKey(const Key('runs_strip')), findsOneWidget);
     expect(find.text('5.20'), findsNWidgets(2));
     expect(find.text('32:10'), findsNWidgets(2));
@@ -95,8 +95,11 @@ void main() {
     await _pump(tester, withPc: true);
     await _scrollToSynced(tester);
     // The PC's manual workout of that day stays; its run entry is gone.
-    expect(find.textContaining('2026-07-13  ·  Manual'), findsOneWidget);
-    expect(find.textContaining('2026-07-13  ·  Run'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('synced-2026-07-13-Manual')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('synced-2026-07-13-Run')), findsNothing);
     expect(find.text('5.20'), findsOneWidget);
   });
 
@@ -106,7 +109,7 @@ void main() {
     await _seedRun(tester, DateTime(2026, 7, 20, 12));
     await _pump(tester, withPc: true);
     await _scrollToSynced(tester);
-    expect(find.textContaining('2026-07-13  ·  Run'), findsOneWidget);
+    expect(find.byKey(const ValueKey('synced-2026-07-13-Run')), findsOneWidget);
     expect(find.text('5.20'), findsOneWidget);
   });
 

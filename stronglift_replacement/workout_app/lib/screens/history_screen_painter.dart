@@ -5,7 +5,6 @@
 // these are `part` files.
 part of 'history_screen.dart';
 
-
 class _ChartPainter extends CustomPainter {
   _ChartPainter(
     this.points, {
@@ -25,22 +24,8 @@ class _ChartPainter extends CustomPainter {
   static const _bottomPad = 22.0; // room for X-axis dates
   static const _hPad = 8.0;
 
-  static const _months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-
-  static String _shortDate(DateTime d) => '${_months[d.month - 1]} ${d.day}';
+  // textgate: numeric day.month on the axis (was "Aug 15").
+  static String _shortDate(DateTime d) => formatShortDate(d);
 
   @override
   void paint(Canvas canvas, Size size) {

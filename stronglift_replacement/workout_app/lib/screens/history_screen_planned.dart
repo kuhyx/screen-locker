@@ -17,7 +17,7 @@ extension _HistoryPlanned on _HistoryScreenState {
   /// when there are none.
   List<Widget> _plannedSection() => [
     if (_plannedRows.isNotEmpty) ...[
-      const _SectionLabel('PLANNED (not done yet)'),
+      const _SectionLabel(Icons.event, 'PLANNED (not done yet)'),
       const SizedBox(height: 8),
       ..._plannedRows.map(
         (row) => _PlannedWorkoutTile(
@@ -153,7 +153,9 @@ class _PlannedWorkoutTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${payload['date']} $time  ·  Planned',
+                  // textgate: was "<date> <time> · Planned"; the event
+                  // glyph and the section glyph already say planned.
+                  '${payload['date']} $time',
                   style: TextStyle(
                     color: colorScheme.onSurface,
                     fontWeight: FontWeight.bold,

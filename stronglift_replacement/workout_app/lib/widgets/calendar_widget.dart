@@ -27,21 +27,16 @@ class WorkoutCalendar extends StatelessWidget {
   /// Called when the user taps the next-month chevron.
   final VoidCallback onNextMonth;
 
-  static const _weekHeaders = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
-
-  static const _monthNames = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
+  // textgate: weekday headers are dots (weekend dots hollow) and the
+  // month header is `08.2026`; the old words are spoken only.
+  static const _weekdaySemanticsLabels = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
   ];
 
   String _dateKey(int year, int m, int day) =>
@@ -81,7 +76,7 @@ class WorkoutCalendar extends StatelessWidget {
                 onPressed: onPrevMonth,
               ),
               Text(
-                '${_monthNames[m - 1]} $year',
+                '${m.toString().padLeft(2, '0')}.$year',
                 style: TextStyle(
                   color: colorScheme.onSurface,
                   fontWeight: FontWeight.bold,
@@ -103,22 +98,29 @@ class WorkoutCalendar extends StatelessWidget {
           // Day-of-week headers
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: _weekHeaders
-                .map(
-                  (h) => SizedBox(
-                    width: 30,
-                    child: Text(
-                      h,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: AppTextSize.caption,
-                        fontWeight: FontWeight.bold,
+            children: [
+              for (var i = 0; i < 7; i++)
+                SizedBox(
+                  width: 30,
+                  child: Semantics(
+                    label: _weekdaySemanticsLabels[i],
+                    child: Center(
+                      child: Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          // Weekend: hollow ring; weekday: filled dot.
+                          color: i >= 5 ? null : colorScheme.onSurfaceVariant,
+                          border: Border.all(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                )
-                .toList(),
+                ),
+            ],
           ),
           const SizedBox(height: 4),
           // Day grid

@@ -7,22 +7,42 @@ part of 'history_screen.dart';
 
 // ── Shared sub-widgets ──────────────────────────────────────────────────────
 
+/// A section heading as a glyph (textgate: was an all-caps word heading;
+/// the words survive as [spoken], the glyph's semantic label).
 class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text);
+  const _SectionLabel(this.icon, this.spoken);
 
-  final String text;
+  final IconData icon;
+  final String spoken;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: TextStyle(
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Icon(
+        icon,
+        size: 18,
         color: Theme.of(context).colorScheme.onSurfaceVariant,
-        fontSize: AppTextSize.caption,
-        letterSpacing: 1.3,
+        semanticLabel: spoken,
       ),
     );
   }
+}
+
+/// The empty history: a large muted history glyph (textgate: was "No
+/// workouts yet.").
+class _EmptyHistory extends StatelessWidget {
+  const _EmptyHistory();
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Icon(
+      Icons.history,
+      size: 48,
+      color: Theme.of(context).colorScheme.outlineVariant,
+      semanticLabel: 'No workouts yet.',
+    ),
+  );
 }
 
 class _ExercisePicker extends StatelessWidget {
@@ -49,15 +69,18 @@ class _ExercisePicker extends StatelessWidget {
           .map(
             (n) => DropdownMenuItem(
               value: n,
-              child: Text(
-                n,
-                style: TextStyle(
-                  color: n == _kTotal
-                      ? colorScheme.onSurfaceVariant
-                      : colorScheme.onSurface,
-                  fontStyle: n == _kTotal ? FontStyle.italic : FontStyle.normal,
-                ),
-              ),
+              // textgate: the all-workouts entry is a sum glyph (was
+              // "Total (all workouts)"); exercise names are content.
+              child: n == _kTotal
+                  ? Align(
+                      alignment: Alignment.centerLeft,
+                      child: Icon(
+                        Icons.functions,
+                        color: colorScheme.onSurfaceVariant,
+                        semanticLabel: _kTotal,
+                      ),
+                    )
+                  : Text(n, style: TextStyle(color: colorScheme.onSurface)),
             ),
           )
           .toList(),
@@ -162,7 +185,8 @@ class _StreakRow extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '${threshold - shown} more to $direction $actionLabel',
+              // textgate: was "2 more to ↑ 25 kg".
+              '${threshold - shown}  $direction $actionLabel',
               style: TextStyle(
                 color: colorScheme.onSurfaceVariant,
                 fontSize: AppTextSize.caption,
@@ -187,9 +211,11 @@ class _WeightChart extends StatelessWidget {
       return Container(
         height: 80,
         alignment: Alignment.center,
-        child: Text(
-          'Not enough data for chart',
-          style: TextStyle(color: colorScheme.onSurfaceVariant),
+        // textgate: was "Not enough data for chart".
+        child: Icon(
+          Icons.show_chart,
+          color: colorScheme.outlineVariant,
+          semanticLabel: 'Not enough data for chart',
         ),
       );
     }

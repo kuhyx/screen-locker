@@ -13,10 +13,12 @@ class _SyncedWorkoutTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final kind = '${payload['kind']}';
     final isRun = kind == 'runnerup_verified';
-    final label = isRun ? 'Run' : 'Manual';
+    final semanticLabel = isRun ? 'Run' : 'Manual';
     final detail = '${payload['source'] ?? ''}';
 
     return Container(
+      // Tests find a tile by date and kind; nothing paints the kind word.
+      key: ValueKey('synced-${payload['date']}-$semanticLabel'),
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -32,14 +34,16 @@ class _SyncedWorkoutTile extends StatelessWidget {
             isRun ? Icons.directions_run : Icons.edit_note,
             color: colorScheme.onSurfaceVariant,
             size: 20,
+            semanticLabel: semanticLabel,
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // textgate: was "<date> · Run|Manual"; the glyph says which.
                 Text(
-                  '${payload['date']}  ·  $label',
+                  '${payload['date']}',
                   style: TextStyle(
                     color: colorScheme.onSurface,
                     fontWeight: FontWeight.bold,
@@ -104,8 +108,9 @@ class _AllSessionTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // textgate: was "Workout A · <date>".
                 Text(
-                  'Workout $type  ·  $date',
+                  '$type  ·  $date',
                   style: TextStyle(
                     color: colorScheme.onSurface,
                     fontWeight: FontWeight.bold,
@@ -191,17 +196,29 @@ class _ExerciseSessionTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  '${weight ?? '?'}kg  ·  $doneSets/$targetSets sets'
-                  '  ·  ${warmupDone ? '⬤ warmup' : '○ no warmup'}',
-                  style: mutedStyle,
+                // textgate: was "20kg · 3/3 sets · ⬤ warmup" / "reps: 5, 5"
+                // / "workout: 30m 00s". Now numbers behind glyphs; the warmup
+                // is a filled or hollow sun.
+                Row(
+                  children: [
+                    Text(
+                      '${weight ?? '?'}kg  ·  $doneSets/$targetSets  ',
+                      style: mutedStyle,
+                    ),
+                    Icon(
+                      warmupDone ? Icons.wb_sunny : Icons.wb_sunny_outlined,
+                      size: 14,
+                      color: mutedStyle.color,
+                      semanticLabel: warmupDone ? 'warmup' : 'no warmup',
+                    ),
+                  ],
                 ),
                 if (repsSummary.isNotEmpty) ...[
                   const SizedBox(height: 2),
-                  Text('reps: $repsSummary', style: mutedStyle),
+                  _GlyphLine(Icons.repeat, repsSummary, mutedStyle),
                 ],
                 const SizedBox(height: 2),
-                Text('workout: $dur', style: mutedStyle),
+                _GlyphLine(Icons.timer, dur, mutedStyle),
               ],
             ),
           ),
@@ -209,4 +226,23 @@ class _ExerciseSessionTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A small glyph followed by a number line (textgate: replaces a word
+/// prefix such as "reps:" or "workout:").
+class _GlyphLine extends StatelessWidget {
+  const _GlyphLine(this.icon, this.text, this.style);
+
+  final IconData icon;
+  final String text;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Icon(icon, size: 14, color: style.color),
+      const SizedBox(width: 4),
+      Text(text, style: style),
+    ],
+  );
 }

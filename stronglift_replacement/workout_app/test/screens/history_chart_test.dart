@@ -138,8 +138,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     // Exercise view rendered: chart + streak stats card near the top.
-    expect(find.text('WEIGHT OVER TIME'), findsOneWidget);
-    expect(find.textContaining('more to'), findsWidgets);
+    expect(iconLabeled('WEIGHT OVER TIME'), findsOneWidget);
+    expect(find.textContaining('↑'), findsWidgets);
 
     // Exercise-view calendar month nav (covers its onPrev/onNext closures).
     await tester.tap(find.byIcon(Icons.chevron_right).first);
@@ -149,14 +149,17 @@ void main() {
 
     // The session list + name label sit below the fold; scroll to build them.
     await tester.scrollUntilVisible(
-      find.text(name.toUpperCase()),
+      iconLabeled(name),
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text(name.toUpperCase()), findsOneWidget);
+    expect(iconLabeled(name), findsOneWidget);
     // Session tiles: warmup marker and reps summary both present.
-    expect(find.textContaining('warmup'), findsWidgets);
-    expect(find.textContaining('reps:'), findsWidgets);
+    expect([
+      ...iconLabeled('warmup').evaluate(),
+      ...iconLabeled('no warmup').evaluate(),
+    ], isNotEmpty);
+    expect(find.byIcon(Icons.repeat), findsWidgets);
   });
 
   testWidgets('chart handles two points on the same date (tRange == 0)', (
@@ -181,7 +184,7 @@ void main() {
     await seedSession(tester, vol(40), date: '2024-06-01');
     await pumpHistory(tester, wrapHistory());
     expect(find.byType(HistoryScreen), findsOneWidget);
-    expect(find.text('WEIGHT OVER TIME').evaluate(), isEmpty); // total view
+    expect(iconLabeled('WEIGHT OVER TIME').evaluate(), isEmpty); // total view
   });
 
   testWidgets('shows the PC-synced workouts the phone has no session for', (
@@ -210,12 +213,15 @@ void main() {
     await pumpHistory(tester, wrapHistory(httpClient: historySyncMock()));
 
     await tester.scrollUntilVisible(
-      find.text('SYNCED FROM PC'),
+      iconLabeled('SYNCED FROM PC'),
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('SYNCED FROM PC'), findsOneWidget);
-    expect(find.textContaining('2026-07-13  ·  Run'), findsOneWidget);
-    expect(find.textContaining('2026-07-13  ·  Manual'), findsOneWidget);
+    expect(iconLabeled('SYNCED FROM PC'), findsOneWidget);
+    expect(find.byKey(const ValueKey('synced-2026-07-13-Run')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('synced-2026-07-13-Manual')),
+      findsOneWidget,
+    );
   });
 }

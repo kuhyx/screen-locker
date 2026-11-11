@@ -60,20 +60,20 @@ void main() {
       ),
     );
     final threshold = seeded.successThreshold;
-    final upRow = find.textContaining(RegExp(r'more to ↑'));
+    final upRow = find.textContaining(RegExp(r'^\d+  ↑'));
 
     await openExercise(tester, name);
     await tester.pump();
     expect(
       tester.widget<Text>(upRow).data,
-      startsWith('$threshold more'),
+      startsWith('$threshold  ↑'),
       reason: 'first frame: nothing counted yet, every dot still to fill',
     );
 
     await tester.pumpAndSettle();
     expect(
       tester.widget<Text>(upRow).data,
-      startsWith('${threshold - 2} more'),
+      startsWith('${threshold - 2}  ↑'),
       reason: 'settled: exactly the stored streak, never an invented one',
     );
   });
@@ -88,8 +88,8 @@ void main() {
     await openExercise(tester, name);
     await tester.pump();
     expect(
-      tester.widget<Text>(find.textContaining(RegExp(r'more to ↑'))).data,
-      startsWith('${seeded.successThreshold} more'),
+      tester.widget<Text>(find.textContaining(RegExp(r'^\d+  ↑'))).data,
+      startsWith('${seeded.successThreshold}  ↑'),
     );
   });
 }
