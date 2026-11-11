@@ -16,7 +16,7 @@ void main() {
         ManualWorkoutScreen(syncService: sync, clock: fixedManualNow),
       );
       await pickDay(tester, '14');
-      expect(find.text('Workout date: 2026-07-14 (tomorrow)'), findsOneWidget);
+      expect(find.text('2026-07-14  +1'), findsOneWidget);
       await fillValidTt(tester);
       await tester.tap(iconLabeled('SUBMIT'));
       await tester.pumpAndSettle();
@@ -44,7 +44,7 @@ void main() {
       await tester.tap(find.text('20'));
       await tester.tap(find.text('OK'));
       await tester.pumpAndSettle();
-      expect(find.text('Workout date: 2026-07-20 (in 7 days)'), findsOneWidget);
+      expect(find.text('2026-07-20  +7'), findsOneWidget);
     });
 
     testWidgets('cancelling the picker keeps the date', (tester) async {
@@ -59,7 +59,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
-      expect(find.text('Workout date: 2026-07-13 (today)'), findsOneWidget);
+      expect(find.text('2026-07-13  +0'), findsOneWidget);
     });
 
     testWidgets('the budget follows the selected date', (tester) async {
@@ -74,18 +74,13 @@ void main() {
           clock: fixedManualNow,
         ),
       );
-      expect(find.textContaining('2/2 per 7 days'), findsOneWidget);
-      expect(find.textContaining('budget exhausted'), findsOneWidget);
+      expect(find.textContaining('2/2 ⋅ 7d'), findsOneWidget);
+      expect(find.byKey(const Key('mw_exhausted')), findsOneWidget);
       expect(iconLabeled('SUBMIT'), findsNothing);
       // The date row stays reachable while the window is full.
       await pickDay(tester, '20');
-      expect(
-        find.text(
-          'Manual around 2026-07-20: 1/2 per 7 days · 2/10 per 30 days',
-        ),
-        findsOneWidget,
-      );
-      expect(find.textContaining('budget exhausted'), findsNothing);
+      expect(find.text('1/2 ⋅ 7d    2/10 ⋅ 30d'), findsOneWidget);
+      expect(find.byKey(const Key('mw_exhausted')), findsNothing);
       expect(iconLabeled('SUBMIT'), findsOneWidget);
     });
 
@@ -98,7 +93,7 @@ void main() {
       await fillValidTt(tester);
       await tester.tap(iconLabeled('SUBMIT'));
       await tester.pump();
-      expect(find.textContaining('was deleted earlier'), findsOneWidget);
+      expect(iconLabelContaining('was deleted earlier'), findsOneWidget);
       expect(sync.pushed, isNull);
       // A different start time is a different record id.
       await tester.enterText(find.byKey(const Key('mw_start_time')), '17:30');
@@ -121,8 +116,8 @@ void main() {
       await tester.tap(iconLabeled('SUBMIT'));
       await tester.pumpAndSettle();
       expect(sync.pushed, isNotNull);
-      expect(find.text('Not saved — push failed: 500'), findsOneWidget);
-      expect(find.text('Log Manual Workout'), findsOneWidget);
+      expect(iconLabeled('Not saved — push failed: 500'), findsOneWidget);
+      expect(iconLabeled('Log Manual Workout'), findsOneWidget);
       final submit = tester.widget<ElevatedButton>(
         buttonLabeled<ElevatedButton>('SUBMIT'),
       );
@@ -142,7 +137,7 @@ void main() {
       now = DateTime(2026, 7, 14, 0, 1);
       await tester.tap(iconLabeled('SUBMIT'));
       await tester.pump();
-      expect(find.textContaining('is in the past'), findsOneWidget);
+      expect(iconLabelContaining('is in the past'), findsOneWidget);
       expect(sync.pushed, isNull);
       // The picker would assert on an initial date before its range.
       await tester.tap(iconLabeled('CHANGE DATE'));
@@ -153,7 +148,7 @@ void main() {
       expect(picker.initialDate, DateTime(2026, 7, 14));
       await tester.tap(find.text('OK'));
       await tester.pumpAndSettle();
-      expect(find.text('Workout date: 2026-07-14 (today)'), findsOneWidget);
+      expect(find.text('2026-07-14  +0'), findsOneWidget);
     });
 
     testWidgets('a date beyond the window is refused at submit', (
@@ -171,7 +166,7 @@ void main() {
       now = DateTime(2026, 7, 12, 12);
       await tester.tap(iconLabeled('SUBMIT'));
       await tester.pump();
-      expect(find.textContaining('at most 7 days ahead'), findsOneWidget);
+      expect(iconLabelContaining('at most 7 days ahead'), findsOneWidget);
       expect(sync.pushed, isNull);
     });
   });

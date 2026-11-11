@@ -13,13 +13,10 @@ void main() {
       tester,
       ManualWorkoutScreen(syncService: FakeManualSync(), clock: fixedManualNow),
     );
-    expect(find.text('Log Manual Workout'), findsOneWidget);
+    expect(iconLabeled('Log Manual Workout'), findsOneWidget);
     expect(iconLabeled('SUBMIT'), findsOneWidget);
-    expect(
-      find.text('Manual around 2026-07-13: 0/2 per 7 days · 0/10 per 30 days'),
-      findsOneWidget,
-    );
-    expect(find.text('Workout date: 2026-07-13 (today)'), findsOneWidget);
+    expect(find.text('0/2 ⋅ 7d    0/10 ⋅ 30d'), findsOneWidget);
+    expect(find.text('2026-07-13  +0'), findsOneWidget);
   });
 
   testWidgets('hides the form when the budget is exhausted', (tester) async {
@@ -47,7 +44,7 @@ void main() {
         clock: fixedManualNow,
       ),
     );
-    expect(find.textContaining('budget exhausted'), findsOneWidget);
+    expect(find.byKey(const Key('mw_exhausted')), findsOneWidget);
     expect(iconLabeled('SUBMIT'), findsNothing);
   });
 
@@ -59,7 +56,7 @@ void main() {
     );
     await tester.tap(iconLabeled('SUBMIT'));
     await tester.pump();
-    expect(find.textContaining('is required'), findsOneWidget);
+    expect(iconLabelContaining('is required'), findsOneWidget);
     expect(sync.pushed, isNull);
   });
 
@@ -87,7 +84,7 @@ void main() {
     expect(find.byKey(const Key('mw_matches_won')), findsOneWidget);
     await tester.tap(find.byType(DropdownButton<String>));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Other').last);
+    await tester.tap(iconLabeled('Other').last);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('mw_activity_type_other')), findsOneWidget);
     expect(find.byKey(const Key('mw_matches_won')), findsNothing);
@@ -98,10 +95,11 @@ void main() {
       tester,
       ManualWorkoutScreen(syncService: FakeManualSync(), clock: fixedManualNow),
     );
-    expect(find.text('RPE 5'), findsOneWidget);
+    String rpe() => tester.widget<Text>(find.byKey(const Key('mw_rpe'))).data!;
+    expect(rpe(), '5');
     await tester.drag(find.byType(Slider), const Offset(300, 0));
     await tester.pump();
-    expect(find.text('RPE 5'), findsNothing);
+    expect(rpe(), isNot('5'));
   });
 
   testWidgets('other-sport validation error pushes nothing', (tester) async {
@@ -112,7 +110,7 @@ void main() {
     );
     await tester.tap(find.byType(DropdownButton<String>));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Other').last);
+    await tester.tap(iconLabeled('Other').last);
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('mw_start_time')), '18:00');
     await tester.enterText(find.byKey(const Key('mw_end_time')), '19:30');
@@ -121,7 +119,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('mw_cost')), '30');
     await tester.tap(iconLabeled('SUBMIT'));
     await tester.pump();
-    expect(find.textContaining('Activity type is required'), findsOneWidget);
+    expect(iconLabelContaining('Activity type is required'), findsOneWidget);
     expect(sync.pushed, isNull);
   });
 }

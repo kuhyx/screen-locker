@@ -124,9 +124,11 @@ class _ManualWorkoutScreenState extends State<ManualWorkoutScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: colorScheme.surfaceContainerHigh,
-        title: Text(
-          'Log Manual Workout',
-          style: TextStyle(color: colorScheme.onSurface),
+        // textgate: was "Log Manual Workout".
+        title: Icon(
+          Icons.edit_note,
+          color: colorScheme.onSurface,
+          semanticLabel: 'Log Manual Workout',
         ),
       ),
       body: !_budgetLoaded
@@ -139,40 +141,42 @@ class _ManualWorkoutScreenState extends State<ManualWorkoutScreen> {
                 _dateRow(),
                 _budgetBanner(budget),
                 if (exhausted)
+                  // textgate: was "Manual-workout budget exhausted for a
+                  // window containing <date> — pick another date."
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      'Manual-workout budget exhausted for a window '
-                      'containing ${dayKey(_date)} — pick another date.',
-                      style: TextStyle(color: colorScheme.error),
+                    child: Icon(
+                      Icons.block,
+                      key: const Key('mw_exhausted'),
+                      size: 40,
+                      color: colorScheme.error,
+                      semanticLabel:
+                          'Manual-workout budget exhausted — '
+                          'pick another date.',
                     ),
                   )
                 else ...[
-                  _section('Basics'),
+                  _section(),
                   _sportDropdown(),
-                  _text('start_time', 'Start time (HH:MM)'),
-                  _text('end_time', 'End time (HH:MM)'),
-                  _section('Location & logistics'),
-                  _text('location_name', 'Location name'),
-                  _text('transport_method', 'How did you get there?'),
-                  _text('cost', 'Cost (e.g. 40 PLN)'),
-                  _text('reservation_phone', 'Reservation phone (optional)'),
-                  _section('Activity details'),
+                  ..._basicFields(),
+                  _section(),
+                  ..._logisticsFields(),
+                  _section(),
                   ..._sportFields(),
                   _rpeSlider(),
-                  _text('techniques_practiced', 'Techniques (optional)'),
-                  _text('warm_up_minutes', 'Warm-up (optional)'),
-                  _text('pain_or_injury', 'Pain or injury (optional)'),
-                  _section('Reflection'),
-                  _text('went_well', 'What went well', lines: 3),
-                  _text('to_improve', 'What to improve', lines: 3),
-                  _text('overall_feeling', 'Overall feeling', lines: 3),
+                  ..._detailFields(),
+                  _section(),
+                  ..._reflectionFields(),
                   if (_error != null)
+                    // textgate: the refusal reason is spoken only; painted
+                    // as an error glyph.
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
-                        _error!,
-                        style: TextStyle(color: colorScheme.error),
+                      child: Icon(
+                        Icons.error_outline,
+                        key: const Key('mw_error'),
+                        color: colorScheme.error,
+                        semanticLabel: _error,
                       ),
                     ),
                   Padding(
@@ -188,24 +192,6 @@ class _ManualWorkoutScreenState extends State<ManualWorkoutScreen> {
     );
   }
 
-  List<Widget> _sportFields() {
-    if (_sport == kSportTableTennis) {
-      return [
-        _text('matches_won', 'Matches won'),
-        _text('matches_lost', 'Matches lost'),
-        _text('sets_won', 'Sets won'),
-        _text('sets_lost', 'Sets lost'),
-        _text('racket', 'Racket used'),
-        _text('balls', 'Balls used'),
-      ];
-    }
-    return [
-      _text('activity_type_other', 'What sport/activity'),
-      _text('activity_details', 'What was done', lines: 3),
-      _text('equipment', 'Equipment (optional)'),
-    ];
-  }
-
   Widget _sportDropdown() => Padding(
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: DropdownButton<String>(
@@ -214,8 +200,17 @@ class _ManualWorkoutScreenState extends State<ManualWorkoutScreen> {
       style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
       isExpanded: true,
       items: [
+        // textgate: sport glyphs; the names are spoken only.
         for (final entry in kSportLabels.entries)
-          DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+          DropdownMenuItem(
+            value: entry.key,
+            child: Icon(
+              entry.key == kSportTableTennis
+                  ? Icons.sports_tennis
+                  : Icons.sports,
+              semanticLabel: entry.value,
+            ),
+          ),
       ],
       onChanged: (value) {
         if (value != null) setState(() => _sport = value);
@@ -227,8 +222,16 @@ class _ManualWorkoutScreenState extends State<ManualWorkoutScreen> {
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: Row(
       children: [
+        // textgate: was "RPE 5"; an effort glyph and the number.
+        Icon(
+          Icons.speed,
+          color: Theme.of(context).colorScheme.onSurface,
+          semanticLabel: 'RPE',
+        ),
+        const SizedBox(width: 4),
         Text(
-          'RPE ${_rpe.round()}',
+          '${_rpe.round()}',
+          key: const Key('mw_rpe'),
           style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
         ),
         Expanded(

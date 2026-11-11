@@ -10,26 +10,37 @@ part of 'manual_workout_screen.dart';
 extension _ManualWorkoutFormParts on _ManualWorkoutScreenState {
   /// The budget as seen from the selected date: the fullest 7- and 30-day
   /// windows around it, planned entries included.
-  Widget _budgetBanner(ManualBudget budget) => Text(
-    'Manual around ${dayKey(_date)}: '
-    '${budget.week}/$kManualWorkoutBudgetPer7Days per 7 days · '
-    '${budget.month}/$kManualWorkoutBudgetPer30Days per 30 days',
-    style: TextStyle(
-      color: Theme.of(context).colorScheme.primary,
-      fontSize: AppTextSize.body,
-    ),
+  ///
+  /// textgate: was "Manual around DATE: 0/2 per 7 days · 0/10 per 30
+  /// days"; now the counts with their window length in days.
+  Widget _budgetBanner(ManualBudget budget) => Row(
+    key: const Key('mw_budget'),
+    children: [
+      Icon(
+        Icons.event_repeat,
+        size: 18,
+        color: Theme.of(context).colorScheme.primary,
+        semanticLabel: 'Manual-workout budget',
+      ),
+      const SizedBox(width: AppSpacing.sm),
+      Text(
+        '${budget.week}/$kManualWorkoutBudgetPer7Days ⋅ 7d    '
+        '${budget.month}/$kManualWorkoutBudgetPer30Days ⋅ 30d',
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.primary,
+          fontSize: AppTextSize.body,
+        ),
+      ),
+    ],
   );
 
-  /// "today", "tomorrow" or "in N days" for the selected date.
+  /// `+0` for today, `+1` for tomorrow, `+N` (textgate: was "today" /
+  /// "tomorrow" / "in N days").
   String _relativeDay() {
     // Rounded, not truncated: across a DST change two local midnights are
     // 23 or 25 hours apart.
     final days = (_date.difference(_today()).inHours / 24).round();
-    return switch (days) {
-      0 => 'today',
-      1 => 'tomorrow',
-      _ => 'in $days days',
-    };
+    return '+$days';
   }
 
   /// The workout date and the button that changes it.
@@ -39,7 +50,8 @@ extension _ManualWorkoutFormParts on _ManualWorkoutScreenState {
       children: [
         Expanded(
           child: Text(
-            'Workout date: ${dayKey(_date)} (${_relativeDay()})',
+            // textgate: was "Workout date: DATE (today)".
+            '${dayKey(_date)}  ${_relativeDay()}',
             key: const Key('mw_date'),
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurface,
@@ -60,19 +72,22 @@ extension _ManualWorkoutFormParts on _ManualWorkoutScreenState {
     ),
   );
 
-  Widget _section(String title) => Padding(
-    padding: const EdgeInsets.only(top: 16, bottom: 4),
-    child: Text(
-      title,
-      style: TextStyle(
-        color: Theme.of(context).colorScheme.primary,
-        fontSize: AppTextSize.subtitle,
-        fontWeight: FontWeight.bold,
-      ),
-    ),
+  /// A divider between field groups (textgate: was a word heading such as
+  /// "Basics" or "Reflection").
+  Widget _section() => Padding(
+    padding: const EdgeInsets.only(top: 12, bottom: 4),
+    child: Divider(color: Theme.of(context).colorScheme.primary),
   );
 
-  Widget _text(String key, String label, {int lines = 1}) => Padding(
+  /// A field marked by [icon]; [semanticsLabel] (the old floating label) is
+  /// spoken only. [hint] is a numeral-only placeholder.
+  Widget _text(
+    String key,
+    IconData icon,
+    String semanticsLabel, {
+    int lines = 1,
+    String? hint,
+  }) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: TextField(
       key: Key('mw_$key'),
@@ -82,13 +97,67 @@ extension _ManualWorkoutFormParts on _ManualWorkoutScreenState {
       // filled/fillColor/border inherit from the shared inputDecorationTheme
       // (theme.dart) — only the field-specific label needs setting here.
       decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(
+        hintText: hint,
+        prefixIcon: Icon(
+          icon,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
+          semanticLabel: semanticsLabel,
         ),
       ),
     ),
   );
+
+  List<Widget> _basicFields() => [
+    _text(
+      'start_time',
+      Icons.play_circle_outline,
+      'Start time (HH:MM)',
+      hint: '--:--',
+    ),
+    _text(
+      'end_time',
+      Icons.stop_circle_outlined,
+      'End time (HH:MM)',
+      hint: '--:--',
+    ),
+  ];
+
+  List<Widget> _logisticsFields() => [
+    _text('location_name', Icons.place, 'Location name'),
+    _text('transport_method', Icons.directions_bus, 'How did you get there?'),
+    _text('cost', Icons.payments, 'Cost (e.g. 40 PLN)'),
+    _text('reservation_phone', Icons.phone, 'Reservation phone (optional)'),
+  ];
+
+  List<Widget> _detailFields() => [
+    _text('techniques_practiced', Icons.psychology, 'Techniques (optional)'),
+    _text('warm_up_minutes', Icons.wb_sunny, 'Warm-up (optional)'),
+    _text('pain_or_injury', Icons.healing, 'Pain or injury (optional)'),
+  ];
+
+  List<Widget> _reflectionFields() => [
+    _text('went_well', Icons.thumb_up, 'What went well', lines: 3),
+    _text('to_improve', Icons.trending_up, 'What to improve', lines: 3),
+    _text('overall_feeling', Icons.mood, 'Overall feeling', lines: 3),
+  ];
+
+  List<Widget> _sportFields() {
+    if (_sport == kSportTableTennis) {
+      return [
+        _text('matches_won', Icons.emoji_events, 'Matches won'),
+        _text('matches_lost', Icons.emoji_events_outlined, 'Matches lost'),
+        _text('sets_won', Icons.add_circle_outline, 'Sets won'),
+        _text('sets_lost', Icons.remove_circle_outline, 'Sets lost'),
+        _text('racket', Icons.sports_tennis, 'Racket used'),
+        _text('balls', Icons.sports_baseball, 'Balls used'),
+      ];
+    }
+    return [
+      _text('activity_type_other', Icons.sports, 'What sport/activity'),
+      _text('activity_details', Icons.notes, 'What was done', lines: 3),
+      _text('equipment', Icons.backpack, 'Equipment (optional)'),
+    ];
+  }
 
   /// Reads [key]'s field as an int, treating blank or unparsable as 0.
   int _int(String key) => int.tryParse(_fields[key]!.text.trim()) ?? 0;
