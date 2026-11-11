@@ -5,8 +5,11 @@ import 'package:workout_app/services/http_server_service.dart';
 
 void main() {
   group('HttpServerService', () {
+    // Ephemeral port: the host may already run something on 8765.
+    setUp(() => HttpServerService.instance.port = 0);
     tearDown(() async {
       await HttpServerService.instance.stop();
+      HttpServerService.instance.port = kWorkoutServerPort;
     });
 
     test('is a singleton', () {
@@ -44,22 +47,22 @@ void main() {
     });
 
     test('start swallows a bind failure when the port is taken', () async {
-      final blocker = await ServerSocket.bind(
-        InternetAddress.anyIPv4,
-        kWorkoutServerPort,
-      );
+      final blocker = await ServerSocket.bind(InternetAddress.anyIPv4, 0);
+      HttpServerService.instance.port = blocker.port;
       // Binding fails (SocketException) but start() must not throw.
       await HttpServerService.instance.start();
+      expect(HttpServerService.instance.boundPort, isNull);
       await blocker.close();
     });
 
     test('serves the latest workout over HTTP', () async {
       HttpServerService.instance.resetForTesting();
       await HttpServerService.instance.start();
+      final port = HttpServerService.instance.boundPort!;
       final client = HttpClient();
 
       Future<int> get(String path) async {
-        final req = await client.get('localhost', kWorkoutServerPort, path);
+        final req = await client.get('localhost', port, path);
         final resp = await req.close();
         await resp.drain<void>();
         return resp.statusCode;

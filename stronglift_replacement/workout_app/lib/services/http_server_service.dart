@@ -26,6 +26,14 @@ class HttpServerService {
 
   HttpServer? _server;
 
+  /// Port [start] binds. Tests set 0 (ephemeral) so a host process that
+  /// already owns 8765 cannot make them fail or answer in our place.
+  @visibleForTesting
+  int port = kWorkoutServerPort;
+
+  /// The port actually bound, or null while stopped.
+  int? get boundPort => _server?.port;
+
   /// The most recent workout JSON string (updated after each finished workout).
   String? _latestJson;
 
@@ -53,16 +61,13 @@ class HttpServerService {
     if (_server != null) return; // already running
     await _loadFromDisk();
     try {
-      _server = await HttpServer.bind(
-        InternetAddress.anyIPv4,
-        kWorkoutServerPort,
-      );
+      _server = await HttpServer.bind(InternetAddress.anyIPv4, port);
       unawaited(_serve());
     } on SocketException catch (error) {
       // Port already in use or binding failed — not fatal.
       debugPrint(
         'WorkoutApp: could not bind the workout HTTP server on port '
-        '$kWorkoutServerPort ($error) — the PC cannot pull workouts over '
+        '$port ($error) — the PC cannot pull workouts over '
         'HTTP; ADB and sync still work.',
       );
       _server = null;
