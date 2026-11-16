@@ -1,3 +1,4 @@
+// phone-slot: not-shared-storage (mentions /sdcard in docs only)
 /// Where the last pace target is kept between runs (shared_preferences).
 library;
 

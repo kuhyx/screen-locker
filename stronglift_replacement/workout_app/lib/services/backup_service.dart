@@ -48,7 +48,8 @@ class BackupService {
 
   // Overridable: tests point it at a real temp directory instead of
   // `/sdcard`, which doesn't exist on the test host, and the sandbox flavor
-  // at its own `/sdcard/WorkoutTrackerSandbox` beside the daily build's.
+  // at its own `/sdcard/WorkoutTrackerSandbox` beside the daily build's;
+  // `main` keys it on packageName for any other install (shared_storage.dart).
   /// The directory backup files are written to and read from.
   static String baseDir = kBackupDir;
 

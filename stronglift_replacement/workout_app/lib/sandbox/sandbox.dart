@@ -11,6 +11,7 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart';
+import 'package:workout_app/services/shared_storage.dart';
 
 /// Build-time facts about the running flavor, resolved once at startup.
 abstract final class Sandbox {
@@ -32,6 +33,11 @@ abstract final class Sandbox {
   /// Whether this process is the sandbox flavor. Set once by [init]; tests
   /// assign it directly to exercise both flavors in one process.
   static bool enabled = false;
+
+  /// The running application id, asked of MainActivity by [init]. Anything
+  /// but `com.kuhy.workout_app` (a phone slot build) keeps its shared-storage
+  /// files apart; see `shared_storage.dart`.
+  static String packageName = kDailyPackage;
 
   /// Rest length (seconds) every break uses while [enabled]; persisted by
   /// the Settings screen, loaded by `main`.
@@ -57,12 +63,29 @@ abstract final class Sandbox {
   static Future<void> init([Map<String, String>? environment]) async {
     try {
       enabled = await channel.invokeMethod<bool>('isSandbox') ?? false;
+      packageName = await _askPackageName();
     } on MissingPluginException catch (error) {
+      packageName = kDailyPackage;
       enabled = (environment ?? Platform.environment)[envVar] == '1';
       debugPrint(
         'WorkoutApp: no sandbox channel on this platform ($error) — '
         '$envVar=${enabled ? '1: sandbox' : 'unset: daily build'}.',
       );
+    }
+  }
+
+  /// The package name MainActivity reports; an older MainActivity that does
+  /// not answer means the daily build, whose paths it always used.
+  static Future<String> _askPackageName() async {
+    try {
+      final answer = await channel.invokeMethod<Object?>('packageName');
+      return answer is String ? answer : kDailyPackage;
+    } on MissingPluginException catch (error) {
+      debugPrint(
+        'WorkoutApp: MainActivity does not report its package ($error) — '
+        'using the daily build storage paths.',
+      );
+      return kDailyPackage;
     }
   }
 

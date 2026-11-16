@@ -77,6 +77,8 @@ class HttpServerService {
   /// On startup, try to load the last saved workout JSON from disk so the
   /// HTTP endpoint is populated even before the next workout is completed.
   Future<void> _loadFromDisk() async {
+    // SyncService.filePath is already keyed on packageName, and the external
+    // storage dir below is this package's own.
     final candidates = <String>[SyncService.filePath];
     // External storage is Android-only; getExternalStorageDirectory() throws an
     // UnsupportedError (not an Exception) on other platforms (desktop / test

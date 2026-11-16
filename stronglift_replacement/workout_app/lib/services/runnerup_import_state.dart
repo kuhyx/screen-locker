@@ -4,7 +4,8 @@ library;
 
 import 'package:flutter/foundation.dart';
 
-/// Where RunnerUp itself leaves exports on the phone.
+/// Where RunnerUp itself leaves exports on the phone. `main` keys it on
+/// packageName so a slot build never reads it (shared_storage.dart).
 const String kRunnerUpLocalDir = '/sdcard/Documents/RunnerUp';
 
 /// `shared_preferences` key: every remote export is in the database.

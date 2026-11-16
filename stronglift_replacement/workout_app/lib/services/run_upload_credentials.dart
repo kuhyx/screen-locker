@@ -47,6 +47,7 @@ class ProvisionOutcome {
 Future<Directory?> _externalFilesDir() async {
   // coverage:ignore-start
   // Android-only plugin call; path_provider throws on every other platform.
+  // The dir is Android/data/<packageName>/files: one per package, not shared.
   if (Platform.isAndroid) return await getExternalStorageDirectory();
   // coverage:ignore-end
   return null;

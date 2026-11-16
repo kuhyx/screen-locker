@@ -17,6 +17,9 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "isSandbox" -> result.success(BuildConfig.FLAVOR == "sandbox")
+                    // A slot build runs this code under another package name;
+                    // Dart keys its /sdcard paths on it.
+                    "packageName" -> result.success(applicationContext.packageName)
                     "log" -> {
                         Log.i(LOG_TAG, call.arguments as String)
                         result.success(null)

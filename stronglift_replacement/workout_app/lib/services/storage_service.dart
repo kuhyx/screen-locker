@@ -1,3 +1,4 @@
+// phone-slot: not-shared-storage (mentions /sdcard in docs only)
 /// Persistent storage for exercise progression state using SQLite.
 library;
 

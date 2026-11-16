@@ -13,7 +13,8 @@ const String kSyncFilePath = '/sdcard/workout_result.json';
 /// Handles writing completed workout sessions to disk and the HTTP server.
 class SyncService {
   /// Where the result file is written; the sandbox flavor points this at
-  /// its own file so the PC's ADB pull never sees a sandbox workout.
+  /// its own file so the PC's ADB pull never sees a sandbox workout, and
+  /// `main` keys it on packageName for any other install (shared_storage.dart).
   static String filePath = kSyncFilePath;
 
   /// Writes [session] as JSON to external storage and updates the HTTP server.
