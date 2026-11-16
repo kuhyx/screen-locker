@@ -94,5 +94,14 @@ void main() {
     expect(run.track.distanceM, closeTo(4000, 20));
     expect(run.uploadState, RunUploadState.pending);
     expect(run.tcxFilename, endsWith('_Running.tcx'));
+    // The kilometre chimes play after the platform's vibrator probe answers, so
+    // the last ones can land after the final pump above. audioplayers starts a
+    // frame callback per play and cancels only the newest on completion; let
+    // them land and run, or the framework reports them as still running.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 300)),
+    );
+    await tester.pump();
+    await tester.pump();
   });
 }
