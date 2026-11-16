@@ -3,7 +3,7 @@
 // Hoisted to top level so the split test files import one definition (see
 // _history_test_fixtures.dart for why local copies drift).
 import 'package:crdt_sync/crdt_sync.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_app/services/workout_sync_service.dart';
 

@@ -1,6 +1,6 @@
 // The feedback cues: a haptic on recording a set, and a haptic, a chime and
 // an arriving dialog on finishing. Reward the RECORDING, never the number.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';

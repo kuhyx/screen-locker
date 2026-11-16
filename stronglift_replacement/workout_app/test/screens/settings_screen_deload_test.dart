@@ -1,7 +1,7 @@
 // Manual deload from the Settings screen's exercise sheet: the stored and
 // shown weights move, a refusal is spoken, a pending stepper write cannot
 // undo it, and the progression push fires when the sheet closes.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/screens/settings_screen.dart';

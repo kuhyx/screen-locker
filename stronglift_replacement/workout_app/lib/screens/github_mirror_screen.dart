@@ -12,10 +12,11 @@
 library;
 
 import 'dart:async';
+
 import 'package:crdt_sync/crdt_sync.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:workout_app/services/github_device_auth.dart';
 import 'package:workout_app/services/sync_settings.dart';

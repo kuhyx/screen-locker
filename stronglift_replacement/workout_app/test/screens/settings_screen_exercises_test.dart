@@ -1,6 +1,6 @@
 // The PER EXERCISE section: each row opens the workout tile's settings sheet,
 // edits persist as they happen, and closing the sheet pushes to Firebase.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/screens/settings_screen.dart';

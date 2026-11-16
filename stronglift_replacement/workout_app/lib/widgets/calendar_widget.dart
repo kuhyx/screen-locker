@@ -1,7 +1,7 @@
 /// Monthly calendar showing which days had workouts.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:workout_app/ui/theme.dart';
 
 /// Monthly calendar widget that highlights days with completed workouts.

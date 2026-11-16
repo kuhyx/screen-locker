@@ -6,7 +6,7 @@
 /// a workout gets logged into a void again.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:workout_app/ui/theme.dart';
 
 /// Tells the user this workout will not reach the PC until sync is set up.

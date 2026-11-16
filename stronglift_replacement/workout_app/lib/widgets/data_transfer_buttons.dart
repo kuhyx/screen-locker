@@ -3,7 +3,7 @@ library;
 
 import 'dart:developer' show log;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:workout_app/services/data_transfer.dart';
 import 'package:workout_app/services/storage_service.dart';
 

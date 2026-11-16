@@ -2,7 +2,7 @@
 // while the app was not.
 //
 // Split out of workout_breaks_test.dart to stay under the repo's 250-line cap.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/services/storage_service.dart';

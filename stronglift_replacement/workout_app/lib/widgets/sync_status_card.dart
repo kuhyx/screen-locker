@@ -6,7 +6,7 @@
 /// all offer the fix rather than just reporting the problem.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:workout_app/services/sync_status.dart';
 import 'package:workout_app/ui/theme.dart';
 

@@ -8,7 +8,7 @@ library;
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:workout_app/services/pace_band.dart';
 import 'package:workout_app/services/run_format.dart';
 import 'package:workout_app/ui/theme.dart';

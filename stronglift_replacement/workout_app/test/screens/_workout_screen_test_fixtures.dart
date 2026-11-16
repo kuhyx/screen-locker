@@ -4,7 +4,7 @@
 // the interaction in `runAsync`: the widget-test zone fakes async, so a
 // sqflite-ffi write started from a plain pump hangs and takes the isolate
 // down on shutdown.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/screens/workout_screen.dart';

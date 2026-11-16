@@ -2,7 +2,7 @@
 // home screen and lands on the workout, the way todo lands on the editor.
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/screens/home_screen.dart';

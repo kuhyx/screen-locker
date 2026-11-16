@@ -2,7 +2,7 @@
 /// one row of warmup + set circles, and the progress line.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/exercise_state.dart';
 import 'package:workout_app/models/progression.dart';

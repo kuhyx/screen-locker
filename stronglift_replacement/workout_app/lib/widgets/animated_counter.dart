@@ -1,7 +1,7 @@
 /// A whole number that counts to its true value instead of snapping to it.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:workout_app/ui/theme.dart';
 
 /// Rebuilds [builder] with a number that eases from 0 to [value] on arrival,

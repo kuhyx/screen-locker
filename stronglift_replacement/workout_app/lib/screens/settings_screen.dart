@@ -8,9 +8,10 @@ library;
 
 import 'dart:async';
 import 'dart:developer';
+
 import 'package:crdt_sync/crdt_sync.dart';
-import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:material_ui/material_ui.dart';
 import 'package:sync_settings_ui/sync_settings_ui.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/workout_plan.dart';

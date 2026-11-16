@@ -1,6 +1,6 @@
 // The SANDBOX section: present only in the sandbox flavor, and each of its
 // three controls acts on the (sandbox's) database and reports back.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/sandbox/sandbox.dart';

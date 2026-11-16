@@ -1,6 +1,6 @@
 // Location refused: no map, no start, only the red icon; a grant later (the
 // app coming back from settings) brings the screen back.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_app/services/position_source.dart';
 import 'package:workout_app/widgets/run_map.dart';

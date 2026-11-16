@@ -1,6 +1,6 @@
 // The warmup circle's fill is the app's one implicit animation: its duration
 // is the motion token, and the OS "remove animations" setting zeroes it.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/models/exercise_state.dart';

@@ -1,7 +1,7 @@
 // The pace picker: a pace icon, and when on, - m:ss + in 0:05 steps. No
 // Scrollable, so it fits the no-scroll run screen.
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_app/services/pace_band.dart';
 import 'package:workout_app/ui/theme.dart';

@@ -5,7 +5,7 @@ library;
 import 'dart:async';
 import 'dart:developer';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:vibration/vibration.dart';
 import 'package:workout_app/models/break_intent.dart';
 import 'package:workout_app/models/break_snapshot.dart';

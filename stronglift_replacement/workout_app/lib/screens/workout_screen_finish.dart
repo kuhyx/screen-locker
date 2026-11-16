@@ -146,20 +146,18 @@ extension _WorkoutScreenFinish on _WorkoutScreenState {
     // PB (it rewards the recording, not the number), then the summary arrives
     // on the dialog motion token instead of appearing. Both start together.
     unawaited(_cues.workoutFinished());
-    unawaited(
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        animationStyle: AnimationStyle(
-          duration: motionDuration(context, AppDuration.slow),
-          curve: AppCurve.decelerate,
-          reverseCurve: AppCurve.accelerate,
-        ),
-        builder: (_) => WorkoutSummaryDialog(
-          session: session,
-          syncResult: syncResult,
-          pcPoke: pcPoke,
-        ),
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      animationStyle: AnimationStyle(
+        duration: motionDuration(context, AppDuration.slow),
+        curve: AppCurve.decelerate,
+        reverseCurve: AppCurve.accelerate,
+      ),
+      builder: (_) => WorkoutSummaryDialog(
+        session: session,
+        syncResult: syncResult,
+        pcPoke: pcPoke,
       ),
     );
   }

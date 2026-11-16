@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_app/services/runnerup_importer.dart';
 import 'package:workout_app/widgets/runnerup_import_badge.dart';

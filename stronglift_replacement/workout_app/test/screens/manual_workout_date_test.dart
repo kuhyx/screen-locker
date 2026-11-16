@@ -1,6 +1,6 @@
 // The workout date on the manual form: today up to a week ahead, the budget
 // read as of that date, and the refusals around it.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_app/screens/manual_workout_screen.dart';
 import 'package:workout_app/services/workout_sync_service.dart';

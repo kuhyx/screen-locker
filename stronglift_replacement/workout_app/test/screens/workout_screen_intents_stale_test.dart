@@ -4,7 +4,7 @@
 // Split out of workout_screen_intents_test.dart to stay under the repo's
 // 250-line cap; the shared setup is duplicated rather than exported because
 // each test file owns its own fakes.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';

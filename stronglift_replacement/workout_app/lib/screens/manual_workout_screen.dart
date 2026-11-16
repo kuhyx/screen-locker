@@ -15,7 +15,7 @@ library;
 import 'dart:async';
 
 import 'package:crdt_sync/crdt_sync.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:workout_app/models/manual_workout.dart';
 import 'package:workout_app/sandbox/sandbox_log.dart';
 import 'package:workout_app/services/done_today.dart';

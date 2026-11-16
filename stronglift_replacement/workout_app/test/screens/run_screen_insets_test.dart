@@ -1,6 +1,6 @@
 // R7: the run screen fits one Pixel 6a screen with no scrolling, clear of the
 // status bar and the gesture bar, in every phase.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../fake_audio_platform.dart';

@@ -1,7 +1,7 @@
 // textgate guard, widget states the screen-level guard does not reach:
 // every sync-card state, every PC poke outcome, the settings sheet in each
 // progression mode, and the GitHub mirror screen.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/models/exercise_state.dart';

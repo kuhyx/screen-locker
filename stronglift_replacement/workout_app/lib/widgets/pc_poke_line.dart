@@ -1,7 +1,7 @@
 /// The one-line PC status on the workout summary.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:workout_app/services/pc_poke_result.dart';
 import 'package:workout_app/ui/theme.dart';
 

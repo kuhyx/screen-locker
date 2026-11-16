@@ -1,7 +1,7 @@
 /// Countdown strip permanently reserved at the top of the workout screen.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:workout_app/ui/theme.dart';
 
 /// Fixed-height strip: the rest countdown, Skip, and the workout's Reset and

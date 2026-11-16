@@ -1,6 +1,6 @@
 // One mode: every GPS activity is recorded with the running filter and written
 // as a Running TCX. There is no run/walk switch left on the screen.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_app/models/run_track.dart';
 import 'package:workout_app/services/tcx_codec.dart';

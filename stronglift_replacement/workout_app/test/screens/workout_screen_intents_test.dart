@@ -4,7 +4,7 @@
 // The real client reports isSupported == false off Android, so these inject a
 // fake one -- otherwise the whole notification path is dead code on the test
 // host and none of these rules would ever be exercised.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';

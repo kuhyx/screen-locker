@@ -1,5 +1,5 @@
 import 'package:crdt_sync/crdt_sync.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_app/models/manual_workout.dart';
 import 'package:workout_app/screens/manual_workout_screen.dart';

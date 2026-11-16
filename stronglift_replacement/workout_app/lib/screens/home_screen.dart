@@ -3,7 +3,7 @@ library;
 
 import 'dart:async';
 import 'dart:developer';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:workout_app/models/exercise.dart';
 import 'package:workout_app/sandbox/sandbox_log.dart';
 import 'package:workout_app/screens/history_screen.dart';

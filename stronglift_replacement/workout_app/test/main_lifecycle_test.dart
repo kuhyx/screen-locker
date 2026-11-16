@@ -2,7 +2,7 @@
 //
 // Linux returns early because main() never starts the socket there, so a
 // resume must not start one behind the lock screen's back.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/main.dart';

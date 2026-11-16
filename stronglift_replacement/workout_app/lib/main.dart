@@ -1,7 +1,14 @@
 import 'dart:async';
 import 'dart:io' show HttpOverrides, Platform;
-import 'package:flutter/material.dart';
+
+// Framework material, for its MaterialLocalizations delegate only: material_ui
+// ships its own MaterialLocalizations type, so a package that still calls the
+// framework `showDialog` (crdt_sync_flutter did) finds none and throws a null
+// check.
+// ignore: deprecated_member_use, the only source of the framework delegate.
+import 'package:flutter/material.dart' as fw show DefaultMaterialLocalizations;
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/sandbox/sandbox.dart';
 import 'package:workout_app/sandbox/sandbox_http.dart';
@@ -196,6 +203,10 @@ class _WorkoutAppState extends State<WorkoutApp> with WidgetsBindingObserver {
       // the launcher icon and the manifest label (android:label) already.
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
+      localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+        fw.DefaultMaterialLocalizations.delegate,
+        DefaultWidgetsLocalizations.delegate,
+      ],
       home: const HomeScreen(),
       // The one thing that must never be mistaken for the daily build: a
       // ribbon on every screen, in the error colour, on the sandbox only.

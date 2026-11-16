@@ -12,7 +12,7 @@
 ///   long press  → reset to neutral
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:workout_app/ui/theme.dart';
 
 /// Visual state of a [RepCircle].

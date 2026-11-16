@@ -1,5 +1,5 @@
 // The run icon on the home screen opens the run screen.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';

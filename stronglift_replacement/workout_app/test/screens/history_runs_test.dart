@@ -1,6 +1,6 @@
 // Runs in the history: the overview strip, the one-entry-per-run merge with
 // the PC's runnerup_verified rows, the calendar, and opening the detail.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/models/run_track.dart';

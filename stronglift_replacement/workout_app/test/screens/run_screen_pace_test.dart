@@ -1,6 +1,6 @@
 // The optional pace target on the run screen: the picker before the start, the
 // coloured current pace while recording, the cues, the notification.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_app/services/pace_band.dart';
 import 'package:workout_app/ui/theme.dart';
