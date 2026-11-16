@@ -145,7 +145,7 @@ repos:
           - crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.11.1#subdirectory=crdt-sync
           - earned-time @ git+https://github.com/kuhyx/utils@earned-time-v0.22.0#subdirectory=earned_time
           - freedays @ git+https://github.com/kuhyx/utils@freedays-v0.4.3#subdirectory=freedays
-          - sickdays @ git+https://github.com/kuhyx/utils@sickdays-v0.5.4#subdirectory=sickdays
+          - sickdays @ git+https://github.com/kuhyx/utils@sickdays-v0.5.5#subdirectory=sickdays
           # Same pin as workout_app/tools/render_finish_chime.sh installs.
           - music_theory @ git+https://github.com/kuhyx/utils@music-theory-v0.1.0#subdirectory=music_theory
           - mcp>=2,<3
@@ -168,7 +168,7 @@ repos:
           - crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.11.1#subdirectory=crdt-sync
           - earned-time @ git+https://github.com/kuhyx/utils@earned-time-v0.22.0#subdirectory=earned_time
           - freedays @ git+https://github.com/kuhyx/utils@freedays-v0.4.3#subdirectory=freedays
-          - sickdays @ git+https://github.com/kuhyx/utils@sickdays-v0.5.4#subdirectory=sickdays
+          - sickdays @ git+https://github.com/kuhyx/utils@sickdays-v0.5.5#subdirectory=sickdays
           - mcp>=2,<3
           - pydantic
 
