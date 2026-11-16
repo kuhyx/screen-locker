@@ -37,15 +37,13 @@ class PokeResult {
     required this.outcome,
     required this.reason,
     this.shutdown,
-    this.gamingBudgetMinutes,
     this.roundTripMs,
   });
 
   /// A failure that never got a usable reply.
   const PokeResult.failed(this.reason, {this.roundTripMs})
     : outcome = PokeOutcome.failed,
-      shutdown = null,
-      gamingBudgetMinutes = null;
+      shutdown = null;
 
   /// Parses the PC's JSON reply. Any shape the contract does not allow is a
   /// [PokeOutcome.failed] naming what was wrong, not an exception.
@@ -81,8 +79,8 @@ class PokeResult {
         roundTripMs: roundTripMs,
       );
     }
-    // shutdown / gaming_budget_minutes may be null (refusals): never assumed.
-    final budget = decoded['gaming_budget_minutes'];
+    // shutdown may be null (refusals): never assumed. An older PC also sends
+    // gaming_budget_minutes; the budget is gone, so the field is ignored.
     final shutdown = decoded['shutdown'];
     final PokeOutcome outcome;
     if (decoded['ok'] != true) {
@@ -100,7 +98,6 @@ class PokeResult {
       outcome: outcome,
       reason: reason,
       shutdown: shutdown is String ? shutdown : null,
-      gamingBudgetMinutes: budget is int ? budget : null,
       roundTripMs: roundTripMs,
     );
   }
@@ -114,9 +111,6 @@ class PokeResult {
   /// The PC's shutdown time after this poke, `HH:MM`.
   final String? shutdown;
 
-  /// Today's gaming budget after this poke, in minutes.
-  final int? gamingBudgetMinutes;
-
   /// Measured phone-side round trip, when a request was actually sent.
   final int? roundTripMs;
 
@@ -126,11 +120,7 @@ class PokeResult {
       case PokeOutcome.credited:
         final parts = <String>['PC ✓'];
         if (shutdown != null) parts.add('shutdown $shutdown');
-        final minutes = gamingBudgetMinutes;
-        final gaming = minutes == null
-            ? ''
-            : ' · gaming ${(minutes / 60).toStringAsFixed(1)}h';
-        return '${parts.join(' ')}$gaming';
+        return parts.join(' ');
       case PokeOutcome.duplicate:
         return 'PC: already credited';
       case PokeOutcome.sandbox:

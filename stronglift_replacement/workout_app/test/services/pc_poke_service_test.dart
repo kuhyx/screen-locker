@@ -92,7 +92,7 @@ void main() {
     final result = await _service(client, sandbox: false).poke(_session());
 
     expect(result.outcome, PokeOutcome.credited);
-    expect(result.label, 'PC ✓ shutdown 22:00 · gaming 2.0h');
+    expect(result.label, 'PC ✓ shutdown 22:00');
     expect(result.roundTripMs, isNotNull);
     expect(seen.url.toString(), 'http://10.0.0.7:$kPcPokePort$kPcPokePath');
     expect(
@@ -119,13 +119,12 @@ void main() {
     expect(result.label, startsWith('PC ✓ (sandbox, not credited) · '));
   });
 
-  test('null shutdown and budget are carried as null, not guessed', () async {
+  test('null shutdown is carried as null, not guessed', () async {
     final client = MockClient(
       (_) async => http.Response(_reply(credited: true), 200),
     );
     final result = await _service(client).poke(_session());
     expect(result.shutdown, isNull);
-    expect(result.gamingBudgetMinutes, isNull);
     expect(result.label, 'PC ✓');
   });
 

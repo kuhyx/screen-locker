@@ -88,7 +88,7 @@ void main() {
     expect(colorOf(tester), status.warning);
   });
 
-  testWidgets('a credit shows the new shutdown and gaming hours', (
+  testWidgets('a credit shows the new shutdown and no gaming figure', (
     tester,
   ) async {
     await show(
@@ -98,12 +98,11 @@ void main() {
           outcome: PokeOutcome.credited,
           reason: 'credited',
           shutdown: '22:00',
-          gamingBudgetMinutes: 90,
         ),
       ),
     );
     expect(find.text(' 22:00'), findsOneWidget);
-    expect(find.text(' 1.5h'), findsOneWidget);
+    expect(find.byIcon(Icons.sports_esports), findsNothing);
     expect(find.byIcon(Icons.power_settings_new), findsOneWidget);
     expect(colorOf(tester), status.success);
   });

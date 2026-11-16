@@ -182,7 +182,7 @@ class WorkoutCreditMixin:
         batch uncredited, so every exception is logged and dropped here.
         """
         try:
-            _credit_notify.notify_workout_credit(before, after, self.log_file)
+            _credit_notify.notify_workout_credit(before, after)
         except Exception:  # pylint: disable=broad-exception-caught  # notification must never fail the credit
             _logger.exception(
                 "Workout credit notification failed — the credit itself is "

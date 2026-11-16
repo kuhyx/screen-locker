@@ -24,10 +24,11 @@ String _reply({
 });
 
 void main() {
-  test('credited shows shutdown and gaming hours', () {
+  // A PC older than 2026-11-16 still sends gaming_budget_minutes: ignored.
+  test('credited shows the shutdown only', () {
     final r = PokeResult.fromReply(200, _reply(credited: true), 40);
     expect(r.outcome, PokeOutcome.credited);
-    expect(r.label, 'PC ✓ shutdown 21:00 · gaming 1.5h');
+    expect(r.label, 'PC ✓ shutdown 21:00');
   });
 
   test('credited with null shutdown/budget still renders', () {

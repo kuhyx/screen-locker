@@ -84,7 +84,7 @@ class TestStartTheDay:
 
 
 class TestSnapshots:
-    """Groups the shutdown and gaming-minutes values snapshotted into poke replies."""
+    """Groups the shutdown value snapshotted into poke replies."""
 
     def test_current_shutdown_renders_tonights_time(
         self, monkeypatch: pytest.MonkeyPatch
@@ -102,18 +102,3 @@ class TestSnapshots:
         with caplog.at_level(logging.WARNING):
             assert _poke_credit.current_shutdown() is None
         assert "shutdown=null" in caplog.text
-
-    def test_current_gaming_minutes_delegates(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """current_gaming_minutes returns what gaming_minutes_today reports for the log."""
-        seen: list[Path] = []
-
-        def minutes(log: Path) -> int:
-            """Record the log path asked about and return 90 minutes."""
-            seen.append(log)
-            return 90
-
-        monkeypatch.setattr(_poke_credit, "gaming_minutes_today", minutes)
-        assert _poke_credit.current_gaming_minutes(tmp_path / "log.json") == 90
-        assert seen == [tmp_path / "log.json"]

@@ -6,11 +6,8 @@ that credits a workout ends in
 :meth:`~screen_locker._workout_credit.WorkoutCreditMixin._apply_credit_for_written_entry`,
 which calls :func:`notify_workout_credit` once per newly earned credit slot.
 
-The gaming figure is ``earned_time.resolve`` over screen-locker's own answers
-(:func:`screen_locker._shutdown_target.gather` -- the same sum the daily reset
-writes), so no budget math lives here. steam-backlog-enforcer resolves the
-same registry with its own transports and holds a day's high-water mark, so
-its figure can sit above this one, never below on a normal day.
+The body shows the shutdown only: the gaming budget is gone (earned_time
+0.22.0), so there is no second figure to feel.
 
 A notification is a courtesy, never part of crediting: any failure (no DBus,
 no notify-send, a hang) is logged at warning and swallowed.
@@ -22,52 +19,27 @@ from datetime import date
 import logging
 import shutil
 import subprocess
-from typing import TYPE_CHECKING, Final
+from typing import Final
 
 from screen_locker._day import today_str
 from screen_locker._earned import hhmm, span
 from screen_locker._grace_floor import tonight_minutes
-from screen_locker._shutdown_target import gather
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 _logger: Final = logging.getLogger(__name__)
 
 # textgate: glyphs + numbers (colour emoji are safe in the notification
-# daemon, unlike Tk). Was "Workout credited 💪" / "Shutdown 23:00 (+2h) ·
-# gaming 7.0h" / "Credit applied (details unavailable)".
+# daemon, unlike Tk). Was "Workout credited 💪" / "Shutdown 23:00 (+2h)" /
+# "Credit applied (details unavailable)".
 TITLE: Final = "\N{FLEXED BICEPS} \N{CHECK MARK}"
 _SHUTDOWN: Final = "\N{POWER SYMBOL}"
-_GAMING: Final = "\N{VIDEO GAME}"
 _NOTIFY_TIMEOUT_SECONDS: Final = 5
-_MINUTES_PER_HOUR: Final = 60.0
-
-
-def gaming_minutes_today(log_file: Path | None) -> int | None:
-    """Today's gaming budget per the earned_time registry, or ``None``.
-
-    ``None`` (logged) when the inputs cannot be read; the notification then
-    shows the shutdown time alone.
-    """
-    try:
-        target = gather(date.fromisoformat(today_str()), log_file)
-    except (OSError, ValueError, KeyError) as exc:
-        _logger.warning(
-            "Could not compute today's gaming budget for the credit "
-            "notification (%s) — showing the shutdown time only",
-            exc,
-        )
-        return None
-    return int(target.resolution.gaming_minutes)
 
 
 def credit_body(
     before: tuple[int, int, int] | None,
     after: tuple[int, int, int] | None,
-    gaming_minutes: int | None,
 ) -> str:
-    """``⏻ 23:00 (+2h) · 🎮 7.0h`` -- whichever parts are known.
+    """``⏻ 23:00 (+2h)`` -- whichever parts are known.
 
     ``before``/``after`` are the shutdown config around the credit; the delta
     is tonight's actual move, so a capped or rest-day credit shows ``+0h``.
@@ -86,8 +58,6 @@ def credit_body(
             moved = max(0, tonight - tonight_minutes(before, day))
             text += f" (+{span(moved)})"
         parts.append(text)
-    if gaming_minutes is not None:
-        parts.append(f"{_GAMING} {gaming_minutes / _MINUTES_PER_HOUR:.1f}h")
     return " \N{MIDDLE DOT} ".join(parts) or "\N{CHECK MARK}"
 
 
@@ -123,8 +93,7 @@ def send_notification(title: str, body: str) -> bool:
 def notify_workout_credit(
     before: tuple[int, int, int] | None,
     after: tuple[int, int, int] | None,
-    log_file: Path | None,
 ) -> bool:
     """Notify a newly earned workout credit. Never raises."""
-    body = credit_body(before, after, gaming_minutes_today(log_file))
+    body = credit_body(before, after)
     return send_notification(TITLE, body)

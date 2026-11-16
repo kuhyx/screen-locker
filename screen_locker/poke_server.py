@@ -87,10 +87,8 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError) as exc:
         _logger.critical("Refusing to start: bad poke key (%s); %s", exc, _KEYGEN_HINT)
         return 1
-    # Warm the budget sum (registry, ledgers) and the conf read once, so the
-    # first poke costs what every later one does.
+    # Warm the conf read once, so the first poke costs what every later one does.
     _poke_credit.current_shutdown()
-    _poke_credit.current_gaming_minutes(_poke_credit.fresh_locker().log_file)
     try:
         server = PokeServer((args.bind, args.port), key)
     except OSError as exc:

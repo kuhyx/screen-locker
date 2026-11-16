@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import logging
 import subprocess
-from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
@@ -20,7 +19,6 @@ from screen_locker.tests.conftest import create_locker
 
 # The toast's glyphs (textgate): the module's own constants, not words.
 _SHUTDOWN = _credit_notify._SHUTDOWN
-_GAMING = _credit_notify._GAMING
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -44,54 +42,34 @@ def _warned(caplog: pytest.LogCaptureFixture, needle: str) -> bool:
     )
 
 
-class TestGamingMinutes:
-    """The budget figure, or None when its inputs cannot be read."""
-
-    def test_returns_the_registry_figure(self) -> None:
-        """gather's resolution is shown as whole minutes."""
-        target = SimpleNamespace(resolution=SimpleNamespace(gaming_minutes=420.0))
-        with patch(f"{_MOD}.gather", return_value=target):
-            assert _credit_notify.gaming_minutes_today(None) == 420
-
-    def test_unreadable_inputs_warn_and_return_none(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """A broken ledger costs the figure, not the notification."""
-        with patch(f"{_MOD}.gather", side_effect=OSError("ledger gone")):
-            assert _credit_notify.gaming_minutes_today(None) is None
-        assert _warned(caplog, "ledger gone")
-
-
 class TestCreditBody:
     """Whichever parts are known end up in the body."""
 
     def test_full_body(self) -> None:
-        """Shutdown time, tonight's move and the gaming budget."""
-        body = _credit_notify.credit_body((0, 1200, 0), (0, 1320, 0), 420)
-        assert body == f"{_SHUTDOWN} 22:00 (+2h) \N{MIDDLE DOT} {_GAMING} 7.0h"
+        """Shutdown time and tonight's move; no gaming figure any more."""
+        body = _credit_notify.credit_body((0, 1200, 0), (0, 1320, 0))
+        assert body == f"{_SHUTDOWN} 22:00 (+2h)"
 
     def test_a_capped_credit_shows_plus_zero(self) -> None:
         """No backwards move is ever shown: the delta floors at zero."""
-        body = _credit_notify.credit_body((0, 1380, 0), (0, 1320, 0), None)
+        body = _credit_notify.credit_body((0, 1380, 0), (0, 1320, 0))
         assert body == f"{_SHUTDOWN} 22:00 (+0h)"
 
     def test_unknown_before_drops_the_delta(self) -> None:
         """Without the old config there is no move to show."""
-        assert (
-            _credit_notify.credit_body(None, (0, 1320, 0), None) == f"{_SHUTDOWN} 22:00"
-        )
+        assert _credit_notify.credit_body(None, (0, 1320, 0)) == f"{_SHUTDOWN} 22:00"
 
-    def test_unreadable_after_warns_and_shows_gaming_only(
+    def test_unreadable_after_warns_and_shows_the_check_mark(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
         """An unreadable config is said out loud, not silently omitted."""
-        assert _credit_notify.credit_body(None, None, 90) == f"{_GAMING} 1.5h"
+        assert _credit_notify.credit_body(None, None) == "\N{CHECK MARK}"
         assert _warned(caplog, "unreadable")
 
-    def test_nothing_known_still_says_something(self) -> None:
-        """An empty body would read as a glitch; say the credit happened."""
-        body = _credit_notify.credit_body(None, None, None)
-        assert body == "\N{CHECK MARK}"
+    def test_the_gaming_figure_is_gone(self) -> None:
+        """No budget exists any more: the body never mentions gaming."""
+        assert not hasattr(_credit_notify, "gaming_minutes_today")
+        assert not hasattr(_credit_notify, "_GAMING")
 
 
 class TestSendNotification:
@@ -152,13 +130,10 @@ class TestSendNotification:
 def test_notify_workout_credit_sends_the_composed_body() -> None:
     """The real entry point composes the body and sends it once."""
     with (
-        patch(f"{_MOD}.gaming_minutes_today", return_value=60),
         patch(f"{_MOD}.send_notification", return_value=True) as send,
     ):
-        assert _real_notify((0, 1200, 0), (0, 1260, 0), None)
-    send.assert_called_once_with(
-        _credit_notify.TITLE, f"{_SHUTDOWN} 21:00 (+1h) \N{MIDDLE DOT} {_GAMING} 1.0h"
-    )
+        assert _real_notify((0, 1200, 0), (0, 1260, 0))
+    send.assert_called_once_with(_credit_notify.TITLE, f"{_SHUTDOWN} 21:00 (+1h)")
 
 
 class TestCreditSideOfTheNotifier:

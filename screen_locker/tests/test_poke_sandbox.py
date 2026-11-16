@@ -49,7 +49,6 @@ def pc_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Mag
     monkeypatch.setattr(_poke_credit, "ingest_session_records", spies["ingest"])
     monkeypatch.setattr(_poke_credit, "credit_session", spies["credit"])
     monkeypatch.setattr(_poke_credit, "current_shutdown", lambda: "20:30")
-    monkeypatch.setattr(_poke_credit, "current_gaming_minutes", lambda _p: 75)
     return spies
 
 
@@ -63,7 +62,7 @@ def test_sandbox_replies_ok_with_the_snapshot_and_nothing_credited(
     assert reply["credited"] is False
     assert reply["duplicate"] is False
     assert reply["shutdown"] == "20:30"
-    assert reply["gaming_budget_minutes"] == 75
+    assert "gaming_budget_minutes" not in reply
     assert "nothing written or credited" in str(reply["reason"])
 
 

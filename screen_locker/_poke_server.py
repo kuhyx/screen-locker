@@ -46,21 +46,19 @@ def _reply(
     outcome: _poke_credit.PokeOutcome,
     *,
     sandbox: bool = False,
-    snapshot: tuple[str | None, int | None] = (None, None),
+    shutdown: str | None = None,
 ) -> dict[str, object]:
     """The contract's response shape; ``pc_ms`` is filled in by the handler.
 
-    ``snapshot`` is (tonight's shutdown ``HH:MM``, gaming minutes); refusals
-    leave it null rather than tell an unverified caller anything.
+    ``shutdown`` is tonight's shutdown ``HH:MM``; refusals leave it null
+    rather than tell an unverified caller anything.
     """
-    shutdown, gaming = snapshot
     return {
         "ok": outcome.ok,
         "credited": outcome.credited,
         "duplicate": outcome.duplicate,
         "sandbox": sandbox,
         "shutdown": shutdown,
-        "gaming_budget_minutes": gaming,
         "pc_ms": 0,
         "reason": outcome.reason,
     }
@@ -77,7 +75,6 @@ def _refused(reason: str) -> dict[str, object]:
 
 def _process(request: PokeRequest) -> dict[str, object]:
     """Credit (or, for a sandbox request, only answer) one verified poke."""
-    locker = _poke_credit.fresh_locker()
     if request.sandbox:
         outcome = _poke_credit.PokeOutcome(
             ok=True,
@@ -90,10 +87,7 @@ def _process(request: PokeRequest) -> dict[str, object]:
     return _reply(
         outcome,
         sandbox=request.sandbox,
-        snapshot=(
-            _poke_credit.current_shutdown(),
-            _poke_credit.current_gaming_minutes(locker.log_file),
-        ),
+        shutdown=_poke_credit.current_shutdown(),
     )
 
 

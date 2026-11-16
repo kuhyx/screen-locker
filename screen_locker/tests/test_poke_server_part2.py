@@ -78,8 +78,9 @@ class TestRouting:
 
 
 def test_reply_for_a_refusal_leaves_the_snapshot_null() -> None:
-    """A refusal reply carries no shutdown or gaming-budget snapshot."""
+    """A refusal reply carries no shutdown snapshot."""
     reply = _poke_server._refused("nope")
     assert reply["ok"] is False
-    assert (reply["shutdown"], reply["gaming_budget_minutes"]) == (None, None)
+    assert reply["shutdown"] is None
+    assert "gaming_budget_minutes" not in reply
     assert reply["reason"] == "nope"

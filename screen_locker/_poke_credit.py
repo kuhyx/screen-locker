@@ -25,7 +25,6 @@ from screen_locker._constants import (
     SHUTDOWN_BASE_FILE,
     SHUTDOWN_CONFIG_FILE,
 )
-from screen_locker._credit_notify import gaming_minutes_today
 from screen_locker._day import today_str
 from screen_locker._earned import hhmm
 from screen_locker._extra_benefits import process_week_transition
@@ -38,7 +37,6 @@ from screen_locker.screen_lock import ScreenLocker
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
-    from pathlib import Path
 
     from screen_locker._workout_credit import WorkoutCreditResult
 
@@ -49,7 +47,6 @@ __all__ = [
     "credit_manual_workouts",
     "credit_session",
     "credit_sessions",
-    "current_gaming_minutes",
     "current_shutdown",
 ]
 
@@ -118,11 +115,6 @@ def current_shutdown() -> str | None:
         )
         return None
     return hhmm(tonight_minutes(config, date.fromisoformat(today_str())))
-
-
-def current_gaming_minutes(log_file: Path) -> int | None:
-    """Today's gaming budget (``None`` and a warning when it cannot be summed)."""
-    return gaming_minutes_today(log_file)
 
 
 def _precheck(record_id: str, payload: Mapping[str, object]) -> str | None:

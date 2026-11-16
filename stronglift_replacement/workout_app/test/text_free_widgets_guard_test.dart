@@ -51,7 +51,6 @@ void main() {
       outcome: PokeOutcome.credited,
       reason: 'credited',
       shutdown: '22:00',
-      gamingBudgetMinutes: 90,
     ),
     PokeResult(outcome: PokeOutcome.duplicate, reason: 'dup'),
     PokeResult(outcome: PokeOutcome.sandbox, reason: 'sb', roundTripMs: 40),

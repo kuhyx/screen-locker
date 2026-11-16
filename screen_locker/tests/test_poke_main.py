@@ -54,7 +54,6 @@ def _daemon_stubs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     locker.log_file = tmp_path / "log.json"
     monkeypatch.setattr(_poke_credit, "fresh_locker", lambda: locker)
     monkeypatch.setattr(_poke_credit, "current_shutdown", MagicMock())
-    monkeypatch.setattr(_poke_credit, "current_gaming_minutes", MagicMock())
     monkeypatch.setattr(poke_server, "PokeServer", FakeServer)
 
 

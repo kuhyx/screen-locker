@@ -129,7 +129,7 @@ class TestSlotCreditMinutes:
         result, notify = _credit(locker, [])
         assert result.shutdown_adjusted is True
         assert locker._read_shutdown_config() == (1320, 1320, 300)
-        notify.assert_called_once_with(_START, (1320, 1320, 300), locker.log_file)
+        notify.assert_called_once_with(_START, (1320, 1320, 300))
 
     def test_distinct_slot_earns_one_hour(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path

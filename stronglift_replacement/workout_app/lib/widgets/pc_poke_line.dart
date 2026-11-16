@@ -63,7 +63,6 @@ class PcPokeLine extends StatelessWidget {
           PokeOutcome.failed => Icons.schedule,
         };
         final style = TextStyle(color: color, fontSize: AppTextSize.caption);
-        final minutes = result.gamingBudgetMinutes;
         return Semantics(
           label: result.label,
           excludeSemantics: true,
@@ -79,11 +78,6 @@ class PcPokeLine extends StatelessWidget {
                   const SizedBox(width: AppSpacing.sm),
                   Icon(Icons.power_settings_new, size: 14, color: color),
                   Text(' ${result.shutdown}', style: style),
-                ],
-                if (minutes != null) ...[
-                  const SizedBox(width: AppSpacing.sm),
-                  Icon(Icons.sports_esports, size: 14, color: color),
-                  Text(' ${(minutes / 60).toStringAsFixed(1)}h', style: style),
                 ],
               ],
               // Sandbox: the round trip in milliseconds behind a timer glyph.

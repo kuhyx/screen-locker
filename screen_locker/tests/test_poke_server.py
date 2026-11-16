@@ -70,7 +70,6 @@ def credit_fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> MagicMock
     locker.log_file = tmp_path / "log.json"
     monkeypatch.setattr(_poke_credit, "fresh_locker", lambda: locker)
     monkeypatch.setattr(_poke_credit, "current_shutdown", lambda: "20:30")
-    monkeypatch.setattr(_poke_credit, "current_gaming_minutes", lambda _p: 75)
     spy = MagicMock(
         return_value=_poke_credit.PokeOutcome(
             ok=True, credited=True, duplicate=False, reason="workout credited"
@@ -130,7 +129,7 @@ class TestCredit:
         assert reply["duplicate"] is False
         assert reply["sandbox"] is False
         assert reply["shutdown"] == "20:30"
-        assert reply["gaming_budget_minutes"] == 75
+        assert "gaming_budget_minutes" not in reply
         assert isinstance(reply["pc_ms"], int)
         credit.assert_called_once_with(
             "rec-1", {"date": "2026-10-09", "note": "zażółć"}

@@ -1,7 +1,7 @@
 # Workout poke: phone -> PC wire contract (v1)
 
 The phone sends a finished StrongLifts session straight to the PC over the
-home LAN, so the credit (shutdown time, gaming budget, notification) lands in
+home LAN, so the credit (shutdown time, notification) lands in
 under a second instead of waiting for the GitHub/Firebase round trip. The
 normal sync push still runs in parallel; the PC dedups by record id, so a
 session that arrives both ways is credited once.
@@ -45,11 +45,13 @@ session that arrives both ways is credited once.
 
 ```json
 {"ok":<bool>,"credited":<bool>,"duplicate":<bool>,"sandbox":<bool>,
- "shutdown":"HH:MM"|null,"gaming_budget_minutes":<int|null>,"pc_ms":<int>,
+ "shutdown":"HH:MM"|null,"pc_ms":<int>,
  "reason":"<sentence a human can act on>"}
 ```
 
-The phone must treat `shutdown` and `gaming_budget_minutes` as nullable.
+The phone must treat `shutdown` as nullable. `gaming_budget_minutes` was dropped
+when the gaming budget was removed (2026-11-16); a phone ignores it if an older
+PC still sends it.
 
 Outcomes of a verified (200) request:
 
@@ -64,8 +66,8 @@ Outcomes of a verified (200) request:
 Refusals are never 200. Besides the four checks above, the PC may answer
 `404` (wrong path), `405` (not POST), `411` (no Content-Length), `413` (body
 over 64 KiB) and `500` (internal error; the regular sync still credits). All
-of them carry the same JSON shape with `ok:false` and `shutdown` and
-`gaming_budget_minutes` both `null`. The PC answers a `413` without reading
+of them carry the same JSON shape with `ok:false` and `shutdown`
+`null`. The PC answers a `413` without reading
 the body, so the phone may see a connection reset instead of the reply.
 
 ## Shared fixture
