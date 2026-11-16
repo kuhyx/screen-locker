@@ -35,6 +35,7 @@ from screen_locker._constants import (
     PHONE_PENALTY_DELAY_PRODUCTION,
     SCHEDULED_SKIPS_FILE,
 )
+from screen_locker._credit_watch import watch_for_credit
 from screen_locker._decision_log import record_run_aborted
 from screen_locker._early_bird import EarlyBirdMixin
 from screen_locker._heat_skip import HeatSkipMixin
@@ -214,6 +215,9 @@ class ScreenLocker(
                 self._lock.grab_input()
         watch_for_hold(self.root, self.close)
         watch_for_carrot(self.root, self._stand_down_for_carrot)
+        watch_for_credit(
+            self.root, self.log_file, self.has_logged_today, self._stand_down_for_credit
+        )
 
     def close(self) -> None:
         """Close the application and exit."""

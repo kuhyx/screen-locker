@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from screen_locker import _glyphs as g
 from screen_locker import _manual_workout
+from screen_locker._credit_watch import CreditStandDownMixin
 from screen_locker._source_health import collect_source_findings, explain_findings
 from screen_locker._ui_flows_lockout import LockoutFlowMixin
 from screen_locker._ui_flows_sick import SickDayFlowMixin
@@ -25,7 +26,9 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
-class UIFlowsMixin(SickDayFlowMixin, SickPanelFlowMixin, LockoutFlowMixin):
+class UIFlowsMixin(
+    SickDayFlowMixin, SickPanelFlowMixin, LockoutFlowMixin, CreditStandDownMixin
+):
     """Mixin providing UI flow logic for the screen locker.
 
     The sick-day and lockout/penalty flows live in sibling modules and are
@@ -50,7 +53,16 @@ class UIFlowsMixin(SickDayFlowMixin, SickPanelFlowMixin, LockoutFlowMixin):
         self._text(g.WAIT, role="display", color=self._colors.palette.muted)
 
     def _start_phone_check(self) -> None:
-        """Check phone for today's workout immediately at startup."""
+        """Check phone for today's workout immediately at startup.
+
+        Also the TRY AGAIN path. Another process (the stream daemon, a manual
+        log) may have credited today since the window opened; the log is
+        authoritative, so that closes the window instead of asking the phone
+        -- a StrongLifts "stale" verdict must never outrank a logged workout.
+        """
+        if self.has_logged_today():
+            self._stand_down_for_credit()
+            return
         self.paint_phone_check()
         executor = ThreadPoolExecutor(max_workers=1)
         self._phone_future = executor.submit(self._verify_phone_workout)
