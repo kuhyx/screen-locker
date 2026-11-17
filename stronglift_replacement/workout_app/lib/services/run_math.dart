@@ -10,22 +10,23 @@
 /// 30 s or less earns moving time at 0.5 m/s or faster; a longer one (a GPS
 /// dropout) at 1 m/s or faster; paused time earns nothing.
 ///
-/// The app mirrors only the bounds, per pair of its 2 s fixes, and is stricter:
-/// a pair over 30 s credits nothing, where the PC keeps a dropout at 1 m/s or
-/// faster. The app writes zero distance across such a gap, so the PC does not
-/// credit a dropout in an app-recorded run. Its on-screen moving time is
-/// therefore an estimate, not the number the PC will credit.
+/// The app mirrors the bounds per pair of its 2 s fixes. Across a gap over 30 s
+/// it bridges with a straight line (see `run_gap_bridge.dart`): the distance is
+/// credited only at 2:30 to 12:00 min/km, and the gap counts as moving time
+/// exactly when its distance was credited. Its on-screen moving time is an
+/// estimate, not the number the PC will credit.
 library;
 
 import 'dart:math' as math;
 
 import 'package:workout_app/models/run_track.dart';
+import 'package:workout_app/services/run_gap_bridge.dart';
 
 /// Mean Earth radius in metres (IUGG), the haversine constant.
 const double kEarthRadiusM = 6371008.8;
 
-/// A pair of fixes further apart in time than this earns neither distance
-/// nor moving time: a GPS dropout whose motion is unknown.
+/// A pair of fixes further apart in time than this is a gap: bridged by a
+/// straight line (see `run_gap_bridge.dart`), not a normal step.
 ///
 /// Mirrors `WALK_MAX_GAP_SECONDS` in the PC's `screen_locker/_constants.py`.
 const int kMaxCreditGapSeconds = 30;
@@ -56,18 +57,22 @@ double haversineM(double lat1, double lon1, double lat2, double lon2) {
   return 2 * kEarthRadiusM * math.asin(math.min(1, math.sqrt(a)));
 }
 
-/// Whether the step from [a] to [b] counts as moving: seen within
-/// [kMaxCreditGapSeconds] and travelled at a speed in
-/// `[kMinMovingSpeedMps, maxSpeed]`.
+/// Whether the step from [a] to [b] counts as moving: travelled at a speed in
+/// `[kMinMovingSpeedMps, maxSpeed]`, or across a gap over
+/// [kMaxCreditGapSeconds] at one in `[kBridgeMinSpeedMps, maxSpeed]` (only a
+/// credited bridge has any distance at all).
 ///
 /// Speed comes from the cumulative `distanceM` difference, as the PC reads a
 /// TCX, but over one pair of fixes rather than a window of 10 s or more, so the
 /// two can disagree on a jittery or stop-and-go stretch.
 bool isMovingStep(RunPoint a, RunPoint b, double maxSpeed) {
   final gap = b.time.difference(a.time).inMilliseconds / 1000;
-  if (gap <= 0 || gap > kMaxCreditGapSeconds) return false;
+  if (gap <= 0) return false;
   final speed = (b.distanceM - a.distanceM) / gap;
-  return speed >= kMinMovingSpeedMps && speed <= maxSpeed;
+  final floor = gap > kMaxCreditGapSeconds
+      ? kBridgeMinSpeedMps
+      : kMinMovingSpeedMps;
+  return speed >= floor && speed <= maxSpeed;
 }
 
 /// Moving seconds over [points]: the summed gaps of every moving step.
