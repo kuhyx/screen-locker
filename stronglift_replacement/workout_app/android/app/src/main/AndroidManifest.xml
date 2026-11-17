@@ -32,6 +32,12 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission
         android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- A location foreground service that is (re)started from the
+         background (sticky restart after a kill, boot) may only read the
+         location if this is held; without it the run would restart silently
+         and receive no fixes. -->
+    <uses-permission
+        android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <!-- Required by ForegroundTaskOptions(allowWakeLock: true), which takes a
          PARTIAL_WAKE_LOCK so the deadline fires with the screen off. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />

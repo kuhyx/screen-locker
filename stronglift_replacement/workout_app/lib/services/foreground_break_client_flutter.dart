@@ -1,6 +1,7 @@
 /// The real foreground-service client, and the service's entry point.
 library;
 
+import 'dart:developer';
 import 'dart:io' show Platform;
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
@@ -12,6 +13,8 @@ import 'package:workout_app/services/break_service_port.dart';
 import 'package:workout_app/services/break_service_port_flutter.dart';
 import 'package:workout_app/services/break_task_handler.dart';
 import 'package:workout_app/services/foreground_break_client.dart';
+import 'package:workout_app/services/run_checkpoint_location.dart';
+import 'package:workout_app/services/run_wire.dart';
 
 /// Channel the ongoing workout notification lives on.
 ///
@@ -113,8 +116,12 @@ class FlutterForegroundBreakClient implements ForegroundBreakClient {
     );
   }
 
+  /// The shared service hosts a RUN while its checkpoint exists; this client
+  /// must neither see, replace nor stop it (stopping clears the options the
+  /// plugin keeps for a boot restart, and ends the run).
   @override
-  Future<bool> isRunning() => FlutterForegroundTask.isRunningService;
+  Future<bool> isRunning() async =>
+      !await runIsOwed() && await FlutterForegroundTask.isRunningService;
 
   @override
   Future<bool> hasNotificationPermission() async =>
@@ -128,6 +135,14 @@ class FlutterForegroundBreakClient implements ForegroundBreakClient {
 
   @override
   Future<bool> start(BreakSnapshot snapshot) async {
+    if (await runIsOwed()) {
+      log(
+        'WorkoutApp: a GPS run owns the foreground service, so the break '
+        'timer service was not started. The in-app countdown still works.',
+        level: 1000,
+      );
+      return false;
+    }
     if (await FlutterForegroundTask.isRunningService) {
       await FlutterForegroundTask.stopService();
     }
@@ -154,6 +169,7 @@ class FlutterForegroundBreakClient implements ForegroundBreakClient {
 
   @override
   Future<void> stop() async {
+    if (await runIsOwed()) return;
     if (await FlutterForegroundTask.isRunningService) {
       await FlutterForegroundTask.stopService();
     }
@@ -174,7 +190,10 @@ class FlutterForegroundBreakClient implements ForegroundBreakClient {
 
   /// The service's nudge carries no payload -- see [BreakServicePort]. Any
   /// message from the task isolate means "the queue has something in it".
-  void _handleTaskData(Object data) => _onNudge?.call();
+  void _handleTaskData(Object data) {
+    // The run host shares this channel; its snapshots are not nudges.
+    if (!isRunMessage(data)) _onNudge?.call();
+  }
 
   // coverage:ignore-end
 }

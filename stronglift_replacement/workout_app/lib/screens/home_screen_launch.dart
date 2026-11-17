@@ -40,7 +40,9 @@ extension _HomeScreenLaunch on _HomeScreenState {
     required DateTime today,
   }) async {
     const stay = (open: false, syncedToday: false, syncNotSetUp: false);
+    // A run in progress opens its own screen (see `_load`).
     if (!firstLoad || !widget.openWorkoutOnLaunch) return stay;
+    if (widget.openRunOnLaunch) return stay;
     final wantsFresh = !hasSaved && !doneLocally && !lockModeEnabled;
     if (!hasSaved && !wantsFresh) return stay;
 

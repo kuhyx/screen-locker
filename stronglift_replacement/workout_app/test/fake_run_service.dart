@@ -100,4 +100,16 @@ class QuietCues extends FeedbackCues {
 
   @override
   Future<void> workoutFinished() async => finishes++;
+
+  /// How many times advice to finish was cued.
+  int suggestions = 0;
+
+  /// How many times the 5 h end was cued.
+  int autoEnds = 0;
+
+  @override
+  Future<void> finishSuggested() async => suggestions++;
+
+  @override
+  Future<void> autoEnded() async => autoEnds++;
 }

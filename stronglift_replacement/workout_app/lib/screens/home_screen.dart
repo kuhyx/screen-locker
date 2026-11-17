@@ -37,7 +37,11 @@ class HomeScreen extends StatefulWidget {
     this.clock,
     this.configuredProbe,
     this.openWorkoutOnLaunch = true,
+    this.openRunOnLaunch = false,
   });
+
+  /// A run is in progress: the first load opens the run, not the workout.
+  final bool openRunOnLaunch;
 
   /// Sync service to use; defaults to a real [WorkoutSyncService].
   final WorkoutSyncService? syncService;
@@ -97,6 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
         lastDate.day == today.day;
     final firstLoad = !_hasAutoOpened;
     _hasAutoOpened = true;
+    final resumeRun = firstLoad && widget.openRunOnLaunch;
     final launch = await _decideLaunch(
       firstLoad: firstLoad,
       hasSaved: saved != null,
@@ -122,7 +127,11 @@ class _HomeScreenState extends State<HomeScreen> {
       // changes what the card says when it lands.
       unawaited(_refreshSyncStatus());
 
-      if (launch.open) {
+      if (resumeRun) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) unawaited(_openRun(resuming: true));
+        });
+      } else if (launch.open) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           unawaited(

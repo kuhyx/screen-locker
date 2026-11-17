@@ -3,15 +3,15 @@
 part of 'run_screen.dart';
 
 class _Numbers extends StatelessWidget {
-  const _Numbers({required this.recorder});
+  const _Numbers({required this.view});
 
-  final RunRecorder recorder;
+  final RunView view;
 
   /// Green on pace, red off it, plain while there is no verdict yet.
   Color _paceColour(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final colors = Theme.of(context).extension<AppStatusColors>()!;
-    final band = recorder.coach.band;
+    final band = view.band;
     if (band == null) return scheme.onSurface;
     return band == PaceBand.onPace ? colors.success : scheme.error;
   }
@@ -44,14 +44,14 @@ class _Numbers extends StatelessWidget {
             ],
           ),
         );
-    final current = recorder.coach.pace;
+    final current = view.pace;
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Flexible(
           child: big(
             const Key('run_time'),
-            formatDuration(recorder.seconds),
+            formatDuration(view.seconds),
             96,
             scheme.onSurface,
           ),
@@ -62,17 +62,17 @@ class _Numbers extends StatelessWidget {
             small(
               Icons.straighten,
               const Key('run_distance'),
-              formatDistanceKm(recorder.distanceM),
+              formatDistanceKm(view.distanceM),
             ),
             small(
               Icons.speed,
               const Key('run_pace'),
               formatPace(
-                seconds: recorder.seconds,
-                distanceM: recorder.distanceM,
+                seconds: view.seconds,
+                distanceM: view.distanceM,
               ),
             ),
-            if (recorder.coach.target != null)
+            if (view.paceTarget != null)
               small(
                 Icons.bolt,
                 const Key('run_pace_now'),

@@ -16,11 +16,11 @@ extension _HomeScreenNavigation on _HomeScreenState {
 
   /// Pushes the GPS run screen, then reloads (a finished run can change
   /// today's credit once the PC has it).
-  Future<void> _openRun() async {
-    SandboxLog.event('open run screen');
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const RunScreen()));
+  Future<void> _openRun({bool resuming = false}) async {
+    SandboxLog.event('open run screen', {'resuming': resuming});
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => RunScreen(resuming: resuming)),
+    );
     unawaited(_load());
   }
 

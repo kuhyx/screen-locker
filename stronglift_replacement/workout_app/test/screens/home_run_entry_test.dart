@@ -11,6 +11,7 @@ import 'package:workout_app/services/storage_service.dart';
 import '../fake_audio_platform.dart';
 import '../fake_geolocator.dart';
 import '../fake_secure_storage.dart';
+import '../run_persist_rig.dart';
 import '_home_test_fixtures.dart';
 
 void main() {
@@ -31,6 +32,9 @@ void main() {
     final original = GeolocatorPlatform.instance;
     GeolocatorPlatform.instance = FakeGeolocator();
     addTearDown(() => GeolocatorPlatform.instance = original);
+    // `main` installs the real wiring; here the run lives in a fake host.
+    RunScreen.defaultControllerFactory = PersistRig().build;
+    addTearDown(() => RunScreen.defaultControllerFactory = null);
   });
 
   testWidgets('the run icon opens the run screen and back returns home', (

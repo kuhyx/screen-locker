@@ -109,4 +109,29 @@ class FeedbackCues {
       debugPrint('WorkoutApp: pace tone failed to play ($error).');
     });
   }
+
+  /// The recorder suggests finishing the run (stationary, vehicle speed, GPS
+  /// lost, restored): three buzzes and, if allowed, the chime. Advice only,
+  /// the run keeps going.
+  Future<void> finishSuggested() => _longCue('cue finish suggested');
+
+  /// The 5 h limit ended the run: the same buzz and chime as a suggestion, so
+  /// a phone in a pocket says something happened.
+  Future<void> autoEnded() => _longCue('cue run auto-ended');
+
+  Future<void> _longCue(String event) async {
+    SandboxLog.event(event, {'sound': soundOn});
+    if (await Vibration.hasVibrator()) {
+      // Android/iOS-only: hasVibrator() is false on the Linux test host.
+      // coverage:ignore-start
+      unawaited(Vibration.vibrate(pattern: [0, 300, 150, 300, 150, 300]));
+      // coverage:ignore-end
+    }
+    if (!soundOn) return;
+    await _player.play(AssetSource('sounds/workout_done.wav')).catchError((
+      Object error,
+    ) {
+      debugPrint('WorkoutApp: $event chime failed to play ($error).');
+    });
+  }
 }

@@ -115,6 +115,7 @@ class _Controls extends StatelessWidget {
     required this.onPaceToggle,
     required this.onPaceChanged,
     required this.onStart,
+    required this.onFinish,
     required this.onAgain,
     required this.onClose,
   });
@@ -126,12 +127,13 @@ class _Controls extends StatelessWidget {
   final VoidCallback onPaceToggle;
   final ValueChanged<int> onPaceChanged;
   final VoidCallback onStart;
+  final VoidCallback onFinish;
   final VoidCallback onAgain;
   final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
-    final recorder = controller.recorder;
+    final view = controller.view;
     final scheme = Theme.of(context).colorScheme;
     Widget button(
       String id,
@@ -152,7 +154,13 @@ class _Controls extends StatelessWidget {
       );
     }
 
-    final buttons = switch (recorder.phase) {
+    // Advice to finish (stationary, vehicle speed, GPS lost, restored) only
+    // makes this button pulse: the run ends on the modal's check, nowhere else.
+    final finish = _PulsingFinish(
+      pulsing: view.suggestion != null,
+      child: button('finish', Icons.stop, onFinish, tint: scheme.error),
+    );
+    final buttons = switch (view.phase) {
       RunPhase.idle => [
         Flexible(
           child: RunPacePicker(
@@ -170,21 +178,11 @@ class _Controls extends StatelessWidget {
       ],
       RunPhase.recording => [
         button('pause', Icons.pause, controller.pause),
-        button(
-          'finish',
-          Icons.stop,
-          () => unawaited(controller.finish()),
-          tint: scheme.error,
-        ),
+        finish,
       ],
       RunPhase.paused => [
         button('resume', Icons.play_arrow, controller.resume),
-        button(
-          'finish',
-          Icons.stop,
-          () => unawaited(controller.finish()),
-          tint: scheme.error,
-        ),
+        finish,
       ],
       RunPhase.finished => [
         button('again', Icons.refresh, controller.saving ? null : onAgain),

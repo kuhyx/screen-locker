@@ -17,18 +17,23 @@ import 'package:workout_app/screens/home_screen.dart';
 import 'package:workout_app/services/backup_service.dart';
 import 'package:workout_app/services/break_service_controller.dart';
 import 'package:workout_app/services/foreground_break_client_flutter.dart';
+import 'package:workout_app/services/foreground_run_client_flutter.dart';
 import 'package:workout_app/services/http_server_service.dart';
 import 'package:workout_app/services/lock_mode.dart';
 import 'package:workout_app/services/pc_pairing.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
+import 'package:workout_app/services/run_checkpoint_location.dart';
+import 'package:workout_app/services/run_launch.dart';
 import 'package:workout_app/services/run_upload_credentials.dart';
 import 'package:workout_app/services/run_uploader.dart';
+import 'package:workout_app/services/run_wiring.dart';
 import 'package:workout_app/services/runnerup_importer.dart';
 import 'package:workout_app/services/shared_storage.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_device_id.dart';
 import 'package:workout_app/services/sync_service.dart';
 import 'package:workout_app/ui/theme.dart';
+import 'package:workout_app/widgets/run_landing.dart';
 
 // coverage:ignore-start
 // App bootstrap: permission request, DB init, and a real listening socket —
@@ -101,12 +106,14 @@ void main(List<String> args) async {
   // still pending from an earlier launch.
   if (!Sandbox.enabled) await RunCredentialStore().importProvisionFile();
   unawaited(RunUploader.instance.uploadPending());
+  installRunWiring();
   // Before the UI exists: a service left over from a crashed or force-stopped
   // workout must not sit in the status bar counting down nothing.
   await stopStaleBreakService(
     FlutterForegroundBreakClient(),
     hasActiveWorkout: () async =>
         await StorageService.instance.loadActiveSession() != null,
+    runIsOwed: runIsOwed, // the service may be hosting a run
   );
   await StorageService.instance.restoreFromBackupIfNeeded();
   // The permission-free restore path, and the reason storage is now optional.
@@ -147,7 +154,13 @@ void main(List<String> args) async {
       localDir: sharedPathFor(Sandbox.packageName, kRunnerUpLocalDir),
     ).runGuarded(),
   );
-  runApp(const WorkoutApp());
+  final resumeRun =
+      Platform.isAndroid &&
+      await resumeRunOnLaunch(
+        owed: runIsOwed,
+        client: FlutterForegroundRunClient(),
+      );
+  runApp(WorkoutApp(resumeRun: resumeRun));
 }
 // coverage:ignore-end
 
@@ -157,8 +170,11 @@ void main(List<String> args) async {
 /// listening socket while the app is backgrounded, so the process (and its
 /// open socket) doesn't sit alive indefinitely and block Doze/App-Standby.
 class WorkoutApp extends StatefulWidget {
-  /// Creates the root app widget.
-  const WorkoutApp({super.key});
+  /// Creates the root app widget; [resumeRun] opens the live run screen.
+  const WorkoutApp({super.key, this.resumeRun = false});
+
+  /// A run is in progress: land on it, whatever launched the app.
+  final bool resumeRun;
 
   @override
   State<WorkoutApp> createState() => _WorkoutAppState();
@@ -214,7 +230,10 @@ class _WorkoutAppState extends State<WorkoutApp> with WidgetsBindingObserver {
         fw.DefaultMaterialLocalizations.delegate,
         DefaultWidgetsLocalizations.delegate,
       ],
-      home: const HomeScreen(),
+      home: RunLanding(
+        owed: Platform.isAndroid ? runIsOwed : null,
+        child: HomeScreen(openRunOnLaunch: widget.resumeRun),
+      ),
       // The one thing that must never be mistaken for the daily build: a
       // ribbon on every screen, in the error colour, on the sandbox only.
       builder: (context, child) => Sandbox.enabled

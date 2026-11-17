@@ -20,8 +20,12 @@ import 'package:workout_app/services/foreground_break_client.dart';
 Future<bool> stopStaleBreakService(
   ForegroundBreakClient client, {
   required Future<bool> Function() hasActiveWorkout,
+  required Future<bool> Function() runIsOwed,
 }) async {
   if (!client.isSupported) return false;
+  // The one foreground service may be hosting a run (it comes back after a
+  // kill, with no workout session): stopping it would end the run.
+  if (await runIsOwed()) return false;
   if (!await client.isRunning()) return false;
   if (await hasActiveWorkout()) return false;
   log(
