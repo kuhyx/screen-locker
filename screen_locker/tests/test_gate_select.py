@@ -31,18 +31,21 @@ def _tree(root: Path) -> None:
 
 
 def test_transitive_import_reaches_test(tmp_path: Path) -> None:
+    """Selector: transitive import reaches test."""
     _tree(tmp_path)
     got = gs.dart_affected_tests(tmp_path, [f"{APP}/lib/a.dart"])
     assert got == [f"{APP}/test/c_test.dart"]
 
 
 def test_helper_followed_by_import(tmp_path: Path) -> None:
+    """Selector: helper followed by import."""
     _tree(tmp_path)
     got = gs.dart_affected_tests(tmp_path, [f"{APP}/test/rig.dart"])
     assert got == [f"{APP}/test/lonely_test.dart", f"{APP}/test/sub/x_test.dart"]
 
 
 def test_untouched_change_selects_nothing(tmp_path: Path) -> None:
+    """Selector: untouched change selects nothing."""
     _tree(tmp_path)
     assert gs.dart_affected_tests(tmp_path, [f"{APP}/lib/lonely.dart"]) == [
         f"{APP}/test/lonely_test.dart",
@@ -52,6 +55,7 @@ def test_untouched_change_selects_nothing(tmp_path: Path) -> None:
 
 
 def test_pubspec_forces_full_and_says_why(tmp_path: Path) -> None:
+    """Selector: pubspec forces full and says why."""
     _tree(tmp_path)
     sel = gs.select(tmp_path, [f"{APP}/pubspec.yaml", "web/x.ts"], [])
     assert sel.full_dart
@@ -60,6 +64,7 @@ def test_pubspec_forces_full_and_says_why(tmp_path: Path) -> None:
 
 
 def test_python_mapping_and_full(tmp_path: Path) -> None:
+    """Selector: python mapping and full."""
     tracked = [
         "screen_locker/tests/test_foo_bar.py",
         "screen_locker/tests/test__foo.py",
@@ -77,6 +82,7 @@ def test_python_mapping_and_full(tmp_path: Path) -> None:
 
 
 def test_no_web_without_web_files(tmp_path: Path) -> None:
+    """Selector: no web without web files."""
     _tree(tmp_path)
     sel = gs.select(tmp_path, [f"{APP}/lib/a.dart"], [])
     assert not sel.web

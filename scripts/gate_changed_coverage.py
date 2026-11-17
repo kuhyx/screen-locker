@@ -8,8 +8,8 @@ loads would otherwise score 100% by absence).
 
 from __future__ import annotations
 
-from pathlib import Path
 import logging
+from pathlib import Path
 import sys
 
 _LOG = logging.getLogger(__name__)
@@ -42,7 +42,11 @@ def main(argv: list[str]) -> int:
         uncovered(Path(argv[1]).read_text(encoding="utf-8"), wanted).items()
     ):
         if lines is None or lines:
-            _LOG.error("changed file below 100%%: %s (uncovered: %s)", path, "absent from lcov" if lines is None else lines)
+            _LOG.error(
+                "changed file below 100%%: %s (uncovered: %s)",
+                path,
+                "absent from lcov" if lines is None else lines,
+            )
             bad += 1
     return 1 if bad else 0
 
