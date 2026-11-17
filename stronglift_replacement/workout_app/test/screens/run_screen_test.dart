@@ -70,7 +70,7 @@ void main() {
     await tapKey(tester, 'run_resume');
     expect(key('run_pause'), findsOneWidget);
 
-    await tapKey(tester, 'run_finish');
+    await tapFinish(tester);
     await tester.pumpAndSettle();
     expect(key('run_saved_ok'), findsOneWidget);
     expect(h.saved.single.points, hasLength(8));
@@ -87,7 +87,7 @@ void main() {
     await tapKey(tester, 'run_start');
     await h.run(tester, 4);
     await tapKey(tester, 'run_pause');
-    await tapKey(tester, 'run_finish');
+    await tapFinish(tester);
     expect(key('run_saved_ok'), findsOneWidget);
   });
 
@@ -98,7 +98,7 @@ void main() {
     await h.pump(tester);
     await tapKey(tester, 'run_start');
     await h.run(tester, 4);
-    await tapKey(tester, 'run_finish');
+    await tapFinish(tester);
 
     await tapKey(tester, 'run_again');
     expect(key('run_start'), findsOneWidget);
@@ -106,7 +106,7 @@ void main() {
     expect(key('run_saved_ok'), findsNothing);
 
     await tapKey(tester, 'run_start');
-    await tapKey(tester, 'run_finish');
+    await tapFinish(tester);
     await tester.pumpAndSettle();
     await tapKey(tester, 'run_close');
     await tester.pumpAndSettle();
@@ -130,7 +130,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(RunScreen), findsOneWidget);
 
-    await tapKey(tester, 'run_finish');
+    await tapFinish(tester);
     await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -164,9 +164,10 @@ void main() {
     await tapKey(tester, 'run_start');
     await h.run(tester, 4);
 
-    await tester.tap(key('run_finish'));
+    await tapKey(tester, 'run_finish');
+    await tester.tap(key('run_finish_confirm'));
     await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
     );
     await tester.pump();
     expect(key('run_saving'), findsOneWidget);
@@ -175,7 +176,7 @@ void main() {
 
     gate.complete();
     await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
     );
     await tester.pumpAndSettle();
     expect(key('run_saving'), findsNothing);

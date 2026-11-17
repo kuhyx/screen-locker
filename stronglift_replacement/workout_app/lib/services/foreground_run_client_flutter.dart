@@ -118,7 +118,7 @@ class FlutterForegroundRunClient implements ForegroundRunClient {
 
 /// The UI's link to the host in the service isolate.
 // coverage:ignore-start
-class ServiceRunLink implements RunLink {
+class ServiceRunLink implements RunHostLink {
   /// Listens for the host's messages until [close].
   ServiceRunLink() {
     FlutterForegroundTask.addTaskDataCallback(_onData);

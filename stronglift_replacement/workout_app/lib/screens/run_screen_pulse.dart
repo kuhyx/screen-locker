@@ -36,9 +36,6 @@ class _PulsingFinishState extends State<_PulsingFinish>
   void _sync() {
     if (widget.pulsing && !_pulse.isAnimating) {
       _pulse.repeat(reverse: true);
-    } else if (!widget.pulsing && _pulse.isAnimating) {
-      _pulse.value = 1;
-      _pulse.stop();
     }
   }
 

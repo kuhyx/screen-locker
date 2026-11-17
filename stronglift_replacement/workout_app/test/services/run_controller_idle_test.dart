@@ -6,11 +6,11 @@ import 'package:workout_app/services/feedback_cues.dart';
 import 'package:workout_app/services/pace_band.dart';
 import 'package:workout_app/services/position_source.dart';
 import 'package:workout_app/services/run_controller.dart';
-import 'package:workout_app/services/run_recorder.dart';
-import 'package:workout_app/services/run_saver.dart';
+import 'package:workout_app/services/run_phase.dart';
 
 import '../fake_audio_platform.dart';
 import '../fake_run_service.dart';
+import '../run_controller_rig.dart';
 import '../run_test_fixtures.dart';
 
 class _CueSpy extends FeedbackCues {
@@ -30,12 +30,11 @@ RunController _build(
   PositionSource Function()? idleSourceFor,
   FeedbackCues? cues,
   FakeForegroundRunClient? service,
-}) => RunController(
-  sourceFor: () => source,
+}) => buildRunController(
+  source: source,
   idleSourceFor: idleSourceFor,
-  service: service ?? FakeForegroundRunClient(),
   cues: cues ?? _CueSpy(),
-  save: (_) async => const RunSaveResult(stored: true, reason: 'saved'),
+  service: service,
 );
 
 void main() {
@@ -61,7 +60,7 @@ void main() {
       await controller.watchIdle();
       expect(controller.blocked, isTrue);
       expect(controller.canStart, isFalse);
-      expect(controller.recorder.issue, RunIssue.deniedForever);
+      expect(controller.view.issue, RunIssue.deniedForever);
 
       source.access = LocationAccess.granted;
       await controller.recheckAccess();
@@ -105,11 +104,11 @@ void main() {
     final service = FakeForegroundRunClient();
     final cues = _CueSpy();
     final controller = _build(source, cues: cues, service: service);
-    controller.recorder.setPaceTarget(300);
-    await controller.start();
+    await controller.start(paceTarget: 300);
     for (var i = 0; i < 12; i++) {
       source.controller.add(fixAt(i * 2, i * 6.0));
     }
+    await pumpEventQueue();
     await pumpEventQueue();
     expect(cues.paced, [PaceCue.tooSlow]);
     expect(service.drawn.last, endsWith('5:35'));
@@ -124,6 +123,7 @@ void main() {
     for (var i = 0; i < 12; i++) {
       source.controller.add(fixAt(i * 2, i * 6.0));
     }
+    await pumpEventQueue();
     await pumpEventQueue();
     expect(service.drawn.last.split('  '), hasLength(2));
     controller.dispose();

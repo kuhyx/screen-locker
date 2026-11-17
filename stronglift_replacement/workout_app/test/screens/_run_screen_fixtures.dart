@@ -11,14 +11,17 @@ import 'package:workout_app/screens/run_screen.dart';
 import 'package:workout_app/services/pace_target_store.dart';
 import 'package:workout_app/services/position_source.dart';
 import 'package:workout_app/services/run_controller.dart';
-import 'package:workout_app/services/run_saver.dart';
+import 'package:workout_app/services/run_engine_recorder.dart';
+import 'package:workout_app/services/run_link.dart';
 import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/run_map_slot.dart';
 
 import '../fake_run_service.dart';
 import '../fake_run_uploader.dart';
 import '../run_test_fixtures.dart';
-import '../widgets/_run_map_fixtures.dart';
+import '_run_screen_helpers.dart';
+
+export '_run_screen_helpers.dart';
 
 /// Everything a test needs to drive and inspect one screen.
 class RunHarness {
@@ -42,17 +45,28 @@ class RunHarness {
   final settingsOpened = <int>[];
   final navigator = GlobalKey<NavigatorState>();
 
-  RunController build() => RunController(
-    sourceFor: () => source,
-    service: service,
-    cues: cues,
-    save: (track) async {
-      await saveGate?.future;
-      if (saveThrows) throw Exception('disk full');
-      saved.add(track);
-      return const RunSaveResult(stored: true, reason: 'saved');
-    },
-  );
+  RunController build() {
+    final link = LoopbackRunLink.build(
+      client: service,
+      engineFactory: recorderEngineFactory(() => source),
+      cues: cues,
+      save: (track) async {
+        await saveGate?.future;
+        if (saveThrows) throw Exception('disk full');
+        saved.add(track);
+        return (stored: true, reason: 'saved');
+      },
+    );
+    // The run outlives the screen, so the test ends it (the recorder keeps a
+    // watchdog timer).
+    addTearDown(link.host.dispose);
+    return RunController(
+      idleSourceFor: () => source,
+      service: service,
+      link: link,
+      soundOn: () async => true,
+    );
+  }
 
   Widget app() => MaterialApp(
     navigatorKey: navigator,

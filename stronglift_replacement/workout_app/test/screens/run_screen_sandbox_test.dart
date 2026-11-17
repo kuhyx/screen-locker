@@ -11,6 +11,7 @@ import 'package:workout_app/models/run_record.dart';
 import 'package:workout_app/models/run_track.dart';
 import 'package:workout_app/sandbox/sandbox.dart';
 import 'package:workout_app/screens/run_screen.dart';
+import 'package:workout_app/services/run_wiring.dart';
 import 'package:workout_app/services/backup_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/ui/theme.dart';
@@ -30,6 +31,9 @@ void main() {
   setUp(() async {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
+    // The real wiring: the recorder behind a loopback link (no service here).
+    installRunWiring();
+    addTearDown(() => RunScreen.defaultControllerFactory = null);
     StorageService.resetForTesting();
     await StorageService.init();
     installFakeAudioPlatform();
@@ -82,6 +86,9 @@ void main() {
         last = shown;
       }
       await tester.tap(key('run_finish'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(key('run_finish_confirm'));
       await Future<void>.delayed(const Duration(milliseconds: 500));
       runs = await StorageService.instance.listRuns();
     });

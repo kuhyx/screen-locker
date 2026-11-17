@@ -8,6 +8,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:workout_app/sandbox/sandbox.dart';
 import 'package:workout_app/sandbox/sandbox_run_replay.dart';
 import 'package:workout_app/screens/run_screen.dart';
+import 'package:workout_app/services/run_wiring.dart';
 import 'package:workout_app/ui/theme.dart';
 
 import '../fake_audio_platform.dart';
@@ -21,6 +22,9 @@ void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
+    // The real wiring: the recorder behind a loopback link (no service here).
+    installRunWiring();
+    addTearDown(() => RunScreen.defaultControllerFactory = null);
     installFakeAudioPlatform();
     Sandbox.enabled = true;
     // Fast enough that a walking replay would show within the test.

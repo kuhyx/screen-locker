@@ -5,14 +5,13 @@ import 'dart:async';
 
 import 'package:workout_app/services/feedback_cues.dart';
 import 'package:workout_app/services/foreground_run_client.dart';
-import 'package:workout_app/services/run_checkpoint.dart';
 import 'package:workout_app/services/run_checkpoint_store.dart';
 import 'package:workout_app/services/run_engine.dart';
 import 'package:workout_app/services/run_host.dart';
 
 /// A conversation with the host. Closing it only hangs up: it never touches
 /// the run.
-abstract interface class RunLink {
+abstract interface class RunHostLink {
   /// The host's snapshots (see `run_wire.dart`).
   Stream<Map<Object?, Object?>> get messages;
 
@@ -30,7 +29,7 @@ class LoopbackRunPort implements RunHostPort {
   LoopbackRunPort(this._client);
 
   final ForegroundRunClient _client;
-  final _out = StreamController<Map<Object?, Object?>>.broadcast(sync: true);
+  final _out = StreamController<Map<Object?, Object?>>.broadcast();
 
   /// What the host sends.
   Stream<Map<Object?, Object?>> get messages => _out.stream;
@@ -39,19 +38,22 @@ class LoopbackRunPort implements RunHostPort {
   void send(Map<String, Object?> message) => _out.add(message);
 
   @override
-  Future<void> notify({required String title, required String text}) =>
-      _client.update(title: title, text: text);
+  Future<void> notify({required String title, required String text}) async {
+    if (_client.isSupported) await _client.update(title: title, text: text);
+  }
 
   @override
-  Future<void> stopService() => _client.stop();
+  Future<void> stopService() async {
+    if (_client.isSupported) await _client.stop();
+  }
 
   @override
   void launchApp() {}
 }
 
-/// A [RunLink] to a host in this very isolate: Linux, the tests, and any
+/// A [RunHostLink] to a host in this very isolate: Linux, the tests, and any
 /// platform with no foreground service.
-class LoopbackRunLink implements RunLink {
+class LoopbackRunLink implements RunHostLink {
   /// Creates a link to [host]; [port] is the one the host was built with.
   LoopbackRunLink(this.host, this._port);
 
@@ -86,19 +88,4 @@ class LoopbackRunLink implements RunLink {
 
   @override
   Future<void> close() async {}
-}
-
-/// A checkpoint kept in memory: enough where nothing can kill the process
-/// separately from the UI.
-class MemoryRunCheckpointStore implements RunCheckpointStore {
-  RunCheckpoint? _held;
-
-  @override
-  Future<void> save(RunCheckpoint c) async => _held = c;
-
-  @override
-  Future<RunCheckpoint?> load() async => _held;
-
-  @override
-  Future<void> clear() async => _held = null;
 }

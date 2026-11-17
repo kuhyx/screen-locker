@@ -4,10 +4,9 @@ library;
 
 import 'dart:async';
 
-import 'package:flutter_test/flutter_test.dart' show WidgetTester;
+import 'package:flutter_test/flutter_test.dart' show WidgetTester, addTearDown;
 import 'package:material_ui/material_ui.dart';
 import 'package:workout_app/screens/run_screen.dart';
-import 'package:workout_app/services/position_source.dart';
 import 'package:workout_app/services/run_controller.dart';
 import 'package:workout_app/services/run_link.dart';
 import 'package:workout_app/ui/theme.dart';
@@ -27,6 +26,7 @@ class PersistRig {
     : service = FakeForegroundRunClient(isSupported: supported) {
     port = LoopbackRunPort(service);
     host = HostRig(hostPort: port);
+    addTearDown(host.host.dispose);
     link = _RigLink(this);
   }
 
@@ -40,7 +40,7 @@ class PersistRig {
   late final LoopbackRunPort port;
 
   /// The link every controller gets.
-  late final RunLink link;
+  late final RunHostLink link;
 
   /// Controllers built, oldest first.
   final controllers = <RunController>[];
@@ -92,7 +92,7 @@ class PersistRig {
 }
 
 /// Sends commands to the rig's host and relays its snapshots.
-class _RigLink implements RunLink {
+class _RigLink implements RunHostLink {
   _RigLink(this._rig);
 
   final PersistRig _rig;

@@ -57,13 +57,15 @@ class RunController extends ChangeNotifier {
 
   late final IdleLocation _idle;
   final ForegroundRunClient _service;
-  final RunLink _link;
+  final RunHostLink _link;
   final Future<bool> Function() _soundOn;
   late final StreamSubscription<Map<Object?, Object?>> _sub;
 
   RunServiceState _serviceState = RunServiceState.none;
   bool _disposed = false;
   bool _attachGaveUp = false;
+  Timer? _pauseTimer;
+  Completer<void>? _pauseDone;
 
   /// The host never answered the screen's questions: nothing is there.
   bool get attachGaveUp => _attachGaveUp;
@@ -109,15 +111,13 @@ class RunController extends ChangeNotifier {
   Future<void> attach() async {
     for (var i = 0; i < 8 && !view.synced && !_disposed; i++) {
       _hello();
-      await Future<void>.delayed(i == 0 ? Duration.zero : retryEvery);
+      await _pause(i == 0 ? Duration.zero : retryEvery);
     }
     if (!view.synced && !_disposed) {
       _attachGaveUp = true;
       _serviceState = RunServiceState.none;
-    } else if (view.phase.isActive && !_serviceState.isUp) {
-      _serviceState = RunServiceState.running;
     }
-    notifyListeners();
+    if (!_disposed) notifyListeners();
   }
 
   /// Asks for access, starts the service, begins recording. A run that is
@@ -157,10 +157,18 @@ class RunController extends ChangeNotifier {
     await _until(
       () => view.phase == RunPhase.finished && view.done,
     );
-    if (view.phase == RunPhase.finished) {
-      _serviceState = RunServiceState.none;
+    if (view.phase == RunPhase.finished && !_disposed) {
+      if (_serviceState.isUp) _serviceState = RunServiceState.none;
       notifyListeners();
     }
+  }
+
+  /// Waits [length], or until [dispose] (so no timer outlives the screen).
+  Future<void> _pause(Duration length) {
+    final done = Completer<void>();
+    _pauseTimer = Timer(length, done.complete);
+    _pauseDone = done;
+    return done.future;
   }
 
   void _hello() => _link.send({'cmd': RunCmd.hello});
@@ -168,7 +176,7 @@ class RunController extends ChangeNotifier {
   void _onMessage(Map<Object?, Object?> message) {
     if (!isRunMessage(message)) return;
     view.apply(message);
-    if (view.phase.isActive && !_serviceState.isUp) {
+    if (view.phase.isActive && _serviceState == RunServiceState.none) {
       _serviceState = RunServiceState.running;
     }
   }
@@ -240,6 +248,8 @@ class RunController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _pauseTimer?.cancel();
+    if (_pauseDone case final done? when !done.isCompleted) done.complete();
     unawaited(_sub.cancel());
     unawaited(_idle.dispose());
     unawaited(_link.close());

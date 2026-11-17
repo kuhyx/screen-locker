@@ -17,6 +17,7 @@ import 'package:workout_app/services/run_checkpoint_store.dart';
 import 'package:workout_app/services/run_engine.dart';
 import 'package:workout_app/services/run_host_port.dart';
 import 'package:workout_app/services/run_notification.dart';
+import 'package:workout_app/services/run_phase.dart';
 import 'package:workout_app/services/run_wire.dart';
 
 export 'package:workout_app/services/run_host_port.dart';
@@ -56,9 +57,6 @@ class RunHost {
   bool _done = false;
   ({bool stored, String reason})? _saved;
   String _lastCopy = '';
-
-  /// The live engine, if any (tests read it).
-  RunEngine? get engine => _engine;
 
   /// Resumes the run the checkpoint describes. False when there is none (the
   /// caller then has nothing to host).
@@ -137,7 +135,13 @@ class RunHost {
       // A second "start" can never restart a live run: it only re-syncs.
       return _emit(full: true);
     }
-    final engine = _fresh();
+    // The idle engine a "hello" made is reused; anything else starts clean.
+    final engine = current != null && current.phase == RunPhase.idle
+        ? current
+        : _fresh();
+    // The controller already drew the first notification (zeros).
+    final zero = runNotificationCopy(metres: 0, movingSeconds: 0);
+    _lastCopy = '${zero.title}|${zero.body}';
     cues.soundOn = message['sound'] as bool? ?? true;
     engine.setPaceTarget(message['paceTarget'] as int?);
     await engine.start();

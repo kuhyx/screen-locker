@@ -44,7 +44,7 @@ void main() {
       final h = RunHarness();
       await h.pump(tester);
       await tapKey(tester, 'run_start');
-      await tapKey(tester, 'run_finish');
+      await tapFinish(tester);
       expect(key('run_issue_tooShort'), findsOneWidget);
       expect(h.saved, isEmpty);
       expect(key('run_saved_ok'), findsNothing);
@@ -77,7 +77,7 @@ void main() {
       await h.pump(tester);
       await tapKey(tester, 'run_start');
       await h.run(tester, 4);
-      await tapKey(tester, 'run_finish');
+      await tapFinish(tester);
       await tester.pumpAndSettle();
       expect(key('run_saved_failed'), findsOneWidget);
       expect(key('run_saved_ok'), findsNothing);

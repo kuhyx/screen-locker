@@ -96,7 +96,7 @@ void main() {
     await tapKey(tester, 'run_start');
     expect(find.byType(PolylineLayer), findsNothing);
     await h.run(tester, 5, from: 10);
-    await tapKey(tester, 'run_finish');
+    await tapFinish(tester);
     expect(h.saved.single.points, hasLength(5));
   });
 }

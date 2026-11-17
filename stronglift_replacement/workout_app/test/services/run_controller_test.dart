@@ -1,19 +1,16 @@
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/models/run_track.dart';
-import 'package:workout_app/sandbox/sandbox.dart';
-import 'package:workout_app/services/feedback_cues.dart';
 import 'package:workout_app/services/foreground_run_client.dart';
 import 'package:workout_app/services/foreground_run_client_flutter.dart';
 import 'package:workout_app/services/position_source.dart';
 import 'package:workout_app/services/run_controller.dart';
-import 'package:workout_app/services/run_recorder.dart';
-import 'package:workout_app/services/run_saver.dart';
+import 'package:workout_app/services/run_phase.dart';
 import 'package:workout_app/services/storage_service.dart';
 
 import '../fake_audio_platform.dart';
 import '../fake_run_service.dart';
+import '../run_controller_rig.dart';
 import '../run_test_fixtures.dart';
 
 void main() {
@@ -33,30 +30,18 @@ void main() {
     saved = [];
   });
 
-  tearDown(() => Sandbox.enabled = false);
-
-  RunController build(
-    ManualPositionSource source,
-    FakeForegroundRunClient service, {
-    Future<RunSaveResult> Function(RunTrack)? save,
-  }) => RunController(
-    sourceFor: () => source,
-    service: service,
-    cues: FeedbackCues(AudioPlayer()),
-    save:
-        save ??
-        (track) async {
-          saved.add(track);
-          return const RunSaveResult(stored: true, reason: 'saved');
-        },
-  );
-
   Future<void> feed(ManualPositionSource source, List<int> northM) async {
     for (final (i, m) in northM.indexed) {
       source.controller.add(fixAt(i * 2, m.toDouble()));
     }
     await pumpEventQueue();
+    await pumpEventQueue();
   }
+
+  RunController build(
+    ManualPositionSource source,
+    FakeForegroundRunClient service,
+  ) => buildRunController(source: source, service: service, saved: saved);
 
   test('starts the service after access and before the first fix', () async {
     final source = ManualPositionSource();
@@ -97,10 +82,9 @@ void main() {
       ManualPositionSource(access: LocationAccess.deniedForever),
       service,
     );
+    await controller.watchIdle();
     await controller.start();
-    expect(service.calls, isEmpty);
-    expect(controller.serviceState, RunServiceState.none);
-    expect(controller.recorder.issue, RunIssue.deniedForever);
+    expect(controller.view.issue, RunIssue.deniedForever);
     expect(controller.active, isFalse);
     controller.dispose();
   });
@@ -117,8 +101,8 @@ void main() {
 
     expect(service.calls, ['has', 'request', 'start']);
     expect(controller.serviceState, RunServiceState.runningHidden);
-    expect(service.drawn, hasLength(1));
-    expect(controller.recorder.livePoints.value, hasLength(3));
+    expect(service.drawn.first, '0.00|0:00  -:--');
+    expect(controller.view.livePoints.value, hasLength(3));
     controller.dispose();
   });
 
@@ -131,8 +115,8 @@ void main() {
     await controller.start();
     await feed(source, [0, 6]);
     expect(controller.serviceState, RunServiceState.failed);
-    expect(controller.recorder.phase, RunPhase.recording);
-    expect(controller.recorder.livePoints.value, hasLength(2));
+    expect(controller.view.phase, RunPhase.recording);
+    expect(controller.view.livePoints.value, hasLength(2));
     await controller.finish();
     expect(controller.serviceState, RunServiceState.failed);
     controller.dispose();
@@ -151,12 +135,11 @@ void main() {
     controller.dispose();
   });
 
-  test('the sandbox asks for the data-sync service type alone', () async {
-    Sandbox.enabled = true;
+  test('every start asks for the location service type', () async {
     final service = FakeForegroundRunClient();
     final controller = build(ManualPositionSource(), service);
     await controller.start();
-    expect(service.starts, [false]);
+    expect(service.starts, [true]);
     controller.dispose();
   });
 
@@ -168,7 +151,7 @@ void main() {
     await feed(source, [for (var i = 0; i <= 170; i++) i * 6]);
     await Future<void>.delayed(const Duration(milliseconds: 50));
 
-    expect(controller.recorder.distanceM, greaterThan(1000));
+    expect(controller.view.distanceM, greaterThan(1000));
     expect(
       audio.resumedSources.where((s) => s.contains('workout_done')),
       hasLength(1),
@@ -185,6 +168,7 @@ void main() {
     controller
       ..pause()
       ..resume();
+    await pumpEventQueue();
 
     final notified = <bool>[];
     controller.addListener(() => notified.add(controller.saving));
@@ -208,16 +192,15 @@ void main() {
     await controller.finish();
     expect(saved, isEmpty);
     expect(controller.saved, isNull);
-    expect(controller.recorder.issue, RunIssue.tooShort);
+    expect(controller.view.issue, RunIssue.tooShort);
     expect(service.calls.last, 'stop');
     controller.dispose();
   });
 
   test('a failing save is reported, not thrown', () async {
     final source = ManualPositionSource();
-    final controller = build(
-      source,
-      FakeForegroundRunClient(),
+    final controller = buildRunController(
+      source: source,
       save: (_) async => throw Exception('disk full'),
     );
     await controller.start();
@@ -228,13 +211,60 @@ void main() {
     controller.dispose();
   });
 
-  test('leaving mid-run stops the service', () async {
-    final source = ManualPositionSource();
-    final service = FakeForegroundRunClient();
-    final controller = build(source, service);
-    await controller.start();
-    controller.dispose();
-    expect(service.calls.last, 'stop');
+  group('the run outlives the controller', () {
+    test('disposing mid-run never stops the service or the run', () async {
+      final source = ManualPositionSource();
+      final service = FakeForegroundRunClient();
+      final controller = build(source, service);
+      await controller.start();
+      await feed(source, [0, 6]);
+      controller.dispose();
+
+      expect(service.calls, isNot(contains('stop')));
+      expect(saved, isEmpty);
+      // The fix stream is still being listened to.
+      source.controller.add(fixAt(4, 12));
+      await pumpEventQueue();
+    });
+
+    test('a second start while a run is going changes nothing', () async {
+      final source = ManualPositionSource();
+      final service = FakeForegroundRunClient();
+      final controller = build(source, service);
+      await controller.start();
+      await controller.start();
+      expect(service.starts, hasLength(1));
+      expect(source.subscriptions, 1);
+      controller.dispose();
+    });
+
+    test('attach gives up when no host ever answers', () async {
+      final controller = buildSilentController();
+      await controller.attach();
+      expect(controller.attachGaveUp, isTrue);
+      expect(controller.view.synced, isFalse);
+      controller.dispose();
+    });
+
+    test('a start nobody answers times out loudly, run untouched', () async {
+      final controller = buildSilentController();
+      await controller.start();
+      expect(controller.active, isFalse);
+      controller.dispose();
+    });
+
+    test('a pace target change and an ack are commands', () async {
+      final source = ManualPositionSource();
+      final controller = build(source, FakeForegroundRunClient());
+      await controller.start(paceTarget: 330);
+      expect(controller.view.paceTarget, 330);
+      controller
+        ..setPaceTarget(300)
+        ..ackPrompt();
+      await pumpEventQueue();
+      expect(controller.view.paceTarget, 300);
+      controller.dispose();
+    });
   });
 
   test('the real client is unsupported off Android', () {

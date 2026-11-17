@@ -31,7 +31,7 @@ void main() {
     await tapKey(tester, 'run_start');
     // 3 m/s is 10.8 km/h: over any walking cap, fine for the running filter.
     await h.run(tester, 30);
-    await tapKey(tester, 'run_finish');
+    await tapFinish(tester);
 
     final track = h.saved.single;
     expect(track.sport, RunSport.running);

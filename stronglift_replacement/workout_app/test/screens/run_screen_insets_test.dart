@@ -61,7 +61,7 @@ void main() {
     await tapKey(tester, 'run_pause');
     _expectFits(tester);
 
-    await tapKey(tester, 'run_finish');
+    await tapFinish(tester);
     _expectFits(tester);
   });
 

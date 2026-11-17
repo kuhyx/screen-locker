@@ -49,6 +49,8 @@ void main() {
     rig.engine.addFix();
 
     await pumpHome(tester, app(openRun: true, openWorkout: true));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.byType(RunScreen), findsOneWidget);

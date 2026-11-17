@@ -180,11 +180,23 @@ void main() {
   // That makes a startup reaper the only thing standing between a crash and a
   // notification counting down a workout that ended hours ago.
   group('stopStaleBreakService', () {
+    test('never stops the service while a run is owed', () async {
+      client.running = true;
+      final stopped = await stopStaleBreakService(
+        client,
+        hasActiveWorkout: () async => false,
+        runIsOwed: () async => true,
+      );
+      expect(stopped, isFalse);
+      expect(client.calls, isNot(contains('stop')));
+    });
+
     test('stops a service whose workout no longer exists', () async {
       client.running = true;
       final stopped = await stopStaleBreakService(
         client,
         hasActiveWorkout: () async => false,
+        runIsOwed: () async => false,
       );
       expect(stopped, isTrue);
       expect(client.calls, contains('stop'));
@@ -197,6 +209,7 @@ void main() {
         final stopped = await stopStaleBreakService(
           client,
           hasActiveWorkout: () async => true,
+          runIsOwed: () async => false,
         );
         expect(stopped, isFalse);
         expect(client.calls, isNot(contains('stop')));
@@ -209,6 +222,7 @@ void main() {
         await stopStaleBreakService(
           client,
           hasActiveWorkout: () async => false,
+          runIsOwed: () async => false,
         ),
         isFalse,
       );
@@ -223,6 +237,7 @@ void main() {
         await stopStaleBreakService(
           client,
           hasActiveWorkout: () async => false,
+          runIsOwed: () async => false,
         ),
         isFalse,
       );

@@ -4,8 +4,13 @@
 // the live run.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workout_app/screens/run_screen.dart';
+import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/run_phase.dart';
+import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/run_landing.dart';
 
 import '../fake_audio_platform.dart';
@@ -13,7 +18,18 @@ import '../run_persist_rig.dart';
 import '_run_screen_helpers.dart';
 
 void main() {
-  setUp(installFakeAudioPlatform);
+  setUpAll(() {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  });
+
+  setUp(() async {
+    installFakeAudioPlatform();
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+    StorageService.resetForTesting();
+    await StorageService.init();
+  });
 
   Future<void> startRun(WidgetTester tester, PersistRig rig) async {
     await tapKey(tester, 'run_start');
@@ -74,7 +90,7 @@ void main() {
       expect(key('run_pause'), findsOneWidget, reason: 'live run, not idle');
       expect(key('run_start'), findsNothing);
       // A start command from the new controller is refused by the host.
-      await rig.controllers.last.start();
+      await tester.runAsync(rig.controllers.last.start);
       expect(rig.host.engines, hasLength(1));
       expect(engine.starts, 1);
       expect(engine.phase, RunPhase.recording);
@@ -91,8 +107,10 @@ void main() {
 
       // A rebuilt controller (what "new run" makes) asking to start.
       final second = rig.build();
-      await second.attach();
-      await second.start();
+      await tester.runAsync(() async {
+        await second.attach();
+        await second.start();
+      });
 
       expect(rig.host.engines, hasLength(1));
       expect(engine.phase, RunPhase.recording);
@@ -208,7 +226,8 @@ void main() {
       expect(key('run_finish_dialog'), findsOneWidget);
       expect(rig.engine.phase, RunPhase.recording);
 
-      await tapKey(tester, 'run_finish_cancel');
+      await tester.tap(key('run_finish_cancel'));
+      await tester.pump(const Duration(milliseconds: 400));
       expect(rig.engine.phase, RunPhase.recording);
       expect(key('run_finish_dialog'), findsNothing);
     });
@@ -226,6 +245,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          theme: buildAppTheme(),
           home: RunLanding(
             owed: () async => owed,
             child: const SizedBox(key: Key('home')),

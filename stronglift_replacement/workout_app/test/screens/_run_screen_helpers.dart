@@ -51,3 +51,18 @@ Future<void> tapKey(WidgetTester tester, String id) async {
   );
   await tester.pumpAndSettle();
 }
+
+/// Taps finish and the modal's red check, the only way a run ends.
+Future<void> tapFinish(WidgetTester tester) async {
+  await tapKey(tester, 'run_finish');
+  await tester.tap(key('run_finish_confirm'));
+  // The host finishes on the real event loop (a stream cancel and messages
+  // between the screen and the host); give it turns, then settle the frames.
+  for (var i = 0; i < 3; i++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+  }
+  await tester.pumpAndSettle();
+}
