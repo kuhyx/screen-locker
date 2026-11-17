@@ -101,9 +101,8 @@ class _RigLink implements RunHostLink {
   Stream<Map<Object?, Object?>> get messages => _rig.port.messages;
 
   @override
-  void send(Map<String, Object?> command) => unawaited(
-    _rig.host.host.handle(command),
-  );
+  void send(Map<String, Object?> command) =>
+      unawaited(_rig.host.host.handle(command));
 
   @override
   Future<void> close() async {}

@@ -24,12 +24,15 @@ void main() {
       expect(rig.port.stops, 0);
     });
 
-    test('an app start with a checkpoint resumes it too (force-stop)', () async {
-      final rig = HostRig();
-      rig.store.held = FakeCheckpoint(1);
-      await handlerFor(rig).onStart(startedBySystem: false);
-      expect(rig.engine.phase, RunPhase.recording);
-    });
+    test(
+      'an app start with a checkpoint resumes it too (force-stop)',
+      () async {
+        final rig = HostRig();
+        rig.store.held = FakeCheckpoint(1);
+        await handlerFor(rig).onStart(startedBySystem: false);
+        expect(rig.engine.phase, RunPhase.recording);
+      },
+    );
 
     test('a system start with no checkpoint stops itself', () async {
       final rig = HostRig();
@@ -39,20 +42,22 @@ void main() {
       expect(rig.engines, isEmpty);
     });
 
-    test('an app start with no checkpoint waits for the start command', () async {
-      final rig = HostRig();
-      await handlerFor(rig).onStart(startedBySystem: false);
+    test(
+      'an app start with no checkpoint waits for the start command',
+      () async {
+        final rig = HostRig();
+        await handlerFor(rig).onStart(startedBySystem: false);
 
-      expect(rig.port.stops, 0);
-      expect(rig.engines, isEmpty);
-    });
+        expect(rig.port.stops, 0);
+        expect(rig.engines, isEmpty);
+      },
+    );
   });
 
   group('messages', () {
     test('run commands reach the host', () async {
       final rig = HostRig();
-      final handler = handlerFor(rig)
-        ..onReceiveData({'cmd': RunCmd.start});
+      final handler = handlerFor(rig)..onReceiveData({'cmd': RunCmd.start});
       await pumpEventQueue();
 
       expect(rig.engine.phase, RunPhase.recording);

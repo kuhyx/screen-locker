@@ -1,6 +1,8 @@
 /// What the run screen shows: a mirror of the host's last snapshot.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:workout_app/models/run_track.dart';
 import 'package:workout_app/services/pace_band.dart';
@@ -117,6 +119,25 @@ class RunView extends ChangeNotifier {
       return;
     }
     if (livePoints.value.length != total) onNeedSync?.call();
+  }
+
+  /// Waits until [done] holds (checked on every snapshot); false on timeout.
+  Future<bool> waitUntil(bool Function() done, Duration timeout) async {
+    if (done()) return true;
+    final completer = Completer<void>();
+    void check() {
+      if (done() && !completer.isCompleted) completer.complete();
+    }
+
+    addListener(check);
+    try {
+      await completer.future.timeout(timeout);
+      return true;
+    } on TimeoutException {
+      return false;
+    } finally {
+      removeListener(check);
+    }
   }
 
   @override

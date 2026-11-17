@@ -297,14 +297,17 @@ void main() {
       expect(rig.port.last['phase'], 'recording');
     });
 
-    test('a checkpoint that cannot resume is kept and the issue shown', () async {
-      final rig = HostRig()..restoreResult = false;
-      rig.store.held = FakeCheckpoint(7);
-      expect(await rig.host.restoreFromStore(), isTrue);
+    test(
+      'a checkpoint that cannot resume is kept and the issue shown',
+      () async {
+        final rig = HostRig()..restoreResult = false;
+        rig.store.held = FakeCheckpoint(7);
+        expect(await rig.host.restoreFromStore(), isTrue);
 
-      expect(rig.store.held, isNotNull);
-      expect(rig.port.last['issue'], 'streamError');
-    });
+        expect(rig.store.held, isNotNull);
+        expect(rig.port.last['issue'], 'streamError');
+      },
+    );
   });
 
   test('unknown commands are ignored', () async {

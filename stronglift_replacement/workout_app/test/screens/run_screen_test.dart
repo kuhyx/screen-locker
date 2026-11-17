@@ -29,9 +29,7 @@ class _GatedSource extends ManualPositionSource {
 void main() {
   setUp(installFakeAudioPlatform);
 
-  testWidgets('idle: start, zeros and the map slot', (
-    tester,
-  ) async {
+  testWidgets('idle: start, zeros and the map slot', (tester) async {
     final h = RunHarness();
     await h.pump(tester);
 

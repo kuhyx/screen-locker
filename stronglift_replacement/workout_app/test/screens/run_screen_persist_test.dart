@@ -210,27 +210,28 @@ void main() {
       expect(rig.host.saved, isEmpty);
     });
 
-    testWidgets('a notification tap on advice opens the modal, still unconfirmed', (
-      tester,
-    ) async {
-      final rig = PersistRig();
-      await rig.pump(tester);
-      await startRun(tester, rig);
-      rig.host.lastHooks.onSuggest('gpsLost');
-      await tester.pump();
+    testWidgets(
+      'a notification tap on advice opens the modal, still unconfirmed',
+      (tester) async {
+        final rig = PersistRig();
+        await rig.pump(tester);
+        await startRun(tester, rig);
+        rig.host.lastHooks.onSuggest('gpsLost');
+        await tester.pump();
 
-      rig.host.host.notificationPressed();
-      await tester.pump();
-      await tester.pump();
+        rig.host.host.notificationPressed();
+        await tester.pump();
+        await tester.pump();
 
-      expect(key('run_finish_dialog'), findsOneWidget);
-      expect(rig.engine.phase, RunPhase.recording);
+        expect(key('run_finish_dialog'), findsOneWidget);
+        expect(rig.engine.phase, RunPhase.recording);
 
-      await tester.tap(key('run_finish_cancel'));
-      await tester.pump(const Duration(milliseconds: 400));
-      expect(rig.engine.phase, RunPhase.recording);
-      expect(key('run_finish_dialog'), findsNothing);
-    });
+        await tester.tap(key('run_finish_cancel'));
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(rig.engine.phase, RunPhase.recording);
+        expect(key('run_finish_dialog'), findsNothing);
+      },
+    );
   });
 
   group('(c) the app opens on the run', () {

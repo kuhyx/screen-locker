@@ -21,8 +21,7 @@ import 'package:workout_app/services/run_saver.dart';
 import 'package:workout_app/services/run_view.dart';
 import 'package:workout_app/services/run_wire.dart';
 
-/// How long a command may wait for the host's answer before the screen stops
-/// waiting (and says so in the log).
+/// How long a command waits for the host before the screen stops waiting.
 const kRunHostTimeout = Duration(seconds: 20);
 
 /// Owns the [RunView] and everything the UI must do around a recording.
@@ -49,10 +48,10 @@ class RunController extends ChangeNotifier {
   /// What the screen shows.
   final view = RunView();
 
-  /// How long to wait for the host.
+  /// How long to wait for the host, and how often [attach] asks again.
   final Duration hostTimeout;
 
-  /// How often [attach] asks again while the host is silent.
+  /// See [hostTimeout].
   final Duration retryEvery;
 
   late final IdleLocation _idle;
@@ -63,12 +62,11 @@ class RunController extends ChangeNotifier {
 
   RunServiceState _serviceState = RunServiceState.none;
   bool _disposed = false;
-  bool _attachGaveUp = false;
   Timer? _pauseTimer;
   Completer<void>? _pauseDone;
 
   /// The host never answered the screen's questions: nothing is there.
-  bool get attachGaveUp => _attachGaveUp;
+  bool attachGaveUp = false;
 
   /// Whether the foreground service is up (and with a notification).
   RunServiceState get serviceState => _serviceState;
@@ -76,10 +74,7 @@ class RunController extends ChangeNotifier {
   /// What saving the finished run did, once it ran.
   RunSaveResult? get saved => view.saved == null
       ? null
-      : RunSaveResult(
-          stored: view.saved!.stored,
-          reason: view.saved!.reason,
-        );
+      : RunSaveResult(stored: view.saved!.stored, reason: view.saved!.reason);
 
   /// True while the finished run is being written.
   bool get saving =>
@@ -114,7 +109,7 @@ class RunController extends ChangeNotifier {
       await _pause(i == 0 ? Duration.zero : retryEvery);
     }
     if (!view.synced && !_disposed) {
-      _attachGaveUp = true;
+      attachGaveUp = true;
       _serviceState = RunServiceState.none;
     }
     if (!_disposed) notifyListeners();
@@ -154,9 +149,7 @@ class RunController extends ChangeNotifier {
   /// confirm modal calls this.
   Future<void> finish() async {
     _link.send({'cmd': RunCmd.finish});
-    await _until(
-      () => view.phase == RunPhase.finished && view.done,
-    );
+    await _until(() => view.phase == RunPhase.finished && view.done);
     if (view.phase == RunPhase.finished && !_disposed) {
       if (_serviceState.isUp) _serviceState = RunServiceState.none;
       notifyListeners();
@@ -182,26 +175,14 @@ class RunController extends ChangeNotifier {
   }
 
   Future<void> _until(bool Function() done) async {
-    if (done()) return;
-    final completer = Completer<void>();
-    void check() {
-      if (done() && !completer.isCompleted) completer.complete();
-    }
-
-    view.addListener(check);
-    try {
-      await completer.future.timeout(hostTimeout);
-    } on TimeoutException {
-      log(
-        'RunController: the run host did not answer within '
-        '${hostTimeout.inSeconds}s (phase ${view.phase.name}, issue '
-        '${view.issue.name}). The run itself is not touched; reopen the '
-        'screen to ask again.',
-        level: 1000,
-      );
-    } finally {
-      view.removeListener(check);
-    }
+    if (await view.waitUntil(done, hostTimeout)) return;
+    log(
+      'RunController: the run host did not answer within '
+      '${hostTimeout.inSeconds}s (phase ${view.phase.name}, issue '
+      '${view.issue.name}). The run itself is not touched; reopen the '
+      'screen to ask again.',
+      level: 1000,
+    );
   }
 
   Future<void> _startService() async {

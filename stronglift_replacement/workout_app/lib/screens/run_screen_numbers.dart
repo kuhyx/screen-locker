@@ -67,10 +67,7 @@ class _Numbers extends StatelessWidget {
             small(
               Icons.speed,
               const Key('run_pace'),
-              formatPace(
-                seconds: view.seconds,
-                distanceM: view.distanceM,
-              ),
+              formatPace(seconds: view.seconds, distanceM: view.distanceM),
             ),
             if (view.paceTarget != null)
               small(

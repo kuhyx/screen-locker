@@ -2,10 +2,9 @@
 /// gives the cues and writes the finished run.
 ///
 /// In production this runs in the foreground-service isolate, so a swiped-away
-/// app, a killed UI isolate or a dead process cannot end a run: only
-/// [RunCmd.finish] (after the screen's confirm modal) or the 5 h limit does.
-/// On Linux and in tests the same class runs in the UI isolate behind a
-/// loopback link.
+/// app or a dead process cannot end a run: only [RunCmd.finish] (after the
+/// confirm modal) or the 5 h limit does. On Linux and in tests it runs in the
+/// UI isolate behind a loopback link.
 library;
 
 import 'dart:async';
@@ -135,11 +134,10 @@ class RunHost {
       // A second "start" can never restart a live run: it only re-syncs.
       return _emit(full: true);
     }
-    // The idle engine a "hello" made is reused; anything else starts clean.
+    // Reuse the idle engine a "hello" made; anything else starts clean.
     final engine = current != null && current.phase == RunPhase.idle
         ? current
         : _fresh();
-    // The controller already drew the first notification (zeros).
     final zero = runNotificationCopy(metres: 0, movingSeconds: 0);
     _lastCopy = '${zero.title}|${zero.body}';
     cues.soundOn = message['sound'] as bool? ?? true;
@@ -175,8 +173,7 @@ class RunHost {
     final title = why == null
         ? copy.title
         : '${suggestionGlyph(why)} ${copy.title}';
-    // Only when the words changed: an update per fix redraws twice a second
-    // for nothing.
+    // Only when the words changed, not on every fix.
     if ('$title|${copy.body}' == _lastCopy) return;
     _lastCopy = '$title|${copy.body}';
     unawaited(port.notify(title: title, text: copy.body));

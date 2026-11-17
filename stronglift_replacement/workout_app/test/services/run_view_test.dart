@@ -105,7 +105,8 @@ void main() {
         ..setPhase(RunPhase.recording)
         ..addFix();
       var asked = 0;
-      final view = RunView()..onNeedSync = () {
+      final view = RunView()
+        ..onNeedSync = () {
           asked++;
         };
       final message = snapshot(engine)..['total'] = 5;
@@ -167,13 +168,7 @@ void main() {
     final engine = FakeRunEngine()..addFix();
     final point = engine.points.single;
     expect(decodePoint(encodePoint(point)), point);
-    final withAltitude = decodePoint([
-      0,
-      1.5,
-      2.5,
-      3,
-      40.0,
-    ]);
+    final withAltitude = decodePoint([0, 1.5, 2.5, 3, 40.0]);
     expect(withAltitude.altitudeM, 40);
     expect(isRunMessage({'cmd': 'x'}), isFalse);
     expect(isRunMessage('x'), isFalse);
