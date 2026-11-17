@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/foundation.dart';
 import 'package:workout_app/models/run_track.dart';
+import 'package:workout_app/services/run_gap_bridge.dart';
 import 'package:workout_app/services/run_math.dart';
 
 /// Worst horizontal accuracy (metres, 68 % radius) a fix may report.
@@ -65,13 +66,23 @@ enum FixVerdict {
 /// Accumulates accepted points and their cumulative credited distance.
 ///
 /// A step between two accepted points adds distance only when it is a moving
-/// step (see [isMovingStep]): a dropout longer than [kMaxCreditGapSeconds]
-/// and standing-still jitter credit nothing. The PC judges windows of 10 s or
-/// more and keeps a dropout moving at 1 m/s or faster, so it can credit more
-/// than this does (see `run_math.dart`).
+/// step (see [isMovingStep]): standing-still jitter credits nothing. A gap
+/// over [kMaxCreditGapSeconds] (phone dead, GPS dropout) is bridged by a
+/// straight line, always kept, credited only at a plausible pace
+/// ([bridgeCredits]); the jump cap does not apply across it.
 class GpsFilter {
   /// Creates a filter; every recording uses the running jump cap.
   GpsFilter();
+
+  /// Rebuilds a filter from a checkpoint: the [points] so far, whether a
+  /// pause is still waiting for its next fix, and the jump count.
+  GpsFilter.restore({
+    required List<RunPoint> points,
+    this._segmentBreak = false,
+    this._jumps = 0,
+  }) {
+    _points.addAll(points);
+  }
 
   final List<RunPoint> _points = [];
   int _jumps = 0;
@@ -79,6 +90,12 @@ class GpsFilter {
 
   /// Accepted points so far, in time order.
   List<RunPoint> get points => List.unmodifiable(_points);
+
+  /// Whether the next accepted fix starts a new segment (a pause is open).
+  bool get segmentBreak => _segmentBreak;
+
+  /// Consecutive too-fast fixes seen since the last accepted one.
+  int get jumps => _jumps;
 
   /// Cumulative credited distance in metres.
   double get distanceM => _points.isEmpty ? 0 : _points.last.distanceM;
@@ -103,7 +120,7 @@ class GpsFilter {
       isUtc: true,
     );
     if (_points.isEmpty) {
-      _accept(fix, time, 0);
+      _accept(fix, time, 0, RunLink.continuous);
       return FixVerdict.accepted;
     }
     final last = _points.last;
@@ -111,7 +128,7 @@ class GpsFilter {
     if (gap <= 0) return FixVerdict.outOfOrder;
     if (_segmentBreak) {
       _segmentBreak = false;
-      _accept(fix, time, 0);
+      _accept(fix, time, 0, RunLink.segmentStart);
       return FixVerdict.accepted;
     }
     final step = haversineM(
@@ -120,20 +137,24 @@ class GpsFilter {
       fix.latitude,
       fix.longitude,
     );
+    if (gap > kMaxCreditGapSeconds) {
+      final credited = bridgeCredits(stepM: step, gapSeconds: gap);
+      _accept(fix, time, credited ? step : 0, RunLink.bridge);
+      return FixVerdict.accepted;
+    }
     if (step / gap > kRunningMaxSpeedMps) {
       _jumps++;
       if (_jumps < kMaxConsecutiveJumps) return FixVerdict.tooFast;
       // The anchor, not the fixes, was wrong: continue from here, no credit.
-      _accept(fix, time, 0);
+      _accept(fix, time, 0, RunLink.segmentStart);
       return FixVerdict.accepted;
     }
-    final moving =
-        gap <= kMaxCreditGapSeconds && step / gap >= kMinMovingSpeedMps;
-    _accept(fix, time, moving ? step : 0);
+    final moving = step / gap >= kMinMovingSpeedMps;
+    _accept(fix, time, moving ? step : 0, RunLink.continuous);
     return FixVerdict.accepted;
   }
 
-  void _accept(GpsFix fix, DateTime time, double credited) {
+  void _accept(GpsFix fix, DateTime time, double credited, RunLink link) {
     _jumps = 0;
     _points.add(
       RunPoint(
@@ -142,6 +163,7 @@ class GpsFilter {
         longitude: fix.longitude,
         altitudeM: fix.altitudeM,
         distanceM: distanceM + credited,
+        link: link,
       ),
     );
   }

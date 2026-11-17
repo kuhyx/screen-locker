@@ -90,15 +90,15 @@ void main() {
       expect(f.points.first.altitudeM, 30);
     });
 
-    test('standing-still jitter and a long dropout earn no distance', () {
+    test('standing-still jitter earns nothing, a long dropout is bridged', () {
       final f = GpsFilter()
         ..add(_fix(0, 0))
         ..add(_fix(10, 2)); // 0.2 m/s: standing
       expect(f.distanceM, 0);
-      f.add(_fix(60, 100)); // 50 s later: unseen motion
-      expect(f.distanceM, 0);
+      f.add(_fix(60, 100)); // 50 s later, 98 m: 8:30/km, bridged and credited
+      expect(f.distanceM, closeTo(98, 0.2));
       f.add(_fix(70, 127)); // seen again, moving
-      expect(f.distanceM, closeTo(27, 0.2));
+      expect(f.distanceM, closeTo(125, 0.2));
       expect(f.points, hasLength(4));
     });
 

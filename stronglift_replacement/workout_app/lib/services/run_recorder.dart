@@ -2,7 +2,6 @@
 library;
 
 import 'dart:async';
-import 'dart:developer';
 
 import 'package:flutter/foundation.dart';
 import 'package:workout_app/models/run_track.dart';
@@ -11,10 +10,17 @@ import 'package:workout_app/services/gps_filter.dart';
 import 'package:workout_app/services/pace_band.dart';
 import 'package:workout_app/services/pace_coach.dart';
 import 'package:workout_app/services/position_source.dart';
+import 'package:workout_app/services/run_checkpoint.dart';
 import 'package:workout_app/services/run_math.dart';
 import 'package:workout_app/services/run_phase.dart';
+import 'package:workout_app/services/run_recorder_log.dart';
+import 'package:workout_app/services/run_watchdog.dart';
 
 export 'package:workout_app/services/run_phase.dart';
+export 'package:workout_app/services/run_watchdog.dart' show RunLimits;
+
+part 'run_recorder_fixes.dart';
+part 'run_recorder_persist.dart';
 
 /// Records one GPS activity from a [PositionSource].
 ///
@@ -25,13 +31,38 @@ export 'package:workout_app/services/run_phase.dart';
 /// walked while paused and the first fix after it credit nothing. Moving time
 /// is [movingSeconds] applied as fixes arrive: an estimate that mirrors the
 /// PC's bounds per pair of fixes, not its 10 s windows (see `run_math.dart`).
+///
+/// The run survives a dead process: [onCheckpoint] hands the host a
+/// [RunCheckpoint] after every accepted fix and on pause or resume, and
+/// `restore` (see `run_recorder_persist.dart`) rebuilds the recording from
+/// one. A gap (dead phone, GPS dropout) is bridged by a straight line (see
+/// `run_gap_bridge.dart`). A [RunWatchdog] suggests finishing and ends the
+/// run after 5 h of wall clock.
 class RunRecorder extends ChangeNotifier {
   /// Creates a recorder; [sourceFor] builds the fix stream on [start].
+  ///
+  /// [clock] is the wall-clock seam; [autoEndAfter] and [limits] default to
+  /// the agreed rules and are shrunk by the sandbox and the tests.
   RunRecorder({
     required this.sourceFor,
     this.onKilometre,
     void Function(PaceCue cue)? onPaceCue,
-  }) : coach = PaceCoach(onCue: onPaceCue);
+    this.onSuggestFinish,
+    this.onAutoEnd,
+    this.onCheckpoint,
+    DateTime Function() clock = DateTime.now,
+    Duration autoEndAfter = const Duration(hours: 5),
+    RunLimits limits = const RunLimits(),
+  }) : _clock = clock,
+       coach = PaceCoach(onCue: onPaceCue) {
+    _watch = RunWatchdog(
+      clock: clock,
+      onSuggest: (why) => onSuggestFinish?.call(why),
+      onAutoEnd: () => onAutoEnd?.call(),
+      autoEndAfter: autoEndAfter,
+      limits: limits,
+    );
+  }
 
   /// Builds the source for one recording.
   final PositionSource Function() sourceFor;
@@ -39,13 +70,26 @@ class RunRecorder extends ChangeNotifier {
   /// Called with 1, 2, 3 ... as each whole kilometre is credited.
   final void Function(int km)? onKilometre;
 
+  /// Advice to finish the run (never ends it).
+  final void Function(RunSuggestion why)? onSuggestFinish;
+
+  /// Called once after 5 h of wall clock; the host then calls [finish].
+  final void Function()? onAutoEnd;
+
+  /// Hears a fresh checkpoint after every accepted fix, on start, pause and
+  /// resume: the host stores it.
+  final void Function(RunCheckpoint checkpoint)? onCheckpoint;
+
   /// The pace target's state: current pace, band and cues.
   final PaceCoach coach;
 
+  final DateTime Function() _clock;
+  late final RunWatchdog _watch;
   RunPhase _phase = RunPhase.idle;
   RunIssue _issue = RunIssue.none;
   GpsFilter? _filter;
   StreamSubscription<GpsFix>? _sub;
+  late DateTime _startedAt;
   bool _starting = false;
   int _moving = 0;
   int _km = 0;
@@ -93,19 +137,14 @@ class RunRecorder extends ChangeNotifier {
     try {
       final source = sourceFor();
       final access = await source.requestAccess();
-      if (!access.isGranted) {
-        _refuse(access);
+      if (!await _open(source, access, afterAccess, GpsFilter())) {
         return false;
       }
-      await afterAccess?.call();
-      _filter = GpsFilter();
-      _sub = source
-          .fixes() // the source's default 2 s, far under kMaxCreditGapSeconds
-          .listen(_onFix, onError: _onError, onDone: _onDone);
-      _issue = RunIssue.none;
+      _startedAt = _clock().toUtc();
       _phase = RunPhase.recording;
+      _watch.begin(_startedAt);
       SandboxLog.event('run started');
-      notifyListeners();
+      _announce();
       return true;
     } finally {
       _starting = false;
@@ -117,8 +156,9 @@ class RunRecorder extends ChangeNotifier {
     if (_phase != RunPhase.recording) return;
     _filter!.breakSegment();
     _phase = RunPhase.paused;
+    _watch.pause();
     SandboxLog.event('run paused', {'m': distanceM});
-    notifyListeners();
+    _announce();
   }
 
   /// Continues after [pause].
@@ -126,14 +166,16 @@ class RunRecorder extends ChangeNotifier {
     if (_phase != RunPhase.paused) return;
     _phase = RunPhase.recording;
     coach.restartAt(_filter!.points.length);
+    _watch.resume();
     SandboxLog.event('run resumed', {'m': distanceM});
-    notifyListeners();
+    _announce();
   }
 
   /// Ends the recording and returns the track, or null when there were too
   /// few usable fixes (then [issue] is [RunIssue.tooShort]).
   Future<RunTrack?> finish() async {
     if (!_phase.isActive) return null;
+    _watch.stop();
     await _sub?.cancel();
     _sub = null;
     _phase = RunPhase.finished;
@@ -142,11 +184,7 @@ class RunRecorder extends ChangeNotifier {
     RunTrack? track;
     if (points.length < 2) {
       _issue = RunIssue.tooShort;
-      log(
-        'RunRecorder: finished with ${points.length} usable GPS fix(es) '
-        '-- not enough for a track, so nothing is saved.',
-        level: 1000,
-      );
+      logTooShort(points.length);
     } else {
       track = RunTrack.started(
         sport: RunSport.running,
@@ -166,81 +204,26 @@ class RunRecorder extends ChangeNotifier {
     return track;
   }
 
+  /// [notifyListeners] for the `part` files' extensions, which may not call
+  /// a protected member themselves.
+  void _changed() => notifyListeners();
+
+  /// Tells listeners and hands the host a fresh checkpoint.
+  void _announce() {
+    notifyListeners();
+    final c = onCheckpoint == null ? null : checkpoint();
+    if (c != null) onCheckpoint!(c);
+  }
+
   void _refuse(LocationAccess access) {
     _issue = RunIssue.forAccess(access);
-    final fix = access == LocationAccess.serviceOff
-        ? 'Switch location on'
-        : 'Grant location to the app in system settings';
-    log(
-      'RunRecorder: not recording -- location access is ${access.name}. '
-      '$fix and start again.',
-      level: 1000,
-    );
+    logRefused(access);
     notifyListeners();
-  }
-
-  void _onFix(GpsFix fix) {
-    if (_phase != RunPhase.recording) return;
-    final verdict = _filter!.add(fix);
-    if (verdict != FixVerdict.accepted) {
-      _noteDropped(verdict);
-      return;
-    }
-    _issue = RunIssue.none;
-    final points = _filter!.points;
-    final n = points.length;
-    if (n >= 2 &&
-        isMovingStep(points[n - 2], points[n - 1], kRunningMaxSpeedMps)) {
-      _moving += points[n - 1].time.difference(points[n - 2].time).inSeconds;
-    }
-    _live.value = points;
-    coach.update(points);
-    while (distanceM ~/ 1000 > _km) {
-      _km++;
-      SandboxLog.event('run km', {'km': _km, 'secs': _moving});
-      onKilometre?.call(_km);
-    }
-    notifyListeners();
-  }
-
-  void _noteDropped(FixVerdict verdict) {
-    if (verdict == FixVerdict.mocked) {
-      _issue = RunIssue.mockedLocation;
-      notifyListeners();
-    }
-    // Said once per kind and run: a bad tunnel would otherwise flood the log.
-    if (!_seenVerdicts.add(verdict)) return;
-    log(
-      'RunRecorder: dropped a GPS fix (${verdict.name}); further drops of '
-      'this kind are not logged. Mock fixes never count towards a run.',
-      level: 900,
-    );
-  }
-
-  void _onError(Object error, StackTrace stack) {
-    _issue = RunIssue.streamError;
-    log(
-      'RunRecorder: the location stream failed ($error) -- fixes may have '
-      'stopped; time and distance are not crediting until they resume.',
-      level: 1000,
-      error: error,
-      stackTrace: stack,
-    );
-    notifyListeners();
-  }
-
-  void _onDone() {
-    if (!_phase.isActive) return;
-    log(
-      'RunRecorder: the location stream ended while still recording; '
-      'finish the run to save what was captured.',
-      level: 900,
-    );
-    SandboxLog.event('run stream ended', {'m': distanceM});
   }
 
   @override
   void dispose() {
+    _watch.stop();
     unawaited(_sub?.cancel());
     _live.dispose();
     super.dispose();

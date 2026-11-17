@@ -54,6 +54,20 @@ enum RunSource {
       values.firstWhere((s) => s.storageKey == key);
 }
 
+/// How a [RunPoint] joins the one before it.
+enum RunLink {
+  /// Reached in the normal flow of fixes.
+  continuous,
+
+  /// A new segment: after a pause (or a GPS jump re-anchor). The line from
+  /// the previous point is not drawn and credits nothing.
+  segmentStart,
+
+  /// Reached across a gap (phone dead, GPS lost): a straight line from the
+  /// previous point, drawn always, credited only at a running pace.
+  bridge,
+}
+
 /// One accepted GPS fix.
 @immutable
 class RunPoint {
@@ -64,6 +78,7 @@ class RunPoint {
     required this.longitude,
     required this.distanceM,
     this.altitudeM,
+    this.link = RunLink.continuous,
   }) : time = time.toUtc();
 
   /// When the fix was taken (UTC).
@@ -84,9 +99,13 @@ class RunPoint {
   /// values, so this is the field the recorder must keep honest.
   final double distanceM;
 
+  /// How this point joins the previous one.
+  final RunLink link;
+
   @override
   bool operator ==(Object other) =>
       other is RunPoint &&
+      other.link == link &&
       other.time == time &&
       other.latitude == latitude &&
       other.longitude == longitude &&
@@ -95,7 +114,7 @@ class RunPoint {
 
   @override
   int get hashCode =>
-      Object.hash(time, latitude, longitude, altitudeM, distanceM);
+      Object.hash(time, latitude, longitude, altitudeM, distanceM, link);
 }
 
 /// A finished (or in-progress) track.

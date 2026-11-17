@@ -55,3 +55,19 @@ enum RunIssue {
   bool get isAccess =>
       this == denied || this == deniedForever || this == serviceOff;
 }
+
+/// Why the recorder suggests the runner finish. It never ends a run itself
+/// (the 5 h auto end is a separate callback).
+enum RunSuggestion {
+  /// Under 50 m of progress in 10 minutes; repeats every 10 minutes.
+  stationary,
+
+  /// Faster than 25 km/h for a minute: probably in a vehicle.
+  vehicleSpeed,
+
+  /// No GPS fix for 5 minutes.
+  gpsLost,
+
+  /// The run was just restored from a checkpoint after the app died.
+  restored,
+}
