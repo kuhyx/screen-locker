@@ -9,8 +9,10 @@ loads would otherwise score 100% by absence).
 from __future__ import annotations
 
 from pathlib import Path
+import logging
 import sys
 
+_LOG = logging.getLogger(__name__)
 APP_LIB = "stronglift_replacement/workout_app/lib/"
 
 
@@ -39,15 +41,12 @@ def main(argv: list[str]) -> int:
     for path, lines in sorted(
         uncovered(Path(argv[1]).read_text(encoding="utf-8"), wanted).items()
     ):
-        if lines is None:
-            print(f"NOT COVERED (no selected test loads it): {path}", file=sys.stderr)
+        if lines is None or lines:
+            _LOG.error("changed file below 100%%: %s (uncovered: %s)", path, "absent from lcov" if lines is None else lines)
             bad += 1
-        elif lines:
-            print(f"UNCOVERED LINES {path}: {lines}", file=sys.stderr)
-            bad += 1
-    print(f"changed-file coverage: {len(wanted)} files, {bad} below 100%")
     return 1 if bad else 0
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="push-gate: %(message)s")
     raise SystemExit(main(sys.argv))

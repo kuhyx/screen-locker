@@ -44,13 +44,10 @@ def test_helper_followed_by_import(tmp_path: Path) -> None:
 
 def test_untouched_change_selects_nothing(tmp_path: Path) -> None:
     _tree(tmp_path)
-    assert (
-        gs.dart_affected_tests(tmp_path, [f"{APP}/lib/lonely.dart"])
-        == [
-            f"{APP}/test/lonely_test.dart",
-            f"{APP}/test/sub/x_test.dart",
-        ]
-    )
+    assert gs.dart_affected_tests(tmp_path, [f"{APP}/lib/lonely.dart"]) == [
+        f"{APP}/test/lonely_test.dart",
+        f"{APP}/test/sub/x_test.dart",
+    ]
     assert gs.dart_affected_tests(tmp_path, ["README.md"]) == []
 
 

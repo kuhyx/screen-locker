@@ -14,11 +14,13 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 import json
+import logging
 from pathlib import Path
 import re
 import subprocess
 import sys
 
+_LOG = logging.getLogger(__name__)
 APP = "stronglift_replacement/workout_app"
 _DIRECTIVE = re.compile(r"^\s*(?:import|export|part)\s[^;]*;", re.MULTILINE)
 _QUOTED = re.compile(r"'([^']+)'|\"([^\"]+)\"")
@@ -58,7 +60,7 @@ def _imports(root: Path, rel: str, pkg: str) -> set[str]:
     try:
         text = (root / rel).read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:
-        print(f"gate_select: cannot read {rel}: {exc}", file=sys.stderr)
+        _LOG.warning("gate_select: cannot read %s: %s", rel, exc)
         return out
     for stmt in _DIRECTIVE.findall(text):
         for a, b in _QUOTED.findall(stmt):
@@ -164,10 +166,11 @@ def _git(root: Path, *args: str) -> list[str]:
 def main(argv: list[str]) -> int:
     """Print the selection for BASE..HEAD as JSON."""
     root = Path(_git(Path.cwd(), "rev-parse", "--show-toplevel")[0])
+    logging.basicConfig(level=logging.INFO)
     base, head = argv[1], (argv[2] if len(argv) > 2 else "HEAD")
     changed = _git(root, "diff", "--name-only", f"{base}..{head}")
     sel = select(root, changed, _git(root, "ls-files", "*.py"))
-    print(json.dumps(asdict(sel), indent=1))
+    sys.stdout.write(json.dumps(asdict(sel), indent=1) + "\n")
     return 0
 
 
