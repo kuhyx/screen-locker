@@ -16,7 +16,7 @@
 set -euo pipefail
 
 readonly APP="stronglift_replacement/workout_app"
-readonly MAX_DART_TESTS="${GATE_MAX_DART_TESTS:-30}"
+readonly MAX_DART_TESTS="${GATE_MAX_DART_TESTS:-25}"
 readonly FLUTTER_CONCURRENCY="${FLUTTER_TEST_CONCURRENCY:-2}"
 
 die() {
