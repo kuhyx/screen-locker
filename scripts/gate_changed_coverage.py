@@ -29,7 +29,7 @@ def uncovered(lcov: str, wanted: set[str]) -> dict[str, list[int] | None]:
                 current = None
         elif line.startswith("DA:") and current is not None:
             num, hits = line[3:].split(",")[:2]
-            if int(hits) == 0:
+            if not int(hits):
                 (result[current] or []).append(int(num))
     return result
 
