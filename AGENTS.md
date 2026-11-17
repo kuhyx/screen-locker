@@ -123,3 +123,17 @@ wait, and tests pin the retry to 0.
 - coverage: `python -m pytest -n auto -p no:sugar -q`
 - coverage-gaps: `coverage-gaps coverage.lcov`
 - deploy: `git -C ~/src/screen-locker pull --ff-only && bash ~/src/screen-locker/scripts/deploy.sh` (reinstalls, restarts web/poke/runnerup units, health-checks them, then release-deploys the workout app; exit 46 from the phone guard means kuhy reruns it with `PHONE_PROTECT_ALLOW=com.kuhy.workout_app`)
+
+## Pre-push gate (<=60 s)
+
+A stamped tree (full suite green) pushes in ~1 s. An unstamped tree runs
+`scripts/push_gate.sh`: pre-commit plus only the tests the change since the
+last full-green commit can affect (`scripts/gate_select.py`), 100% line
+coverage on the changed dart files, and it prints which tests ran and why.
+Pubspec/analysis_options/conftest/pyproject changes, or more than 25 selected
+Dart tests, need the full suite: `scripts/full_gate.sh step <id>` once per id
+(`full_gate.sh list`; 8 shards, each <60 s) or `full_gate.sh all`. The nightly
+`full-gate.timer` (22:00, loadavg guard) runs `full_gate.sh all`; a red result
+(`$GIT_DIR/gate-full-status`) refuses every push until a full run is green.
+Install the nightly: copy `full-gate.{service,timer}` to `~/.config/systemd/user/`
+and `systemctl --user enable --now full-gate.timer` (not enabled yet).
