@@ -54,11 +54,11 @@ class FakeStore implements RunCheckpointStore {
   int clears = 0;
 
   /// Makes [save] throw.
-  bool failSave = false;
+  bool saveFails = false;
 
   @override
   Future<void> save(RunCheckpoint c) async {
-    if (failSave) throw Exception('disk full');
+    if (saveFails) throw Exception('disk full');
     saves++;
     held = c;
   }

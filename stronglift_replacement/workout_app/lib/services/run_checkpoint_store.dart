@@ -97,6 +97,7 @@ class FileRunCheckpointStore implements RunCheckpointStore {
       }
       return RunCheckpoint.fromJson(json);
     } on FormatException catch (e) {
+      log('RunCheckpointStore: corrupt checkpoint (${e.message})', level: 1000);
       await _moveAside(e);
       return null;
     }

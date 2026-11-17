@@ -163,6 +163,10 @@ while IFS= read -r dart_file; do
   # whitespace, so a wrapped `export 'x' if (...) 'y';` statement (the
   # platform-gate barrel shape) becomes matchable on one logical line
   # regardless of how it's line-wrapped in source.
+  # A file that opts out wholesale is dropped from lcov by flutter itself.
+  if grep -qE '^// coverage:ignore-file' "$dart_file"; then
+    continue
+  fi
   code_only=$(grep -vE '^[[:space:]]*(///|//|$)' "$dart_file" | tr '\n' ' ' | tr -s ' ')
   if [[ $code_only =~ $barrel_pattern ]]; then
     continue

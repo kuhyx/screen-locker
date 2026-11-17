@@ -60,6 +60,7 @@ extension RunRecorderPersistence on RunRecorder {
       );
       return true;
     } on Object catch (e, stack) {
+      debugPrint('RunRecorder: restore failed ($e)');
       logRestoreFailed(e, stack);
       await _sub?.cancel();
       _sub = null;

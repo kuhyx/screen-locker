@@ -134,6 +134,7 @@ class RunView extends ChangeNotifier {
       await completer.future.timeout(timeout);
       return true;
     } on TimeoutException {
+      debugPrint('RunView: condition not met within $timeout');
       return false;
     } finally {
       removeListener(check);

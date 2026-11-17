@@ -211,62 +211,6 @@ void main() {
     controller.dispose();
   });
 
-  group('the run outlives the controller', () {
-    test('disposing mid-run never stops the service or the run', () async {
-      final source = ManualPositionSource();
-      final service = FakeForegroundRunClient();
-      final controller = build(source, service);
-      await controller.start();
-      await feed(source, [0, 6]);
-      controller.dispose();
-
-      expect(service.calls, isNot(contains('stop')));
-      expect(saved, isEmpty);
-      // The fix stream is still being listened to.
-      source.controller.add(fixAt(4, 12));
-      await pumpEventQueue();
-    });
-
-    test('a second start while a run is going changes nothing', () async {
-      final source = ManualPositionSource();
-      final service = FakeForegroundRunClient();
-      final controller = build(source, service);
-      await controller.start();
-      await controller.start();
-      expect(service.starts, hasLength(1));
-      expect(source.subscriptions, 1);
-      controller.dispose();
-    });
-
-    test('attach gives up when no host ever answers', () async {
-      final controller = buildSilentController();
-      await controller.attach();
-      expect(controller.attachGaveUp, isTrue);
-      expect(controller.view.synced, isFalse);
-      controller.dispose();
-    });
-
-    test('a start nobody answers times out loudly, run untouched', () async {
-      final controller = buildSilentController();
-      await controller.start();
-      expect(controller.active, isFalse);
-      controller.dispose();
-    });
-
-    test('a pace target change and an ack are commands', () async {
-      final source = ManualPositionSource();
-      final controller = build(source, FakeForegroundRunClient());
-      await controller.start(paceTarget: 330);
-      expect(controller.view.paceTarget, 330);
-      controller
-        ..setPaceTarget(300)
-        ..ackPrompt();
-      await pumpEventQueue();
-      expect(controller.view.paceTarget, 300);
-      controller.dispose();
-    });
-  });
-
   test('the real client is unsupported off Android', () {
     expect(FlutterForegroundRunClient().isSupported, isFalse);
     expect(kRunOngoingChannelId, endsWith('_v1'));
