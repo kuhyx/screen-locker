@@ -17,9 +17,12 @@ import json
 import logging
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 
+_HEAD_ARG = 2
+_GIT = shutil.which("git") or "git"
 _LOG = logging.getLogger(__name__)
 APP = "stronglift_replacement/workout_app"
 _DIRECTIVE = re.compile(r"^\s*(?:import|export|part)\s[^;]*;", re.MULTILINE)
@@ -141,7 +144,7 @@ def select(root: Path, changed: list[str], tracked: list[str]) -> Selection:
             else ""
         )
         sel.why.append(
-            f"{len(sel.dart)} Dart tests reach {len(app_changed)} changed app files{extra}"
+            f"{len(sel.dart)} Dart tests reach {len(app_changed)} changed files{extra}"
         )
     sel.python, sel.full_python = python_tests_for(changed, tracked)
     if sel.full_python:
@@ -158,7 +161,7 @@ def select(root: Path, changed: list[str], tracked: list[str]) -> Selection:
 
 def _git(root: Path, *args: str) -> list[str]:
     out = subprocess.run(
-        ["git", *args], cwd=root, check=True, capture_output=True, text=True
+        [_GIT, *args], cwd=root, check=True, capture_output=True, text=True
     ).stdout
     return [line for line in out.splitlines() if line]
 
@@ -167,7 +170,7 @@ def main(argv: list[str]) -> int:
     """Print the selection for BASE..HEAD as JSON."""
     root = Path(_git(Path.cwd(), "rev-parse", "--show-toplevel")[0])
     logging.basicConfig(level=logging.INFO)
-    base, head = argv[1], (argv[2] if len(argv) > 2 else "HEAD")
+    base, head = argv[1], (argv[_HEAD_ARG] if len(argv) > _HEAD_ARG else "HEAD")
     changed = _git(root, "diff", "--name-only", f"{base}..{head}")
     sel = select(root, changed, _git(root, "ls-files", "*.py"))
     sys.stdout.write(json.dumps(asdict(sel), indent=1) + "\n")
