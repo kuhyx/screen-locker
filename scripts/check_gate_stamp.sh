@@ -24,6 +24,18 @@ main() {
         exit 1
     fi
 
+    # A stamped tree (full gate green) passes in ~1 s. An unstamped tree gets
+    # the selective push gate: pre-commit + only the tests the change can
+    # affect, <=60 s, and it says which ran and why (scripts/push_gate.sh).
+    if [[ "${1:-}" == check ]]; then
+        local here
+        here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        if bash "$SHARED_GATE" check 2>/dev/null; then
+            exit 0
+        fi
+        echo "gate-stamp: tree not fully stamped; running the selective push gate" >&2
+        exec bash "$here/push_gate.sh"
+    fi
     exec bash "$SHARED_GATE" "$@"
 }
 
