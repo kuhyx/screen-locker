@@ -42,7 +42,7 @@ APP_DIR="stronglift_replacement/workout_app"
 LCOV_INFO="$APP_DIR/coverage/lcov.info"
 # Number of local-gate buckets; must equal the flutter-test-coverage-shard-*
 # hooks in .pre-commit-config.yaml (the merge counts them, see below).
-GATE_SHARDS=4
+GATE_SHARDS=8
 
 die() {
   echo "ERROR: $*" >&2

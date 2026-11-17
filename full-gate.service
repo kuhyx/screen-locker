@@ -1,0 +1,14 @@
+[Unit]
+Description=screen-locker full test suite (writes the green/red full stamp that gates pushes)
+
+[Service]
+Type=oneshot
+# %h = kuhy's home. nightly_full_gate.sh skips under load and on a dirty tree.
+ExecStart=/bin/bash %h/src/screen-locker/scripts/nightly_full_gate.sh
+# Each hook step is <60 s on its own; the whole run gets its own generous cap.
+TimeoutStartSec=45min
+Nice=19
+IOSchedulingClass=idle
+CPUQuota=20%
+MemoryMax=4G
+Environment=FLUTTER_TEST_CONCURRENCY=2

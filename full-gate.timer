@@ -1,0 +1,14 @@
+[Unit]
+Description=Nightly screen-locker full suite at 22:00
+# No After=graphical-session.target: it would close an ordering cycle with
+# timers.target and systemd would delete this timer's job (see
+# early-bird-workout-check.timer, 2026-08-04).
+
+[Timer]
+OnCalendar=*-*-* 22:00:00
+# Persistent stamps on elapse, not on success; a night skipped by the load
+# guard is simply skipped. The PC is off from 23:00, so no catch-up is wanted.
+Persistent=false
+
+[Install]
+WantedBy=timers.target
