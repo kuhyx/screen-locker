@@ -42,7 +42,7 @@ class TestUnlockScreenExtras:
         ):
             locker.unlock_screen()
 
-        locker._adjust_shutdown_time_by.assert_called_once_with(60, at=None)
+        locker._adjust_shutdown_time_by.assert_called_once_with(60)
 
     def test_extra_bonus_delta_displayed(
         self,
