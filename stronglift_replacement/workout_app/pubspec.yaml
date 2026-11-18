@@ -34,7 +34,7 @@ dependencies:
   flutter_foreground_task: 11.0.3
   # The break-end alert itself, on its own high-importance channel so the OS
   # rings even if the Flutter isolate is busy.
-  flutter_local_notifications: 23.0.2
+  flutter_local_notifications: 23.0.3
   # The run map and its tile disk cache.
   flutter_map: 8.3.2
   flutter_map_cache: 2.1.2
