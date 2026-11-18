@@ -55,6 +55,16 @@ class TestCreditBody:
         body = _credit_notify.credit_body((0, 1380, 0), (0, 1320, 0))
         assert body == f"{_SHUTDOWN} 22:00 (+0h)"
 
+    def test_a_late_credit_shows_the_reward_not_the_jump(self) -> None:
+        """18:00 -> 21:58 after a run ending 19:58: the toast says +2h, not +3h58m."""
+        body = _credit_notify.credit_body((0, 1080, 0), (0, 1318, 0), reward=120)
+        assert body == f"{_SHUTDOWN} 21:58 (+2h)"
+
+    def test_a_ceiling_cut_reward_shows_what_was_left(self) -> None:
+        """A 2h reward that met the 23:00 ceiling after 1h shows +1h."""
+        body = _credit_notify.credit_body((0, 1320, 0), (0, 1380, 0), reward=120)
+        assert body == f"{_SHUTDOWN} 23:00 (+1h)"
+
     def test_unknown_before_drops_the_delta(self) -> None:
         """Without the old config there is no move to show."""
         assert _credit_notify.credit_body(None, (0, 1320, 0)) == f"{_SHUTDOWN} 22:00"
@@ -132,8 +142,8 @@ def test_notify_workout_credit_sends_the_composed_body() -> None:
     with (
         patch(f"{_MOD}.send_notification", return_value=True) as send,
     ):
-        assert _real_notify((0, 1200, 0), (0, 1260, 0))
-    send.assert_called_once_with(_credit_notify.TITLE, f"{_SHUTDOWN} 21:00 (+1h)")
+        assert _real_notify((0, 1080, 0), (0, 1318, 0), 120)
+    send.assert_called_once_with(_credit_notify.TITLE, f"{_SHUTDOWN} 21:58 (+2h)")
 
 
 class TestCreditSideOfTheNotifier:
@@ -149,7 +159,7 @@ class TestCreditSideOfTheNotifier:
         """Anything the notifier raises is logged at ERROR and dropped."""
         locker = create_locker(mock_tk, tmp_path)
         with patch(f"{_MOD}.notify_workout_credit", side_effect=KeyError("x")):
-            locker._notify_credit(None, None)
+            locker._notify_credit(None, None, None)
         assert any(
             r.levelno == logging.ERROR and "notification failed" in r.getMessage()
             for r in caplog.records

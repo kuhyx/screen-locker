@@ -38,11 +38,16 @@ _NOTIFY_TIMEOUT_SECONDS: Final = 5
 def credit_body(
     before: tuple[int, int, int] | None,
     after: tuple[int, int, int] | None,
+    reward: int | None = None,
 ) -> str:
     """``⏻ 23:00 (+2h)`` -- whichever parts are known.
 
-    ``before``/``after`` are the shutdown config around the credit; the delta
-    is tonight's actual move, so a capped or rest-day credit shows ``+0h``.
+    ``before``/``after`` are the shutdown config around the credit. The delta
+    is what the workout earned: tonight's actual move, so a capped or rest-day
+    credit shows ``+0h``, but never more than ``reward``. A late credit moves
+    the shutdown from an hour already past to the run's end plus the reward
+    (:mod:`._late_credit`); that jump is not what the run earned
+    (18:00 -> 21:58 read "+3h58m" for a 2h run, 2026-11-18).
     """
     parts: list[str] = []
     if after is None:
@@ -56,6 +61,8 @@ def credit_body(
         text = f"{_SHUTDOWN} {hhmm(tonight)}"
         if before is not None:
             moved = max(0, tonight - tonight_minutes(before, day))
+            if reward is not None:
+                moved = min(moved, reward)
             text += f" (+{span(moved)})"
         parts.append(text)
     return " \N{MIDDLE DOT} ".join(parts) or "\N{CHECK MARK}"
@@ -93,7 +100,8 @@ def send_notification(title: str, body: str) -> bool:
 def notify_workout_credit(
     before: tuple[int, int, int] | None,
     after: tuple[int, int, int] | None,
+    reward: int | None,
 ) -> bool:
     """Notify a newly earned workout credit. Never raises."""
-    body = credit_body(before, after)
+    body = credit_body(before, after, reward)
     return send_notification(TITLE, body)

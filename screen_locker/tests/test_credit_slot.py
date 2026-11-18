@@ -129,7 +129,7 @@ class TestSlotCreditMinutes:
         result, notify = _credit(locker, [])
         assert result.shutdown_adjusted is True
         assert locker._read_shutdown_config() == (1320, 1320, 300)
-        notify.assert_called_once_with(_START, (1320, 1320, 300))
+        notify.assert_called_once_with(_START, (1320, 1320, 300), 120)
 
     def test_distinct_slot_earns_one_hour(
         self, mock_tk: MagicMock, mock_sys_exit: MagicMock, tmp_path: Path
@@ -139,7 +139,7 @@ class TestSlotCreditMinutes:
         result, notify = _credit(locker, [_entry("phone_verified")])
         assert result.extra_bonus_delta == 60
         assert locker._read_shutdown_config() == (1260, 1260, 300)
-        notify.assert_called_once()
+        notify.assert_called_once_with(_START, (1260, 1260, 300), 60)
 
     def test_same_slot_earns_nothing_and_warns(
         self,

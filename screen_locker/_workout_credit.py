@@ -20,7 +20,7 @@ from screen_locker import _credit_notify
 from screen_locker._constants import SHUTDOWN_BASE_FILE
 from screen_locker._credit_slot import CreditSlot, credit_slot, locked_shutdown_state
 from screen_locker._day import today_str
-from screen_locker._earned import extra_minutes
+from screen_locker._earned import extra_minutes, first_minutes
 from screen_locker._rest_day import is_rest_day
 from screen_locker._weekly_check import COUNTED_WORKOUT_TYPES, count_weekly_workouts
 from screen_locker._workout_ledger import entry_done_at
@@ -160,7 +160,12 @@ class WorkoutCreditMixin:
             after = self._read_shutdown_config()
 
         if slot is not CreditSlot.NONE:
-            self._notify_credit(before, after)
+            reward = (
+                first_minutes(earned_time.WORKOUT, day)
+                if first_counted_today
+                else extra
+            )
+            self._notify_credit(before, after, reward)
 
         return WorkoutCreditResult(
             shutdown_adjusted=shutdown_adjusted,
@@ -173,6 +178,7 @@ class WorkoutCreditMixin:
         self,
         before: tuple[int, int, int] | None,
         after: tuple[int, int, int] | None,
+        reward: int | None,
     ) -> None:
         """Pop the "Workout credited" notification; never fails the credit.
 
@@ -182,7 +188,7 @@ class WorkoutCreditMixin:
         batch uncredited, so every exception is logged and dropped here.
         """
         try:
-            _credit_notify.notify_workout_credit(before, after)
+            _credit_notify.notify_workout_credit(before, after, reward)
         except Exception:  # pylint: disable=broad-exception-caught  # notification must never fail the credit
             _logger.exception(
                 "Workout credit notification failed — the credit itself is "
