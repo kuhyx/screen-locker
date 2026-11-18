@@ -19,8 +19,9 @@ from gatelock import (
     LockConfig,
     LockWindow,
 )
+from gatelock.error_report import watch_stalls
 
-from screen_locker import _instance
+from screen_locker import _errors, _instance
 from screen_locker._auto_upgrade import AutoUpgradeMixin
 from screen_locker._carrot_watch import watch_for_carrot
 from screen_locker._constants import (
@@ -141,6 +142,8 @@ class ScreenLocker(
         self._check_early_exits()
         try:
             self.root = GateRoot()
+            if _errors.SLOT.reporter is not None:
+                watch_stalls(self.root, _errors.SLOT.reporter)
         except tk.TclError as exc:
             _logger.warning(
                 "Could not open a window on DISPLAY=%s (%s) — this run cannot "

@@ -69,6 +69,14 @@ until the phone is attached) backs `/sdcard/Documents/RunnerUp` up to
 once the app's `.workout_app_import.json` matches `processed/`; no app run, no uninstall.
 `python3 -m screen_locker.runnerup_retire --status` / `--dry-run` change nothing.
 
+## Error reports
+
+Every uncaught, thread or Tk callback error, and any freeze of the lock window
+over 1 s, goes to the shared app-errors spool through `gatelock.error_report`
+(`screen_locker/_errors.py`, installed by the CLI for every mode). The PC's
+`app-errors` timer turns each one into a ticket on the todoImplementer board
+(kuhyx/utils `DOCS-app-errors.md`). Nothing shows on screen.
+
 ## MCP server (Claude Code integration)
 
 screen-locker exposes a **read-only** MCP server (`screen_locker._mcp`) so

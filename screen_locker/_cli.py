@@ -13,6 +13,7 @@ from pathlib import Path
 import sys
 from typing import TYPE_CHECKING
 
+from screen_locker import _errors
 from screen_locker._constants import SHUTDOWN_BASE_FILE
 from screen_locker._decision_log import record_no_decision
 from screen_locker._manual_cli import run_manual_log
@@ -111,6 +112,7 @@ def main(locker_cls: type[ScreenLocker], argv: list[str]) -> None:
         level=logging.INFO,
         format="%(levelname)s %(name)s: %(message)s",
     )
+    _errors.install()
     if "--status" in argv:
         run_status(_headless_locker(locker_cls))
 

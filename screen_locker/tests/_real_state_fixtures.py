@@ -29,10 +29,25 @@ import pytest
 import sickdays
 import sickdays.gui
 
+from screen_locker import _errors
 import screen_locker._night_lockdown
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+
+@pytest.fixture(autouse=True)
+def _no_error_hooks(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Keep the CLI from hooking this process's errors into the real spool.
+
+    gatelock installs its hooks once per process: a reporter already in place
+    makes ``install`` return it untouched, so every report lands in tmp_path.
+    """
+    reporter = _errors.error_report.Reporter(
+        app=_errors.APP, repo=_errors.REPO, spool=tmp_path / "app-errors-spool"
+    )
+    monkeypatch.setattr(_errors.error_report.INSTALLED, "reporter", reporter)
+    monkeypatch.setattr(_errors.SLOT, "reporter", None)
 
 
 @pytest.fixture(autouse=True)
