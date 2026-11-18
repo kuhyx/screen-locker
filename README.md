@@ -17,8 +17,9 @@ pay of everything credited that day, capped at 23:00
 raised to it by the next live pass (`_sick_floor`), and every later credit
 that day raises it again.
 
-A credit landing at or after tonight's shutdown is never lost: tonight
-becomes `min(23:00, the credit's own time + its reward)` (`_late_credit`). `install.sh` migrates the old
+A credit landing after tonight's shutdown adds its reward to that shutdown,
+like any other (18:00 + 2h = 20:00 even for a run ending at 19:58); unpaid
+evening gates hold the PC until 23:00 instead. `install.sh` migrates the old
 `sick_history.json` dates into the pool once (`scripts/migrate_sick_history.py`).
 
 A sick day may *keep* lockers (`sickdays add --keep workout`). A kept workout

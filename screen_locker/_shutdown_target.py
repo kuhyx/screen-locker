@@ -7,8 +7,8 @@
     target = earned_time.resolve(answers, sick=...)  # base + every earner, capped;
     # sick: 20:00 + gaming pay
 
-A late credit (``_late_credit``) is live-only: it restarts tonight from its own
-time, and the next day's reset re-derives from scratch.
+Every live credit adds its minutes to tonight's config, whenever it lands
+(2026-11-18), so the live config equals this sum until the next reset.
 
 A declared rest day answers the workout with at least one unit, i.e. its
 first-unit bonus; a real workout on top of it earns only what a further unit

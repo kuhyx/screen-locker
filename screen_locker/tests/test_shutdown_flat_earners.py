@@ -92,7 +92,7 @@ class TestFlatBonuses:
         state = tmp_path / "state.json"
         mixin = _mixin()
         apply_flat_bonuses_if_new(state, mixin)
-        mixin._adjust_shutdown_time_by.assert_called_once_with(60, at=None)
+        mixin._adjust_shutdown_time_by.assert_called_once_with(60)
         assert json.loads(state.read_text()) == {"reading_bonus_date": today_str()}
 
 
@@ -125,7 +125,7 @@ class TestANewlyRegisteredEarner:
         mixin = _mixin()
         apply_flat_bonuses_if_new(state, mixin)
         apply_flat_bonuses_if_new(state, mixin)
-        mixin._adjust_shutdown_time_by.assert_called_once_with(60, at=None)
+        mixin._adjust_shutdown_time_by.assert_called_once_with(60)
         assert json.loads(state.read_text()) == {"extra_bonus_date": today_str()}
 
     def test_its_ledger_is_read_like_any_other(self, tmp_path: Path) -> None:
@@ -134,7 +134,7 @@ class TestANewlyRegisteredEarner:
         mixin = _mixin()
         with signing_key(tmp_path):
             apply_flat_bonuses_if_new(tmp_path / "state.json", mixin)
-        mixin._adjust_shutdown_time_by.assert_called_once_with(60, at=None)
+        mixin._adjust_shutdown_time_by.assert_called_once_with(60)
 
     def test_a_penalised_earner_lowers_the_base_from_its_day(
         self, monkeypatch: pytest.MonkeyPatch
@@ -178,18 +178,6 @@ class TestRealLedgers:
             "leetcode_bonus_date": today_str(),
             "reading_bonus_date": today_str(),
         }
-
-    def test_the_live_pass_hands_on_the_credit_s_own_time(self, tmp_path: Path) -> None:
-        """A late credit counts from its ledger row, never the pass's clock."""
-        midnight = datetime.now(tz=UTC).astimezone().replace(hour=0, minute=0, second=0)
-        write_ledger(earned_time.LEETCODE, [credit(earned_time.LEETCODE, midnight)])
-        mixin = _mixin()
-        with signing_key(tmp_path), answering({"leetcode": True}):
-            apply_flat_bonuses_if_new(tmp_path / "state.json", mixin)
-        mixin._adjust_shutdown_time_by.assert_called_once_with(
-            _earned.first_minutes(earned_time.LEETCODE, midnight.date()),
-            at=float(int(midnight.timestamp())),
-        )
 
 
 class TestProjectionFollowsTheCut:

@@ -160,7 +160,7 @@ class StartupChecksMixin(SyncMixin):
         # there is no banked "skip a workout" credit — that mechanic works
         # against the goal of maximizing weekly workouts, so it was removed.
         # A logged workout outranks every rung above, whatever their order.
-        # Then: once tonight's lockdown fired (a late credit may have lifted
+        # Then: once tonight's lockdown fired (a credit may have lifted
         # it), never re-arm behind the workout gate the same evening.
         if refuse_to_lock_over_logged_workout(
             self.has_logged_today, self._record_skip

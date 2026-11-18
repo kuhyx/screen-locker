@@ -29,7 +29,6 @@ from screen_locker.tests._gatelock_fixtures import (
     dual_output,
 )
 from screen_locker.tests._isolated_state import ISOLATED_STATE
-from screen_locker.tests._late_credit_fixtures import _untimed_credits_land_at_noon
 from screen_locker.tests._locker_factories import (
     _make_locker,
     create_locker,
@@ -57,7 +56,6 @@ __all__ = [
     "_hermetic_gatelock",
     "_make_locker",
     "_mock_sys_exit",
-    "_untimed_credits_land_at_noon",
     "create_locker",
     "create_locker_early_bird",
     "create_locker_relaxed_day",

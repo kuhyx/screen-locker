@@ -120,8 +120,8 @@ class TestUnlockScreenShutdownAdjustment:
 
         locker.unlock_screen()
 
-        # Anchored on the workout's own end, so a late upload buys nothing.
-        locker._adjust_shutdown_time_later.assert_called_once_with(at=123.0)
+        # The reward adds to tonight's shutdown whenever the run ended.
+        locker._adjust_shutdown_time_later.assert_called_once_with()
 
     def test_unlock_screen_skips_adjustment_for_sick_day(
         self,

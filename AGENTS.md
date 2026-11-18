@@ -67,17 +67,19 @@ re-derives it on every live pass from the ledgers, and a sick-day credit only
 raises to it (`_raise_on_sick_day`), never adds -- its row is already in the
 sum. No lift is saved on a sick day.
 
-## A shutdown never blocks submitting a finished task
+## Every credit adds to tonight's shutdown, whenever it lands
 
-A credit timed at or after tonight's shutdown moves tonight to
-`min(23:00, the credit's OWN time + its reward)` (`_late_credit.late_tonight`):
-only the 23:00 ceiling is hard. The anchor is the credit's own time (the run's
-end via `_workout_ledger.entry_done_at`, the ledger row via
-`_earned.first_credit_time`), never the sync time, so a late upload buys
-nothing. It is live-only: the next day's reset re-derives from scratch. This
-replaced the first-credit +60 grace floor (gone 2026-10-17); `_grace_floor`
-keeps only `first_done_at`, `tonight_minutes` and the lift file, which
-`plan_absorb` spends once if a stale one is left.
+A credit adds its reward to tonight's config even after that shutdown passed:
+18:00, a run ending 19:58 -> 20:00, the book's +1h -> 21:00, exactly what the
+daily reset derives (`scripts/preview_shutdown.py` flags any MISMATCH). Unpaid
+gates do not shut the PC down: the evening chain (book, tutor, LeetCode) holds
+it behind their locks until 23:00, the only hard bound. The late-credit rule
+(`min(23:00, credit's own time + reward)`, 2026-10-17) is gone since
+2026-11-18 (kuhy): it turned that evening into 21:58 and 22:58. Trade-off kuhy
+accepted: with no gate pending, a workout ending after its earned shutdown
+buys only the time left before it. `_grace_floor` keeps `first_done_at`,
+`tonight_minutes` and the lift file, which `plan_absorb` spends once if a
+stale one is left.
 
 Flat earners are read from their gate's ledger by `earned_time.done_today`
 via `_earned.py`: HMAC-verified `credit` rows matched by the earner's own
@@ -136,4 +138,4 @@ Dart tests, need the full suite: `scripts/full_gate.sh step <id>` once per id
 `full-gate.timer` (22:00, loadavg guard) runs `full_gate.sh all`; a red result
 (`$GIT_DIR/gate-full-status`) refuses every push until a full run is green.
 Install the nightly: copy `full-gate.{service,timer}` to `~/.config/systemd/user/`
-and `systemctl --user enable --now full-gate.timer` (not enabled yet).
+and `systemctl --user enable --now full-gate.timer` (enabled on kuhy's PC).

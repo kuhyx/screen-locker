@@ -44,10 +44,9 @@ def credit_body(
 
     ``before``/``after`` are the shutdown config around the credit. The delta
     is what the workout earned: tonight's actual move, so a capped or rest-day
-    credit shows ``+0h``, but never more than ``reward``. A late credit moves
-    the shutdown from an hour already past to the run's end plus the reward
-    (:mod:`._late_credit`); that jump is not what the run earned
-    (18:00 -> 21:58 read "+3h58m" for a 2h run, 2026-11-18).
+    credit shows ``+0h``, but never more than ``reward``: the late-credit rule
+    (gone 2026-11-18) once moved 18:00 to 21:58 and the toast read "+3h58m"
+    for a 2h run.
     """
     parts: list[str] = []
     if after is None:

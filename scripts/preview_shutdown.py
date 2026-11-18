@@ -5,7 +5,7 @@ READ-ONLY on the real system: it never runs the sudo helper, never writes
 ``/etc``, ``shutdown_base.json``, ``grace_floor.json``, ``rest_days.json``,
 ``log.json`` or the real workout ledger. Simulations run the real code paths
 (TCX parsing + walk summing via the RunnerUp backfill, rest-day signing and
-verification, ``_shutdown_target.derive``, the sick floor, late credits and the
+verification, ``_shutdown_target.derive``, the sick floor and the
 lift bookkeeping, a temporary ``sickdays`` pool) against a temporary
 directory, with an in-memory shutdown config.
 
@@ -33,7 +33,7 @@ import tempfile
 
 import earned_time
 
-from screen_locker import _earned, _grace_floor, _late_credit, _shutdown, _sick_floor
+from screen_locker import _earned, _grace_floor, _shutdown, _sick_floor
 from screen_locker._constants import SHUTDOWN_CONFIG_FILE
 from screen_locker._day import today_str
 from screen_locker._earned import hhmm
@@ -116,22 +116,16 @@ def _simulate(args: argparse.Namespace, tmp: Path) -> None:
     _report("simulated", target)
 
 
-def hhmm_minutes(text: str) -> int:
-    """``HH:MM`` as minutes after midnight."""
-    hour, minute = (int(p) for p in text.split(":"))
-    return hour * 60 + minute
-
-
 def _sequence(args: argparse.Namespace, tmp: Path) -> None:
     day = date.fromisoformat(args.day)
-    for module in (_grace_floor, _late_credit, _shutdown, _sick_floor):
+    for module in (_grace_floor, _shutdown, _sick_floor):
         vars(module)["today_str"] = lambda: args.day
         vars(module)["GRACE_STATE_FILE"] = tmp / "grace_floor.json"
     use_temp_pool(tmp)
     done = {e.name: False for e in _earned.flat_earners()}
     sim = SimShutdown(derive(DayInputs(day, done)).minutes)
     _say(f"[sequence] {day} start {hhmm(sim.config[0])} (nothing done, not sick)")
-    workouts, first, went_late = 0, None, False
+    workouts, first = 0, None
     # The real target reads today's real ledgers; the sim's are ``done``.
     vars(_sick_floor)["sick_target"] = lambda d, _log: (
         derive(DayInputs(d, done, workouts, sick_day=True)).minutes
@@ -144,19 +138,12 @@ def _sequence(args: argparse.Namespace, tmp: Path) -> None:
             done[name] = True
         if name != SICK_STEP:
             first = min(first or stamp(day, at), stamp(day, at))
-        late = name != SICK_STEP and hhmm_minutes(at) >= sim.config[0]
-        sim.credit(name, day, stamp(day, at))
+        sim.credit(name, day)
         want = derive(
             DayInputs(day, done, workouts, first_done=first, sick_day=is_sick(day))
         )
-        # A late credit is live-only, so from it on the derived sum is no judge.
-        went_late = went_late or late
-        if late:
-            verdict = " LATE: from its own time"
-        elif went_late:
-            verdict = " live, after a late credit"
-        else:
-            verdict = "" if sim.config[0] == want.minutes else " MISMATCH"
+        # Every credit adds to tonight (2026-11-18), so live must equal derived.
+        verdict = "" if sim.config[0] == want.minutes else " MISMATCH"
         _say(
             f"    {name}@{at}: config {hhmm(sim.config[0])} "
             f"(derived {hhmm(want.minutes)}{verdict})"

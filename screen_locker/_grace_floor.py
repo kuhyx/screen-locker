@@ -1,10 +1,9 @@
 """When the day's first task was done, and the day's floor lift.
 
-The grace floor (first task + 60 min) is gone since 2026-10-17: a credit at
-or after tonight's shutdown now counts from its own time
-(:mod:`screen_locker._late_credit`), which is what the floor approximated,
-and the floor's lift then absorbed minutes the late credit had already
-restarted from (LeetCode late at 19:00, reading at 19:30: 20:10, not 20:20).
+The grace floor (first task + 60 min) is gone since 2026-10-17. The
+late-credit rule that replaced it (a credit after tonight's shutdown counted
+from its own time) went on 2026-11-18: every credit adds to tonight's
+shutdown, and unpaid gates hold the PC behind the evening chain until 23:00.
 
 What stays: :func:`first_done_at` (shown by the preview and the reset log)
 and the lift file. The lift is ``0`` on every day now (no floor lifts the

@@ -37,7 +37,6 @@ from screen_locker._day import today_str
 from screen_locker._earned import (
     counted_gate_earners,
     earned_today,
-    first_credit_time,
     first_credits,
     first_minutes,
     flat_earners,
@@ -219,8 +218,7 @@ def _apply_flat_bonus(
         return False
     day = date.fromisoformat(today)
     minutes = first_minutes(earner, day)
-    # Anchored on the credit's own row, so a late solve counts from its time.
-    if not mixin._adjust_shutdown_time_by(minutes, at=first_credit_time(earner, day)):
+    if not mixin._adjust_shutdown_time_by(minutes):
         _logger.warning("%s bonus: failed to write shutdown config.", earner.label)
         return False
     state[stamp] = today

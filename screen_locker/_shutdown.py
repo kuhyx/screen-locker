@@ -17,7 +17,6 @@ from screen_locker._constants import (
 from screen_locker._day import today_str
 from screen_locker._earned import first_minutes, hhmm, span
 from screen_locker._grace_floor import plan_absorb, save_lift
-from screen_locker._late_credit import LateCreditMixin
 from screen_locker._sick import is_sick
 from screen_locker._sick_floor import SickFloorMixin
 
@@ -66,22 +65,31 @@ def read_shutdown_config(path: Path) -> tuple[int, int, int] | None:
     return values[0], values[1], values[2]
 
 
-class ShutdownMixin(SickFloorMixin, LateCreditMixin):
+class ShutdownMixin(SickFloorMixin):
     """Mixin providing shutdown schedule adjustment functionality."""
 
-    def _adjust_shutdown_time_later(self, at: float | None = None) -> bool:
+    def _raise_on_sick_day(self) -> bool:
+        """A sick day's credit: raise to the derived target, never add.
+
+        The credit's row is already in the target (``_sick_floor``), so adding
+        its minutes on top would pay it twice. True even when nothing moved
+        (capped, or already there): the credit is accounted for, and a failed
+        write is retried by the next tick's sick pass.
+        """
+        self._apply_sick_floor()
+        return True
+
+    def _adjust_shutdown_time_later(self) -> bool:
         """Push shutdown later by the first workout's reward, capped at the ceiling.
 
-        ``at`` is when the workout ended (default now): a late one counts from
-        it (:mod:`._late_credit`). Returns True if successful, False otherwise.
+        The reward adds to tonight's shutdown even when the workout ended after
+        it (kuhy, 2026-11-18): 18:00 + 2h is 20:00 for a run ending at 19:58,
+        the same sum the daily reset derives. Returns True if successful.
         """
         day = date.fromisoformat(today_str())
         reward = first_minutes(earned_time.WORKOUT, day)
         if is_sick(day):
-            return self._raise_on_sick_day(reward, at)
-        late = self._late_write(reward, at)
-        if late is not None:
-            return late
+            return self._raise_on_sick_day()
         bonus, lift = plan_absorb(reward)
         try:
             config_values = self._read_shutdown_config()
@@ -101,24 +109,19 @@ class ShutdownMixin(SickFloorMixin, LateCreditMixin):
             save_lift(lift)
         return ok
 
-    def _adjust_shutdown_time_by(
-        self, extra_minutes: int, at: float | None = None
-    ) -> bool:
+    def _adjust_shutdown_time_by(self, extra_minutes: int) -> bool:
         """Push shutdown later by *extra_minutes*, capped at the day's ceiling.
 
         Used for earner and extra-workout bonuses. The cap is
         ``earned_time.shutdown_ceiling_for(today)`` (23:00 today, lower if
         ``WAKE_MINUTES`` ever moves); the helper's 23:00 stays the hard bound.
 
-        ``at`` is when the credit was earned (default now): a late one counts
-        from it (:mod:`._late_credit`). Returns True if successful.
+        Like the workout's, the minutes add to tonight's shutdown whenever the
+        credit was earned. Returns True if successful.
         """
         day = date.fromisoformat(today_str())
         if is_sick(day):
-            return self._raise_on_sick_day(extra_minutes, at)
-        late = self._late_write(extra_minutes, at)
-        if late is not None:
-            return late
+            return self._raise_on_sick_day()
         # A stale lift recorded before the grace floor went is spent first.
         moved, lift = plan_absorb(extra_minutes)
         try:

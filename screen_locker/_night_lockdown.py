@@ -5,7 +5,7 @@ leetcode-guard and book-guard (diet-guard deliberately does not opt in); this
 module only binds screen-locker's path, which the test suite redirects, and
 the ladder rung that honours it.
 
-Why: once tonight's lockdown has fired, a late credit (``_late_credit``) can
+Why: once tonight's lockdown has fired, a credit that moves the shutdown can
 lift it -- and re-locking behind the workout gate the same evening would make
 a finished workout impossible to submit. Only an EVENING lock counts (local
 date today, >= 12:00); the 04:01 morning re-lock does not. Missing or garbage

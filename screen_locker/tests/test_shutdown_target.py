@@ -54,7 +54,7 @@ class TestTarget:
         assert not workout_units(0, rest_day=False)
 
     def test_an_early_first_task_no_longer_lifts_the_sum(self) -> None:
-        """The grace floor is gone (2026-10-17): late credits replace it."""
+        """The grace floor is gone (2026-10-17): nothing lifts tonight above the sum."""
         target = derive(
             DayInputs(_DAY, {**_FLAT, "anki": True}, first_done=at("18:55"))
         )
