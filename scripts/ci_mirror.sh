@@ -22,7 +22,7 @@
 # Usage: ci_mirror.sh [venv|precommit|pytest|all] [pytest args...]
 #   Each step is its own manual hook (ci-venv, ci-precommit-*, ci-pytest) so no
 #   single call outlives the 60 s action cap; `all` (the default) is the old
-#   one-shot behaviour. pytest runs under xdist (-n auto --dist worksteal):
+#   one-shot behaviour. pytest runs under xdist (-n 4 --dist worksteal):
 #   serial it was ~85 s, and pytest-cov merges the workers' coverage.
 # ============================================================================
 
@@ -105,9 +105,12 @@ run_precommit_group() {
 
 run_pytest_clean_venv() {
     log "pytest in the clean venv (mirrors the Tests workflow)"
-    # CI_MIRROR_WORKERS: xdist worker count (default auto = one per core; on a
-    # busy 24-core box that is ~3 GiB and trips the capped.sh memory ceiling).
-    "$VENV_DIR/bin/python" -m pytest -n "${CI_MIRROR_WORKERS:-auto}" --dist worksteal "$@" \
+    # CI_MIRROR_WORKERS: xdist worker count. Default 4, not auto: one worker
+    # per core (16 here) peaked at 3.2 GiB and the kernel OOM-killed the step
+    # inside capped.sh's 4 GiB session slice (2026-11-19). capped.sh gives the
+    # job 10-20 % of the cores (1.6-3.2 here), so more than 4 workers buys no
+    # speed, only memory.
+    "$VENV_DIR/bin/python" -m pytest -n "${CI_MIRROR_WORKERS:-4}" --dist worksteal "$@" \
         || fail "pytest (clean requirements.txt venv)"
 }
 
