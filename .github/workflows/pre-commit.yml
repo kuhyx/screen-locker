@@ -28,9 +28,10 @@ jobs:
           - group: flutter
             hooks: flutter-analyze
             skip: ""
+          # dependency-freshness is local only (pre-commit hook), never in CI.
           - group: rest
             hooks: ""
-            skip: mypy,pylint,flutter-analyze
+            skip: mypy,pylint,flutter-analyze,dependency-freshness
     name: pre-commit (${{ matrix.group }})
     steps:
       - uses: actions/checkout@v4
@@ -93,8 +94,7 @@ jobs:
 
       # Every hook brings its own environment except the language: system
       # ones, and those all run in `rest`: screens-fit imports screen_locker
-      # (and so its runtime deps) and dependency-freshness needs pyyaml and
-      # packaging. The other groups need pre-commit alone. uv with a cached
+      # (and so its runtime deps). The other groups need pre-commit alone. uv with a cached
       # wheel store replaces a ~27 s pip install.
       - name: Install requirements for the system hooks
         if: matrix.group == 'rest'

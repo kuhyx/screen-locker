@@ -9,7 +9,7 @@ on:
 env:
   # Bucket count for the Flutter suite; the matrix below lists 0..N-1.
   # 10, not more: the account runs at most 20 jobs at once, and a push also
-  # starts ~10 others (pre-commit, freshness, the rest of this file). At 12
+  # starts ~10 others (pre-commit, the rest of this file). At 12
   # three shards queued for up to 34 s and the workflow took 91 s.
   FLUTTER_SHARDS: 10
 
