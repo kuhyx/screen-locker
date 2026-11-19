@@ -2,8 +2,6 @@
 # Deploy screen-locker for real: update the live clone, reinstall, restart the
 # long-running user units, prove they are healthy, then ship the workout app.
 #
-# Usage: bash scripts/deploy.sh [--health-only]
-#
 # Every path is anchored on the LIVE clone (~/src/screen-locker), never on this
 # script's own directory: install.sh installs editable from wherever it sits,
 # so running a worktree copy of it would point the services at scratch code.
@@ -16,7 +14,16 @@
 # closed. This script never sets that variable; it passes the caller's
 # environment through and fails loudly when the guard refuses.
 #
-# Seams: SCREEN_LOCKER_LIVE (live clone), DEPLOY_WEB_PORT (health port).
+# The phone step is skipped when the workout app's source is unchanged since
+# the last successful phone install: a PC-only change (CI config, a Python pin)
+# then deploys with the phone unplugged. The key is the git tree of APP_DIR,
+# written to PHONE_APP_MARKER after each install; no marker means the phone is
+# required (fail closed). Any app change gives a new tree, so it is never skipped.
+#
+# Usage: bash scripts/deploy.sh [--health-only | --phone-only]
+#
+# Seams: SCREEN_LOCKER_LIVE (live clone), DEPLOY_WEB_PORT (health port),
+# PHONE_DEPLOY (installer), PHONE_APP_MARKER (last installed app tree).
 # Exit: 0 healthy and installed everywhere | 1 any step or check failed.
 
 set -euo pipefail
@@ -24,7 +31,8 @@ set -euo pipefail
 readonly LIVE="${SCREEN_LOCKER_LIVE:-$HOME/src/screen-locker}"
 readonly PY="/usr/bin/python3"
 readonly APP_DIR="stronglift_replacement/workout_app"
-readonly PHONE_DEPLOY="$HOME/.claude/scripts/phone_deploy.sh"
+readonly PHONE_DEPLOY="${PHONE_DEPLOY:-$HOME/.claude/scripts/phone_deploy.sh}"
+readonly PHONE_APP_MARKER="${PHONE_APP_MARKER:-$HOME/.local/state/screen-locker/phone_app_tree}"
 readonly UNITS=(screen-locker-web.service workout-poke.service runnerup-watch.service)
 
 die() { echo "deploy: FAIL: $*" >&2; exit 1; }
@@ -94,10 +102,19 @@ desktop() {
 }
 
 phone() {
-    local rc=0
+    local rc=0 tree
+    tree="$(git -C "$LIVE" rev-parse "HEAD:$APP_DIR")" || die "no $APP_DIR tree at $LIVE HEAD"
+    if [[ "$(cat "$PHONE_APP_MARKER" 2>/dev/null || true)" == "$tree" ]]; then
+        ok "workout app unchanged since the last phone install (tree ${tree:0:10}); phone step skipped"
+        return 0
+    fi
     bash "$PHONE_DEPLOY" "$LIVE/$APP_DIR" --release || rc=$?
     case "$rc" in
-        0) ok "workout app release build installed on the phone" ;;
+        0)
+            mkdir -p "$(dirname "$PHONE_APP_MARKER")"
+            printf '%s\n' "$tree" > "$PHONE_APP_MARKER"
+            ok "workout app release build installed on the phone (tree ${tree:0:10})"
+            ;;
         46) die "phone_deploy protect guard (exit 46) refused com.kuhy.workout_app;" \
                 "kuhy runs: PHONE_PROTECT_ALLOW=com.kuhy.workout_app bash $LIVE/scripts/deploy.sh" \
                 "with the workout app closed" ;;
@@ -105,6 +122,10 @@ phone() {
     esac
 }
 
+if [[ "${1:-}" == "--phone-only" ]]; then
+    phone
+    exit 0
+fi
 if [[ "${1:-}" == "--health-only" ]]; then
     health
     exit 0
