@@ -1,9 +1,11 @@
 """Read-only localhost HTTP server for the status web UI.
 
-Serves the status/decision/health payloads at ``/api/*`` and the built React
-bundle (``web/dist``) as static files. Binds to loopback only and never exposes
-a secret: every payload comes from :mod:`screen_locker._web_payload`, which
-reads state files but never the sync token or the HMAC key.
+Serves the status/decision/health payloads at ``/api/*``, the built Astro
+bundle (``web/dist``) as static files, and ``/version``: the short git hash the
+bundle was stamped with at build time (``web/stamp-version.mjs``), or 404 when
+the build carries no stamp. Binds to loopback only and never exposes a secret:
+every payload comes from :mod:`screen_locker._web_payload`, which reads state
+files but never the sync token or the HMAC key.
 
 Read-only by construction, like the MCP server it sits beside: there is no
 route that logs a workout, clears a lock, or writes anything at all. A local
@@ -51,6 +53,9 @@ DEFAULT_PORT = 8770
 _API_STATUS = "/api/status"
 _API_DECISIONS = "/api/decisions"
 _API_HEALTH = "/api/health"
+_VERSION = "/version"
+# Written by web/stamp-version.mjs after `astro build`.
+_VERSION_FILE = "version.txt"
 
 # Content types that are text but not under the ``text/`` prefix.
 _EXTRA_TEXT_TYPES = frozenset(
@@ -108,6 +113,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._serve_json("decisions", lambda: build_decisions_payload(limit=limit))
         elif split.path == _API_HEALTH:
             self._serve_json("health", build_health_payload)
+        elif split.path == _VERSION:
+            self._serve_version()
         else:
             self._serve_static(split.path)
 
@@ -131,6 +138,23 @@ class _Handler(BaseHTTPRequestHandler):
             )
             return
         self._send(HTTPStatus.OK, body, "application/json")
+
+    def _serve_version(self) -> None:
+        """Send the bundle's build stamp, or a 404 when it has none.
+
+        Never the SPA fallback: a dashboard page at ``/version`` would make an
+        unstamped build look like a live one to a deploy check.
+        """
+        stamp = WEB_DIST / _VERSION_FILE
+        if not stamp.is_file():
+            logger.warning("No build stamp at %s; /version answers 404", stamp)
+            self._send(
+                HTTPStatus.NOT_FOUND,
+                b"Build not stamped. Run: pnpm --dir web build",
+                "text/plain",
+            )
+            return
+        self._send(HTTPStatus.OK, stamp.read_bytes().strip(), "text/plain")
 
     def _serve_static(self, path: str) -> None:
         """Serve a file from ``WEB_DIST`` with SPA fallback and traversal guard.

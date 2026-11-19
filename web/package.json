@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro check && astro build",
+    "build": "astro check && astro build && node stamp-version.mjs",
     "lint": "eslint .",
     "typecheck": "astro check",
     "preview": "astro preview",

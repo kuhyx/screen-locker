@@ -79,3 +79,30 @@ class TestStaticServing:
             status, body, _ = _get(port, "/")
         assert status == 404
         assert b"npm --prefix web run build" in body
+
+
+class TestVersionRoute:
+    """/version names the deployed build, and never fakes one."""
+
+    @pytest.fixture(autouse=True)
+    def _network(self, real_loopback: None) -> None:
+        """Every test in this class talks to the server over real HTTP."""
+
+    def test_the_stamped_hash_is_served_as_plain_text(self, tmp_path: Path) -> None:
+        """The stamp's hash comes back trimmed, as text/plain."""
+        dist = _make_dist(tmp_path)
+        (dist / "version.txt").write_text("abc1234\n", encoding="utf-8")
+        with patch(f"{_PKG}.WEB_DIST", dist), _running() as port:
+            status, body, ctype = _get(port, "/version")
+        assert status == 200
+        assert body == b"abc1234"
+        assert ctype.startswith("text/plain")
+
+    def test_an_unstamped_build_is_a_404_not_the_dashboard(
+        self, tmp_path: Path
+    ) -> None:
+        """No stamp means 404, so an unstamped build never looks live."""
+        with patch(f"{_PKG}.WEB_DIST", _make_dist(tmp_path)), _running() as port:
+            status, body, _ = _get(port, "/version")
+        assert status == 404
+        assert b"INDEX" not in body
