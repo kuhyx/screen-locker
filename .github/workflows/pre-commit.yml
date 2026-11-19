@@ -98,7 +98,7 @@ jobs:
       # wheel store replaces a ~27 s pip install.
       - name: Install requirements for the system hooks
         if: matrix.group == 'rest'
-        run: uv pip install --system -r requirements.txt pyyaml packaging
+        run: uv pip install --system -r requirements.txt
       - name: Install pre-commit
         if: matrix.group != 'rest'
         run: uv pip install --system pre-commit
