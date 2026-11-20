@@ -24,6 +24,7 @@ import datetime as dt
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -60,8 +61,12 @@ def prepare_restore(export: dict[str, Any], now: dt.datetime) -> dict[str, Any]:
 
 def _adb(*args: str) -> subprocess.CompletedProcess[str]:
     serial = os.environ.get("ADB_SERIAL", "23181JEGR08034")
+    adb = shutil.which("adb")
+    if adb is None:
+        msg = "adb is not on PATH (sudo pacman -S android-tools)"
+        raise FileNotFoundError(msg)
     return subprocess.run(
-        ["adb", "-s", serial, *args],
+        [adb, "-s", serial, *args],
         check=True,
         capture_output=True,
         text=True,

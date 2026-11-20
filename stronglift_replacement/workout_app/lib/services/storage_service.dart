@@ -24,8 +24,7 @@ import 'package:workout_app/services/manual_workout_port.dart';
 import 'package:workout_app/services/pace_target_store.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
 
-// Re-exported: ExerciseState was defined here until it moved to models/, and
-// every caller still reaches it through this import.
+// Re-exported: callers reach ExerciseState etc. through this import.
 export 'package:workout_app/models/exercise_state.dart';
 export 'package:workout_app/models/manual_deload.dart';
 export 'package:workout_app/models/progression.dart';
