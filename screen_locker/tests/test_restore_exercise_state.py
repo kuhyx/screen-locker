@@ -12,6 +12,7 @@ _NOW = dt.datetime(2026, 11, 21, 12, 0, tzinfo=dt.UTC)
 
 
 def test_every_row_gets_a_newer_stamp_and_a_deload_stamp() -> None:
+    """Each row wins the import and is shielded from a second auto cut."""
     export = {
         "format": "workout_app-export",
         "version": 3,
@@ -29,5 +30,6 @@ def test_every_row_gets_a_newer_stamp_and_a_deload_stamp() -> None:
 
 
 def test_an_empty_export_is_refused() -> None:
+    """An export with no rows is refused instead of restoring nothing."""
     with pytest.raises(ValueError, match="nothing to restore"):
         res.prepare_restore({"exercise_state": []}, _NOW)
