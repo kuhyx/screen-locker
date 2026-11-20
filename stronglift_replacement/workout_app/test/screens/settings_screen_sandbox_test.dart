@@ -167,4 +167,14 @@ void main() {
     await tapReal(tester, iconLabeled('Wipe sandbox data'));
     expect(Sandbox.runReplayFactor, Sandbox.defaultReplayFactor);
   });
+
+  testWidgets('seed gap cases backdates sessions and says so', (tester) async {
+    await pump(tester);
+    await tapReal(tester, iconLabeled('Seed gap deload cases'));
+    expect(iconLabelContaining('Seeded backdated'), findsOneWidget);
+    final next = await tester.runAsync(
+      StorageService.instance.getNextWorkoutType,
+    );
+    expect(next, 'A');
+  });
 }

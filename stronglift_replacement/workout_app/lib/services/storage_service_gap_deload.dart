@@ -160,6 +160,9 @@ extension StorageServiceGapDeload on StorageService {
       where: 'name = ?',
       whereArgs: [state.name],
     );
+    // Only a concurrent delete between the read and this write lands here;
+    // no test can interleave one inside the transaction.
+    // coverage:ignore-start
     if (rows != 1) {
       log(
         'StorageService: ${state.name} vanished from exercise_state during '
@@ -168,6 +171,7 @@ extension StorageServiceGapDeload on StorageService {
       );
       return false;
     }
+    // coverage:ignore-end
     await txn.insert('progression_events', {
       'at': at.toIso8601String(),
       'exercise': state.name,
