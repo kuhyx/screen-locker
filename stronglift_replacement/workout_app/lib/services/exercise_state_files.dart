@@ -13,12 +13,14 @@
 /// by the next push.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 
 /// File name of the pre-cut `exercise_state` export.
@@ -125,3 +127,28 @@ class ExerciseStateFiles {
     return RestoreOutcome(rows: report.rows, reason: reason);
   }
 }
+
+// coverage:ignore-start
+// Launch-path glue: both halves are tested on their own
+// (exercise_state_files_test, storage_service_gap_deload_test).
+/// Imports a pushed restore file, then runs the one-time gap deload
+/// backfill (stamped, so later launches skip it), and pushes what changed.
+Future<void> repairProgression() async {
+  final files = ExerciseStateFiles();
+  final restore = await files.importRestoreFile();
+  log('WorkoutApp: ${restore.reason}');
+  final backfill = await StorageService.instance.runGapDeloadBackfill(
+    writeExport: files.writeDeloadExport,
+  );
+  log('WorkoutApp: ${backfill.reason}');
+  if (restore.rows > 0 || backfill.deloads.isNotEmpty) {
+    unawaited(
+      ProgressionSyncService().pushProgression().then((r) {
+        if (!r.changed) {
+          log('Repaired progression not synced: ${r.reason}', level: 1000);
+        }
+      }),
+    );
+  }
+}
+// coverage:ignore-end

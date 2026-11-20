@@ -107,6 +107,48 @@ int missedGapSteps(List<SessionMark> marks) {
   return owed;
 }
 
+/// One exercise's gap deload, as written.
+class GapDeload {
+  /// Creates a [GapDeload].
+  const GapDeload({
+    required this.name,
+    required this.from,
+    required this.to,
+    required this.steps,
+  });
+
+  /// Exercise name.
+  final String name;
+
+  /// The target before the cut.
+  final ProgressionTarget from;
+
+  /// The target after it.
+  final ProgressionTarget to;
+
+  /// Regression steps the gap asked for (the 40% cap may have taken fewer).
+  final int steps;
+}
+
+/// What [StorageServiceGapDeload.runGapDeloadBackfill] did.
+class BackfillReport {
+  /// Creates a report.
+  const BackfillReport({
+    required this.ran,
+    required this.reason,
+    this.deloads = const [],
+  });
+
+  /// Whether the backfill ran (and is now stamped).
+  final bool ran;
+
+  /// Why it did or did not, as a sentence.
+  final String reason;
+
+  /// Every exercise it cut.
+  final List<GapDeload> deloads;
+}
+
 /// [ProgressionInputs] of [base] with [t]'s weight and reps: one step down.
 class _Step implements ProgressionInputs {
   _Step(this._base, this._t);

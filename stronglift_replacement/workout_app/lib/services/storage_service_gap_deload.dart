@@ -6,55 +6,10 @@
 // `part` extensions.
 part of 'storage_service.dart';
 
-/// Settings key stamped once the one-time backfill has run.
-const String kGapDeloadBackfillKey = 'gap_deload_backfill_v1';
-
 /// `progression_events.source` of a cut the app made by itself.
 const String kAutoDeloadSource = 'auto';
 
-/// One exercise's gap deload, as written.
-class GapDeload {
-  /// Creates a [GapDeload].
-  const GapDeload({
-    required this.name,
-    required this.from,
-    required this.to,
-    required this.steps,
-  });
-
-  /// Exercise name.
-  final String name;
-
-  /// The target before the cut.
-  final ProgressionTarget from;
-
-  /// The target after it.
-  final ProgressionTarget to;
-
-  /// Regression steps the gap asked for (the 40% cap may have taken fewer).
-  final int steps;
-}
-
-/// What [StorageServiceGapDeload.runGapDeloadBackfill] did.
-class BackfillReport {
-  /// Creates a report.
-  const BackfillReport({
-    required this.ran,
-    required this.reason,
-    this.deloads = const [],
-  });
-
-  /// Whether the backfill ran (and is now stamped).
-  final bool ran;
-
-  /// Why it did or did not, as a sentence.
-  final String reason;
-
-  /// Every exercise it cut.
-  final List<GapDeload> deloads;
-}
-
-/// Gap deload at workout load, plus its one-time backfill.
+/// Gap deload at workout load.
 extension StorageServiceGapDeload on StorageService {
   /// Every exercise's finished sessions, oldest first.
   ///
@@ -179,59 +134,6 @@ extension StorageServiceGapDeload on StorageService {
       shown[e.exercise] = e;
     }
     return shown;
-  }
-
-  /// The one-time repair of the data the broken rule left behind.
-  ///
-  /// [writeExport] receives a JSON export of `exercise_state` BEFORE any cut;
-  /// if it throws, nothing is cut and the stamp stays unset, so the next
-  /// launch retries. Then every exercise last trained a week or more ago is
-  /// cut by its current gap plus whatever the history still owes. Exercises
-  /// trained since are left alone. Runs once: [kGapDeloadBackfillKey].
-  Future<BackfillReport> runGapDeloadBackfill({
-    required Future<void> Function(String json) writeExport,
-    DateTime? now,
-  }) async {
-    final stamp = await _getSetting(kGapDeloadBackfillKey);
-    if (stamp != null) {
-      return BackfillReport(
-        ran: false,
-        reason: 'gap deload backfill already ran at $stamp',
-      );
-    }
-    final export = jsonEncode({
-      'format': kExportFormat,
-      'version': kExportVersion,
-      'exported_at': DateTime.now().toIso8601String(),
-      'exercise_state': await _db.query('exercise_state', orderBy: 'name'),
-    });
-    try {
-      await writeExport(export);
-    } on Object catch (error, stackTrace) {
-      final reason =
-          'gap deload backfill NOT run: the pre-cut export of exercise_state '
-          'could not be saved ($error), so nothing was cut; the next launch '
-          'retries';
-      log(
-        'StorageService: $reason',
-        level: 1000,
-        error: error,
-        stackTrace: stackTrace,
-      );
-      return BackfillReport(ran: false, reason: reason);
-    }
-    final deloads = await applyGapDeloads(
-      now: now,
-      kind: kBackfillDeloadKind,
-      includeOwed: true,
-    );
-    await _setSetting(
-      kGapDeloadBackfillKey,
-      (now ?? DateTime.now()).toIso8601String(),
-    );
-    final reason = 'gap deload backfill cut ${deloads.length} exercise(s)';
-    log('StorageService: $reason');
-    return BackfillReport(ran: true, reason: reason, deloads: deloads);
   }
 
   Future<bool> _writeGapDeload(

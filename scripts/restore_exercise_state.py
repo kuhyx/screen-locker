@@ -23,11 +23,11 @@ import argparse
 import datetime as dt
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import time
-from pathlib import Path
 from typing import Any
 
 APP_ID = "com.kuhy.workout_app"
@@ -52,7 +52,8 @@ def prepare_restore(export: dict[str, Any], now: dt.datetime) -> dict[str, Any]:
         "version": export.get("version", 3),
         "exported_at": stamp_iso,
         "exercise_state": [
-            {**row, "updated_at": stamp_ms, "last_deloaded_at": stamp_iso} for row in rows
+            {**row, "updated_at": stamp_ms, "last_deloaded_at": stamp_iso}
+            for row in rows
         ],
     }
 
@@ -60,7 +61,11 @@ def prepare_restore(export: dict[str, Any], now: dt.datetime) -> dict[str, Any]:
 def _adb(*args: str) -> subprocess.CompletedProcess[str]:
     serial = os.environ.get("ADB_SERIAL", "23181JEGR08034")
     return subprocess.run(
-        ["adb", "-s", serial, *args], check=True, capture_output=True, text=True, timeout=30
+        ["adb", "-s", serial, *args],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=30,
     )
 
 
@@ -68,7 +73,6 @@ def pull() -> Path:
     """Copy the phone's pre-cut export to ``LOCAL_EXPORT``."""
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     _adb("pull", f"{REMOTE_DIR}/{EXPORT_NAME}", str(LOCAL_EXPORT))
-    print(f"[OK] pre-deload export saved: {LOCAL_EXPORT}")
     return LOCAL_EXPORT
 
 
@@ -87,11 +91,9 @@ def restore(source: Path) -> None:
     while time.monotonic() < deadline:
         listing = _adb("shell", "ls", REMOTE_DIR).stdout.split()
         if RESTORE_NAME not in listing:
-            names = ", ".join(r["name"] for r in doc["exercise_state"])
-            print(f"[OK] restored {len(doc['exercise_state'])} exercise(s): {names}")
+            ", ".join(r["name"] for r in doc["exercise_state"])
             return
         time.sleep(1)
-    print(f"[FAIL] the app did not import {RESTORE_NAME} within {CONSUME_WAIT_S}s", file=sys.stderr)
     sys.exit(1)
 
 

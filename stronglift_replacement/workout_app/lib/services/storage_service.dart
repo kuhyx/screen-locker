@@ -34,6 +34,7 @@ part 'storage_service_backup.dart';
 part 'storage_service_deload.dart';
 part 'storage_service_exercises.dart';
 part 'storage_service_export.dart';
+part 'storage_service_gap_backfill.dart';
 part 'storage_service_gap_deload.dart';
 part 'storage_service_import.dart';
 part 'storage_service_pc_link.dart';

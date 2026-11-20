@@ -242,4 +242,3 @@ class FileSystemExceptionLike implements Exception {
   /// Creates one.
   const FileSystemExceptionLike();
 }
-

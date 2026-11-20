@@ -10,6 +10,7 @@ import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/exercise_settings_sheet.dart';
 import 'package:workout_app/widgets/rep_circle.dart';
 
+part 'exercise_tile_deload.dart';
 part 'exercise_tile_rows.dart';
 
 /// Card widget displaying warmup and working-set rep circles for one exercise.

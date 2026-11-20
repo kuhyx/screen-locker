@@ -24,7 +24,10 @@ def test_every_row_gets_a_newer_stamp_and_a_deload_stamp() -> None:
     doc = res.prepare_restore(export, _NOW)
     stamp = int(_NOW.timestamp() * 1000)
     assert [r["updated_at"] for r in doc["exercise_state"]] == [stamp, stamp]
-    assert all(r["last_deloaded_at"].startswith("2026-11-21T12:00") for r in doc["exercise_state"])
+    assert all(
+        r["last_deloaded_at"].startswith("2026-11-21T12:00")
+        for r in doc["exercise_state"]
+    )
     assert doc["exercise_state"][0]["weight"] == 20.0
     assert doc["version"] == 3
 

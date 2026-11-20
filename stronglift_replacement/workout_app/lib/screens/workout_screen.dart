@@ -85,7 +85,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   late final List<Exercise> _exercises = List.of(widget.exercises);
   Map<String, ExerciseState> _exerciseStates = {};
 
-  /// Gap deloads this workout opened with, shown struck through on tiles.
+  /// Gap deloads this workout opened with, struck through on the tiles.
   Map<String, ProgressionEvent> _gapDeloads = {};
 
   // Break state. The deadline is the source of truth: `_breakClock` is what
@@ -152,23 +152,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       (i) => List.filled(_exercises[i].sets, _exercises[i].reps),
     );
     _warmupTapped = List.filled(_exercises.length, false);
-  }
-
-  Future<void> _loadExerciseStates() async {
-    final states = await StorageService.instance.getAllExerciseStates();
-    final gapDeloads = await StorageService.instance.activeGapDeloads();
-    // After, not beside, the read above: the push below carries both.
-    await _cues.load();
-    if (mounted) {
-      setState(() {
-        _exerciseStates = {for (final s in states) s.name: s};
-        _gapDeloads = gapDeloads;
-      });
-      // The first snapshot can go out before this load lands, and it would
-      // count a paused exercise's sets until the next tap. A no-op if the
-      // service has not started yet: start() builds its own, current one.
-      unawaited(_breaks.push(_buildSnapshot()));
-    }
   }
 
   @override
