@@ -162,9 +162,14 @@ extension StorageServiceSchema on StorageService {
     if (oldVersion < 10) {
       // NULL for every existing row: no deload before v10 stamped anything,
       // and the gap deload reads NULL as "due if the gap says so".
-      await db.execute(
-        'ALTER TABLE exercise_state ADD COLUMN $_lastDeloadedColumn',
-      );
+      // Checked first: a DB rewound to an older user_version (a test, a
+      // hand repair) can already carry the column, and ADD would fail.
+      final cols = await db.rawQuery('PRAGMA table_info(exercise_state)');
+      if (!cols.any((c) => c['name'] == 'last_deloaded_at')) {
+        await db.execute(
+          'ALTER TABLE exercise_state ADD COLUMN $_lastDeloadedColumn',
+        );
+      }
     }
   }
 
