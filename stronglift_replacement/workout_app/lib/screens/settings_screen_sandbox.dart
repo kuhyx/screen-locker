@@ -50,6 +50,11 @@ class _SandboxSectionState extends State<_SandboxSection> {
     );
   }
 
+  Future<void> _seedGaps() async {
+    await StorageService.instance.seedGapScenarios();
+    _report('Seeded backdated sessions; open the workout to see the cuts.');
+  }
+
   Future<void> _saveRest() async {
     final secs = int.tryParse(_rest.text.trim());
     if (secs == null || secs < 1) {
@@ -96,6 +101,13 @@ class _SandboxSectionState extends State<_SandboxSection> {
               child: const Icon(
                 Icons.undo,
                 semanticLabel: 'Mark today not done',
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => unawaited(_seedGaps()),
+              child: const Icon(
+                Icons.history,
+                semanticLabel: 'Seed gap deload cases',
               ),
             ),
           ],

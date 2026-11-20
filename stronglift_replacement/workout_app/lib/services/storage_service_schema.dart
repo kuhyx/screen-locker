@@ -34,6 +34,9 @@ const _progressionEventsTable = '''
 /// stamped import row beats it.
 const _updatedAtColumn = 'updated_at INTEGER NOT NULL DEFAULT 0';
 
+/// The v10 shared deload stamp (local ISO-8601), NULL = never deloaded.
+const _lastDeloadedColumn = 'last_deloaded_at TEXT';
+
 /// Milliseconds since the epoch, UTC: the value every user write stamps.
 int _nowMs() => DateTime.now().toUtc().millisecondsSinceEpoch;
 
@@ -56,7 +59,8 @@ extension StorageServiceSchema on StorageService {
         has_warmup INTEGER,
         paused_until TEXT,
         $_restColumns,
-        $_updatedAtColumn
+        $_updatedAtColumn,
+        $_lastDeloadedColumn
       )
     ''');
     await db.execute('''
@@ -154,6 +158,13 @@ extension StorageServiceSchema on StorageService {
       for (final ddl in _runsTables) {
         await db.execute(ddl);
       }
+    }
+    if (oldVersion < 10) {
+      // NULL for every existing row: no deload before v10 stamped anything,
+      // and the gap deload reads NULL as "due if the gap says so".
+      await db.execute(
+        'ALTER TABLE exercise_state ADD COLUMN $_lastDeloadedColumn',
+      );
     }
   }
 

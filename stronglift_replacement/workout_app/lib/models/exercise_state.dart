@@ -49,6 +49,7 @@ class ExerciseState implements ProgressionInputs {
     required this.restSuccessSecs,
     required this.restFailSecs,
     required this.restWarmupSecs,
+    this.lastDeloadedAt,
   });
 
   /// The state a never-trained [ex] starts from.
@@ -128,6 +129,13 @@ class ExerciseState implements ProgressionInputs {
   /// Rest after the warmup set, in seconds.
   final int restWarmupSecs;
 
+  /// When the target was last cut by a deload -- manual, gap or backfill --
+  /// or null if never. One shared stamp: the gap deload skips an exercise
+  /// deloaded after its last session, so nothing is cut twice. Optional
+  /// (unlike the rest) because only deloads write it; every other rebuild
+  /// carries it through [copyWith].
+  final DateTime? lastDeloadedAt;
+
   /// Whether the exercise is paused at [now].
   bool isPausedAt(DateTime now) {
     final until = pausedUntil;
@@ -150,6 +158,7 @@ class ExerciseState implements ProgressionInputs {
     int? restSuccessSecs,
     int? restFailSecs,
     int? restWarmupSecs,
+    DateTime? lastDeloadedAt,
     bool resume = false,
   }) => ExerciseState(
     name: name,
@@ -169,6 +178,7 @@ class ExerciseState implements ProgressionInputs {
     restSuccessSecs: restSuccessSecs ?? this.restSuccessSecs,
     restFailSecs: restFailSecs ?? this.restFailSecs,
     restWarmupSecs: restWarmupSecs ?? this.restWarmupSecs,
+    lastDeloadedAt: lastDeloadedAt ?? this.lastDeloadedAt,
   );
 }
 

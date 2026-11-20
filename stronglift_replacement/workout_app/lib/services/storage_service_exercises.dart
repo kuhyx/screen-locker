@@ -35,6 +35,7 @@ extension StorageServiceExercises on StorageService {
       restSuccessSecs: r['rest_success_secs']! as int,
       restFailSecs: r['rest_fail_secs']! as int,
       restWarmupSecs: r['rest_warmup_secs']! as int,
+      lastDeloadedAt: _parseDeloadStamp(r['last_deloaded_at']),
     );
   }
 
@@ -153,6 +154,7 @@ extension StorageServiceExercises on StorageService {
       'has_warmup': state.hasWarmup ? 1 : 0,
       'paused_until': _pauseColumn(state),
       ..._restColumnValues(state),
+      'last_deloaded_at': state.lastDeloadedAt?.toIso8601String(),
       'updated_at': _nowMs(),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }

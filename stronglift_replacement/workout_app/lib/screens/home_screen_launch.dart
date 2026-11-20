@@ -81,4 +81,23 @@ extension _HomeScreenLaunch on _HomeScreenState {
       return false;
     }
   }
+
+  /// Cuts every exercise a training break made due, then pushes the cut to
+  /// Firebase so other devices see it. The phone is the only place this
+  /// runs; the PC only reads workouts and never cuts.
+  Future<void> _applyGapDeloads(StorageService storage) async {
+    final done = await storage.applyGapDeloads();
+    if (done.isEmpty) return;
+    SandboxLog.event('gap deload', {
+      for (final d in done) d.name: '${d.from.weight}x${d.from.reps}'
+          '->${d.to.weight}x${d.to.reps}',
+    });
+    unawaited(
+      ProgressionSyncService().pushProgression().then((r) {
+        if (!r.changed) {
+          log('Gap deload not synced: ${r.reason}', level: 1000);
+        }
+      }),
+    );
+  }
 }

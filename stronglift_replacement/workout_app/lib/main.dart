@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' show log;
 import 'dart:io' show HttpOverrides, Platform;
 
 // Framework material, for its MaterialLocalizations delegate only: material_ui
@@ -16,6 +17,7 @@ import 'package:workout_app/sandbox/sandbox_log.dart';
 import 'package:workout_app/screens/home_screen.dart';
 import 'package:workout_app/services/backup_service.dart';
 import 'package:workout_app/services/break_service_controller.dart';
+import 'package:workout_app/services/exercise_state_files.dart';
 import 'package:workout_app/services/foreground_break_client_flutter.dart';
 import 'package:workout_app/services/foreground_run_client_flutter.dart';
 import 'package:workout_app/services/http_server_service.dart';
@@ -138,6 +140,8 @@ void main(List<String> args) async {
     ),
   );
   debugPrint('WorkoutApp: ${restored.reason}');
+  // The real app only: the sandbox gets backdated test data instead.
+  if (!Sandbox.enabled) await _repairProgression();
   // Android-only transport: it exists so the PC can pull today's workout off
   // the phone over LAN. On the PC itself it would bind the very port the PC
   // scans, so it is skipped rather than serving the machine to itself.
@@ -248,3 +252,28 @@ class _WorkoutAppState extends State<WorkoutApp> with WidgetsBindingObserver {
     );
   }
 }
+
+// coverage:ignore-start
+// Launch-path glue, like main() above; both halves are tested on their own
+// (exercise_state_files_test, storage_service_gap_deload_test).
+/// Imports a pushed restore file, then runs the one-time gap deload
+/// backfill (stamped, so later launches skip it), and pushes what changed.
+Future<void> _repairProgression() async {
+  final files = ExerciseStateFiles();
+  final restore = await files.importRestoreFile();
+  debugPrint('WorkoutApp: ${restore.reason}');
+  final backfill = await StorageService.instance.runGapDeloadBackfill(
+    writeExport: files.writeDeloadExport,
+  );
+  debugPrint('WorkoutApp: ${backfill.reason}');
+  if (restore.rows > 0 || backfill.deloads.isNotEmpty) {
+    unawaited(
+      ProgressionSyncService().pushProgression().then((r) {
+        if (!r.changed) {
+          log('Repaired progression not synced: ${r.reason}', level: 1000);
+        }
+      }),
+    );
+  }
+}
+// coverage:ignore-end

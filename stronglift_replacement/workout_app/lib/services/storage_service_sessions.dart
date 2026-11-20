@@ -12,29 +12,20 @@ extension StorageServiceSessions on StorageService {
   ///
   /// The step itself comes from [targetAfterSuccess] / [targetAfterFailure],
   /// the same functions the workout screen previews with, so what the tile
-  /// promises is what finishing does.
+  /// promises is what finishing does. A training break is NOT handled here:
+  /// the gap deload already cut the target when the workout loaded
+  /// (`applyGapDeloads`), so finishing never cuts a second time. The old
+  /// break branch here could not fire anyway: the session is saved before
+  /// this runs, so "days since the last workout" was always 0.
   Future<void> applyProgression({
     required Map<String, bool> succeededExercises,
-    required DateTime lastWorkoutDate,
   }) async {
-    final daysSince = DateTime.now().difference(lastWorkoutDate).inDays;
-    final hadBreak = daysSince > 7;
-
     for (final entry in succeededExercises.entries) {
       final state = await getExerciseState(entry.key);
       if (state == null) continue;
 
       final Map<String, Object> update;
-      if (hadBreak) {
-        // A week off is one regression step, in whatever mode is active.
-        final t = targetAfterFailure(state);
-        update = {
-          'weight': t.weight,
-          'reps': t.reps,
-          'success_streak': 0,
-          'fail_streak': 0,
-        };
-      } else if (entry.value) {
+      if (entry.value) {
         final newStreak = state.successStreak + 1;
         final step = newStreak >= state.successThreshold;
         final t = step

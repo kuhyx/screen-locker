@@ -13,6 +13,7 @@ import 'package:workout_app/screens/settings_screen.dart';
 import 'package:workout_app/screens/workout_screen.dart';
 import 'package:workout_app/services/done_today.dart';
 import 'package:workout_app/services/lock_mode.dart';
+import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_status.dart';
 import 'package:workout_app/services/workout_sync_service.dart';
@@ -90,8 +91,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _load() async {
     final storage = StorageService.instance;
     final nextType = await storage.getNextWorkoutType();
-    final exercises = await storage.getCurrentExercises(nextType);
     final saved = await storage.loadActiveSession();
+    // The gap deload runs before the targets are read, so the workout opens
+    // at the cut weight. Never under a saved session: that workout already
+    // started at its own targets. Stamped per exercise, so a reload is a no-op.
+    if (saved == null) await _applyGapDeloads(storage);
+    final exercises = await storage.getCurrentExercises(nextType);
     final lastDate = await storage.getLastWorkoutDate();
     final today = DateTime.now();
     final doneLocally =

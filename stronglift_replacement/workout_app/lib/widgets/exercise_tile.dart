@@ -31,7 +31,12 @@ class ExerciseTile extends StatelessWidget {
     required this.onSettingsChanged,
     required this.onDeload,
     super.key,
+    this.deloadedFrom,
   });
+
+  /// The target a gap deload cut this exercise from, until the next
+  /// session: shown struck through beside the new one, with a down arrow.
+  final ProgressionTarget? deloadedFrom;
 
   /// The exercise definition to display (this session's targets).
   final Exercise exercise;
@@ -126,6 +131,14 @@ class ExerciseTile extends StatelessWidget {
                   onTap: () => showExerciseSettings(context),
                 ),
                 const SizedBox(width: 8),
+                if (deloadedFrom case final from?
+                    when from.weight != exercise.weight ||
+                        from.reps != exercise.reps)
+                  _DeloadedFrom(
+                    from: from,
+                    exercise: exercise,
+                    color: onHeaderMuted,
+                  ),
                 Text(
                   '${exercise.sets}×${exercise.reps}×${exercise.weight}kg',
                   style: TextStyle(

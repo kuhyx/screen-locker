@@ -32,11 +32,9 @@ void main() {
 
     // Default success threshold is 3 — three straight successes trigger a
     // progression, which at the cap increments reps instead of weight.
-    final today = DateTime.now();
     for (var i = 0; i < 3; i++) {
       await _svc.applyProgression(
         succeededExercises: {name: true},
-        lastWorkoutDate: today,
       );
     }
 

@@ -33,7 +33,11 @@ class _WorkoutBody extends StatelessWidget {
     required this.onTapWarmup,
     required this.onSettingsChanged,
     required this.onDeload,
+    this.gapDeloads = const {},
   });
+
+  /// Gap deloads no session has followed yet, by exercise name.
+  final Map<String, ProgressionEvent> gapDeloads;
 
   /// The exercises in this session, in display order.
   final List<Exercise> exercises;
@@ -145,6 +149,10 @@ class _WorkoutBody extends StatelessWidget {
       onTapWarmup: () => onTapWarmup(i),
       onSettingsChanged: onSettingsChanged,
       onDeload: () => onDeload(i),
+      deloadedFrom: switch (gapDeloads[ex.name]) {
+        null => null,
+        final e => ProgressionTarget(e.fromWeight, e.fromReps),
+      },
     );
   }
 }

@@ -67,4 +67,71 @@ extension StorageServiceSandbox on StorageService {
   /// Persists the speed-up the sandbox replays its GPS run at.
   Future<void> setSandboxReplayFactor(int factor) =>
       _setSetting(kSandboxReplayFactorKey, '$factor');
+
+  /// Wipes, then backdates finished sessions so the next workout load runs
+  /// every gap-deload case at once (sandbox only, never the real app):
+  /// Lunge 8 days (one step), Bench 15 days (two), Row 5 days (none), Curl
+  /// 40 days (stops at the 40% cap); in workout B, Romanian Deadlift in reps
+  /// mode and Overhead Press in double progression, both 14 days.
+  Future<void> seedGapScenarios([DateTime? now]) async {
+    final at = now ?? DateTime.now();
+    await wipeAll();
+    Future<void> seed(
+      String name,
+      int daysAgo, {
+      required double weight,
+      required int reps,
+      ProgressionMode mode = ProgressionMode.weight,
+    }) async {
+      await _db.update(
+        'exercise_state',
+        {'weight': weight, 'reps': reps, 'progression_mode': mode.storageKey},
+        where: 'name = ?',
+        whereArgs: [name],
+      );
+      final end = at.subtract(Duration(days: daysAgo));
+      final start = end.subtract(const Duration(hours: 1));
+      final day = start.toIso8601String().substring(0, 10);
+      await _db.insert('workout_history', {
+        'date': day,
+        'workout_type': 'A',
+        'duration_seconds': 3600,
+        'succeeded': 1,
+        'json': jsonEncode({
+          'date': day,
+          'start_time': start.toIso8601String(),
+          'end_time': end.toIso8601String(),
+          'exercises': [
+            {
+              'name': name,
+              'targetWeight': weight,
+              'targetReps': reps,
+              'succeeded': true,
+            },
+          ],
+        }),
+      });
+    }
+
+    await seed('Dumbbell Lunge', 8, weight: 20, reps: 12);
+    await seed('Dumbbell Bench Press', 15, weight: 22.5, reps: 12);
+    await seed('Dumbbell Row', 5, weight: 22.5, reps: 6);
+    await seed('Dumbbell Curl', 40, weight: 12.5, reps: 12);
+    await seed(
+      'Dumbbell Romanian Deadlift',
+      14,
+      weight: 27.5,
+      reps: 10,
+      mode: ProgressionMode.reps,
+    );
+    await seed(
+      'Dumbbell Overhead Press',
+      14,
+      weight: 7.5,
+      reps: 8,
+      mode: ProgressionMode.doubleProgression,
+    );
+    // Last was B, so the home screen offers A with the four A cases.
+    await _setSetting('last_workout_type', 'B');
+  }
 }

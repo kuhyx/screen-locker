@@ -7,7 +7,6 @@ import 'package:workout_app/services/storage_service.dart';
 
 StorageService get _svc => StorageService.instance;
 
-final _yesterday = DateTime.now().subtract(const Duration(days: 1));
 
 void main() {
   setUpAll(() {
@@ -71,7 +70,6 @@ void main() {
       ProgressionMode mode, {
       required bool success,
       required int reps,
-      DateTime? last,
     }) async {
       final name = workoutA.first.name;
       final s = (await _svc.getExerciseState(name))!;
@@ -82,7 +80,6 @@ void main() {
       await _svc.setExerciseWeight(name, 10);
       await _svc.applyProgression(
         succeededExercises: {name: success},
-        lastWorkoutDate: last ?? _yesterday,
       );
       return (await _svc.getExerciseState(name))!;
     }
@@ -113,16 +110,6 @@ void main() {
         reps: 6,
       );
       expect((s.weight, s.reps), (7.5, 12));
-    });
-
-    test('a week off is one regression step in the active mode', () async {
-      final s = await run(
-        ProgressionMode.reps,
-        success: true,
-        reps: 10,
-        last: DateTime.now().subtract(const Duration(days: 9)),
-      );
-      expect((s.weight, s.reps, s.successStreak, s.failStreak), (10, 9, 0, 0));
     });
   });
 }

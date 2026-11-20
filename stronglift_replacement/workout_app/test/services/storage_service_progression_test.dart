@@ -34,7 +34,6 @@ void main() {
       final before = await _svc.getExerciseState(name);
       await _svc.applyProgression(
         succeededExercises: {name: true},
-        lastWorkoutDate: DateTime.now().subtract(const Duration(days: 1)),
       );
       final after = await _svc.getExerciseState(name);
       expect(after!.successStreak, (before!.successStreak + 1));
@@ -50,7 +49,6 @@ void main() {
       final before = await _svc.getExerciseState(name);
       await _svc.applyProgression(
         succeededExercises: {name: true},
-        lastWorkoutDate: DateTime.now().subtract(const Duration(days: 1)),
       );
       final after = await _svc.getExerciseState(name);
       // Weight should increase (if below maxWeight) or reps increase
@@ -71,7 +69,6 @@ void main() {
       final before = await _svc.getExerciseState(name);
       await _svc.applyProgression(
         succeededExercises: {name: false},
-        lastWorkoutDate: DateTime.now().subtract(const Duration(days: 1)),
       );
       final after = await _svc.getExerciseState(name);
       expect(after!.failStreak, (before!.failStreak + 1));
@@ -87,28 +84,14 @@ void main() {
       final before = await _svc.getExerciseState(name);
       await _svc.applyProgression(
         succeededExercises: {name: false},
-        lastWorkoutDate: DateTime.now().subtract(const Duration(days: 1)),
       );
       final after = await _svc.getExerciseState(name);
       expect(after!.weight, lessThanOrEqualTo(before!.weight));
     });
 
-    test('reduces weight after long break (> 7 days)', () async {
-      final name = workoutA.first.name;
-      await _svc.setExerciseWeight(name, 20.0);
-      final before = await _svc.getExerciseState(name);
-      await _svc.applyProgression(
-        succeededExercises: {name: true},
-        lastWorkoutDate: DateTime.now().subtract(const Duration(days: 10)),
-      );
-      final after = await _svc.getExerciseState(name);
-      expect(after!.weight, lessThan(before!.weight));
-    });
-
     test('skips unknown exercise gracefully', () async {
       await _svc.applyProgression(
         succeededExercises: {'Ghost Exercise': true},
-        lastWorkoutDate: DateTime.now().subtract(const Duration(days: 1)),
       );
       // No exception thrown — that's the test.
     });

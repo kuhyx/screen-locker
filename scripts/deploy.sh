@@ -101,6 +101,24 @@ desktop() {
     ok "restarted ${UNITS[*]}"
 }
 
+# The app's one-time gap deload backfill saves the pre-cut exercise_state on
+# its first start after install; keep a PC copy so restore works without the
+# phone's dir. The app needs a few seconds after launch, hence the retries;
+# a miss only warns, `restore_exercise_state.py pull` fetches it later.
+deload_export() {
+    local tries
+    [[ -f "$HOME/.local/state/screen-locker/exercise_state_pre_gap_deload.json" ]] && return 0
+    for tries in 1 2 3 4 5 6 7 8 9 10; do
+        if python3 "$LIVE/scripts/restore_exercise_state.py" pull >/dev/null 2>&1; then
+            ok "pre-gap-deload export copied to ~/.local/state/screen-locker/"
+            return 0
+        fi
+        sleep 2
+    done
+    echo "deploy: WARN: no pre-gap-deload export pulled after $tries tries;" \
+        "run: python3 $LIVE/scripts/restore_exercise_state.py pull" >&2
+}
+
 phone() {
     local rc=0 tree
     tree="$(git -C "$LIVE" rev-parse "HEAD:$APP_DIR")" || die "no $APP_DIR tree at $LIVE HEAD"
@@ -114,6 +132,7 @@ phone() {
             mkdir -p "$(dirname "$PHONE_APP_MARKER")"
             printf '%s\n' "$tree" > "$PHONE_APP_MARKER"
             ok "workout app release build installed on the phone (tree ${tree:0:10})"
+            deload_export
             ;;
         46) die "phone_deploy protect guard (exit 46) refused com.kuhy.workout_app;" \
                 "kuhy runs: PHONE_PROTECT_ALLOW=com.kuhy.workout_app bash $LIVE/scripts/deploy.sh" \

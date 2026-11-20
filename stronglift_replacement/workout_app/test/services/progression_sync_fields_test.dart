@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:crdt_sync/crdt_sync.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:workout_app/models/manual_deload.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 
@@ -110,4 +111,26 @@ void main() {
       );
     },
   );
+
+  test('the shared deload stamp syncs and pulls back (C8)', () async {
+    final storage = StorageService.instance;
+    await storage.manualDeload('Situp', source: DeloadSource.settings);
+    final stamp = (await storage.getExerciseState('Situp'))!.lastDeloadedAt!;
+    await markSynced();
+    await sync.pushProgression();
+    expect(_payload(store, 'Situp')['last_deloaded_at'], stamp.toIso8601String());
+
+    StorageService.resetForTesting();
+    await StorageService.init();
+    await sync.pullProgression();
+    final pulled = (await storage.getExerciseState('Situp'))!;
+    expect(pulled.lastDeloadedAt, stamp);
+  });
+
+  test('a record without the stamp pulls as never deloaded', () async {
+    seedRemote(store, 'Situp', weight: 5, reps: 31, maxWeight: 10);
+    await sync.pullProgression();
+    final s = (await StorageService.instance.getExerciseState('Situp'))!;
+    expect(s.lastDeloadedAt, isNull);
+  });
 }

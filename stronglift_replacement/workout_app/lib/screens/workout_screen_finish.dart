@@ -85,13 +85,11 @@ extension _WorkoutScreenFinish on _WorkoutScreenState {
       json: session.toJsonString(),
     );
 
-    final lastDate = await storage.getLastWorkoutDate() ?? _startTime;
     await storage.applyProgression(
       succeededExercises: {
         for (int i = 0; i < _exercises.length; i++)
           _exercises[i].name: results[i].succeeded,
       },
-      lastWorkoutDate: lastDate,
     );
     await storage.setLastWorkoutType(widget.workoutType);
     await storage.clearActiveSession();

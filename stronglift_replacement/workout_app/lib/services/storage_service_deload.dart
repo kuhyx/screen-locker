@@ -42,6 +42,9 @@ extension StorageServiceDeload on StorageService {
       );
     }
 
+    // One stamp for manual and gap deloads: the gap deload skips an
+    // exercise deloaded since its last session.
+    final at = DateTime.now();
     final changed = await _db.transaction((txn) async {
       final rows = await txn.update(
         'exercise_state',
@@ -50,6 +53,7 @@ extension StorageServiceDeload on StorageService {
           'reps': t.reps,
           'success_streak': 0,
           'fail_streak': 0,
+          'last_deloaded_at': at.toIso8601String(),
           'updated_at': _nowMs(),
         },
         where: 'name = ?',
@@ -59,7 +63,7 @@ extension StorageServiceDeload on StorageService {
       // must not leave an event describing a deload nobody received.
       if (rows != 1) return false;
       await txn.insert('progression_events', {
-        'at': DateTime.now().toIso8601String(),
+        'at': at.toIso8601String(),
         'exercise': name,
         'kind': kManualDeloadKind,
         'source': source.storageKey,
@@ -86,6 +90,7 @@ extension StorageServiceDeload on StorageService {
         reps: t.reps,
         successStreak: 0,
         failStreak: 0,
+        lastDeloadedAt: at,
       ),
       reason: reason,
     );

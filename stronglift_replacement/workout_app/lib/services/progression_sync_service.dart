@@ -111,6 +111,7 @@ class ProgressionSyncService {
     'rest_success_secs': s.restSuccessSecs,
     'rest_fail_secs': s.restFailSecs,
     'rest_warmup_secs': s.restWarmupSecs,
+    'last_deloaded_at': s.lastDeloadedAt?.toIso8601String(),
   };
 
   // Every field after fail_threshold is lenient: records pushed before it
@@ -135,6 +136,10 @@ class ProgressionSyncService {
         (j['rest_fail_secs'] as num?)?.toInt() ?? kDefaultRestFailSecs,
     restWarmupSecs:
         (j['rest_warmup_secs'] as num?)?.toInt() ?? kDefaultRestWarmupSecs,
+    lastDeloadedAt: switch (j['last_deloaded_at']) {
+      final String raw => DateTime.tryParse(raw),
+      _ => null,
+    },
   );
 
   /// The remote path holding [name]'s progression record.

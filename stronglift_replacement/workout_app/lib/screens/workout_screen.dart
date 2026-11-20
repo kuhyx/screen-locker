@@ -85,6 +85,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   late final List<Exercise> _exercises = List.of(widget.exercises);
   Map<String, ExerciseState> _exerciseStates = {};
 
+  /// Gap deloads this workout opened with, shown struck through on tiles.
+  Map<String, ProgressionEvent> _gapDeloads = {};
+
   // Break state. The deadline is the source of truth: `_breakClock` is what
   // survives the app being backgrounded, and everything else is derived from
   // it. See services/break_clock.dart for why a tick counter could not be.
@@ -153,11 +156,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   Future<void> _loadExerciseStates() async {
     final states = await StorageService.instance.getAllExerciseStates();
+    final gapDeloads = await StorageService.instance.activeGapDeloads();
     // After, not beside, the read above: the push below carries both.
     await _cues.load();
     if (mounted) {
       setState(() {
         _exerciseStates = {for (final s in states) s.name: s};
+        _gapDeloads = gapDeloads;
       });
       // The first snapshot can go out before this load lands, and it would
       // count a paused exercise's sets until the next tap. A no-op if the
@@ -226,6 +231,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           child: _WorkoutBody(
             exercises: _exercises,
             exerciseStates: _exerciseStates,
+            gapDeloads: _gapDeloads,
             tapped: _tapped,
             doneReps: _doneReps,
             warmupTapped: _warmupTapped,

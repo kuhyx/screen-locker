@@ -162,7 +162,6 @@ void main() {
       () => expectStamped(
         () => _svc.applyProgression(
           succeededExercises: {name: true},
-          lastWorkoutDate: DateTime.now(),
         ),
       ),
     );
