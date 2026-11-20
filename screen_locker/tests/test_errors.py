@@ -43,12 +43,25 @@ def test_cli_installs_the_reporter_before_any_mode() -> None:
 def test_lock_window_watches_stalls_once_installed(
     monkeypatch: pytest.MonkeyPatch, mock_tk: MagicMock, tmp_path: Path
 ) -> None:
-    """A lock window built after install reports its own freezes."""
+    """A lock window built after install reports its own freezes.
+
+    The watch arms only once the event loop is pumping: building the window
+    (xrandr scan, setxkbmap, surfaces, grab) runs before ``mainloop`` and
+    nothing is on screen to freeze yet, so arming it in ``__init__`` reported
+    the build as a 1.5 s ``tk.mainloop`` stall (screen-locker:c890f31a21).
+    """
     watch = MagicMock()
     monkeypatch.setattr(screen_lock, "watch_stalls", watch)
     monkeypatch.setattr(_errors.SLOT, "reporter", MagicMock())
     locker = create_locker(mock_tk, tmp_path)
+    watch.assert_not_called()
+    locker._lock = None
+    locker.run()
+    (arm,) = locker.root.after_idle.call_args.args
+    watch.assert_not_called()
+    arm()
     watch.assert_called_once_with(locker.root, _errors.SLOT.reporter)
+    locker.root.mainloop.assert_called_once()
 
 
 def test_lock_window_skips_the_watch_without_install(
@@ -57,5 +70,8 @@ def test_lock_window_skips_the_watch_without_install(
     """Tests and library callers that never installed get no watch."""
     watch = MagicMock()
     monkeypatch.setattr(screen_lock, "watch_stalls", watch)
-    create_locker(mock_tk, tmp_path)
+    locker = create_locker(mock_tk, tmp_path)
+    locker._lock = None
+    locker.run()
+    locker.root.after_idle.assert_not_called()
     watch.assert_not_called()

@@ -142,8 +142,6 @@ class ScreenLocker(
         self._check_early_exits()
         try:
             self.root = GateRoot()
-            if _errors.SLOT.reporter is not None:
-                watch_stalls(self.root, _errors.SLOT.reporter)
         except tk.TclError as exc:
             _logger.warning(
                 "Could not open a window on DISPLAY=%s (%s) — this run cannot "
@@ -237,6 +235,9 @@ class ScreenLocker(
 
     def run(self) -> None:
         """Start the Tkinter main event loop."""
+        if (reporter := _errors.SLOT.reporter) is not None:
+            # Armed here, not in __init__: the build is no freeze (c890f31a21).
+            self.root.after_idle(lambda: watch_stalls(self.root, reporter))
         if self._lock is not None:
             self._lock.run()
         else:
