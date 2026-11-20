@@ -38,7 +38,8 @@ void main() {
     expect(find.byIcon(Icons.arrow_downward), findsOneWidget);
     expect(_decoration(tester, '20.0kg'), TextDecoration.lineThrough);
     expect(find.textContaining('3×5×17.5kg'), findsOneWidget);
-    expect(find.bySemanticsLabel('Squat deloaded after a break'), findsOne);
+    final arrow = tester.widget<Icon>(find.byIcon(Icons.arrow_downward));
+    expect(arrow.semanticLabel, 'Squat deloaded after a break');
   });
 
   testWidgets('a reps-only cut strikes the old reps', (tester) async {
