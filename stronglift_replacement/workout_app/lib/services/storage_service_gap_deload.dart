@@ -120,10 +120,15 @@ extension StorageServiceGapDeload on StorageService {
   /// The newest gap or backfill deload per exercise that no session has
   /// followed yet: what the tile shows struck through.
   Future<Map<String, ProgressionEvent>> activeGapDeloads() async {
+    final events = [
+      for (final e in await getProgressionEvents())
+        if (e.kind == kGapDeloadKind || e.kind == kBackfillDeloadKind) e,
+    ];
+    // The usual case: no gap deload ever, so no history scan.
+    if (events.isEmpty) return const {};
     final marks = await sessionMarks();
     final shown = <String, ProgressionEvent>{};
-    for (final e in await getProgressionEvents()) {
-      if (e.kind != kGapDeloadKind && e.kind != kBackfillDeloadKind) continue;
+    for (final e in events) {
       if (shown.containsKey(e.exercise)) continue; // newest first
       final history = marks[e.exercise];
       if (history != null &&

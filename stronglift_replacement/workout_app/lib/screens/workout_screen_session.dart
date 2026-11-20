@@ -8,21 +8,24 @@ part of 'workout_screen.dart';
 
 /// Save/restore of the crash-recovery session blob and break bookkeeping.
 extension _WorkoutScreenSession on _WorkoutScreenState {
-  /// Loads every exercise's state and the gap deloads to show.
+  /// Loads every exercise's state, then the gap deloads to show.
   Future<void> _loadExerciseStates() async {
-    final states = await StorageService.instance.getAllExerciseStates();
-    final gapDeloads = await StorageService.instance.activeGapDeloads();
+    final storage = StorageService.instance;
+    final states = await storage.getAllExerciseStates();
     // After, not beside, the read above: the push below carries both.
     await _cues.load();
-    if (mounted) {
-      _applyBreakState(() {
-        _exerciseStates = {for (final s in states) s.name: s};
-        _gapDeloads = gapDeloads;
-      });
-      // The first snapshot can go out before this load lands, and it would
-      // count a paused exercise's sets until the next tap. A no-op if the
-      // service has not started yet: start() builds its own, current one.
-      unawaited(_breaks.push(_buildSnapshot()));
+    if (!mounted) return;
+    _applyBreakState(() {
+      _exerciseStates = {for (final s in states) s.name: s};
+    });
+    // The first snapshot can go out before this load lands, and it would
+    // count a paused exercise's sets until the next tap. A no-op if the
+    // service has not started yet: start() builds its own, current one.
+    unawaited(_breaks.push(_buildSnapshot()));
+    // Last, and only for the tiles: the struck-through pre-deload targets.
+    final gapDeloads = await storage.activeGapDeloads();
+    if (mounted && gapDeloads.isNotEmpty) {
+      _applyBreakState(() => _gapDeloads = gapDeloads);
     }
   }
 
