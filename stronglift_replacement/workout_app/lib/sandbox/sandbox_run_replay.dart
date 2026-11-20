@@ -10,7 +10,7 @@ import 'dart:math' as math;
 import 'package:workout_app/sandbox/sandbox.dart';
 import 'package:workout_app/services/gps_filter.dart';
 import 'package:workout_app/services/position_source.dart';
-import 'package:workout_app/services/position_source_geolocator.dart';
+import 'package:workout_app/services/position_source_location_manager.dart';
 import 'package:workout_app/services/position_source_scripted.dart';
 
 /// Length of the synthetic loop in metres.
@@ -60,11 +60,11 @@ PositionSource sandboxRunSource({DateTime? now}) => ScriptedPositionSource(
 /// The source a recording uses: the replay in the sandbox, the phone's GPS
 /// otherwise.
 PositionSource positionSourceFor() =>
-    Sandbox.enabled ? sandboxRunSource() : GeolocatorPositionSource();
+    Sandbox.enabled ? sandboxRunSource() : LocationManagerPositionSource();
 
 /// The source the idle map watches: in the sandbox just the replay's first
 /// fix (so the marker sits at the loop's start and does not walk the lap
 /// before the run), the phone's GPS otherwise.
 PositionSource idlePositionSourceFor({DateTime? now}) => Sandbox.enabled
     ? ScriptedPositionSource([sandboxLoopFixes(now ?? DateTime.now()).first])
-    : GeolocatorPositionSource();
+    : LocationManagerPositionSource();

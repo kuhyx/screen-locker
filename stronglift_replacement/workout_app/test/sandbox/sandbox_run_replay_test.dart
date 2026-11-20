@@ -3,7 +3,7 @@ import 'package:workout_app/models/run_track.dart';
 import 'package:workout_app/sandbox/sandbox.dart';
 import 'package:workout_app/sandbox/sandbox_run_replay.dart';
 import 'package:workout_app/services/gps_filter.dart';
-import 'package:workout_app/services/position_source_geolocator.dart';
+import 'package:workout_app/services/position_source_location_manager.dart';
 import 'package:workout_app/services/position_source_scripted.dart';
 import 'package:workout_app/services/run_math.dart';
 
@@ -70,7 +70,7 @@ void main() {
     Sandbox.enabled = true;
     expect(positionSourceFor(), isA<ScriptedPositionSource>());
     Sandbox.enabled = false;
-    expect(positionSourceFor(), isA<GeolocatorPositionSource>());
+    expect(positionSourceFor(), isA<LocationManagerPositionSource>());
   });
 
   test('the idle position is the replay first fix, and only that', () async {
@@ -83,6 +83,6 @@ void main() {
     expect(fixes.single.longitude, first.longitude);
     expect((await source.requestAccess()).isGranted, isTrue);
     Sandbox.enabled = false;
-    expect(idlePositionSourceFor(), isA<GeolocatorPositionSource>());
+    expect(idlePositionSourceFor(), isA<LocationManagerPositionSource>());
   });
 }

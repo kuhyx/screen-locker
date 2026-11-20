@@ -18,7 +18,7 @@ import 'package:workout_app/sandbox/sandbox_run_replay.dart';
 import 'package:workout_app/services/feedback_cues.dart';
 import 'package:workout_app/services/gps_filter.dart';
 import 'package:workout_app/services/position_source.dart';
-import 'package:workout_app/services/position_source_geolocator.dart';
+import 'package:workout_app/services/position_source_location_manager.dart';
 import 'package:workout_app/services/run_checkpoint_location.dart';
 import 'package:workout_app/services/run_engine_recorder.dart';
 import 'package:workout_app/services/run_host.dart';
@@ -116,7 +116,7 @@ class _RunServiceTaskHandler extends TaskHandler {
       engineFactory: recorderEngineFactory(
         () => Sandbox.enabled
             ? sandboxRunSource()
-            : NoPromptSource(GeolocatorPositionSource()),
+            : NoPromptSource(LocationManagerPositionSource()),
       ),
       port: port,
       store: await openRunCheckpointStore(),

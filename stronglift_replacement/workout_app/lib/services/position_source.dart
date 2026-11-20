@@ -2,7 +2,7 @@
 ///
 /// Everything above this interface (recorder, map, sandbox replay) is pure
 /// Dart and runs on the Linux test host and the desktop target; only
-/// `GeolocatorPositionSource` touches the geolocator plugin.
+/// `LocationManagerPositionSource` touches the platform_location plugin.
 library;
 
 import 'package:workout_app/services/gps_filter.dart';

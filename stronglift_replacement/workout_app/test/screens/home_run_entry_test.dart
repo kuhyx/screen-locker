@@ -1,7 +1,7 @@
 // The run icon on the home screen opens the run screen.
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:platform_location/platform_location.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -9,7 +9,7 @@ import 'package:workout_app/screens/run_screen.dart';
 import 'package:workout_app/services/storage_service.dart';
 
 import '../fake_audio_platform.dart';
-import '../fake_geolocator.dart';
+import '../fake_platform_location.dart';
 import '../fake_secure_storage.dart';
 import '../run_persist_rig.dart';
 import '_home_test_fixtures.dart';
@@ -29,9 +29,9 @@ void main() {
     installFakeSecureStorage();
     installFakeAudioPlatform();
     // The real run controller asks the real source where the user is.
-    final original = GeolocatorPlatform.instance;
-    GeolocatorPlatform.instance = FakeGeolocator();
-    addTearDown(() => GeolocatorPlatform.instance = original);
+    final original = PlatformLocation.instance;
+    PlatformLocation.instance = FakePlatformLocation();
+    addTearDown(() => PlatformLocation.instance = original);
     // `main` installs the real wiring; here the run lives in a fake host.
     RunScreen.defaultControllerFactory = PersistRig().build;
     addTearDown(() => RunScreen.defaultControllerFactory = null);

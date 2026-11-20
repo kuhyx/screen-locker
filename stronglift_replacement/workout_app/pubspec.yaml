@@ -39,8 +39,6 @@ dependencies:
   flutter_map: 8.3.2
   flutter_map_cache: 2.1.2
   flutter_secure_storage: 11.2.0
-  # GPS fixes, behind the PositionSource seam (lib/services/position_source).
-  geolocator: 14.1.2
   # One-tap sign-in for the sync account (AccountManager ID token; no Play
   # Services SDK in the APK). App-side only: crdt_sync stays pure Dart so it
   # keeps working on Linux desktop and headless.
@@ -56,6 +54,14 @@ dependencies:
   path: 1.9.1
   path_provider: 2.1.6
   permission_handler: 13.0.2
+  # GPS fixes over AOSP LocationManager, behind the PositionSource seam
+  # (lib/services/position_source). No Google Play services: the previous
+  # plugin linked non-free play-services-location on Android.
+  platform_location:
+    git:
+      url: https://github.com/kuhyx/utils
+      ref: platform_location-v0.1.0
+      path: platform_location
   shared_preferences: 2.5.6
   sqflite: 2.4.6
   # Linux desktop has no sqflite plugin; the FFI factory drives the same
