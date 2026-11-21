@@ -11,6 +11,7 @@
 /// after its first reconcile the phone never pulls progression again (local
 /// wins), so a PC-side Firebase write would never land and be overwritten
 /// by the next push.
+// phone-slot: not-shared-storage (paths come from path_provider, per package)
 library;
 
 import 'dart:async';
