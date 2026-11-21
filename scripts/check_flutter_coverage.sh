@@ -101,6 +101,10 @@ case "${1:-}" in
     mapfile -t files < <(shard_files "$index" "$GATE_SHARDS")
     (( ${#files[@]} > 0 )) || die "shard $index/$GATE_SHARDS has no test files"
     echo "Gate shard $index/$GATE_SHARDS: ${#files[@]} test files, tree ${tree:0:12}"
+    # The gate runs every shard under capped.sh's 4 GiB: one isolate per core
+    # (16 here) hit the cap in ~6 s and the kernel OOM-killed the step
+    # (2026-11-21). Two isolates fit; an explicit value still wins.
+    export FLUTTER_TEST_CONCURRENCY="${FLUTTER_TEST_CONCURRENCY:-2}"
     rm -f "$LCOV_INFO"
     run_flutter_tests "${files[@]}"
     [[ -s "$LCOV_INFO" ]] || die "flutter produced no $LCOV_INFO"
