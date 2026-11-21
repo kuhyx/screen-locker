@@ -20,10 +20,16 @@
 # written to PHONE_APP_MARKER after each install; no marker means the phone is
 # required (fail closed). Any app change gives a new tree, so it is never skipped.
 #
-# Usage: bash scripts/deploy.sh [--health-only | --phone-only]
+# Web: the server serves web/dist, which git ignores, so a pull alone left the
+# last hand-built bundle live. The bundle is rebuilt (pnpm install + build,
+# which stamps /version) whenever the git tree of web/ differs from the one in
+# WEB_BUILD_MARKER, before the restart; a failed build fails the deploy.
+#
+# Usage: bash scripts/deploy.sh [--health-only | --phone-only | --web-only]
 #
 # Seams: SCREEN_LOCKER_LIVE (live clone), DEPLOY_WEB_PORT (health port),
-# PHONE_DEPLOY (installer), PHONE_APP_MARKER (last installed app tree).
+# PHONE_DEPLOY (installer), PHONE_APP_MARKER (last installed app tree),
+# WEB_PNPM (pnpm binary), WEB_BUILD_MARKER (last built web tree).
 # Exit: 0 healthy and installed everywhere | 1 any step or check failed.
 
 set -euo pipefail
@@ -33,6 +39,8 @@ readonly PY="/usr/bin/python3"
 readonly APP_DIR="stronglift_replacement/workout_app"
 readonly PHONE_DEPLOY="${PHONE_DEPLOY:-$HOME/.claude/scripts/phone_deploy.sh}"
 readonly PHONE_APP_MARKER="${PHONE_APP_MARKER:-$HOME/.local/state/screen-locker/phone_app_tree}"
+readonly WEB_PNPM="${WEB_PNPM:-pnpm}"
+readonly WEB_BUILD_MARKER="${WEB_BUILD_MARKER:-$HOME/.local/state/screen-locker/web_tree}"
 readonly UNITS=(screen-locker-web.service workout-poke.service runnerup-watch.service)
 
 die() { echo "deploy: FAIL: $*" >&2; exit 1; }
@@ -92,6 +100,7 @@ desktop() {
         || die "$LIVE HEAD is not its upstream after the pull"
     ok "live clone at $(git -C "$LIVE" rev-parse --short HEAD)"
     bash "$LIVE/install.sh" || die "install.sh failed"
+    web
     for unit in "${UNITS[@]}"; do before[$unit]="$(main_pid "$unit")"; done
     systemctl --user restart "${UNITS[@]}" || die "restart of ${UNITS[*]} failed"
     for unit in "${UNITS[@]}"; do
@@ -99,6 +108,21 @@ desktop() {
             || die "$unit kept PID ${before[$unit]}: restart did not take"
     done
     ok "restarted ${UNITS[*]}"
+}
+
+# Rebuild web/dist when web/ changed since the last good build (see header).
+web() {
+    local tree
+    tree="$(git -C "$LIVE" rev-parse HEAD:web)" || die "no web tree at $LIVE HEAD"
+    if [[ "$(cat "$WEB_BUILD_MARKER" 2>/dev/null || true)" == "$tree" ]]; then
+        ok "web unchanged since the last build (tree ${tree:0:10}); build skipped"
+        return 0
+    fi
+    "$WEB_PNPM" -C "$LIVE/web" install --frozen-lockfile || die "web: pnpm install failed"
+    "$WEB_PNPM" -C "$LIVE/web" run build || die "web: pnpm run build failed"
+    mkdir -p "$(dirname "$WEB_BUILD_MARKER")"
+    printf '%s\n' "$tree" > "$WEB_BUILD_MARKER"
+    ok "web/dist rebuilt (tree ${tree:0:10})"
 }
 
 # The app's one-time gap deload backfill saves the pre-cut exercise_state on
@@ -143,6 +167,10 @@ phone() {
 
 if [[ "${1:-}" == "--phone-only" ]]; then
     phone
+    exit 0
+fi
+if [[ "${1:-}" == "--web-only" ]]; then
+    web
     exit 0
 fi
 if [[ "${1:-}" == "--health-only" ]]; then
