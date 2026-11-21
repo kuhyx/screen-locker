@@ -130,9 +130,13 @@ class TestFlatEarners:
     def test_a_newly_registered_earner_is_picked_up(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """An earner added to the registry later appears among the flat earners."""
+        """An earner added to the registry later appears among the flat earners.
+
+        Not asserted as the last one: from ``REVIEW_FROM`` the registry appends
+        the review top-up after the stand-in.
+        """
         register(monkeypatch, EXTRA)
-        assert flat_earners()[-1] is EXTRA
+        assert EXTRA in flat_earners()
 
     def test_a_flat_earner_without_a_ledger_is_left_out(
         self, monkeypatch: pytest.MonkeyPatch
