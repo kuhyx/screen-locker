@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from screen_locker import _credit
+from screen_locker import _credit, _heat_skip, status_view
 from screen_locker._surface_group import FrameGroup
 from screen_locker.tests.conftest import create_locker
 
@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
 
 def test_place_credit_puts_the_logo_bottom_right() -> None:
+    """The logo sits in the corner, sized from the lock's display type."""
     parent = MagicMock()
     config = MagicMock()
     config.space.return_value = 24
@@ -48,6 +49,7 @@ class TestLockSurfacesCarryTheCredit:
     def test_each_surface_gets_its_own_logo(
         self, mock_tk: MagicMock, tmp_path: Path
     ) -> None:
+        """Each monitor's toplevel carries a logo, not its content frame."""
         locker = create_locker(mock_tk, tmp_path)
         surface = MagicMock()
         surface.output_name = "HDMI-1"
@@ -61,6 +63,7 @@ class TestLockSurfacesCarryTheCredit:
     def test_aux_windows_get_a_logo_on_the_root(
         self, mock_tk: MagicMock, tmp_path: Path
     ) -> None:
+        """The relaxed-day and verify windows show it on their root."""
         locker = create_locker(mock_tk, tmp_path)
         locker.container = FrameGroup([])
 
@@ -71,8 +74,7 @@ class TestLockSurfacesCarryTheCredit:
 
 
 def test_status_window_root_gets_a_logo(mock_tk: MagicMock) -> None:
-    from screen_locker import status_view
-
+    """The status window shows the logo on its root."""
     with (
         patch.object(status_view, "gather_status"),
         patch.object(status_view, "StatusWindow"),
@@ -86,8 +88,7 @@ def test_status_window_root_gets_a_logo(mock_tk: MagicMock) -> None:
 
 
 def test_heat_skip_prompt_gets_a_logo(mock_tk: MagicMock) -> None:
-    from screen_locker import _heat_skip
-
+    """The fullscreen heat-skip prompt shows the logo too."""
     class _Host(_heat_skip.HeatSkipMixin):
         pass
 
