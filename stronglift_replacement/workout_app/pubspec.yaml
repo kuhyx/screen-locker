@@ -49,6 +49,12 @@ dependencies:
       path: google_account_token
   http: 1.6.0
   http_cache_file_store: 2.0.2
+  # kuhy's shared "Created by kuhy" logo credit, at the end of Settings.
+  kuhy_credit:
+    git:
+      url: https://github.com/kuhyx/utils
+      ref: kuhy-credit-v0.3.1
+      path: kuhy_credit/flutter
   latlong2: 0.10.1
   material_ui: 1.11.1
   path: 1.9.1

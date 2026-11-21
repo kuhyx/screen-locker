@@ -6,3 +6,5 @@ declare module '*.astro' {
   const component: AstroComponentFactory
   export default component
 }
+
+/// <reference path="../node_modules/@kuhyx/kuhy-credit/src/kuhy-credit.d.ts" />

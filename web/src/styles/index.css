@@ -101,3 +101,9 @@ td {
 [data-slot] {
   overflow-x: auto;
 }
+
+.site-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-4);
+}

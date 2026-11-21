@@ -11,6 +11,7 @@ import 'dart:developer';
 
 import 'package:crdt_sync/crdt_sync.dart';
 import 'package:http/http.dart' as http;
+import 'package:kuhy_credit/kuhy_credit.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:sync_settings_ui/sync_settings_ui.dart';
 import 'package:workout_app/models/exercise.dart';
@@ -239,6 +240,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 20),
                   const _SandboxSection(),
                 ],
+                // kuhy's shared credit logo (kuhy_credit, kuhyx/utils); the
+                // app has no about screen, so it closes the Settings list.
+                const SizedBox(height: 20),
+                const KuhyCredit(),
               ],
             ),
     );

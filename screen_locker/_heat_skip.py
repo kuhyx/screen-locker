@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from gatelock import LockConfig, bind_activate, bind_cancel
 
 from screen_locker._constants import HEAT_SKIP_CITY, HEAT_SKIP_TEMP_THRESHOLD
+from screen_locker._credit import place_credit
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -143,6 +144,7 @@ class HeatSkipMixin:
             root.destroy()
 
         build_heat_skip_content(root, temp, on_skip=_on_skip, on_decline=_on_no)
+        place_credit(root, _COLORS)
         bind_cancel(root, _on_no)
 
         root.mainloop()

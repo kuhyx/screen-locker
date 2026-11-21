@@ -15,6 +15,7 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@kuhyx/kuhy-credit": "github:kuhyx/utils#kuhy-credit-v0.3.1&path:kuhy_credit/web",
     "@kuhyx/web-ui": "github:kuhyx/utils#web_ui-v0.5.0&path:/web_ui",
     "astro": "7.4.13"
   },

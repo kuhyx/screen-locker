@@ -1,4 +1,5 @@
 import 'package:crdt_sync/crdt_sync.dart';
+import 'package:kuhy_credit/kuhy_credit.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -85,6 +86,18 @@ void main() {
   testWidgets('shows Settings app bar', (tester) async {
     await _pump(tester, _wrap());
     expect(iconLabeled('Settings'), findsOneWidget);
+  });
+
+  // kuhy, 2026-11-21: the shared credit logo goes in every app; this app has
+  // no about screen, so it closes the Settings list.
+  testWidgets('ends with the kuhy credit logo', (tester) async {
+    await _pump(tester, _wrap());
+    await tester.scrollUntilVisible(
+      find.byType(KuhyCredit),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.byType(KuhyCredit), findsOneWidget);
   });
 
   testWidgets('shows WEIGHTS, TARGET REPS and PER EXERCISE', (tester) async {

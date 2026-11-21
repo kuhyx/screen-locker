@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING
 from gatelock import LockConfig
 
 from screen_locker import _glyphs as g
+from screen_locker._credit import place_credit
 from screen_locker._manual_workout_dialog import ManualWorkoutDialogMixin
 from screen_locker._status_data import (
     StatusSnapshot,
@@ -213,6 +214,7 @@ def main(argv: list[str] | None = None) -> None:
         window.render(gather_status())
 
     window = StatusWindow(root, gather_status(), on_refresh=refresh)
+    place_credit(root, _STATUS_COLORS)
     root.mainloop()
 
 

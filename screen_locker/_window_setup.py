@@ -18,6 +18,7 @@ from gatelock import (
     ScrollableSurface,
 )
 
+from screen_locker._credit import place_credit
 from screen_locker._queue_wait import wait_for_screen
 from screen_locker._surface_group import FrameGroup
 
@@ -116,6 +117,7 @@ class WindowSetupMixin:
         scroller.container.pack(fill="both", expand=True)
         self._scrollers["__aux__"] = scroller
         self.container = FrameGroup([scroller.content])
+        place_credit(self.root, self._colors)
 
     def build_surface(self, parent: tk.Misc, surface: SurfaceInfo) -> None:
         """Add one scrollable, keyboard-reachable container for a live output.
@@ -141,6 +143,9 @@ class WindowSetupMixin:
         scroller.container.place(relx=0, rely=0, relwidth=1, relheight=1)
         self._scrollers[surface.output_name] = scroller
         self.container.add(scroller.content, surface.output_name)
+        # On the surface toplevel, not scroller.content: flows clear and
+        # repaint the content frame, which would wipe the logo.
+        place_credit(parent, self._colors)
 
     def teardown_surface(self, surface: SurfaceInfo) -> None:
         """Forget the container and viewport for an output that went dark."""

@@ -32,6 +32,11 @@ describe('index.astro', () => {
     expect(page).toContain('Reading status…')
     expect(page).toMatch(/<div[^>]*role="alert"[^>]*data-errors[^>]*hidden/)
   })
+
+  it('renders the kuhy credit in the footer', async () => {
+    const page = await html()
+    expect(page).toMatch(/<footer class="site-footer">\s*<kuhy-credit><\/kuhy-credit>/)
+  })
 })
 
 /** Tag name plus sorted attribute names, for every tag carrying a data-* hook. */
