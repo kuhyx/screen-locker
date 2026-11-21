@@ -240,8 +240,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 20),
                   const _SandboxSection(),
                 ],
-                // kuhy's shared credit logo (kuhy_credit, kuhyx/utils); the
-                // app has no about screen, so it closes the Settings list.
+                // kuhy's shared credit logo; no about screen, so it ends here.
                 const SizedBox(height: 20),
                 const KuhyCredit(),
               ],

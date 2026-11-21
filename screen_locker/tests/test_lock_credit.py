@@ -37,9 +37,7 @@ def test_place_credit_puts_the_logo_bottom_right() -> None:
 
     credit_cls.assert_called_once_with(parent, theme="dark", size=40)
     config.type_px.assert_called_once_with("display")
-    credit.place.assert_called_once_with(
-        relx=1, rely=1, x=-24, y=-24, anchor="se"
-    )
+    credit.place.assert_called_once_with(relx=1, rely=1, x=-24, y=-24, anchor="se")
 
 
 @pytest.mark.usefixtures("mock_sys_exit")
@@ -89,6 +87,7 @@ def test_status_window_root_gets_a_logo(mock_tk: MagicMock) -> None:
 
 def test_heat_skip_prompt_gets_a_logo(mock_tk: MagicMock) -> None:
     """The fullscreen heat-skip prompt shows the logo too."""
+
     class _Host(_heat_skip.HeatSkipMixin):
         pass
 

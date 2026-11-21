@@ -96,8 +96,7 @@ def _block_real_tk_and_exit() -> Iterator[None]:
         # The startup early-exit checks moved to _startup_checks; sys.exit is
         # bound there now, so it needs blocking separately.
         stack.enter_context(patch("screen_locker._startup_checks.sys.exit"))
-        # The credit logo is a real tk.Canvas from kuhy_credit, outside the
-        # patched modules above, so it is swapped wholesale too.
+        # kuhy_credit's logo is a real tk.Canvas: swap it too.
         stack.enter_context(patch("screen_locker._credit.KuhyCredit"))
         yield
 

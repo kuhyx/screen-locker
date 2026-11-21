@@ -7,8 +7,8 @@ crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.11.1#subdirectory=cr
 earned-time @ git+https://github.com/kuhyx/utils@earned-time-v0.22.0#subdirectory=earned_time
 freedays @ git+https://github.com/kuhyx/utils@freedays-v0.4.3#subdirectory=freedays
 gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.16.0#subdirectory=gatelock
-kuhy-credit @ git+https://github.com/kuhyx/utils@kuhy-credit-v0.3.1#subdirectory=kuhy_credit
 holds @ git+https://github.com/kuhyx/utils@holds-v0.1.0#subdirectory=holds
+kuhy-credit @ git+https://github.com/kuhyx/utils@kuhy-credit-v0.3.1#subdirectory=kuhy_credit
 mcp==2.3.0
 mypy==2.4.1
 pre-commit==4.7.0
