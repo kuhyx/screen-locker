@@ -9,11 +9,11 @@ requires-python = ">=3.14"
 dependencies = [
     "gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.16.0#subdirectory=gatelock",
     "crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.11.1#subdirectory=crdt-sync",
-    "freedays @ git+https://github.com/kuhyx/utils@freedays-v0.4.3#subdirectory=freedays",
+    "freedays @ git+https://github.com/kuhyx/utils@freedays-v0.4.4#subdirectory=freedays",
     "earned-time @ git+https://github.com/kuhyx/utils@earned-time-v0.23.0#subdirectory=earned_time",
     "kuhy-credit @ git+https://github.com/kuhyx/utils@kuhy-credit-v0.3.2#subdirectory=kuhy_credit",
     "holds @ git+https://github.com/kuhyx/utils@holds-v0.1.0#subdirectory=holds",
-    "sickdays @ git+https://github.com/kuhyx/utils@sickdays-v0.5.8#subdirectory=sickdays",
+    "sickdays @ git+https://github.com/kuhyx/utils@sickdays-v0.5.9#subdirectory=sickdays",
 ]
 
 [project.scripts]
