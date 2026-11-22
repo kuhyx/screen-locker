@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from gatelock import bind_activate
 
+from screen_locker._tooltip import attach_tooltip, tooltip_word
 from screen_locker._ui_form_fields import UIFormFieldsMixin, disable_paste
 
 if TYPE_CHECKING:
@@ -163,8 +164,11 @@ class UIWidgetsMixin(UIFormFieldsMixin):
         )
         # Every per-monitor copy, not just `.first` -- one flow paints N screens
         # and the user may be looking at any of them.
+        word = tooltip_word(text)
         for button in buttons:
             bind_activate(button)
+            if word is not None:
+                attach_tooltip(button, word)
         return buttons
 
     def _button_row(self) -> FrameGroup:

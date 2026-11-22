@@ -38,6 +38,21 @@ UNLOCK: Final = "□"  # the lock stood down
 OPTIONAL: Final = "◇"  # Tue-Thu: a workout is optional today
 GIFT: Final = "+"  # an earned reward, always followed by its amount
 
+# Button glyph text -> the one hover word (textgate tooltip exception). Keys
+# are the exact strings passed to the locker's buttons.
+TOOLTIP: Final[dict[str, str]] = {
+    PHONE: "Phone",
+    FORM: "Manual",
+    RETRY: "Retry",
+    CLOSE: "Close",
+    BACK: "Back",
+    SKIP: "Skip",
+    SICK: "Sick",
+    OK: "Submit",
+    f"{GO} {LIFT}": "Workout",
+    GO: "Workout",
+}
+
 # Startup phone-check status -> the glyph that replaces its sentence.
 STATUS_GLYPH: Final[dict[str, str]] = {
     "too_short": SHORT,

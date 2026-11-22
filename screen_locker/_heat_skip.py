@@ -10,6 +10,7 @@ from gatelock import LockConfig, bind_activate, bind_cancel
 
 from screen_locker._constants import HEAT_SKIP_CITY, HEAT_SKIP_TEMP_THRESHOLD
 from screen_locker._credit import place_credit
+from screen_locker._tooltip import attach_tooltip
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -83,6 +84,7 @@ def build_heat_skip_content(
         **_COLORS.focus_kwargs(),
     )
     skip_button.pack(side="left", padx=_COLORS.space("sm"))
+    attach_tooltip(skip_button, "Skip")
 
     decline_button = tk.Button(
         btn_frame,
@@ -99,6 +101,7 @@ def build_heat_skip_content(
         **_COLORS.focus_kwargs(),
     )
     decline_button.pack(side="left", padx=_COLORS.space("sm"))
+    attach_tooltip(decline_button, "Workout")
 
     # This modal grabs input and sits fullscreen with no window decoration, so
     # the keyboard is the only way out for a pointerless user. It used to
