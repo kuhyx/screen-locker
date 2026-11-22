@@ -15,6 +15,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from screen_locker._log_mixin import write_signed_entry
+from screen_locker._progress_row import record_progress
 from screen_locker._walk_tcx import activity_day, activity_shortfall
 
 if TYPE_CHECKING:
@@ -103,6 +104,7 @@ class RunnerUpBackfillMixin:
                 date_str,
                 activity_shortfall(day),
             )
+            record_progress(date_str, day.metres, day.moving_seconds)
             return False
         workout_data: dict[str, Any] = {
             "type": "runnerup_verified",

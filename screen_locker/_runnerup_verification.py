@@ -17,6 +17,7 @@ from screen_locker._constants import (
     RUNNERUP_WEBDAV_DIRS,
 )
 from screen_locker._day import today_str
+from screen_locker._progress_row import record_progress
 from screen_locker._runnerup_backfill import RunnerUpBackfillMixin
 from screen_locker._runnerup_db import RunnerUpDbMixin
 from screen_locker._runnerup_tcx import RunnerUpTcxMixin
@@ -132,6 +133,8 @@ class RunnerUpVerificationMixin(
         day = activity_day(activities)
         if day.qualifies:
             return "verified", day.message()
+        # Verified TCX data, real but short: say how far it got (inert row).
+        record_progress(today, day.metres, day.moving_seconds)
         return "too_short", activity_shortfall(day)
 
     def _validate_runnerup_data(self, data: dict[str, Any]) -> tuple[str, str]:

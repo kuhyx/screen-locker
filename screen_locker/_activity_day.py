@@ -67,6 +67,9 @@ class ActivityDay:
             day never got there (or the activity recorded no end).
         all_walks: Whether every activity was a walk (label only).
         sport: The sport code when the day is a single non-walk activity.
+        metres: The summed distance in metres, unrounded (feeds the signed
+            progress row; ``distance_km`` is the same figure over 1000).
+        moving_seconds: The summed moving seconds, likewise.
     """
 
     legs: int
@@ -75,6 +78,8 @@ class ActivityDay:
     completed_at: float | None
     all_walks: bool = False
     sport: int = -1
+    metres: float = 0.0
+    moving_seconds: float = 0.0
 
     @property
     def qualifies(self) -> bool:
@@ -130,4 +135,6 @@ def activity_day(activities: Iterable[dict[str, Any]]) -> ActivityDay:
         completed_at=completed_at,
         all_walks=bool(ordered) and all(a.get("walking") for a in ordered),
         sport=int(ordered[0].get("sport", -1)) if ordered else -1,
+        metres=metres,
+        moving_seconds=moving,
     )
