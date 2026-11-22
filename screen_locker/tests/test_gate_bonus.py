@@ -196,7 +196,7 @@ class TestThroughTheShutdownBase:
         terms = earned_time.resolve(answers, TODAY, registry(TODAY)).terms
         stamps = reset_stamps(terms, today_str())
         assert stamps == {
-            "leetcode_bonus_date": today_str(),
+            "leetcode_bonus_minutes": {"date": today_str(), "minutes": 60},
             "blocks_bonus_units": {"date": today_str(), "units": 2},
         }
 

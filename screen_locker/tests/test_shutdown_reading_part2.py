@@ -54,7 +54,7 @@ class TestReadingLivePass:
         mixin._adjust_shutdown_time_by.assert_called_once_with(60)
         assert json.loads(state.read_text()) == {
             "last_reset_date": today_str(),
-            "reading_bonus_date": today_str(),
+            "reading_bonus_minutes": {"date": today_str(), "minutes": 60},
         }
 
     def test_stamped_today_never_reads_the_ledger(

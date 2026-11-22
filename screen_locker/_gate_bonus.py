@@ -1,7 +1,10 @@
 """Live shutdown credit for counted gate earners: paid per unit, as it lands.
 
-A flat earner (LeetCode, reading) pays once a day, stamped
-``<name>_bonus_date``. A counted gate earner -- the Automation tutor, one
+A flat earner (LeetCode, reading) pays by its signed progress (a credited
+day pays in full), stamped ``<name>_bonus_minutes`` with the minutes the
+config already holds; each pass pays only the rise. ``<name>_bonus_date`` is
+the legacy stamp (the full bonus, written before progress existed) and is
+still honoured. A counted gate earner -- the Automation tutor, one
 signed ledger row per verified 15-minute block -- pays per unit, so its stamp
 is ``<name>_bonus_units``: the day, and how many units the config already
 holds. The live pass pays only the difference, priced by
@@ -32,8 +35,30 @@ _logger = logging.getLogger(__name__)
 
 
 def date_stamp(earner: earned_time.Earner) -> str:
-    """The once-per-day key of a flat earner's live pass in the state file."""
+    """The legacy key: a flat earner's full bonus applied on that date."""
     return f"{earner.name}_bonus_date"
+
+
+def minutes_stamp(earner: earned_time.Earner) -> str:
+    """The key of the minutes a flat earner's live pass applied on a date."""
+    return f"{earner.name}_bonus_minutes"
+
+
+def applied_minutes(
+    state: dict[str, Any], earner: earned_time.Earner, today: str, full: int
+) -> int:
+    """Minutes of ``earner``'s bonus the config already holds today.
+
+    The legacy date stamp means the FULL bonus (so a deploy between two
+    passes never pays twice); else the minutes stamp of today; else 0.
+    """
+    if state.get(date_stamp(earner)) == today:
+        return full
+    raw = state.get(minutes_stamp(earner))
+    if not isinstance(raw, dict) or raw.get("date") != today:
+        return 0
+    minutes = raw.get("minutes")
+    return minutes if isinstance(minutes, int) and minutes > 0 else 0
 
 
 def units_stamp(earner: earned_time.Earner) -> str:
@@ -53,13 +78,17 @@ def applied_units(state: dict[str, Any], earner: earned_time.Earner, today: str)
 def reset_stamps(terms: Iterable[earned_time.Term], today: str) -> dict[str, object]:
     """The stamps for what a daily reset already wrote into the config.
 
-    A flat earner that paid is stamped with the date, a counted gate with
-    its units, so the live pass does not add either a second time today.
+    A flat earner that paid is stamped with the minutes it paid (a partial
+    pay is not the full bonus, so never the date), a counted gate with its
+    units, so the live pass does not add either a second time today.
     """
     stamps: dict[str, object] = {}
     for t in terms:
         if t.earner.kind == "flat" and t.shutdown_minutes:
-            stamps[date_stamp(t.earner)] = today
+            stamps[minutes_stamp(t.earner)] = {
+                "date": today,
+                "minutes": t.shutdown_minutes,
+            }
         elif t.earner.kind == "counted" and is_gate(t.earner) and t.answer:
             stamps[units_stamp(t.earner)] = {"date": today, "units": t.answer}
     return stamps

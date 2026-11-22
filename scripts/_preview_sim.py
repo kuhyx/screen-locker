@@ -15,12 +15,13 @@ import earned_time
 import sickdays
 
 from screen_locker._ceiling import HARD_CEILING_MINUTES as HELPER_CEILING
-from screen_locker._earned import first_minutes, registry
+from screen_locker._earned import registry
 from screen_locker._runnerup_verification import RunnerUpVerificationMixin
 from screen_locker._shutdown import ShutdownMixin
 from screen_locker._sick import is_sick
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
 _NS = "http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"
@@ -72,6 +73,17 @@ class SimRunnerUp(RunnerUpVerificationMixin):
         return sorted(str(p) for p in self.folder.glob(f"*{date_str}*.tcx"))
 
 
+# The signed progress row each simulated gate writes, by earner name; absent
+# means finished (1 of 1). One source for the live add and the derivation,
+# so a partial row (pinned by a test) cannot print a false MISMATCH.
+ROWS: dict[str, earned_time.Progress] = {}
+
+
+def row(name: str) -> earned_time.Progress:
+    """The progress row ``name``'s simulated gate signs."""
+    return ROWS.get(name, earned_time.Progress(1, 1))
+
+
 class SimShutdown(ShutdownMixin):
     """The real add/absorb paths against an in-memory config."""
 
@@ -101,11 +113,27 @@ class SimShutdown(ShutdownMixin):
         elif name == earned_time.WORKOUT.name:
             self._adjust_shutdown_time_later()
         else:
-            # The registry in force on ``day``: the review joins it only from
+            # A credited gate, priced by its row as ``finished`` prices it. The
+            # registry in force on ``day``: the review joins it only from
             # ``REVIEW_FROM``, so the static ``EARNERS`` tuple misses it.
-            minutes = first_minutes(earned_time.earner(name, registry(day)), day)
-            self._adjust_shutdown_time_by(minutes)
+            term = earned_time.term_for(
+                earned_time.earner(name, registry(day)),
+                day,
+                answer=True,
+                progress=row(name),
+            )
+            self._adjust_shutdown_time_by(term.shutdown_minutes)
         self._apply_sick_floor()
+
+
+def finished(done: Mapping[str, bool]) -> dict[str, earned_time.Progress]:
+    """The fact each done earner's gate signs (:func:`row`, 1 of 1 by default).
+
+    ``derive`` needs it beside the yes: from 2026-11-24 a credited review with
+    no verified fact pays 0, so a sim of "done" without it would not match the
+    live add (:meth:`SimShutdown.credit`), which is priced the same way.
+    """
+    return {n: row(n) for n, v in done.items() if v}
 
 
 # The --sequence step that marks the day sick instead of crediting an earner.

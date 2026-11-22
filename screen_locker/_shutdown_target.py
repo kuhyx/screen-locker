@@ -18,11 +18,12 @@ earns. :func:`gather` reads today's real inputs; it writes nothing.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import earned_time
 
 from screen_locker._earned import first_credits, gate_answers, registry
+from screen_locker._earned_progress import progress_for
 from screen_locker._grace_floor import first_done_at
 from screen_locker._log_io import load_workout_log
 from screen_locker._rest_day import is_rest_day
@@ -91,6 +92,9 @@ class DayInputs:
         first_credits: Each penalised gate's first real credit
             (:func:`~screen_locker._earned.first_credits`); ``None`` resolves
             on ``penalty_from`` alone, as before earned_time 0.6.
+        progress: Each gate's signed "done N of M" for the day
+            (:func:`~screen_locker._earned_progress.progress_for`); a no
+            then pays that share. ``None`` pays by yes/no, as before 0.24.
     """
 
     day: date
@@ -100,6 +104,7 @@ class DayInputs:
     first_done: float | None = None
     sick_day: bool = False
     first_credits: Mapping[str, date | None] | None = None
+    progress: Mapping[str, earned_time.Progress] | None = None
 
 
 def derive(inputs: DayInputs) -> Target:
@@ -114,11 +119,13 @@ def derive(inputs: DayInputs) -> Target:
     earners = registry(day)
     starts = inputs.first_credits
     sick = inputs.sick_day
-    resolution = (
-        earned_time.resolve(answers, day, earners, sick=sick)
-        if starts is None
-        else earned_time.resolve(answers, day, earners, first_credits=starts, sick=sick)
-    )
+    # Only what is set is passed: an older earned_time has no such keyword.
+    extra: dict[str, Any] = {}
+    if starts is not None:
+        extra["first_credits"] = starts
+    if inputs.progress:
+        extra["progress"] = inputs.progress
+    resolution = earned_time.resolve(answers, day, earners, sick=sick, **extra)
     return Target(
         resolution=resolution,
         rest_day=inputs.rest_day,
@@ -147,6 +154,7 @@ def gather_inputs(day: date, log_file: Path | None) -> DayInputs:
         first_done=first_done_at(day, log_file, rest_day=rest_day),
         sick_day=is_sick(day),
         first_credits=first_credits(registry(day), day),
+        progress=progress_for(day),
     )
 
 

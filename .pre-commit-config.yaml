@@ -143,7 +143,7 @@ repos:
           # than merely an old one.
           - gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.16.1#subdirectory=gatelock
           - crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.11.1#subdirectory=crdt-sync
-          - earned-time @ git+https://github.com/kuhyx/utils@earned-time-v0.23.0#subdirectory=earned_time
+          - earned-time @ git+https://github.com/kuhyx/utils@earned-time-v0.24.0#subdirectory=earned_time
           - freedays @ git+https://github.com/kuhyx/utils@freedays-v0.4.4#subdirectory=freedays
           - sickdays @ git+https://github.com/kuhyx/utils@sickdays-v0.5.9#subdirectory=sickdays
           - kuhy-credit @ git+https://github.com/kuhyx/utils@kuhy-credit-v0.3.2#subdirectory=kuhy_credit
@@ -167,7 +167,7 @@ repos:
           # than merely an old one.
           - gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.16.1#subdirectory=gatelock
           - crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.11.1#subdirectory=crdt-sync
-          - earned-time @ git+https://github.com/kuhyx/utils@earned-time-v0.23.0#subdirectory=earned_time
+          - earned-time @ git+https://github.com/kuhyx/utils@earned-time-v0.24.0#subdirectory=earned_time
           - freedays @ git+https://github.com/kuhyx/utils@freedays-v0.4.4#subdirectory=freedays
           - sickdays @ git+https://github.com/kuhyx/utils@sickdays-v0.5.9#subdirectory=sickdays
           - kuhy-credit @ git+https://github.com/kuhyx/utils@kuhy-credit-v0.3.2#subdirectory=kuhy_credit

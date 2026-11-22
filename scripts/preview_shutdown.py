@@ -51,6 +51,7 @@ from scripts._preview_sim import (
     SICK_STEP,
     SimRunnerUp,
     SimShutdown,
+    finished,
     sick_pool,
     stamp,
     use_temp_pool,
@@ -111,6 +112,7 @@ def _simulate(args: argparse.Namespace, tmp: Path) -> None:
             rest_day=is_rest_day(day, rest_file),
             first_done=min(times, default=None),
             sick_day=sick_pool(day, sick_day=args.sick_day),
+            progress=finished(flat),
         )
     )
     _report("simulated", target)
@@ -128,7 +130,9 @@ def _sequence(args: argparse.Namespace, tmp: Path) -> None:
     workouts, first = 0, None
     # The real target reads today's real ledgers; the sim's are ``done``.
     vars(_sick_floor)["sick_target"] = lambda d, _log: (
-        derive(DayInputs(d, done, workouts, sick_day=True)).minutes
+        derive(
+            DayInputs(d, done, workouts, sick_day=True, progress=finished(done))
+        ).minutes
     )
     for step in args.sequence.split(","):
         name, _, at = step.partition("@")
@@ -140,7 +144,14 @@ def _sequence(args: argparse.Namespace, tmp: Path) -> None:
             first = min(first or stamp(day, at), stamp(day, at))
         sim.credit(name, day)
         want = derive(
-            DayInputs(day, done, workouts, first_done=first, sick_day=is_sick(day))
+            DayInputs(
+                day,
+                done,
+                workouts,
+                first_done=first,
+                sick_day=is_sick(day),
+                progress=finished(done),
+            )
         )
         # Every credit adds to tonight (2026-11-18), so live must equal derived.
         verdict = "" if sim.config[0] == want.minutes else " MISMATCH"

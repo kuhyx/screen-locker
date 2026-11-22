@@ -8,7 +8,7 @@ day's registry, and reject a name not in force that day with a usage error.
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import date, timedelta
 import sys
 
 import earned_time
@@ -16,7 +16,7 @@ import pytest
 
 from screen_locker import _earned, _grace_floor, _shutdown, _sick_floor
 from screen_locker._earned import hhmm
-from scripts import preview_shutdown
+from scripts import _preview_sim, preview_shutdown
 
 _REVIEW_DAY = earned_time.REVIEW_FROM.isoformat()
 # The last day before the review joined the registry.
@@ -103,3 +103,24 @@ def test_preview_review_sequence_before_review_from_is_a_usage_error(
     assert _EVE in err
     assert "Traceback" not in err
     assert "KeyError" not in err
+
+
+def test_preview_review_sequence_pays_a_partial_rows_share(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """C4: a half-done review row on 2026-11-24 adds ``term_for``'s share.
+
+    Live (``SimShutdown.credit``) and derived (``finished``) read the same
+    pinned row, so the share shows on both sides with no MISMATCH.
+    """
+    day = date(2026, 11, 24)
+    half = earned_time.Progress(1, 2)
+    monkeypatch.setattr(_preview_sim, "ROWS", {"review": half})
+    review = earned_time.earner("review", _earned.registry(day))
+    share = earned_time.term_for(review, day, answer=True, progress=half)
+    assert share.shutdown_minutes != earned_time.REVIEW_SHUTDOWN_MINUTES
+    _run(monkeypatch, "--day", day.isoformat(), "--sequence", "review@21:00")
+    out = capsys.readouterr().out
+    want = hhmm(_start(out) + share.shutdown_minutes)
+    assert _lines(out) == {"review@21:00": f"{want} (derived {want})"}
+    assert "MISMATCH" not in out

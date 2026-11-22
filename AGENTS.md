@@ -46,8 +46,10 @@ Anything that pushes the hour with a plain read-add-write and is *not* a term
 of that derivation gets wiped by the next reset -- that is how a 00:02 workout
 lost its hours on 2026-09-13. A new bonus source is an `Earner` in the
 registry, never code here: the reset includes it as a term, and the live pass
-(`apply_flat_bonuses_if_new`, stamped `<name>_bonus_date` in
-`shutdown_base.json`) picks it up for flat earners. That pass runs the moment
+(`apply_flat_bonuses_if_new`, stamped `<name>_bonus_minutes` in
+`shutdown_base.json`; the old `<name>_bonus_date` still means the full bonus)
+picks it up for flat earners, paying a signed progress row's share
+(`earned_time` 0.24) as it rises and a credit in full. That pass runs the moment
 a gate writes its ledger: `earner-bonus.path` (rendered from the registry by
 `_earner_units`, re-synced by every `--sync-only` pass) starts
 `earner-bonus.service` (`--apply-bonuses`). The 15-minute `workout-sync` is

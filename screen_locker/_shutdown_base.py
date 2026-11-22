@@ -6,7 +6,7 @@ accumulating indefinitely across days.
 
 The base and every bonus come from the shared earner registry in force that
 day (``earned_time``, see :mod:`screen_locker._earned`). Nothing here is
-state: the file carries only stamps (``<name>_bonus_date`` for a flat
+state: the file carries only stamps (``<name>_bonus_minutes`` for a flat
 earner, ``<name>_bonus_units`` for a counted gate, :mod:`._gate_bonus`).
 
 The reset re-derives what today has ALREADY earned and writes base plus that
@@ -44,7 +44,13 @@ from screen_locker._earned import (
     registry,
     span,
 )
-from screen_locker._gate_bonus import apply_counted_bonus, date_stamp, reset_stamps
+from screen_locker._earned_progress import term_minutes
+from screen_locker._gate_bonus import (
+    applied_minutes,
+    apply_counted_bonus,
+    minutes_stamp,
+    reset_stamps,
+)
 from screen_locker._grace_floor import save_lift
 from screen_locker._log_io import load_workout_log
 from screen_locker._shutdown_target import gather
@@ -193,20 +199,19 @@ def _apply_flat_bonus(
     mixin: object,
     earner: earned_time.Earner,
 ) -> bool:
-    """Push shutdown later by one earner's once-per-day time, if it is earned.
+    """Push shutdown later by what one earner's bonus has earned beyond its stamp.
 
-    The daily reset only sees a bonus earned before it ran; this is the live
-    counterpart for the usual case, where the solve or the reading lands
-    hours later and is picked up by the next timer tick. Idempotent through
-    the earner's stamp in *state_file*, which the reset sets as well when it
-    already included the bonus.
-
-    Returns True if the bonus was applied on this call.
+    What it has earned is ``earned_time``'s
+    (:func:`~screen_locker._earned_progress.term_minutes`); only the rise over
+    :func:`applied_minutes` goes out: never twice, never a claw-back.
+    Returns True if minutes were applied on this call.
     """
     today = today_str()
+    day = date.fromisoformat(today)
     state = _load_state(state_file)
-    stamp = date_stamp(earner)
-    if state.get(stamp) == today:
+    full = first_minutes(earner, day)
+    applied = applied_minutes(state, earner, today, full)
+    if applied >= full:
         return False
     answer = earned_today(earner)
     if answer is None:
@@ -214,14 +219,13 @@ def _apply_flat_bonus(
             "%s state could not be checked; no shutdown time for it", earner.label
         )
         return False
-    if not answer:
+    pay_now = term_minutes(earner, day, answer=answer)
+    if (minutes := pay_now - applied) <= 0:
         return False
-    day = date.fromisoformat(today)
-    minutes = first_minutes(earner, day)
     if not mixin._adjust_shutdown_time_by(minutes):
         _logger.warning("%s bonus: failed to write shutdown config.", earner.label)
         return False
-    state[stamp] = today
+    state[minutes_stamp(earner)] = {"date": today, "minutes": pay_now}
     _save_state(state_file, state)
     _logger.info("%s bonus: +%s shutdown time today.", earner.label, span(minutes))
     return True

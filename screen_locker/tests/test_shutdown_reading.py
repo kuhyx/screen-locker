@@ -105,7 +105,7 @@ class TestResetIncludesReading:
         )
         assert json.loads(state.read_text()) == {
             "last_reset_date": today_str(),
-            "reading_bonus_date": today_str(),
+            "reading_bonus_minutes": {"date": today_str(), "minutes": 60},
         }
 
     @pytest.mark.usefixtures("pre_ladder")
@@ -123,8 +123,8 @@ class TestResetIncludesReading:
         )
         assert json.loads(state.read_text()) == {
             "last_reset_date": today_str(),
-            "leetcode_bonus_date": today_str(),
-            "reading_bonus_date": today_str(),
+            "leetcode_bonus_minutes": {"date": today_str(), "minutes": 60},
+            "reading_bonus_minutes": {"date": today_str(), "minutes": 60},
         }
         apply_flat_bonuses_if_new(state, mixin)
         mixin._adjust_shutdown_time_by.assert_not_called()

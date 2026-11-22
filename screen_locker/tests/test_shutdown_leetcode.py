@@ -70,7 +70,7 @@ class TestResetIncludesTheHour:
         )
         assert json.loads(state.read_text()) == {
             "last_reset_date": today_str(),
-            "leetcode_bonus_date": today_str(),
+            "leetcode_bonus_minutes": {"date": today_str(), "minutes": 60},
         }
 
     def test_reset_without_solve_leaves_no_stamp(
@@ -106,7 +106,7 @@ class TestLivePass:
         mixin._adjust_shutdown_time_by.assert_called_once_with(60)
         assert json.loads(state.read_text()) == {
             "last_reset_date": today_str(),
-            "leetcode_bonus_date": today_str(),
+            "leetcode_bonus_minutes": {"date": today_str(), "minutes": 60},
         }
 
     def test_yesterdays_stamp_does_not_block_today(

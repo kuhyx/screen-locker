@@ -77,8 +77,8 @@ class TestFlatBonuses:
         apply_flat_bonuses_if_new(state, mixin)
         assert mixin._adjust_shutdown_time_by.call_count == 2
         assert json.loads(state.read_text()) == {
-            "leetcode_bonus_date": today_str(),
-            "reading_bonus_date": today_str(),
+            "leetcode_bonus_minutes": {"date": today_str(), "minutes": 60},
+            "reading_bonus_minutes": {"date": today_str(), "minutes": 60},
         }
         apply_flat_bonuses_if_new(state, mixin)
         assert mixin._adjust_shutdown_time_by.call_count == 2
@@ -93,7 +93,9 @@ class TestFlatBonuses:
         mixin = _mixin()
         apply_flat_bonuses_if_new(state, mixin)
         mixin._adjust_shutdown_time_by.assert_called_once_with(60)
-        assert json.loads(state.read_text()) == {"reading_bonus_date": today_str()}
+        assert json.loads(state.read_text()) == {
+            "reading_bonus_minutes": {"date": today_str(), "minutes": 60}
+        }
 
 
 @pytest.mark.usefixtures("with_extra")
@@ -113,7 +115,7 @@ class TestANewlyRegisteredEarner:
         )
         assert json.loads(state.read_text()) == {
             "last_reset_date": today_str(),
-            "extra_bonus_date": today_str(),
+            "extra_bonus_minutes": {"date": today_str(), "minutes": 60},
         }
 
     def test_live_pass_applies_it_once(
@@ -126,7 +128,9 @@ class TestANewlyRegisteredEarner:
         apply_flat_bonuses_if_new(state, mixin)
         apply_flat_bonuses_if_new(state, mixin)
         mixin._adjust_shutdown_time_by.assert_called_once_with(60)
-        assert json.loads(state.read_text()) == {"extra_bonus_date": today_str()}
+        assert json.loads(state.read_text()) == {
+            "extra_bonus_minutes": {"date": today_str(), "minutes": 60}
+        }
 
     def test_its_ledger_is_read_like_any_other(self, tmp_path: Path) -> None:
         """The new earner's signed ledger is read like any existing gate's."""
@@ -175,8 +179,8 @@ class TestRealLedgers:
         )
         assert json.loads(state.read_text()) == {
             "last_reset_date": today_str(),
-            "leetcode_bonus_date": today_str(),
-            "reading_bonus_date": today_str(),
+            "leetcode_bonus_minutes": {"date": today_str(), "minutes": 60},
+            "reading_bonus_minutes": {"date": today_str(), "minutes": 60},
         }
 
 
