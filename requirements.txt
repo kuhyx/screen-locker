@@ -6,7 +6,7 @@ coverage==7.17.4
 crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.11.1#subdirectory=crdt-sync
 earned-time @ git+https://github.com/kuhyx/utils@earned-time-v0.23.0#subdirectory=earned_time
 freedays @ git+https://github.com/kuhyx/utils@freedays-v0.4.4#subdirectory=freedays
-gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.16.0#subdirectory=gatelock
+gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.16.1#subdirectory=gatelock
 holds @ git+https://github.com/kuhyx/utils@holds-v0.1.0#subdirectory=holds
 kuhy-credit @ git+https://github.com/kuhyx/utils@kuhy-credit-v0.3.2#subdirectory=kuhy_credit
 mcp==2.3.0

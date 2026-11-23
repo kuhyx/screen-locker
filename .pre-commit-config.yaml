@@ -141,7 +141,7 @@ repos:
           # direct URLs for one distribution, so any pin that drifts from
           # the manifest becomes an unresolvable hook environment rather
           # than merely an old one.
-          - gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.16.0#subdirectory=gatelock
+          - gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.16.1#subdirectory=gatelock
           - crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.11.1#subdirectory=crdt-sync
           - earned-time @ git+https://github.com/kuhyx/utils@earned-time-v0.23.0#subdirectory=earned_time
           - freedays @ git+https://github.com/kuhyx/utils@freedays-v0.4.4#subdirectory=freedays
@@ -165,7 +165,7 @@ repos:
           # direct URLs for one distribution, so any pin that drifts from
           # the manifest becomes an unresolvable hook environment rather
           # than merely an old one.
-          - gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.16.0#subdirectory=gatelock
+          - gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.16.1#subdirectory=gatelock
           - crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.11.1#subdirectory=crdt-sync
           - earned-time @ git+https://github.com/kuhyx/utils@earned-time-v0.23.0#subdirectory=earned_time
           - freedays @ git+https://github.com/kuhyx/utils@freedays-v0.4.4#subdirectory=freedays
