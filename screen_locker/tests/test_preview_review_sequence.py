@@ -61,11 +61,14 @@ def _start(text: str) -> int:
     return int(hours) * 60 + int(minutes)
 
 
+# 2026-11-24 is the day the review is paid by its progress row (earned_time
+# 0.24); a finished simulated review must still add its 20 minutes there.
+@pytest.mark.parametrize("day", [_REVIEW_DAY, "2026-11-24"])
 def test_preview_review_sequence_adds_flat_review_minutes(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    day: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """C1: a review on its first day adds its flat minutes, live == derived."""
-    _run(monkeypatch, "--day", _REVIEW_DAY, "--sequence", "review@21:00")
+    """C1/C4: a review adds its minutes, live == derived."""
+    _run(monkeypatch, "--day", day, "--sequence", "review@21:00")
     out = capsys.readouterr().out
     want = hhmm(_start(out) + earned_time.REVIEW_SHUTDOWN_MINUTES)
     assert _lines(out) == {"review@21:00": f"{want} (derived {want})"}
