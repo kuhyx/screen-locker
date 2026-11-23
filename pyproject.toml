@@ -267,6 +267,9 @@ addopts = [
     # repo's 400-line-per-file cap) -- see its own docstring.
     "-p",
     "screen_locker.tests.test_sync_fixtures",
+    # A `-k` run is a subset: only whole-suite runs need fail_under = 100.
+    "-p",
+    "screen_locker.tests._subset_coverage",
 ]
 filterwarnings = [
     "error",
