@@ -99,7 +99,7 @@ def _simulate(args: argparse.Namespace, tmp: Path) -> None:
         eve = datetime.combine(day - timedelta(days=1), time(12)).astimezone()
         _say(f"    declare: {declare(day, now=eve, path=rest_file).reason}")
     done = {n for n in (args.done or "").split(",") if n}
-    flat = {e.name: e.name in done for e in _earned.flat_earners()}
+    flat = {e.name: e.name in done for e in _earned.flat_earners(day)}
     first = stamp(day, args.first_done) if args.first_done else None
     logged = _grace_floor.workout_done_at(log, day)
     times = [t for t in (first, logged) if t is not None]
@@ -122,7 +122,7 @@ def _sequence(args: argparse.Namespace, tmp: Path) -> None:
         vars(module)["today_str"] = lambda: args.day
         vars(module)["GRACE_STATE_FILE"] = tmp / "grace_floor.json"
     use_temp_pool(tmp)
-    done = {e.name: False for e in _earned.flat_earners()}
+    done = {e.name: False for e in _earned.flat_earners(day)}
     sim = SimShutdown(derive(DayInputs(day, done)).minutes)
     _say(f"[sequence] {day} start {hhmm(sim.config[0])} (nothing done, not sick)")
     workouts, first = 0, None
@@ -150,8 +150,15 @@ def _sequence(args: argparse.Namespace, tmp: Path) -> None:
         )
 
 
+def unknown_step(sequence: str, day: date) -> str | None:
+    """The first ``--sequence`` name that is not an earner in force on ``day``."""
+    known = {e.name for e in _earned.registry(day)} | {SICK_STEP}
+    names = (step.partition("@")[0] for step in sequence.split(","))
+    return next((name for name in names if name not in known), None)
+
+
 def main() -> int:
-    """Print the requested preview. Returns 0."""
+    """Print the requested preview. Returns 0; exits 2 on an unknown step."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--day", default=None, help="simulate this day (YYYY-MM-DD)")
     parser.add_argument("--walk", help="moving minutes per walk leg, e.g. 25,20")
@@ -178,6 +185,9 @@ def main() -> int:
             _report(f"today {label}", derive(replace(inputs, sick_day=sick)))
         return 0
     day = date.fromisoformat(args.day)
+    unknown = unknown_step(args.sequence, day) if args.sequence else None
+    if unknown is not None:
+        parser.error(f"{unknown!r} is not an earner on {day}")
     _say(f"    ladder in force on {day}: {earned_time.on_ladder(day)}")
     with tempfile.TemporaryDirectory(prefix="preview_shutdown_") as raw:
         if args.sequence:

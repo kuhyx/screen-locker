@@ -15,7 +15,7 @@ import earned_time
 import sickdays
 
 from screen_locker._ceiling import HARD_CEILING_MINUTES as HELPER_CEILING
-from screen_locker._earned import first_minutes
+from screen_locker._earned import first_minutes, registry
 from screen_locker._runnerup_verification import RunnerUpVerificationMixin
 from screen_locker._shutdown import ShutdownMixin
 from screen_locker._sick import is_sick
@@ -101,7 +101,9 @@ class SimShutdown(ShutdownMixin):
         elif name == earned_time.WORKOUT.name:
             self._adjust_shutdown_time_later()
         else:
-            minutes = first_minutes(earned_time.earner(name), day)
+            # The registry in force on ``day``: the review joins it only from
+            # ``REVIEW_FROM``, so the static ``EARNERS`` tuple misses it.
+            minutes = first_minutes(earned_time.earner(name, registry(day)), day)
             self._adjust_shutdown_time_by(minutes)
         self._apply_sick_floor()
 
