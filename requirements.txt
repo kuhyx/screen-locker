@@ -2,7 +2,7 @@
 # Runtime: tkinter/subprocess/socket/sqlite3 (stdlib) plus gatelock (below).
 bandit==1.9.4
 codespell==2.4.3
-coverage==7.17.4
+coverage==7.17.5
 crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.11.1#subdirectory=crdt-sync
 earned-time @ git+https://github.com/kuhyx/utils@earned-time-v0.24.0#subdirectory=earned_time
 freedays @ git+https://github.com/kuhyx/utils@freedays-v0.4.4#subdirectory=freedays
