@@ -76,10 +76,23 @@ echo "[2/4] Installing screen_locker into user site-packages (editable)..."
 # gatelock is a sibling in the utils monorepo and is developed in lockstep with
 # the four lockers, so the local clone must win. Ordering is the fix: install
 # it last.
-if [[ -d "$GATELOCK_DIR" ]]; then
+#
+# But only while the clone is at least the pinned release. On 2026-11-27 the
+# clone sat at 0.16.0 behind the 0.16.2 pin, and re-asserting it kept the
+# stall-watch fix out of the running lock. A stale clone gets the pin instead
+# (forced: pip keeps an editable install that merely shares the name).
+readonly PIN_GATE=("$PROD_PYTHON" "$SCRIPT_DIR/scripts/gatelock_pin.py")
+if [[ -d "$GATELOCK_DIR" ]] &&
+    "${PIN_GATE[@]}" clone-ok "$REPO_DIR/pyproject.toml" "$GATELOCK_DIR"; then
     echo "  re-asserting editable gatelock from $GATELOCK_DIR..."
     "$PROD_PYTHON" -m pip install --user --break-system-packages \
         --no-deps -e "$GATELOCK_DIR"
+elif [[ -d "$GATELOCK_DIR" ]]; then
+    gatelock_spec="$("${PIN_GATE[@]}" spec "$REPO_DIR/pyproject.toml")"
+    echo "  WARNING: $GATELOCK_DIR is older than the pin; installing" >&2
+    echo "           $gatelock_spec" >&2
+    "$PROD_PYTHON" -m pip install --user --break-system-packages \
+        --no-deps --force-reinstall --quiet "$gatelock_spec"
 else
     echo "  WARNING: $GATELOCK_DIR not found; leaving the pinned gatelock" >&2
     echo "           wheel in place. Local gatelock changes will NOT be" >&2
@@ -125,7 +138,14 @@ if ! (cd /tmp && "$PROD_PYTHON" -c "import gatelock" 2>/dev/null); then
     echo "       backend). Install it editable from ~/src/utils/gatelock." >&2
     exit 1
 fi
-if [[ -d "$GATELOCK_DIR" ]]; then
+# Fail closed on an old gatelock wherever it came from: a deploy that reports
+# healthy while the lock runs code older than the pin ships nothing.
+if ! "${PIN_GATE[@]}" installed-ok "$REPO_DIR/pyproject.toml"; then
+    echo "ERROR: the gatelock $PROD_PYTHON imports is older than the pin." >&2
+    exit 1
+fi
+if [[ -d "$GATELOCK_DIR" ]] &&
+    "${PIN_GATE[@]}" clone-ok "$REPO_DIR/pyproject.toml" "$GATELOCK_DIR" >/dev/null 2>&1; then
     gatelock_path="$(cd /tmp && "$PROD_PYTHON" -c \
         "import gatelock; print(gatelock.__file__)")"
     if [[ "$gatelock_path" != "$GATELOCK_DIR"* ]]; then
