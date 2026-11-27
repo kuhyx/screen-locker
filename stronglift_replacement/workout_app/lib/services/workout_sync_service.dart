@@ -12,8 +12,10 @@ import 'package:workout_app/services/firebase_backend.dart';
 import 'package:workout_app/services/sync_device_id.dart';
 import 'package:workout_app/services/sync_settings.dart';
 import 'package:workout_app/services/sync_state_factory.dart';
+import 'package:workout_app/services/workout_log_store.dart';
 import 'package:workout_app/services/workout_sync_session.dart';
 
+part 'workout_sync_service_local.dart';
 part 'workout_sync_service_read.dart';
 part 'workout_sync_service_transfer.dart';
 
@@ -82,6 +84,7 @@ class WorkoutSyncService {
     http.Client? httpClient,
     this.firebaseFactory,
     this.stateStore,
+    this.logStore,
     // Dart forbids private named params; assign explicitly (as GitHubClient).
     // ignore: prefer_initializing_formals
   }) : _httpClient = httpClient;
@@ -92,6 +95,9 @@ class WorkoutSyncService {
 
   /// Revision cache. Injected so tests need no application-support directory.
   final SyncStateStore? stateStore;
+
+  /// This device's local log (outbox + cache); the shared file by default.
+  final LogStore? logStore;
 
   /// Firebase when this device is set up for it, else null (a normal state
   /// during the cutover: sync then runs over GitHub exactly as before).
@@ -108,6 +114,9 @@ class WorkoutSyncService {
   Future<SyncStateStore> _openStateStore() async =>
       stateStore ?? await openSyncStateStore();
 
+  Future<LogStore> _openLogStore() async =>
+      logStore ?? await openWorkoutLogStore();
+
   /// The repo owner/org to push to.
   final String owner;
 
@@ -122,27 +131,25 @@ class WorkoutSyncService {
   /// and why. Failures are logged at error level so an unpushed workout
   /// leaves a trace rather than vanishing.
   Future<PushResult> push(WorkoutSession session) async {
-    final settings = await SyncSettings.load();
-    // Either backend counts. Gating on the GitHub token alone silently
-    // dropped every push from a device connected only to Firebase -- and
-    // once the mirror is retired that would be every device.
-    if (!settings.isConfigured && !await _hasFirebaseAccount()) {
-      const reason = 'sync not configured (no Firebase account, no token)';
-      log('WorkoutSyncService.push skipped: $reason', level: 900);
-      return const PushResult(pushed: false, reason: reason);
-    }
-    return await _session(settings.token).run(
-      operation: 'push',
-      successReason: 'pushed',
-      failurePrefix: 'push failed',
-      addition: Record(
-        id: workoutRecordId(session),
-        fields: {
-          'payload': (
-            workoutRecordPayload(session),
-            Hlc.newTick(currentSyncDeviceId),
-          ),
-        },
+    final record = Record(
+      id: workoutRecordId(session),
+      fields: {
+        'payload': (
+          workoutRecordPayload(session),
+          Hlc.newTick(currentSyncDeviceId),
+        ),
+      },
+    );
+    // Local first, before even asking whether sync is set up: a workout
+    // finished offline or before sign-in goes out with a later tick.
+    await _keepLocally(record);
+    return await _whenConfigured(
+      'push',
+      (token) => _session(token).run(
+        operation: 'push',
+        successReason: 'pushed',
+        failurePrefix: 'push failed',
+        addition: record,
       ),
     );
   }
@@ -158,6 +165,7 @@ class WorkoutSyncService {
     decode: _decode,
     openFirebaseClient: _openFirebase,
     openStateStore: _openStateStore,
+    openLogStore: _openLogStore,
     httpClient: _httpClient,
   );
 
@@ -171,39 +179,29 @@ class WorkoutSyncService {
   /// answer, with a reason a human can act on, which is why this exists.
   ///
   /// Same never-throw, always-report contract as [push].
-  Future<PushResult> syncNow() async {
-    final settings = await SyncSettings.load();
-    if (!settings.isConfigured && !await _hasFirebaseAccount()) {
-      const reason = 'sync not configured (no Firebase account, no token)';
-      log('WorkoutSyncService.syncNow skipped: $reason', level: 900);
-      return const PushResult(pushed: false, reason: reason);
-    }
-    // No addition: whatever this device already has, unchanged. The point is
-    // the round trip, not the payload.
-    return await _session(settings.token).run(
+  Future<PushResult> syncNow() => _whenConfigured(
+    'syncNow',
+    // No addition: the round trip itself, plus whatever the local log holds
+    // that the remote does not have yet (a workout whose push failed).
+    (token) => _session(token).run(
       operation: 'syncNow',
       successReason: 'synced',
       failurePrefix: 'sync failed',
-    );
-  }
+    ),
+  );
 
   /// Pushes a pre-built manual-workout [record] to this device's log.
   ///
   /// Same never-throw, always-report contract as [push].
-  Future<PushResult> pushManual(Record record) async {
-    final settings = await SyncSettings.load();
-    if (!settings.isConfigured && !await _hasFirebaseAccount()) {
-      const reason = 'sync not configured (no Firebase account, no token)';
-      log('WorkoutSyncService.pushManual skipped: $reason', level: 900);
-      return const PushResult(pushed: false, reason: reason);
-    }
-    return await _session(settings.token).run(
+  Future<PushResult> pushManual(Record record) => _whenConfigured(
+    'pushManual',
+    (token) => _session(token).run(
       operation: 'pushManual',
       successReason: 'pushed',
       failurePrefix: 'push failed',
       addition: record,
-    );
-  }
+    ),
+  );
 
   /// Returns every device's manual-workout payloads, merged and deduped by id
   /// (highest HLC wins), for computing the shared budget. Pull-only — unlike

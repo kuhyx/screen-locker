@@ -119,14 +119,14 @@ extension _WorkoutScreenFinish on _WorkoutScreenState {
 
     final syncResult = await _sync.writeWorkoutResult(session);
     // Not awaited: a slow or unreachable backend must not delay the summary
-    // dialog. But the result is no longer discarded -- a failed push logs at
-    // error level inside push(), so an unpushed workout is diagnosable
-    // instead of silently absent from every other device.
+    // dialog. push() keeps the record in the local log first, so a failure
+    // loses nothing: WorkoutResync retries, and every later tick re-sends it.
     unawaited(
       WorkoutSyncService().push(session).then((result) {
         if (!result.pushed) {
-          log('Workout not synced: ${result.reason}', level: 1000);
+          log('Workout not synced yet: ${result.reason}', level: 1000);
         }
+        WorkoutResync.instance.note(result);
       }),
     );
 

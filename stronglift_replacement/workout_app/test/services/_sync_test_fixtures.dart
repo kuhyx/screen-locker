@@ -93,12 +93,14 @@ WorkoutSyncService syncService({
   String? owner,
   String? repo,
   Future<FirebaseRestClient?> Function()? firebaseFactory,
+  LogStore? logStore,
 }) => WorkoutSyncService(
   httpClient: httpClient,
   owner: owner ?? syncRepoOwner,
   repo: repo ?? syncRepoName,
   firebaseFactory: firebaseFactory ?? () async => null,
   stateStore: InMemorySyncStateStore(),
+  logStore: logStore,
 );
 
 /// A Firebase client wired to an in-memory mock, for the cutover tests.

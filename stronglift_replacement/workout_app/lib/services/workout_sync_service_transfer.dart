@@ -57,20 +57,15 @@ extension WorkoutSyncServiceTransfer on WorkoutSyncService {
   /// Merges [records] into this device's log and syncs, in one round trip.
   ///
   /// Same never-throw, always-report contract as [pushManual].
-  Future<PushResult> pushManualLog(Log records) async {
-    final settings = await SyncSettings.load();
-    if (!settings.isConfigured && !await _hasFirebaseAccount()) {
-      const reason = 'sync not configured (no Firebase account, no token)';
-      log('WorkoutSyncService.pushManualLog skipped: $reason', level: 900);
-      return const PushResult(pushed: false, reason: reason);
-    }
-    return await _session(settings.token).run(
+  Future<PushResult> pushManualLog(Log records) => _whenConfigured(
+    'pushManualLog',
+    (token) => _session(token).run(
       operation: 'pushManualLog',
       successReason: 'pushed',
       failurePrefix: 'push failed',
       additions: records,
-    );
-  }
+    ),
+  );
 
   /// A manual workout, or the tombstone of one: tombstones carry no payload,
   /// so the id (`manual:<date>T<HH:MM>`) is what identifies them.

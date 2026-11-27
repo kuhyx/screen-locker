@@ -27,6 +27,7 @@ import 'package:workout_app/services/pc_poke_service.dart';
 import 'package:workout_app/services/progression_sync_service.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_service.dart';
+import 'package:workout_app/services/workout_resync.dart';
 import 'package:workout_app/services/workout_sync_service.dart';
 import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/break_banner.dart';

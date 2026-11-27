@@ -1,9 +1,11 @@
 /// One sync round-trip: open the backends, merge a log, close them again.
 library;
 
+import 'dart:async';
 import 'dart:developer';
 
 import 'package:crdt_sync/crdt_sync.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:workout_app/services/sync_device_id.dart';
 import 'package:workout_app/services/workout_sync_service.dart';
@@ -34,6 +36,7 @@ class WorkoutSyncSession {
     required this.decode,
     required this.openFirebaseClient,
     required this.openStateStore,
+    required this.openLogStore,
     this.httpClient,
   });
 
@@ -65,8 +68,32 @@ class WorkoutSyncSession {
   /// Opens the revision cache that lets an unchanged peer be skipped.
   final Future<SyncStateStore> Function() openStateStore;
 
+  /// Opens this device's local log: the outbox a tick pushes from and the
+  /// cache it keeps what it pulled in.
+  final Future<LogStore> Function() openLogStore;
+
   /// Overrides the HTTP client; tests point this at a mock.
   final http.Client? httpClient;
+
+  /// The tail of the tick queue, null while no tick runs. Ticks run one
+  /// after another, never side by side: two overlapping ticks each push
+  /// their own snapshot, and the one that lands last can drop a record the
+  /// other just added.
+  ///
+  /// Null when idle rather than a completed future: a future is bound to the
+  /// zone that made it, so a long-lived one would tie every later tick to a
+  /// zone that may be gone (a finished widget test's, for one).
+  static Future<void>? _tail;
+
+  /// How long one tick may take before it is reported failed. Bounded
+  /// because the queue waits on it: one half-open request would otherwise
+  /// hold every later tick (and the retry) until the app restarts.
+  @visibleForTesting
+  static Duration tickTimeout = const Duration(minutes: 2);
+
+  /// Forgets a tick a finished test left in flight; see `_tail`.
+  @visibleForTesting
+  static void resetQueueForTesting() => _tail = null;
 
   /// Runs one tick, merging [addition] into this device's log if given.
   ///
@@ -79,6 +106,41 @@ class WorkoutSyncSession {
   /// and [failurePrefix] are passed in rather than derived, so the three
   /// callers keep the exact strings their tests assert on.
   Future<PushResult> run({
+    required String operation,
+    required String successReason,
+    required String failurePrefix,
+    Record? addition,
+    Log? additions,
+  }) {
+    Future<PushResult> tick() =>
+        _runNow(
+          operation: operation,
+          successReason: successReason,
+          failurePrefix: failurePrefix,
+          addition: addition,
+          additions: additions,
+        ).timeout(
+          tickTimeout,
+          onTimeout: () {
+            final reason =
+                '$failurePrefix: no answer within ${tickTimeout.inSeconds} s';
+            log('WorkoutSyncService.$operation: $reason', level: 1000);
+            return PushResult(pushed: false, reason: reason);
+          },
+        );
+    final previous = _tail;
+    final result = previous == null ? tick() : previous.then((_) => tick());
+    final done = result.then<void>((_) {}, onError: (Object _) {});
+    _tail = done;
+    unawaited(
+      done.then((_) {
+        if (identical(_tail, done)) _tail = null;
+      }),
+    );
+    return result;
+  }
+
+  Future<PushResult> _runNow({
     required String operation,
     required String successReason,
     required String failurePrefix,
@@ -105,10 +167,15 @@ class WorkoutSyncSession {
         ...?additions,
         ?addition?.id: ?addition,
       };
-      final localLog = incoming.isEmpty
-          ? existingLog
-          : mergeLogs(existingLog, incoming);
-      await syncLog(
+      // The local log holds every record a failed or unconfigured push kept,
+      // so this tick sends them too. The remote own file stays in the merge:
+      // after a reinstall it is the only copy of this device's history.
+      final local = await openLogStore();
+      final localLog = mergeLogs(
+        mergeLogs(existingLog, local.snapshot()),
+        incoming,
+      );
+      final merged = await syncLog(
         client: client,
         deviceId: currentSyncDeviceId,
         legacyDeviceId: legacySyncDeviceId,
@@ -121,6 +188,7 @@ class WorkoutSyncSession {
         // Firebase free tier's monthly budget depends on not happening.
         stateStore: await openStateStore(),
       );
+      await _keepPulled(local, merged, operation);
       return PushResult(pushed: true, reason: successReason);
     } on Object catch (error, stackTrace) {
       // Deliberately broad: a GitHubSyncError was the only case handled
@@ -139,6 +207,28 @@ class WorkoutSyncSession {
     } finally {
       github.close();
       firebase?.close();
+    }
+  }
+
+  /// Keeps [merged] in [local] for offline reads. Merged onto the store as
+  /// it is NOW, not replaced: a workout written while this tick ran must
+  /// survive it. Never throws: the tick already reached the remote, so a
+  /// local write failure costs only the offline copy, and is logged.
+  static Future<void> _keepPulled(
+    LogStore local,
+    Log merged,
+    String operation,
+  ) async {
+    try {
+      await local.replaceAll(mergeLogs(local.snapshot(), merged));
+    } on Object catch (error, stackTrace) {
+      log(
+        'WorkoutSyncService.$operation synced, but the local copy was not '
+        'saved; offline reads show the previous one',
+        level: 1000,
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
   }
 }

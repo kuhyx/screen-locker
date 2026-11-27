@@ -81,6 +81,7 @@ extension WorkoutSyncServiceRead on WorkoutSyncService {
     try {
       final merged = <String, Record>{};
       final tombstoned = <String>{};
+      var pulled = <String, Record>{};
       for (final device in await client.listDirectory(_pathPrefix)) {
         final text = await client.getFileText(
           '$_pathPrefix/$device/$_logFilename',
@@ -89,7 +90,10 @@ extension WorkoutSyncServiceRead on WorkoutSyncService {
         final log = _decode(text);
         _collectTombstones(log, tombstoned);
         _mergeRecords(log, merged, kind: kind);
+        pulled = mergeLogs(pulled, log);
       }
+      // Every device's records, kept for the next offline read.
+      await _cacheLocally(pulled);
       // Suppression is applied across the whole device union, never per file:
       // one device tombstoning a record while another still holds it live must
       // delete it, and a per-file skip would just let the live copy win the

@@ -14,16 +14,23 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_app/services/desktop_config_dir.dart';
+import 'package:workout_app/services/workout_log_store.dart';
+import 'package:workout_app/services/workout_sync_session.dart';
 
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   // Also set up front, so code that runs while tests are being declared is
   // redirected too, not only code inside a test body.
   final declarationRoot = _freshRoot();
   desktopConfigRootOverride = declarationRoot.path;
+  // The workout log (outbox + cache) gets the same per-test root, so no test
+  // reads another's records or reaches the app support directory.
+  workoutLogDirOverride = declarationRoot.path;
   tearDownAll(() => declarationRoot.deleteSync(recursive: true));
   setUp(() {
     final root = _freshRoot();
     desktopConfigRootOverride = root.path;
+    workoutLogDirOverride = root.path;
+    WorkoutSyncSession.resetQueueForTesting();
     addTearDown(() => root.deleteSync(recursive: true));
   });
   await testMain();

@@ -14,6 +14,11 @@ Implementing design_v2.md improvements.
   workout and shows the status-bar notification; notification presses go
   through a durable prefs queue, never straight into sqflite (the CRDT
   sync layer owns that database's ordering)
+- Workout sync is offline-first: `push` writes its record to the local log
+  (`workout_log_store.dart`, `workout_log.json` beside `sync_state.json`)
+  before any network call; every tick pushes that log (so a failed push goes
+  out with the next one: home open, resume, `WorkoutResync` timer) and keeps
+  what it pulled. History shows local + cached rows at once, then the live read.
 
 ## GPS runs (foundation, 2026-11-10)
 - The app records one mode: every GPS activity is a run (25 km/h jump cap,

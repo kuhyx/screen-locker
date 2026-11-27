@@ -33,6 +33,7 @@ import 'package:workout_app/services/shared_storage.dart';
 import 'package:workout_app/services/storage_service.dart';
 import 'package:workout_app/services/sync_device_id.dart';
 import 'package:workout_app/services/sync_service.dart';
+import 'package:workout_app/services/workout_resync.dart';
 import 'package:workout_app/ui/theme.dart';
 import 'package:workout_app/widgets/run_landing.dart';
 
@@ -194,15 +195,12 @@ class _WorkoutAppState extends State<WorkoutApp> with WidgetsBindingObserver {
   }
 
   // coverage:ignore-start
-  // Platform edge, same shape as storage_service_schema's: the suite runs on
-  // Linux, where this returns on the first line, so the switch below is
-  // unreachable from any test this repo can run. Covering it would mean
-  // threading a platform seam through the nine Platform.isLinux checks in
-  // this app purely for test reachability.
+  // Platform edge, as in storage_service_schema: the suite runs on Linux, where
+  // this returns on the first line. Covering the switch would need a platform
+  // seam through all nine Platform.isLinux checks, for reachability alone.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // The socket is never started on Linux (see main()), so there is nothing
-    // to stop or restart here either.
+    // The socket is never started on Linux (see main()): nothing to restart.
     if (Platform.isLinux || Sandbox.enabled) return;
     switch (state) {
       case AppLifecycleState.paused:
@@ -210,8 +208,10 @@ class _WorkoutAppState extends State<WorkoutApp> with WidgetsBindingObserver {
         unawaited(HttpServerService.instance.stop());
       case AppLifecycleState.resumed:
         unawaited(HttpServerService.instance.start());
-        // The nearest thing to "connectivity came back" without a plugin.
+        // The nearest thing to "connectivity came back" without a plugin:
+        // retry pending run uploads and workout pushes.
         unawaited(RunUploader.instance.uploadPending());
+        unawaited(WorkoutResync.instance.syncNow());
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
         break;

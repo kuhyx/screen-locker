@@ -175,8 +175,9 @@ void main() {
     final record = _phoneRecord(github.files, 'manual:2026-10-17T10:00');
     expect(record.deleted, isTrue);
     expect(record.deletedHlc, isNotNull);
-    // The tile goes only once the reload has read the tombstone back.
-    await _settle(tester, 4);
+    // The tile goes only once the reload has read the tombstone back; the
+    // tick keeps its result locally first, which is more real file I/O.
+    await _settle(tester, 12);
     await tester.pumpAndSettle();
     expect(iconLabeled('PLANNED (not done yet)'), findsNothing);
     expect(find.text('2026-10-17 10:00'), findsNothing);

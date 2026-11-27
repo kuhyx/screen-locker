@@ -29,6 +29,7 @@ import 'package:workout_app/widgets/calendar_widget.dart';
 
 part 'history_screen_charts.dart';
 part 'history_screen_data.dart';
+part 'history_screen_load.dart';
 part 'history_screen_painter.dart';
 part 'history_screen_planned.dart';
 part 'history_screen_runs.dart';
@@ -90,56 +91,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
     unawaited(_load());
   }
 
-  Future<void> _load() async {
-    // Put any of this device's own sessions that only exist remotely back into
-    // the local table FIRST, so they show up in this same load. A reinstall
-    // wipes local history while Firebase/GitHub keep it; without this the app
-    // silently shows less history than actually happened.
-    final remote = await _readSyncedPayloads();
-    await StorageService.instance.restoreSyncedSessions(remote);
-    final rows = await StorageService.instance.getWorkoutHistory(limit: 200);
-    final names = <String>[];
-    final seen = <String>{};
-    for (final row in rows) {
-      final json = jsonDecode(row['json'] as String) as Map<String, dynamic>;
-      for (final ex in (json['exercises'] as List? ?? const [])) {
-        final name = (ex as Map<String, dynamic>)['name'] as String;
-        if (seen.add(name)) names.add(name);
-      }
-    }
-    ExerciseState? state;
-    if (_selected != _kTotal) {
-      // Unreachable in practice: _load only runs from initState, where
-      // _selected is still _kTotal; exercise selection goes through
-      // _pickExercise, which loads its own state.
-      // coverage:ignore-start
-      state = await StorageService.instance.getExerciseState(_selected);
-      // coverage:ignore-end
-    }
-    final today = dayKey((widget.clock ?? DateTime.now)());
-    final runs = await StorageService.instance.listRuns();
-    // The phone's own copy of a run (it has the map) replaces the PC's entry.
-    final synced = withoutLocalRuns(_syncedOnly(remote, today), runs);
-    final planned = _plannedOnly(remote, today);
-    if (mounted) {
-      setState(() {
-        _rows = rows;
-        _syncedRows = synced;
-        _plannedRows = planned;
-        _runs = runs;
-        _exerciseNames = names;
-        _selectedState = state;
-        _loading = false;
-      });
-    }
-  }
-
-  /// Every payload the sync backends hold, across all devices.
-  ///
-  /// Read once per load and used twice: to restore this device's own missing
-  /// sessions into local history, and to list the PC-only records below them.
-  Future<List<Map<String, dynamic>>> _readSyncedPayloads() =>
-      _syncService().readMergedWorkoutPayloads();
+  /// Lets the `_HistoryLoad` extension call the protected [setState].
+  void _applyState(VoidCallback fn) => setState(fn);
 
   Future<void> _pickExercise(String name) async {
     ExerciseState? state;
