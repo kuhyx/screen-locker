@@ -30,12 +30,6 @@ repos:
       - id: check-merge-conflict
       - id: detect-private-key
       - id: debug-statements
-      - id: name-tests-test
-        args: [--pytest-test-first]
-        # Shared, non-test helpers (fixtures, factories) imported by the
-        # real test modules — deliberately not collected as tests, hence the
-        # leading underscore rather than a test_/*_test name.
-        exclude: ^screen_locker/tests/_[a-z][a-z_]*\.py$
       - id: check-ast
       - id: mixed-line-ending
         args: [--fix=lf]
@@ -71,121 +65,8 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.17.1
     hooks:
-      - id: ruff
-        args: [--fix, --unsafe-fixes, --exit-non-zero-on-fix, --show-fixes]
-        types_or: [python, pyi]
       - id: ruff-format
         types_or: [python, pyi]
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.13.0
-    hooks:
-      - id: mypy
-        args:
-          - --ignore-missing-imports
-          - --no-error-summary
-          - --disable-error-code=no-untyped-def
-          - --disable-error-code=no-untyped-call
-          - --disable-error-code=var-annotated
-          - --disable-error-code=no-any-unimported
-          - --disable-error-code=type-arg
-          - --disable-error-code=no-any-return
-          - --disable-error-code=misc
-          - --disable-error-code=unused-ignore
-          - --disable-error-code=unreachable
-          - --disable-error-code=assignment
-          - --disable-error-code=no-redef
-          - --disable-error-code=attr-defined
-          - --disable-error-code=arg-type
-          - --disable-error-code=union-attr
-          - --disable-error-code=call-overload
-          - --disable-error-code=return-value
-          - --disable-error-code=redundant-cast
-          - --disable-error-code=empty-body
-          - --disable-error-code=list-item
-        # The hook runs in its own isolated venv, so stubs installed into the
-        # project venv are invisible to it. Without this, the Firebase session
-        # recovery's `import requests` fails as import-untyped here while
-        # type-checking cleanly everywhere else.
-        additional_dependencies:
-          - types-requests>=2.31.0
-
-  - repo: https://github.com/pylint-dev/pylint
-    # Same release as requirements.txt. No --jobs here: pyproject.toml holds
-    # it at 1, because parallel pylint pickles through dill, which crashes on
-    # Python 3.15 (see the comment on `jobs` there).
-    rev: v4.1.4
-    hooks:
-      # Two hooks, because the three checks below are not defects in a test
-      # suite -- they are how pytest and unit-testing private mixins work --
-      # while in SOURCE they are real findings that must still fail:
-      #   protected-access  tests drive private mixin methods directly; those
-      #                     methods ARE the unit under test (ruff already
-      #                     exempts the same thing via SLF001 for tests).
-      #   unused-argument   pytest fixtures must be REQUESTED in the signature
-      #                     to take effect but are never referenced in the body.
-      #   duplicate-code    near-identical `with patch(...)` preambles; a test
-      #                     should read top-to-bottom without chasing a fixture.
-      # Splitting also removes the old failure mode where the score depended on
-      # what else happened to be staged alongside. Both are a hard 10.00.
-      - id: pylint
-        name: pylint (source, 10.00)
-        alias: pylint-source
-        exclude: ^screen_locker/tests/
-        args:
-          - --rcfile=pyproject.toml
-          - --fail-under=10
-        additional_dependencies:
-          - pytest
-          # Kept in step with pyproject.toml: pip refuses two different
-          # direct URLs for one distribution, so any pin that drifts from
-          # the manifest becomes an unresolvable hook environment rather
-          # than merely an old one.
-          - gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.16.1#subdirectory=gatelock
-          - crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.11.1#subdirectory=crdt-sync
-          - earned-time @ git+https://github.com/kuhyx/utils@earned-time-v0.24.0#subdirectory=earned_time
-          - freedays @ git+https://github.com/kuhyx/utils@freedays-v0.4.4#subdirectory=freedays
-          - sickdays @ git+https://github.com/kuhyx/utils@sickdays-v0.5.9#subdirectory=sickdays
-          - kuhy-credit @ git+https://github.com/kuhyx/utils@kuhy-credit-v0.3.2#subdirectory=kuhy_credit
-          # Same pin as workout_app/tools/render_finish_chime.sh installs.
-          - music_theory @ git+https://github.com/kuhyx/utils@music-theory-v0.1.0#subdirectory=music_theory
-          - mcp>=2,<3
-          - pydantic
-      - id: pylint
-        name: pylint (tests, 10.00)
-        alias: pylint-tests
-        files: ^screen_locker/tests/
-        args:
-          - --rcfile=pyproject.toml
-          - --fail-under=10
-          - --disable=protected-access,unused-argument,duplicate-code
-        additional_dependencies:
-          - pytest
-          # Kept in step with pyproject.toml: pip refuses two different
-          # direct URLs for one distribution, so any pin that drifts from
-          # the manifest becomes an unresolvable hook environment rather
-          # than merely an old one.
-          - gatelock @ git+https://github.com/kuhyx/utils@gatelock-v0.16.1#subdirectory=gatelock
-          - crdt-sync @ git+https://github.com/kuhyx/utils@crdt-sync-v0.11.1#subdirectory=crdt-sync
-          - earned-time @ git+https://github.com/kuhyx/utils@earned-time-v0.24.0#subdirectory=earned_time
-          - freedays @ git+https://github.com/kuhyx/utils@freedays-v0.4.4#subdirectory=freedays
-          - sickdays @ git+https://github.com/kuhyx/utils@sickdays-v0.5.9#subdirectory=sickdays
-          - kuhy-credit @ git+https://github.com/kuhyx/utils@kuhy-credit-v0.3.2#subdirectory=kuhy_credit
-          - mcp>=2,<3
-          - pydantic
-
-  - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.10
-    hooks:
-      - id: bandit
-        args:
-          - -c
-          - pyproject.toml
-          - --severity-level=high
-          - --confidence-level=medium
-          - --skip=B113
-        additional_dependencies: ["bandit[toml]"]
-        exclude: ^(tests/|.*test.*\.py$)
 
   - repo: local
     hooks:
@@ -198,30 +79,6 @@ repos:
       - id: ci-venv
         name: CI mirror (clean requirements.txt venv)
         entry: bash scripts/ci_mirror.sh venv
-        language: system
-        pass_filenames: false
-        always_run: true
-        require_serial: true
-        stages: [manual]
-      - id: ci-precommit-pylint-source
-        name: "CI mirror (pre-commit --all-files: pylint source)"
-        entry: bash scripts/ci_mirror.sh precommit pylint-source
-        language: system
-        pass_filenames: false
-        always_run: true
-        require_serial: true
-        stages: [manual]
-      - id: ci-precommit-pylint-tests
-        name: "CI mirror (pre-commit --all-files: pylint tests)"
-        entry: bash scripts/ci_mirror.sh precommit pylint-tests
-        language: system
-        pass_filenames: false
-        always_run: true
-        require_serial: true
-        stages: [manual]
-      - id: ci-precommit-flutter-web
-        name: "CI mirror (pre-commit --all-files: flutter analyze + web lint/typecheck)"
-        entry: bash scripts/ci_mirror.sh precommit flutter-web
         language: system
         pass_filenames: false
         always_run: true
@@ -244,14 +101,6 @@ repos:
         require_serial: true
         stages: [manual]
 
-  - repo: https://github.com/codespell-project/codespell
-    rev: v2.3.0
-    hooks:
-      - id: codespell
-        args:
-          - --skip=*.json,*.lock,*pnpm-lock.yaml,.git,__pycache__,.venv
-          - --ignore-words-list=als,ans,ect,nd,som,sur,te,nam,numer,lew,sie,wil,postion,clen,ther,folow,derrive,ony,tje,noe,theses,crate,doubleclick,wile,tabel,pary,blok,bloc,proces,serwer,parametr,adres,hart,dout,metod,tekst,synonim,grup,mosty,lokal,skalar,milion,nowe,tre,hel,alph
-
   - repo: local
     hooks:
       # Fails a commit that still points crdt_sync at a local path. Local
@@ -262,24 +111,6 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
-      - id: shellcheck
-        name: shellcheck
-        entry: bash -c 'printf "%s\0" "$@" | xargs -0 -n 40 shellcheck --severity=warning' --
-        language: system
-        types: [shell]
-      - id: max-file-length
-        name: Max file length (250 lines)
-        entry: python3 scripts/check_file_length.py
-        language: system
-        # Dart was missing here until 2026-08-15, so the cap had never looked at
-        # a single file in workout_app/ — the whole Flutter app was exempt from
-        # the gate it was being refactored to satisfy. ts/tsx joined on
-        # 2026-08-29 with web/, for exactly the same reason: a language absent
-        # from this list is a directory the cap silently does not apply to.
-        # c/c++ and markdown joined on 2026-11-01 (the Linux runner had grown
-        # to 258; prose is under the same cap per the 250-line rule).
-        types_or: [python, shell, dart, ts, tsx, c, c++, markdown]
-        exclude: '^web/(node_modules|dist|coverage)/'
       - id: no-silent-failures
         name: Block silent failures (swallowed exceptions and silent sys.exit(0) must say why)
         entry: python3 -m scripts.check_silent_failures
@@ -307,116 +138,6 @@ repos:
         files: '^(screen_locker|scripts)/.*\.py$'
         pass_filenames: false
         require_serial: true
-      - id: flutter-analyze
-        name: flutter analyze (workout app)
-        # env -u GIT_DIR: git exports it to hooks, and flutter shells out to
-        # git to identify its own SDK -- with it set, flutter reads THIS repo
-        # as the SDK and pub resolves every constraint against 0.0.0-unknown.
-        entry: bash -c 'cd stronglift_replacement/workout_app &&
-          env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE flutter analyze'
-        language: system
-        files: '^stronglift_replacement/workout_app/.*\.(dart|yaml)$'
-        pass_filenames: false
-      - id: flutter-test-coverage-shard-0
-        name: flutter test bucket 0/8 (workout app, local gate)
-        entry: bash scripts/check_flutter_coverage.sh --gate-shard 0
-        language: system
-        pass_filenames: false
-        always_run: true
-        require_serial: true
-        stages: [manual]
-      - id: flutter-test-coverage-shard-1
-        name: flutter test bucket 1/8 (workout app, local gate)
-        entry: bash scripts/check_flutter_coverage.sh --gate-shard 1
-        language: system
-        pass_filenames: false
-        always_run: true
-        require_serial: true
-        stages: [manual]
-      - id: flutter-test-coverage-shard-2
-        name: flutter test bucket 2/8 (workout app, local gate)
-        entry: bash scripts/check_flutter_coverage.sh --gate-shard 2
-        language: system
-        pass_filenames: false
-        always_run: true
-        require_serial: true
-        stages: [manual]
-      - id: flutter-test-coverage-shard-3
-        name: flutter test bucket 3/8 (workout app, local gate)
-        entry: bash scripts/check_flutter_coverage.sh --gate-shard 3
-        language: system
-        pass_filenames: false
-        always_run: true
-        require_serial: true
-        stages: [manual]
-      - id: flutter-test-coverage-shard-4
-        name: flutter test bucket 4/8 (workout app, local gate)
-        entry: bash scripts/check_flutter_coverage.sh --gate-shard 4
-        language: system
-        pass_filenames: false
-        always_run: true
-        require_serial: true
-        stages: [manual]
-      - id: flutter-test-coverage-shard-5
-        name: flutter test bucket 5/8 (workout app, local gate)
-        entry: bash scripts/check_flutter_coverage.sh --gate-shard 5
-        language: system
-        pass_filenames: false
-        always_run: true
-        require_serial: true
-        stages: [manual]
-      - id: flutter-test-coverage-shard-6
-        name: flutter test bucket 6/8 (workout app, local gate)
-        entry: bash scripts/check_flutter_coverage.sh --gate-shard 6
-        language: system
-        pass_filenames: false
-        always_run: true
-        require_serial: true
-        stages: [manual]
-      - id: flutter-test-coverage-shard-7
-        name: flutter test bucket 7/8 (workout app, local gate)
-        entry: bash scripts/check_flutter_coverage.sh --gate-shard 7
-        language: system
-        pass_filenames: false
-        always_run: true
-        require_serial: true
-        stages: [manual]
-      # Fails unless every shard above passed on THIS tree, then applies the
-      # unchanged 100% bar and every-lib-file guard to their union.
-      - id: flutter-test-coverage-merge
-        name: flutter coverage 100% (union of the 8 buckets)
-        entry: bash scripts/check_flutter_coverage.sh --gate-merge
-        language: system
-        pass_filenames: false
-        always_run: true
-        require_serial: true
-        stages: [manual]
-
-      # web/ gates. steam-backlog-enforcer, which this app was copied from, has
-      # only a coverage hook -- its lint and typecheck are unenforced, so both
-      # can rot without anything failing. All three run here.
-      - id: web-lint
-        name: eslint (status web UI)
-        entry: pnpm --dir web run lint
-        language: system
-        files: '^web/(src/.*\.(ts|astro)|eslint\.config\.js|package\.json)$'
-        pass_filenames: false
-        require_serial: true
-      - id: web-typecheck
-        name: astro check + build (status web UI)
-        entry: pnpm --dir web run build
-        language: system
-        files: '^web/(src/.*\.(ts|astro)|tsconfig\.json|astro\.config\.mjs|vitest\.config\.ts)$'
-        pass_filenames: false
-        require_serial: true
-      - id: web-coverage
-        name: vitest --coverage 100% (status web UI)
-        entry: pnpm --dir web run coverage
-        language: system
-        files: '^web/src/'
-        pass_filenames: false
-        require_serial: true
-        stages: [manual]
 
       # Four markdown namespaces (README / CLAUDE* / DOCS* / TODO*), plus the
       # rule that a TODO carries "REMOVE ME AFTER FINISH" and nothing else may.

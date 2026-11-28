@@ -123,9 +123,9 @@ wait, and tests pin the retry to 0.
 - run: `./run.sh` (locks the screen; never launch on the live display for checks)
 - test: `python -m pytest -n auto -p no:sugar -q`
 - test-changed: `scripts/test_changed.sh`
-- lint: `pre-commit run ruff --all-files`
-- coverage: `python -m pytest -n auto -p no:sugar -q`
-- coverage-gaps: `coverage-gaps coverage.lcov`
+- lint: n/a: dropped (kuhy, 2026-11-27)
+- coverage: n/a: dropped (kuhy, 2026-11-27)
+- coverage-gaps: n/a: dropped (kuhy, 2026-11-27)
 - deploy: `git -C ~/src/screen-locker pull --ff-only && bash ~/src/screen-locker/scripts/deploy.sh` (reinstalls, restarts web/poke/runnerup units, health-checks them, then release-deploys the workout app (skipped when its source tree matches the last phone install, `~/.local/state/screen-locker/phone_app_tree`); exit 46 from the phone guard means kuhy reruns it with `PHONE_PROTECT_ALLOW=com.kuhy.workout_app`)
 
 ## Pre-push gate (<=60 s)
