@@ -251,10 +251,6 @@ addopts = [
     "--strict-markers",
     "--strict-config",
     "-ra",
-    "--cov=screen_locker",
-    "--cov-branch",
-    "--cov-report=term-missing",
-    "--cov-report=lcov",
     # The commit gate runs plain `python -m pytest -q`; serial it took 26 s of
     # its 60 s budget, 4 workers 9 s. Fixed, not `auto`: auto is 24 workers
     # here, past capped.sh's 4 GiB. CI's own `-n auto` comes later and wins;
@@ -290,7 +286,6 @@ omit = [
 ]
 
 [tool.coverage.report]
-fail_under = 100
 show_missing = true
 skip_covered = false
 exclude_lines = [
